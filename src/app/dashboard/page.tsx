@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 
 // QB data — synced June 10, 2026
@@ -87,6 +87,16 @@ export default function DashboardPage() {
   }
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const toggle = (s: Section) => {
     const next = { ...visible, [s]: !visible[s] };
     setVisible(next);
@@ -288,7 +298,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-5">
             <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 10, 2026</p>
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
                 className="text-xs tracking-[2px] uppercase text-white flex items-center gap-1.5 hover:text-white/70 transition-colors"
