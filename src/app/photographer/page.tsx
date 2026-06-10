@@ -74,8 +74,18 @@ export default function PhotographerPage() {
 
   const upcoming = shoots.filter(s => s.status !== "completed" && s.status !== "cancelled" && new Date(s.scheduled_at) >= new Date());
   const past = shoots.filter(s => s.status === "completed" || new Date(s.scheduled_at) < new Date());
-  const totalPaid = payStubs.filter(p => p.paid).reduce((s, p) => s + p.amount_cents, 0);
   const totalPending = payStubs.filter(p => !p.paid).reduce((s, p) => s + p.amount_cents, 0);
+
+  // Bi-weekly pay periods anchored to Jun 2 2026
+  const PERIOD_START = new Date("2026-06-02");
+  const now = new Date();
+  const msPerPeriod = 14 * 24 * 60 * 60 * 1000;
+  const elapsed = now.getTime() - PERIOD_START.getTime();
+  const periodIndex = Math.floor(elapsed / msPerPeriod);
+  const periodStart = new Date(PERIOD_START.getTime() + periodIndex * msPerPeriod);
+  const periodEnd = new Date(periodStart.getTime() + msPerPeriod - 1);
+  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const payPeriod = `${fmt(periodStart)} – ${fmt(periodEnd)}`;
 
   const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-2 transition-colors cursor-pointer ${tab === t ? "text-white border-b border-white" : "text-[#555] hover:text-white"}`;
   const inputCls = "bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors w-full";
@@ -101,16 +111,16 @@ export default function PhotographerPage() {
 
         <div className="grid grid-cols-3 gap-3 mb-8">
           <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#60a5fa]">
-            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Upcoming Shoots</p>
-            <p className="text-3xl font-bold">{upcoming.length}</p>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
+            <p className="text-3xl font-bold">{shoots.length}</p>
           </div>
           <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#fbbf24]">
-            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Pending Pay</p>
-            <p className="text-3xl font-bold">${(totalPending / 100).toLocaleString()}</p>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Pay Period</p>
+            <p className="text-xl font-bold">{payPeriod}</p>
           </div>
           <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#4ade80]">
-            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Earned YTD</p>
-            <p className="text-3xl font-bold">${(totalPaid / 100).toLocaleString()}</p>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Pending Pay</p>
+            <p className="text-3xl font-bold">${(totalPending / 100).toLocaleString()}</p>
           </div>
         </div>
 
