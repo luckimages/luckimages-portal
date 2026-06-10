@@ -38,6 +38,28 @@ const QB = {
   ],
 };
 
+function fmtClock(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+function fmtHours(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h === 0 && m === 0) return "0m";
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function weekStart() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const start = new Date(now);
+  start.setDate(now.getDate() + diff);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
 function Card({ label, value, sub, accent = "#ffffff", children }: {
   label: string; value?: string; sub?: string; accent?: string; children?: React.ReactNode;
 }) {
@@ -70,17 +92,117 @@ export default function DashboardPage() {
   const DEFAULT_VISIBLE: Record<Section, boolean> = { Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true };
 
   const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState("");
   const [order, setOrder] = useState<Section[]>(DEFAULT_ORDER);
   const [visible, setVisible] = useState<Record<Section, boolean>>(DEFAULT_VISIBLE);
 
+  // Time tracker state
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
+  const [timerStart, setTimerStart] = useState<Date | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [myWeekSeconds, setMyWeekSeconds] = useState(0);
+  const [partnerWeekSeconds, setPartnerWeekSeconds] = useState(0);
+  const [partnerName, setPartnerName] = useState("");
+  const [partnerActive, setPartnerActive] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      const uid = data.user.id;
       const meta = data.user?.user_metadata;
+      setUserId(uid);
       setUserName((meta?.full_name || data.user?.email || "").toUpperCase());
       if (meta?.section_order) setOrder(meta.section_order as Section[]);
       if (meta?.section_visible) setVisible(meta.section_visible as Record<Section, boolean>);
+
+      // Load active timer entry
+      const { data: active } = await supabase
+        .from("time_entries")
+        .select("*")
+        .eq("user_id", uid)
+        .is("stopped_at", null)
+        .single();
+      if (active) {
+        setActiveEntryId(active.id);
+        setTimerStart(new Date(active.started_at));
+        setElapsed(Math.floor((Date.now() - new Date(active.started_at).getTime()) / 1000));
+      }
+
+      // Load this week's stats for all admins
+      const ws = weekStart();
+      const { data: weekEntries } = await supabase
+        .from("time_entries")
+        .select("user_id, user_name, duration_seconds, started_at, stopped_at")
+        .gte("started_at", ws.toISOString());
+
+      if (weekEntries) {
+        let myTotal = 0;
+        let partnerTotal = 0;
+        let pName = "";
+        const now = Date.now();
+        weekEntries.forEach(e => {
+          const secs = e.stopped_at
+            ? (e.duration_seconds || 0)
+            : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
+          if (e.user_id === uid) {
+            myTotal += secs;
+          } else {
+            partnerTotal += secs;
+            pName = e.user_name;
+            if (!e.stopped_at) setPartnerActive(true);
+          }
+        });
+        setMyWeekSeconds(myTotal);
+        setPartnerWeekSeconds(partnerTotal);
+        setPartnerName(pName);
+      }
     });
   }, []);
+
+  // Live clock tick
+  useEffect(() => {
+    if (timerStart) {
+      intervalRef.current = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
+      }, 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [timerStart]);
+
+  async function startTimer() {
+    const supabase = createClient();
+    const name = userName || "Unknown";
+    const { data } = await supabase
+      .from("time_entries")
+      .insert({ user_id: userId, user_name: name, started_at: new Date().toISOString() })
+      .select()
+      .single();
+    if (data) {
+      setActiveEntryId(data.id);
+      setTimerStart(new Date(data.started_at));
+      setElapsed(0);
+    }
+  }
+
+  async function stopTimer() {
+    if (!activeEntryId) return;
+    const supabase = createClient();
+    const stoppedAt = new Date().toISOString();
+    await supabase.from("time_entries").update({
+      stopped_at: stoppedAt,
+      duration_seconds: elapsed,
+    }).eq("id", activeEntryId);
+    setActiveEntryId(null);
+    setTimerStart(null);
+    setMyWeekSeconds(s => s + elapsed);
+    setElapsed(0);
+  }
 
   function savePrefs(newOrder: Section[], newVisible: Record<Section, boolean>) {
     createClient().auth.updateUser({ data: { section_order: newOrder, section_visible: newVisible } });
@@ -90,13 +212,12 @@ export default function DashboardPage() {
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
   const toggle = (s: Section) => {
     const next = { ...visible, [s]: !visible[s] };
     setVisible(next);
@@ -114,7 +235,6 @@ export default function DashboardPage() {
     });
   };
 
-  // Manually editable fields
   const [referrals, setReferrals] = useState(0);
   const [coldCalls, setColdCalls] = useState(0);
   const [leads, setLeads] = useState(0);
@@ -276,6 +396,9 @@ export default function DashboardPage() {
     return null;
   }
 
+  const isRunning = !!timerStart;
+  const myName = userName.split(" ")[0] || "You";
+
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
@@ -319,12 +442,7 @@ export default function DashboardPage() {
                   </button>
                   {order.map((s, i) => (
                     <div key={s} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={visible[s]}
-                        onChange={() => toggle(s)}
-                        className="accent-white w-3 h-3 cursor-pointer flex-shrink-0"
-                      />
+                      <input type="checkbox" checked={visible[s]} onChange={() => toggle(s)} className="accent-white w-3 h-3 cursor-pointer flex-shrink-0" />
                       <span className="text-xs tracking-[2px] uppercase text-white flex-1">{s}</span>
                       <div className="flex flex-col gap-0.5">
                         <button onClick={() => moveSection(s, -1)} disabled={i === 0} className="text-[#555] hover:text-white disabled:opacity-20 leading-none text-[10px]">▲</button>
@@ -337,6 +455,69 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* TIME TRACKER */}
+        <section>
+          <p className={sectionLabel}>Time Tracker — This Week</p>
+          <div className="grid grid-cols-2 gap-3">
+
+            {/* MY CLOCK */}
+            <div className="bg-[#111] border border-white/10 p-6" style={{ borderBottom: `2px solid ${isRunning ? "#4ade80" : "#333"}` }}>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs tracking-[2px] uppercase text-[#666]">{myName}</p>
+                {isRunning && (
+                  <span className="flex items-center gap-1.5 text-xs text-[#4ade80] tracking-[1px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />
+                    Live
+                  </span>
+                )}
+              </div>
+              <p className="text-4xl font-bold font-mono mb-5 tracking-wider">
+                {isRunning ? fmtClock(elapsed) : fmtClock(0)}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-[#555]">
+                  This week: <span className="text-white">{fmtHours(myWeekSeconds + (isRunning ? elapsed : 0))}</span>
+                </p>
+                <button
+                  onClick={isRunning ? stopTimer : startTimer}
+                  className={`text-xs tracking-[3px] uppercase font-semibold px-5 py-2.5 transition-colors ${
+                    isRunning
+                      ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
+                      : "bg-white text-black hover:bg-white/90"
+                  }`}
+                >
+                  {isRunning ? "Stop" : "Start"}
+                </button>
+              </div>
+            </div>
+
+            {/* PARTNER CLOCK */}
+            <div className="bg-[#111] border border-white/10 p-6" style={{ borderBottom: `2px solid ${partnerActive ? "#60a5fa" : "#333"}` }}>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs tracking-[2px] uppercase text-[#666]">{partnerName || (userName.includes("RYAN") ? "Leif" : "Ryan")}</p>
+                {partnerActive && (
+                  <span className="flex items-center gap-1.5 text-xs text-[#60a5fa] tracking-[1px]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] animate-pulse" />
+                    Live
+                  </span>
+                )}
+              </div>
+              <p className="text-4xl font-bold font-mono mb-5 tracking-wider text-[#555]">
+                {partnerActive ? "Running" : "—"}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-[#555]">
+                  This week: <span className="text-white">{fmtHours(partnerWeekSeconds)}</span>
+                </p>
+                <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${partnerActive ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-white/5 text-[#444]"}`}>
+                  {partnerActive ? "Clocked In" : "Off Clock"}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </section>
 
         {order.map(renderSection)}
 
