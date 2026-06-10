@@ -2,13 +2,14 @@ export default function DashboardPage() {
   // Data pulled from QuickBooks — June 10, 2026
   const revMonth = 640;
   const revYTD = 10095;
-  const shootsCompleted = 39;
-  const avgPerShoot = Math.round(revYTD / shootsCompleted);
+  const shootsCompleted = 231;
+  const ytdInvoices = 39;
+  const avgPerShoot = Math.round(revYTD / ytdInvoices);
 
   const kpis = [
     { label: "Revenue This Month", value: `$${revMonth.toLocaleString()}`, accent: "#4ade80" },
     { label: "Revenue YTD", value: `$${revYTD.toLocaleString()}`, accent: "#4ade80" },
-    { label: "Shoots Completed", value: shootsCompleted.toString(), accent: "#60a5fa", sub: "Total invoices sent" },
+    { label: "Shoots Completed", value: shootsCompleted.toString(), accent: "#60a5fa", sub: "Total invoices all-time" },
     { label: "Avg Revenue / Shoot", value: `$${avgPerShoot.toLocaleString()}`, accent: "#fbbf24", sub: "YTD average" },
   ];
 
