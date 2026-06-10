@@ -24,18 +24,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Logged in — redirect away from login/register
-  const ADMIN_EMAILS = ['ryan@luckimages.com', 'leif@luckimages.com']
-  if (user && (path === '/login' || path === '/register')) {
-    if (ADMIN_EMAILS.includes(user.email || '')) return NextResponse.redirect(new URL('/choose-portal', request.url))
-    const role = user.user_metadata?.role || 'realtor'
-    if (role === 'photographer') return NextResponse.redirect(new URL('/photographer', request.url))
-    return NextResponse.redirect(new URL('/client', request.url))
-  }
-
   return response
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/client/:path*', '/photographer/:path*', '/login', '/register'],
+  matcher: ['/dashboard/:path*', '/client/:path*', '/photographer/:path*', '/choose-portal'],
 }
