@@ -1,0 +1,109 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    // Auth integration goes here (Supabase)
+    setTimeout(() => {
+      setLoading(false);
+      setError("Auth not connected yet — coming soon.");
+    }, 800);
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
+
+      {/* NAV */}
+      <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10">
+        <Link href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">
+          Luck Images
+        </Link>
+        <Link
+          href="/"
+          className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors"
+        >
+          ← Back
+        </Link>
+      </nav>
+
+      {/* LOGIN CARD */}
+      <div className="flex-1 flex items-center justify-center px-6 py-20">
+        <div className="w-full max-w-sm">
+
+          <div className="mb-10 text-center">
+            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-3">Portal Access</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">Sign In</h1>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs tracking-[2px] uppercase text-[#666]">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3.5 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs tracking-[2px] uppercase text-[#666]">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3.5 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]"
+              />
+            </div>
+
+            {error && (
+              <p className="text-xs tracking-[1px] text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-8 border-t border-white/10 text-center">
+            <p className="text-xs text-[#444] tracking-[1px]">
+              Need access?{" "}
+              <a href="mailto:ryan@luckimages.com" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
+                Contact us
+              </a>
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <footer className="border-t border-white/10 px-8 py-6 text-center">
+        <span className="text-xs tracking-[3px] uppercase text-[#333]">
+          © 2026 Luck Images — Austin, TX
+        </span>
+      </footer>
+
+    </main>
+  );
+}
