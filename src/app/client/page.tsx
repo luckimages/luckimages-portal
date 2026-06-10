@@ -73,7 +73,7 @@ export default function ClientPage() {
 
   async function signOut() {
     await createClient().auth.signOut();
-    router.push("/login");
+    window.location.href = "/login";
   }
 
   const unpaidInvoices = invoices.filter(i => !i.paid);

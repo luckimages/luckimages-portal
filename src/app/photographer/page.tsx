@@ -68,7 +68,7 @@ export default function PhotographerPage() {
 
   async function signOut() {
     await createClient().auth.signOut();
-    router.push("/login");
+    window.location.href = "/login";
   }
 
   const upcoming = shoots.filter(s => s.status !== "completed" && s.status !== "cancelled" && new Date(s.scheduled_at) >= new Date());

@@ -15,7 +15,7 @@ export default function PreviewBanner({ role }: { role: "realtor" | "photographe
 
   function exit() {
     sessionStorage.removeItem("previewRole");
-    router.push("/choose-portal");
+    window.location.href = "/choose-portal";
   }
 
   return (
