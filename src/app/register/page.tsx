@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 const SERVICES = ["Listing Photos", "Drone", "Matterport", "Video", "Headshots"];
-const SOURCES = ["Google", "Referral from another agent", "Social Media", "Flyer / Mailer", "Other"];
+const SOURCES = ["Social Media", "Referral", "Google / SEO", "Other"];
 
 export default function RegisterPage() {
   const router = useRouter();
