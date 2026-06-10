@@ -285,7 +285,9 @@ export default function DashboardPage() {
         <div className="flex items-center gap-6">
           <a href="/admin/invite" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Invite Photographer</a>
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Admin</span>
-          <button onClick={async () => { await fetch("/api/auth/signout", { method: "POST" }); window.location.href = "/login"; }} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
+          <form action="/api/auth/signout" method="post" className="inline">
+            <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
+          </form>
         </div>
       </header>
 

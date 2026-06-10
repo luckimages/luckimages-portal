@@ -71,9 +71,10 @@ export default function ClientPage() {
     setShoots(shootData || []);
   }
 
-  async function signOut() {
-    await fetch("/api/auth/signout", { method: "POST" });
-    window.location.href = "/login";
+  function signOut() {
+    const form = document.createElement("form");
+    form.method = "post"; form.action = "/api/auth/signout";
+    document.body.appendChild(form); form.submit();
   }
 
   const unpaidInvoices = invoices.filter(i => !i.paid);

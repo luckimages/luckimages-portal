@@ -66,9 +66,10 @@ export default function PhotographerPage() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function signOut() {
-    await fetch("/api/auth/signout", { method: "POST" });
-    window.location.href = "/login";
+  function signOut() {
+    const form = document.createElement("form");
+    form.method = "post"; form.action = "/api/auth/signout";
+    document.body.appendChild(form); form.submit();
   }
 
   const upcoming = shoots.filter(s => s.status !== "completed" && s.status !== "cancelled" && new Date(s.scheduled_at) >= new Date());
