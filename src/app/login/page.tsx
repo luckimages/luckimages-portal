@@ -2,41 +2,44 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    // Auth integration goes here (Supabase)
-    setTimeout(() => {
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setError(error.message);
       setLoading(false);
-      setError("Auth not connected yet — coming soon.");
-    }, 800);
+    } else {
+      router.push("/dashboard");
+    }
   }
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
-      {/* NAV */}
       <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10">
         <Link href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">
           Luck Images
         </Link>
-        <Link
-          href="/"
-          className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors"
-        >
+        <Link href="/" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">
           ← Back
         </Link>
       </nav>
 
-      {/* LOGIN CARD */}
       <div className="flex-1 flex items-center justify-center px-6 py-20">
         <div className="w-full max-w-sm">
 
@@ -97,7 +100,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* FOOTER */}
       <footer className="border-t border-white/10 px-8 py-6 text-center">
         <span className="text-xs tracking-[3px] uppercase text-[#333]">
           © 2026 Luck Images — Austin, TX
