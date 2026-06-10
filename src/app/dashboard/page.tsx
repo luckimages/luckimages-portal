@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase";
 
 // QB data — synced June 10, 2026
 const QB = {
@@ -64,6 +65,15 @@ function EditableNumber({ value, onChange }: { value: number; onChange: (v: numb
 export default function DashboardPage() {
   const avgPerShoot = Math.round(QB.revYTD / QB.ytdInvoices);
 
+  const [userName, setUserName] = useState("");
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      const meta = data.user?.user_metadata;
+      const name = meta?.full_name || data.user?.email || "";
+      setUserName(name.toUpperCase());
+    });
+  }, []);
+
   // Manually editable fields
   const [referrals, setReferrals] = useState(0);
   const [coldCalls, setColdCalls] = useState(0);
@@ -91,7 +101,7 @@ export default function DashboardPage() {
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#666] mb-2">Welcome back</p>
-            <h1 className="text-4xl font-black tracking-tight uppercase">KPI Dashboard</h1>
+            <h1 className="text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
           </div>
           <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 10, 2026</p>
         </div>
