@@ -39,7 +39,7 @@ export default function InvitePage() {
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
-        <span className="text-xl font-black tracking-tight uppercase">Luck Images</span>
+        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <button onClick={() => router.push("/dashboard")} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</button>
       </header>
 

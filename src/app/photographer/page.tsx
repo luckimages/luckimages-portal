@@ -84,7 +84,7 @@ export default function PhotographerPage() {
 
       <PreviewBanner role="photographer" />
       <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
-        <span className="text-xl font-black tracking-tight uppercase">Luck Images</span>
+        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-6">
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Photographer</span>
           <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
