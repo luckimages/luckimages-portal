@@ -81,19 +81,23 @@ export default function DashboardPage() {
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const toggle = (s: Section) => setVisible(v => ({ ...v, [s]: !v[s] }));
-  const dragOver = useRef<Section | null>(null);
-  const onDragStart = (s: Section) => { dragOver.current = s; };
-  const onDrop = (target: Section) => {
-    if (!dragOver.current || dragOver.current === target) return;
+  const dragSrc = useRef<Section | null>(null);
+  const dragTgt = useRef<Section | null>(null);
+  const onDragStart = (s: Section) => { dragSrc.current = s; };
+  const onDragEnter = (s: Section) => { dragTgt.current = s; };
+  const onDragEnd = () => {
+    if (!dragSrc.current || !dragTgt.current || dragSrc.current === dragTgt.current) {
+      dragSrc.current = null; dragTgt.current = null; return;
+    }
     setOrder(prev => {
       const next = [...prev];
-      const from = next.indexOf(dragOver.current!);
-      const to = next.indexOf(target);
+      const from = next.indexOf(dragSrc.current!);
+      const to = next.indexOf(dragTgt.current!);
       next.splice(from, 1);
-      next.splice(to, 0, dragOver.current!);
+      next.splice(to, 0, dragSrc.current!);
       return next;
     });
-    dragOver.current = null;
+    dragSrc.current = null; dragTgt.current = null;
   };
 
   // Manually editable fields
@@ -295,8 +299,9 @@ export default function DashboardPage() {
                       key={s}
                       draggable
                       onDragStart={() => onDragStart(s)}
+                      onDragEnter={() => onDragEnter(s)}
                       onDragOver={e => e.preventDefault()}
-                      onDrop={() => onDrop(s)}
+                      onDragEnd={onDragEnd}
                       className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors cursor-grab active:cursor-grabbing"
                     >
                       <span className="text-[#444] select-none text-xs">⠿</span>
