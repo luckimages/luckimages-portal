@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 
 // QB data — synced June 10, 2026
@@ -74,13 +74,27 @@ export default function DashboardPage() {
     });
   }, []);
 
-  const SECTIONS = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"] as const;
-  type Section = typeof SECTIONS[number];
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices";
+  const [order, setOrder] = useState<Section[]>(["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"]);
   const [visible, setVisible] = useState<Record<Section, boolean>>(() =>
-    Object.fromEntries(SECTIONS.map(s => [s, true])) as Record<Section, boolean>
+    ({ Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true })
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const toggle = (s: Section) => setVisible(v => ({ ...v, [s]: !v[s] }));
+  const dragOver = useRef<Section | null>(null);
+  const onDragStart = (s: Section) => { dragOver.current = s; };
+  const onDrop = (target: Section) => {
+    if (!dragOver.current || dragOver.current === target) return;
+    setOrder(prev => {
+      const next = [...prev];
+      const from = next.indexOf(dragOver.current!);
+      const to = next.indexOf(target);
+      next.splice(from, 1);
+      next.splice(to, 0, dragOver.current!);
+      return next;
+    });
+    dragOver.current = null;
+  };
 
   // Manually editable fields
   const [referrals, setReferrals] = useState(0);
@@ -90,6 +104,159 @@ export default function DashboardPage() {
   const [capTotal, setCapTotal] = useState(50);
   const capPct = capTotal > 0 ? Math.min(100, Math.round((QB.ytdInvoices / capTotal) * 100)) : 0;
   const convPct = leads > 0 ? Math.min(100, Math.round((bookings / leads) * 100)) : 0;
+
+  const sectionLabel = "text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']";
+
+  function renderSection(s: Section) {
+    if (!visible[s]) return null;
+    if (s === "Revenue") return (
+      <section key={s}>
+        <p className={sectionLabel}>Revenue</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" />
+          <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" />
+          <Card label="Avg Revenue / Shoot" value={`$${avgPerShoot.toLocaleString()}`} accent="#fbbf24" sub="YTD average" />
+          <Card label="Shoots Completed" value={QB.shootsAllTime.toString()} accent="#60a5fa" sub="Total invoices all-time" />
+        </div>
+      </section>
+    );
+    if (s === "Monthly Revenue") return (
+      <section key={s}>
+        <p className={sectionLabel}>Monthly Revenue — 2026</p>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {QB.monthly.map((m) => {
+            const pct = Math.round((m.rev / 2850) * 100);
+            return (
+              <div key={m.month} className="bg-[#111] border border-white/10 p-5">
+                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{m.month}</p>
+                <p className="text-xl font-bold mb-3">${m.rev.toLocaleString()}</p>
+                <div className="h-1 bg-[#222] rounded-full overflow-hidden">
+                  <div className="h-full bg-white/40 rounded-full" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+    if (s === "Clients") return (
+      <section key={s}>
+        <p className={sectionLabel}>Clients — YTD</p>
+        <div className="grid grid-cols-3 gap-3">
+          <Card label="New Clients" value={QB.newClients.toString()} accent="#60a5fa" sub="First-time this year" />
+          <Card label="Repeat Clients" value={QB.repeatClients.toString()} accent="#4ade80" sub="Returning this year" />
+          <Card label="Referrals" accent="#a78bfa">
+            <EditableNumber value={referrals} onChange={setReferrals} />
+            <p className="text-xs text-[#444] mt-2">Click to edit</p>
+          </Card>
+        </div>
+      </section>
+    );
+    if (s === "Services") return (
+      <section key={s}>
+        <p className={sectionLabel}>Services — YTD Bookings</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label: "Listing Photos", value: QB.services.photos },
+            { label: "Drone", value: QB.services.drone },
+            { label: "Matterport", value: QB.services.matterport },
+            { label: "Video", value: QB.services.video },
+            { label: "Headshots", value: QB.services.headshots },
+          ].map(item => (
+            <div key={item.label} className="bg-[#111] border border-white/10 p-5">
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{item.label}</p>
+              <p className="text-2xl font-bold">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+    if (s === "Marketing") return (
+      <section key={s}>
+        <p className={sectionLabel}>Marketing — This Month</p>
+        <div className="grid grid-cols-3 gap-3">
+          <Card label="Cold Calls Made" accent="#fbbf24">
+            <EditableNumber value={coldCalls} onChange={setColdCalls} />
+            <p className="text-xs text-[#444] mt-2">Click to edit</p>
+          </Card>
+          <Card label="Leads Generated" accent="#60a5fa">
+            <EditableNumber value={leads} onChange={setLeads} />
+            <p className="text-xs text-[#444] mt-2">Click to edit</p>
+          </Card>
+          <Card label="Bookings from Marketing" accent="#4ade80">
+            <EditableNumber value={bookings} onChange={setBookings} />
+            <p className="text-xs text-[#444] mt-2">Click to edit</p>
+          </Card>
+        </div>
+      </section>
+    );
+    if (s === "Capacity") return (
+      <section key={s}>
+        <p className={sectionLabel}>Capacity</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[#111] border border-white/10 p-6">
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Capacity Utilized</p>
+            <div className="flex items-baseline gap-2 mb-4">
+              <span className="text-3xl font-bold">{QB.ytdInvoices}</span>
+              <span className="text-[#555]">/</span>
+              <input
+                type="number"
+                value={capTotal}
+                onChange={e => setCapTotal(Number(e.target.value))}
+                className="text-3xl font-bold bg-transparent w-20 outline-none border-b border-transparent focus:border-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+            <p className="text-xs text-[#444] mb-3">Shoots completed / monthly capacity (click to edit)</p>
+            <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
+              <div className="h-full bg-white rounded-full transition-all" style={{ width: `${capPct}%` }} />
+            </div>
+            <p className="text-xs text-[#666] mt-2">{capPct}% utilized</p>
+          </div>
+          <div className="bg-[#111] border border-white/10 p-6">
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Lead Conversion Rate</p>
+            <p className="text-3xl font-bold mb-4">{leads > 0 ? `${convPct}%` : "—"}</p>
+            <p className="text-xs text-[#444] mb-3">Bookings ÷ Leads</p>
+            <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{ width: `${convPct}%`, background: "#60a5fa" }} />
+            </div>
+            <p className="text-xs text-[#666] mt-2">{leads > 0 ? `${bookings} of ${leads} leads converted` : "Enter leads and bookings above"}</p>
+          </div>
+        </div>
+      </section>
+    );
+    if (s === "Recent Invoices") return (
+      <section key={s}>
+        <p className={sectionLabel}>Recent Invoices</p>
+        <div className="bg-[#111] border border-white/10 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10">
+                {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
+                  <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {QB.recentInvoices.map(inv => (
+                <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                  <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
+                  <td className="px-5 py-3">{inv.client}</td>
+                  <td className="px-5 py-3 text-[#888]">{inv.date}</td>
+                  <td className="px-5 py-3 font-medium">{inv.amount}</td>
+                  <td className="px-5 py-3">
+                    <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
+                      {inv.paid ? "Paid" : "Unpaid"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
+    return null;
+  }
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -122,17 +289,25 @@ export default function DashboardPage() {
                 <span className="text-[10px]">{menuOpen ? "▲" : "▼"}</span>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-[#181818] border border-white/10 py-2 z-50 min-w-[180px]">
-                  {SECTIONS.map(s => (
-                    <label key={s} className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-white/5 transition-colors">
+                <div className="absolute right-0 top-full mt-2 bg-[#181818] border border-white/10 py-2 z-50 min-w-[200px]">
+                  {order.map(s => (
+                    <div
+                      key={s}
+                      draggable
+                      onDragStart={() => onDragStart(s)}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={() => onDrop(s)}
+                      className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors cursor-grab active:cursor-grabbing"
+                    >
+                      <span className="text-[#444] select-none text-xs">⠿</span>
                       <input
                         type="checkbox"
                         checked={visible[s]}
                         onChange={() => toggle(s)}
-                        className="accent-white w-3 h-3"
+                        className="accent-white w-3 h-3 cursor-pointer"
                       />
-                      <span className="text-xs tracking-[2px] uppercase text-white">{s}</span>
-                    </label>
+                      <span className="text-xs tracking-[2px] uppercase text-white flex-1">{s}</span>
+                    </div>
                   ))}
                 </div>
               )}
@@ -140,151 +315,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* REVENUE */}
-        {visible["Revenue"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Revenue</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" />
-            <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" />
-            <Card label="Avg Revenue / Shoot" value={`$${avgPerShoot.toLocaleString()}`} accent="#fbbf24" sub="YTD average" />
-            <Card label="Shoots Completed" value={QB.shootsAllTime.toString()} accent="#60a5fa" sub="Total invoices all-time" />
-          </div>
-        </section>}
-
-        {/* MONTHLY CHART */}
-        {visible["Monthly Revenue"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Monthly Revenue — 2026</p>
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-            {QB.monthly.map((m) => {
-              const pct = Math.round((m.rev / 2850) * 100);
-              return (
-                <div key={m.month} className="bg-[#111] border border-white/10 p-5">
-                  <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{m.month}</p>
-                  <p className="text-xl font-bold mb-3">${m.rev.toLocaleString()}</p>
-                  <div className="h-1 bg-[#222] rounded-full overflow-hidden">
-                    <div className="h-full bg-white/40 rounded-full" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>}
-
-        {/* CLIENTS */}
-        {visible["Clients"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Clients — YTD</p>
-          <div className="grid grid-cols-3 gap-3">
-            <Card label="New Clients" value={QB.newClients.toString()} accent="#60a5fa" sub="First-time this year" />
-            <Card label="Repeat Clients" value={QB.repeatClients.toString()} accent="#4ade80" sub="Returning this year" />
-            <Card label="Referrals" accent="#a78bfa">
-              <EditableNumber value={referrals} onChange={setReferrals} />
-              <p className="text-xs text-[#444] mt-2">Click to edit</p>
-            </Card>
-          </div>
-        </section>}
-
-        {/* SERVICES */}
-        {visible["Services"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Services — YTD Bookings</p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {[
-              { label: "Listing Photos", value: QB.services.photos },
-              { label: "Drone", value: QB.services.drone },
-              { label: "Matterport", value: QB.services.matterport },
-              { label: "Video", value: QB.services.video },
-              { label: "Headshots", value: QB.services.headshots },
-            ].map(s => (
-              <div key={s.label} className="bg-[#111] border border-white/10 p-5">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{s.label}</p>
-                <p className="text-2xl font-bold">{s.value}</p>
-              </div>
-            ))}
-          </div>
-        </section>}
-
-        {/* MARKETING */}
-        {visible["Marketing"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Marketing — This Month</p>
-          <div className="grid grid-cols-3 gap-3">
-            <Card label="Cold Calls Made" accent="#fbbf24">
-              <EditableNumber value={coldCalls} onChange={setColdCalls} />
-              <p className="text-xs text-[#444] mt-2">Click to edit</p>
-            </Card>
-            <Card label="Leads Generated" accent="#60a5fa">
-              <EditableNumber value={leads} onChange={setLeads} />
-              <p className="text-xs text-[#444] mt-2">Click to edit</p>
-            </Card>
-            <Card label="Bookings from Marketing" accent="#4ade80">
-              <EditableNumber value={bookings} onChange={setBookings} />
-              <p className="text-xs text-[#444] mt-2">Click to edit</p>
-            </Card>
-          </div>
-        </section>}
-
-        {/* CAPACITY */}
-        {visible["Capacity"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Capacity</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#111] border border-white/10 p-6">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Capacity Utilized</p>
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-3xl font-bold">{QB.ytdInvoices}</span>
-                <span className="text-[#555]">/</span>
-                <input
-                  type="number"
-                  value={capTotal}
-                  onChange={e => setCapTotal(Number(e.target.value))}
-                  className="text-3xl font-bold bg-transparent w-20 outline-none border-b border-transparent focus:border-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-              <p className="text-xs text-[#444] mb-3">Shoots completed / monthly capacity (click to edit)</p>
-              <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
-                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${capPct}%` }} />
-              </div>
-              <p className="text-xs text-[#666] mt-2">{capPct}% utilized</p>
-            </div>
-            <div className="bg-[#111] border border-white/10 p-6">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Lead Conversion Rate</p>
-              <p className="text-3xl font-bold mb-4">{leads > 0 ? `${convPct}%` : "—"}</p>
-              <p className="text-xs text-[#444] mb-3">Bookings ÷ Leads</p>
-              <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${convPct}%`, background: "#60a5fa" }} />
-              </div>
-              <p className="text-xs text-[#666] mt-2">{leads > 0 ? `${bookings} of ${leads} leads converted` : "Enter leads and bookings above"}</p>
-            </div>
-          </div>
-        </section>}
-
-        {/* RECENT INVOICES */}
-        {visible["Recent Invoices"] && <section>
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Recent Invoices</p>
-          <div className="bg-[#111] border border-white/10 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10">
-                  {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {QB.recentInvoices.map(inv => (
-                  <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
-                    <td className="px-5 py-3">{inv.client}</td>
-                    <td className="px-5 py-3 text-[#888]">{inv.date}</td>
-                    <td className="px-5 py-3 font-medium">{inv.amount}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
-                        {inv.paid ? "Paid" : "Unpaid"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>}
+        {order.map(renderSection)}
 
       </div>
     </main>
