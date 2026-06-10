@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 
 // QB data — synced June 10, 2026
@@ -81,23 +81,15 @@ export default function DashboardPage() {
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const toggle = (s: Section) => setVisible(v => ({ ...v, [s]: !v[s] }));
-  const dragSrc = useRef<Section | null>(null);
-  const dragTgt = useRef<Section | null>(null);
-  const onDragStart = (s: Section) => { dragSrc.current = s; };
-  const onDragEnter = (s: Section) => { dragTgt.current = s; };
-  const onDragEnd = () => {
-    if (!dragSrc.current || !dragTgt.current || dragSrc.current === dragTgt.current) {
-      dragSrc.current = null; dragTgt.current = null; return;
-    }
+  const moveSection = (s: Section, dir: -1 | 1) => {
     setOrder(prev => {
       const next = [...prev];
-      const from = next.indexOf(dragSrc.current!);
-      const to = next.indexOf(dragTgt.current!);
-      next.splice(from, 1);
-      next.splice(to, 0, dragSrc.current!);
+      const i = next.indexOf(s);
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[i], next[j]] = [next[j], next[i]];
       return next;
     });
-    dragSrc.current = null; dragTgt.current = null;
   };
 
   // Manually editable fields
@@ -294,24 +286,19 @@ export default function DashboardPage() {
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-2 bg-[#181818] border border-white/10 py-2 z-50 min-w-[200px]">
-                  {order.map(s => (
-                    <div
-                      key={s}
-                      draggable
-                      onDragStart={() => onDragStart(s)}
-                      onDragEnter={() => onDragEnter(s)}
-                      onDragOver={e => e.preventDefault()}
-                      onDragEnd={onDragEnd}
-                      className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 transition-colors cursor-grab active:cursor-grabbing"
-                    >
-                      <span className="text-[#444] select-none text-xs">⠿</span>
+                  {order.map((s, i) => (
+                    <div key={s} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors">
                       <input
                         type="checkbox"
                         checked={visible[s]}
                         onChange={() => toggle(s)}
-                        className="accent-white w-3 h-3 cursor-pointer"
+                        className="accent-white w-3 h-3 cursor-pointer flex-shrink-0"
                       />
                       <span className="text-xs tracking-[2px] uppercase text-white flex-1">{s}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <button onClick={() => moveSection(s, -1)} disabled={i === 0} className="text-[#555] hover:text-white disabled:opacity-20 leading-none text-[10px]">▲</button>
+                        <button onClick={() => moveSection(s, 1)} disabled={i === order.length - 1} className="text-[#555] hover:text-white disabled:opacity-20 leading-none text-[10px]">▼</button>
+                      </div>
                     </div>
                   ))}
                 </div>
