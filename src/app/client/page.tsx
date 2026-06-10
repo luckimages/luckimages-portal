@@ -9,6 +9,7 @@ import PreviewBanner from "@/components/PreviewBanner";
 type Shoot = {
   id: string; address: string; scheduled_at: string;
   services: string[]; status: string; notes: string;
+  square_footage: number | null;
 };
 type Invoice = {
   id: string; amount_cents: number; paid: boolean;
@@ -18,10 +19,11 @@ type Invoice = {
 export default function ClientPage() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
+  const [memberSince, setMemberSince] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery">("overview");
-  const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "" });
+  const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +35,12 @@ export default function ClientPage() {
       if (!data.user) { router.push("/login"); return; }
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
       const uid = data.user.id;
+      const created = new Date(data.user.created_at);
+      const now = new Date();
+      const months = (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth());
+      const years = Math.floor(months / 12);
+      const remMonths = months % 12;
+      setMemberSince(years > 0 ? `${years}y ${remMonths}m` : `${remMonths} month${remMonths !== 1 ? "s" : ""}`);
       const [{ data: shootData }, { data: invData }] = await Promise.all([
         supabase.from("shoots").select("*").eq("client_id", uid).order("scheduled_at", { ascending: false }),
         supabase.from("invoices").select("*").eq("client_id", uid).order("created_at", { ascending: false }),
@@ -62,11 +70,12 @@ export default function ClientPage() {
       services: booking.services,
       notes: booking.notes,
       status: "pending",
+      square_footage: booking.square_footage ? parseInt(booking.square_footage) : null,
     });
     setLoading(false);
     if (error) { setBookingStatus("Error: " + error.message); return; }
     setBookingStatus("success");
-    setBooking({ address: "", date: "", time: "", services: [], notes: "" });
+    setBooking({ address: "", date: "", time: "", services: [], notes: "", square_footage: "" });
     const { data: shootData } = await supabase.from("shoots").select("*").eq("client_id", user!.id).order("scheduled_at", { ascending: false });
     setShoots(shootData || []);
   }
@@ -80,6 +89,7 @@ export default function ClientPage() {
   const unpaidInvoices = invoices.filter(i => !i.paid);
   const totalOwed = unpaidInvoices.reduce((s, i) => s + i.amount_cents, 0);
   const upcomingShoots = shoots.filter(s => s.status !== "completed" && s.status !== "cancelled");
+  const totalSqFt = shoots.reduce((s, sh) => s + (sh.square_footage || 0), 0);
 
   const inputCls = "bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
   const labelCls = "text-xs tracking-[2px] uppercase text-[#666]";
@@ -116,16 +126,16 @@ export default function ClientPage() {
           <div className="space-y-8">
             <div className="grid grid-cols-3 gap-3">
               <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#60a5fa]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Upcoming Shoots</p>
-                <p className="text-3xl font-bold">{upcomingShoots.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
+                <p className="text-3xl font-bold">{shoots.length}</p>
               </div>
               <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#fbbf24]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Invoices Due</p>
-                <p className="text-3xl font-bold">{unpaidInvoices.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Sq Ft Captured</p>
+                <p className="text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
               </div>
               <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#4ade80]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Owed</p>
-                <p className="text-3xl font-bold">${(totalOwed / 100).toLocaleString()}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Client For</p>
+                <p className="text-3xl font-bold">{memberSince || "—"}</p>
               </div>
             </div>
 
@@ -183,6 +193,10 @@ export default function ClientPage() {
                     <label className={labelCls}>Preferred Time</label>
                     <input type="time" value={booking.time} onChange={e => setBooking(b => ({ ...b, time: e.target.value }))} className={inputCls} />
                   </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Square Footage <span className="text-[#444]">(optional)</span></label>
+                  <input type="number" placeholder="2400" min="0" value={booking.square_footage} onChange={e => setBooking(b => ({ ...b, square_footage: e.target.value }))} className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className={labelCls}>Services Needed</label>
