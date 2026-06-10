@@ -43,9 +43,9 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />
 
         {/* Content */}
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col items-center text-center">
           <p className="text-xs tracking-[4px] uppercase text-white/50 mb-6">Austin, TX — Real Estate Media</p>
-          <h1 className="text-[clamp(56px,10vw,120px)] font-black tracking-tight leading-none uppercase mb-8">
+          <h1 className="text-[clamp(48px,8vw,96px)] font-black tracking-tight leading-none uppercase mb-8">
             LUCK IMAGES
           </h1>
           <p className="text-white/50 text-lg max-w-md mb-12 leading-relaxed">
