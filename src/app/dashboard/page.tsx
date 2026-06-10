@@ -74,6 +74,14 @@ export default function DashboardPage() {
     });
   }, []);
 
+  const SECTIONS = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"] as const;
+  type Section = typeof SECTIONS[number];
+  const [visible, setVisible] = useState<Record<Section, boolean>>(() =>
+    Object.fromEntries(SECTIONS.map(s => [s, true])) as Record<Section, boolean>
+  );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toggle = (s: Section) => setVisible(v => ({ ...v, [s]: !v[s] }));
+
   // Manually editable fields
   const [referrals, setReferrals] = useState(0);
   const [coldCalls, setColdCalls] = useState(0);
@@ -103,11 +111,37 @@ export default function DashboardPage() {
             <p className="text-xs tracking-[4px] uppercase text-[#666] mb-2">Welcome back</p>
             <h1 className="text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
           </div>
-          <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 10, 2026</p>
+          <div className="flex items-center gap-5">
+            <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 10, 2026</p>
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                className="text-xs tracking-[2px] uppercase text-white flex items-center gap-1.5 hover:text-white/70 transition-colors"
+              >
+                Sections
+                <span className="text-[10px]">{menuOpen ? "▲" : "▼"}</span>
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-2 bg-[#181818] border border-white/10 py-2 z-50 min-w-[180px]">
+                  {SECTIONS.map(s => (
+                    <label key={s} className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-white/5 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={visible[s]}
+                        onChange={() => toggle(s)}
+                        className="accent-white w-3 h-3"
+                      />
+                      <span className="text-xs tracking-[2px] uppercase text-white">{s}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* REVENUE */}
-        <section>
+        {visible["Revenue"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Revenue</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" />
@@ -115,10 +149,10 @@ export default function DashboardPage() {
             <Card label="Avg Revenue / Shoot" value={`$${avgPerShoot.toLocaleString()}`} accent="#fbbf24" sub="YTD average" />
             <Card label="Shoots Completed" value={QB.shootsAllTime.toString()} accent="#60a5fa" sub="Total invoices all-time" />
           </div>
-        </section>
+        </section>}
 
         {/* MONTHLY CHART */}
-        <section>
+        {visible["Monthly Revenue"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Monthly Revenue — 2026</p>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
             {QB.monthly.map((m) => {
@@ -134,10 +168,10 @@ export default function DashboardPage() {
               );
             })}
           </div>
-        </section>
+        </section>}
 
         {/* CLIENTS */}
-        <section>
+        {visible["Clients"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Clients — YTD</p>
           <div className="grid grid-cols-3 gap-3">
             <Card label="New Clients" value={QB.newClients.toString()} accent="#60a5fa" sub="First-time this year" />
@@ -147,10 +181,10 @@ export default function DashboardPage() {
               <p className="text-xs text-[#444] mt-2">Click to edit</p>
             </Card>
           </div>
-        </section>
+        </section>}
 
         {/* SERVICES */}
-        <section>
+        {visible["Services"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Services — YTD Bookings</p>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
@@ -166,10 +200,10 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        </section>
+        </section>}
 
         {/* MARKETING */}
-        <section>
+        {visible["Marketing"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Marketing — This Month</p>
           <div className="grid grid-cols-3 gap-3">
             <Card label="Cold Calls Made" accent="#fbbf24">
@@ -185,10 +219,10 @@ export default function DashboardPage() {
               <p className="text-xs text-[#444] mt-2">Click to edit</p>
             </Card>
           </div>
-        </section>
+        </section>}
 
         {/* CAPACITY */}
-        <section>
+        {visible["Capacity"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Capacity</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[#111] border border-white/10 p-6">
@@ -219,10 +253,10 @@ export default function DashboardPage() {
               <p className="text-xs text-[#666] mt-2">{leads > 0 ? `${bookings} of ${leads} leads converted` : "Enter leads and bookings above"}</p>
             </div>
           </div>
-        </section>
+        </section>}
 
         {/* RECENT INVOICES */}
-        <section>
+        {visible["Recent Invoices"] && <section>
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Recent Invoices</p>
           <div className="bg-[#111] border border-white/10 overflow-hidden">
             <table className="w-full text-sm">
@@ -250,7 +284,7 @@ export default function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </section>
+        </section>}
 
       </div>
     </main>
