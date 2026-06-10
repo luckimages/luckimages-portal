@@ -17,14 +17,22 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
+    const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      const role = data.user?.user_metadata?.role || "realtor";
+      if (ADMIN_EMAILS.includes(data.user?.email || "")) {
+        router.push("/choose-portal");
+      } else if (role === "photographer") {
+        router.push("/photographer");
+      } else {
+        router.push("/client");
+      }
     }
   }
 

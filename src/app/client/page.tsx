@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import PreviewBanner from "@/components/PreviewBanner";
 
 type Shoot = {
   id: string; address: string; scheduled_at: string;
@@ -86,6 +87,7 @@ export default function ClientPage() {
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
+      <PreviewBanner role="realtor" />
       <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
         <span className="text-xl font-black tracking-tight uppercase">Luck Images</span>
         <div className="flex items-center gap-6">

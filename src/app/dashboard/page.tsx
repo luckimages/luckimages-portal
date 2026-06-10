@@ -283,6 +283,7 @@ export default function DashboardPage() {
       <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
         <span className="text-xl font-black tracking-tight uppercase">Luck Images</span>
         <div className="flex items-center gap-6">
+          <a href="/admin/invite" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Invite Photographer</a>
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Admin</span>
           <a href="/login" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</a>
         </div>

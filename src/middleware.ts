@@ -20,14 +20,15 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Not logged in — redirect to login except for public pages
-  if (!user && (path.startsWith('/dashboard') || path.startsWith('/client') || path.startsWith('/photographer'))) {
+  if (!user && (path.startsWith('/dashboard') || path.startsWith('/client') || path.startsWith('/photographer') || path === '/choose-portal')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // Logged in — redirect away from login/register
+  const ADMIN_EMAILS = ['ryan@luckimages.com', 'leif@luckimages.com']
   if (user && (path === '/login' || path === '/register')) {
+    if (ADMIN_EMAILS.includes(user.email || '')) return NextResponse.redirect(new URL('/choose-portal', request.url))
     const role = user.user_metadata?.role || 'realtor'
-    if (role === 'admin') return NextResponse.redirect(new URL('/dashboard', request.url))
     if (role === 'photographer') return NextResponse.redirect(new URL('/photographer', request.url))
     return NextResponse.redirect(new URL('/client', request.url))
   }

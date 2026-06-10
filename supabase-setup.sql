@@ -112,3 +112,19 @@ create policy "Admin full access" on public.pay_stubs for all using (
 insert into storage.buckets (id, name, public) values ('shoot-media', 'shoot-media', false) on conflict do nothing;
 create policy "Photographers can upload" on storage.objects for insert with check (bucket_id = 'shoot-media' and auth.role() = 'authenticated');
 create policy "Authenticated users can view" on storage.objects for select using (bucket_id = 'shoot-media' and auth.role() = 'authenticated');
+
+-- Photographer invite tokens
+create table if not exists public.photographer_invites (
+  id uuid default gen_random_uuid() primary key,
+  token uuid not null unique,
+  name text,
+  email text,
+  used boolean default false,
+  created_at timestamptz default now()
+);
+alter table public.photographer_invites enable row level security;
+create policy "Anon can read invites by token" on public.photographer_invites for select using (true);
+create policy "Admin can insert invites" on public.photographer_invites for insert with check (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+create policy "Anon can mark invite used" on public.photographer_invites for update using (true);
