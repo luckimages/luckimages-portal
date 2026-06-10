@@ -65,22 +65,33 @@ function EditableNumber({ value, onChange }: { value: number; onChange: (v: numb
 export default function DashboardPage() {
   const avgPerShoot = Math.round(QB.revYTD / QB.ytdInvoices);
 
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices";
+  const DEFAULT_ORDER: Section[] = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true };
+
   const [userName, setUserName] = useState("");
+  const [order, setOrder] = useState<Section[]>(DEFAULT_ORDER);
+  const [visible, setVisible] = useState<Record<Section, boolean>>(DEFAULT_VISIBLE);
+
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
       const meta = data.user?.user_metadata;
-      const name = meta?.full_name || data.user?.email || "";
-      setUserName(name.toUpperCase());
+      setUserName((meta?.full_name || data.user?.email || "").toUpperCase());
+      if (meta?.section_order) setOrder(meta.section_order as Section[]);
+      if (meta?.section_visible) setVisible(meta.section_visible as Record<Section, boolean>);
     });
   }, []);
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices";
-  const [order, setOrder] = useState<Section[]>(["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"]);
-  const [visible, setVisible] = useState<Record<Section, boolean>>(() =>
-    ({ Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true })
-  );
+  function savePrefs(newOrder: Section[], newVisible: Record<Section, boolean>) {
+    createClient().auth.updateUser({ data: { section_order: newOrder, section_visible: newVisible } });
+  }
+
   const [menuOpen, setMenuOpen] = useState(false);
-  const toggle = (s: Section) => setVisible(v => ({ ...v, [s]: !v[s] }));
+  const toggle = (s: Section) => {
+    const next = { ...visible, [s]: !visible[s] };
+    setVisible(next);
+    savePrefs(order, next);
+  };
   const moveSection = (s: Section, dir: -1 | 1) => {
     setOrder(prev => {
       const next = [...prev];
@@ -88,6 +99,7 @@ export default function DashboardPage() {
       const j = i + dir;
       if (j < 0 || j >= next.length) return prev;
       [next[i], next[j]] = [next[j], next[i]];
+      savePrefs(next, visible);
       return next;
     });
   };
