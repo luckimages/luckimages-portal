@@ -67,7 +67,7 @@ export default function PhotographerPage() {
   }
 
   async function signOut() {
-    await createClient().auth.signOut();
+    await fetch("/api/auth/signout", { method: "POST" });
     window.location.href = "/login";
   }
 
