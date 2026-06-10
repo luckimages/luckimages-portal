@@ -60,13 +60,13 @@ function weekStart() {
   return start;
 }
 
-function Card({ label, value, sub, accent = "#ffffff", children }: {
-  label: string; value?: string; sub?: string; accent?: string; children?: React.ReactNode;
+function Card({ label, value, sub, accent = "#ffffff", valueClass = "", children }: {
+  label: string; value?: string; sub?: string; accent?: string; valueClass?: string; children?: React.ReactNode;
 }) {
   return (
     <div className="bg-[#111] border border-white/10 p-6" style={{ borderBottom: `2px solid ${accent}` }}>
       <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">{label}</p>
-      {value && <p className="text-3xl font-bold">{value}</p>}
+      {value && <p className={`text-3xl font-bold transition-all duration-200 ${valueClass}`}>{value}</p>}
       {sub && <p className="text-xs text-[#444] mt-2">{sub}</p>}
       {children}
     </div>
@@ -235,6 +235,9 @@ export default function DashboardPage() {
     });
   };
 
+  const [hideRevenue, setHideRevenue] = useState(false);
+  const blur = hideRevenue ? "blur-sm select-none" : "";
+
   const [referrals, setReferrals] = useState(0);
   const [coldCalls, setColdCalls] = useState(0);
   const [leads, setLeads] = useState(0);
@@ -251,9 +254,9 @@ export default function DashboardPage() {
       <section key={s}>
         <p className={sectionLabel}>Revenue</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" />
-          <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" />
-          <Card label="Avg Revenue / Shoot" value={`$${avgPerShoot.toLocaleString()}`} accent="#fbbf24" sub="YTD average" />
+          <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" valueClass={blur} />
+          <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
+          <Card label="Avg Revenue / Shoot" value={`$${avgPerShoot.toLocaleString()}`} accent="#fbbf24" sub="YTD average" valueClass={blur} />
           <Card label="Shoots Completed" value={QB.shootsAllTime.toString()} accent="#60a5fa" sub="Total invoices all-time" />
         </div>
       </section>
@@ -267,7 +270,7 @@ export default function DashboardPage() {
             return (
               <div key={m.month} className="bg-[#111] border border-white/10 p-5">
                 <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{m.month}</p>
-                <p className="text-xl font-bold mb-3">${m.rev.toLocaleString()}</p>
+                <p className={`text-xl font-bold mb-3 transition-all duration-200 ${blur}`}>${m.rev.toLocaleString()}</p>
                 <div className="h-1 bg-[#222] rounded-full overflow-hidden">
                   <div className="h-full bg-white/40 rounded-full" style={{ width: `${pct}%` }} />
                 </div>
@@ -380,7 +383,7 @@ export default function DashboardPage() {
                   <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
                   <td className="px-5 py-3">{inv.client}</td>
                   <td className="px-5 py-3 text-[#888]">{inv.date}</td>
-                  <td className="px-5 py-3 font-medium">{inv.amount}</td>
+                  <td className={`px-5 py-3 font-medium transition-all duration-200 ${blur}`}>{inv.amount}</td>
                   <td className="px-5 py-3">
                     <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
                       {inv.paid ? "Paid" : "Unpaid"}
@@ -407,6 +410,9 @@ export default function DashboardPage() {
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-6">
           <a href="/admin/invite" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Invite Photographer</a>
+          <button onClick={() => setHideRevenue(h => !h)} className={`text-xs tracking-[2px] uppercase transition-colors ${hideRevenue ? "text-[#fbbf24] hover:text-white" : "text-[#666] hover:text-white"}`}>
+            {hideRevenue ? "Show Revenue" : "Hide Revenue"}
+          </button>
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Admin</span>
           <form action="/api/auth/signout" method="post" className="inline">
             <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
