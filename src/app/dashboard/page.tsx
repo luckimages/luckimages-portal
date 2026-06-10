@@ -298,6 +298,12 @@ export default function DashboardPage() {
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-2 bg-[#181818] border border-white/10 py-2 z-50 min-w-[200px]">
+                  <button
+                    onClick={() => { setOrder(DEFAULT_ORDER); setVisible(DEFAULT_VISIBLE); savePrefs(DEFAULT_ORDER, DEFAULT_VISIBLE); }}
+                    className="w-full text-left px-3 py-2 text-xs tracking-[2px] uppercase text-[#666] hover:text-white hover:bg-white/5 transition-colors border-b border-white/10 mb-1"
+                  >
+                    Reset to Default
+                  </button>
                   {order.map((s, i) => (
                     <div key={s} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors">
                       <input
