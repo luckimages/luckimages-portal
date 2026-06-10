@@ -88,12 +88,18 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 pt-8 border-t border-white/10 text-center">
+          <div className="mt-8 pt-8 border-t border-white/10 flex flex-col gap-3 text-center">
             <p className="text-xs text-[#444] tracking-[1px]">
-              Need access?{" "}
-              <a href="mailto:ryan@luckimages.com" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
-                Contact us
-              </a>
+              New realtor or client?{" "}
+              <Link href="/register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
+                Create account
+              </Link>
+            </p>
+            <p className="text-xs text-[#444] tracking-[1px]">
+              Luck Images photographer?{" "}
+              <Link href="/photographer-register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
+                Join the team
+              </Link>
             </p>
           </div>
 
