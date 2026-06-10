@@ -426,7 +426,20 @@ export default function DashboardPage() {
         <div className="flex items-end justify-between">
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#666] mb-2">Welcome back</p>
-            <h1 className="text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
+            <div className="flex items-center gap-5">
+              <h1 className="text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
+              <button
+                onClick={isRunning ? stopTimer : startTimer}
+                className={`text-xs tracking-[3px] uppercase font-semibold px-4 py-2 transition-colors flex items-center gap-2 ${
+                  isRunning
+                    ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
+                    : "bg-white/5 text-white border border-white/10 hover:bg-white/10"
+                }`}
+              >
+                {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}
+                {isRunning ? `Stop  ${fmtClock(elapsed)}` : "Start Timer"}
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-5">
             <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 10, 2026</p>
@@ -462,70 +475,28 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* TIME TRACKER */}
-        <section>
-          <p className={sectionLabel}>Time Tracker — This Week</p>
-          <div className="grid grid-cols-2 gap-3">
-
-            {/* MY CLOCK */}
-            <div className="bg-[#111] border border-white/10 p-6" style={{ borderBottom: `2px solid ${isRunning ? "#4ade80" : "#333"}` }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs tracking-[2px] uppercase text-[#666]">{myName}</p>
-                {isRunning && (
-                  <span className="flex items-center gap-1.5 text-xs text-[#4ade80] tracking-[1px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />
-                    Live
-                  </span>
-                )}
-              </div>
-              <p className="text-4xl font-bold font-mono mb-5 tracking-wider">
-                {isRunning ? fmtClock(elapsed) : fmtClock(0)}
-              </p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-[#555]">
-                  This week: <span className="text-white">{fmtHours(myWeekSeconds + (isRunning ? elapsed : 0))}</span>
-                </p>
-                <button
-                  onClick={isRunning ? stopTimer : startTimer}
-                  className={`text-xs tracking-[3px] uppercase font-semibold px-5 py-2.5 transition-colors ${
-                    isRunning
-                      ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
-                      : "bg-white text-black hover:bg-white/90"
-                  }`}
-                >
-                  {isRunning ? "Stop" : "Start"}
-                </button>
-              </div>
-            </div>
-
-            {/* PARTNER CLOCK */}
-            <div className="bg-[#111] border border-white/10 p-6" style={{ borderBottom: `2px solid ${partnerActive ? "#60a5fa" : "#333"}` }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs tracking-[2px] uppercase text-[#666]">{partnerName || (userName.includes("RYAN") ? "Leif" : "Ryan")}</p>
-                {partnerActive && (
-                  <span className="flex items-center gap-1.5 text-xs text-[#60a5fa] tracking-[1px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] animate-pulse" />
-                    Live
-                  </span>
-                )}
-              </div>
-              <p className="text-4xl font-bold font-mono mb-5 tracking-wider text-[#555]">
-                {partnerActive ? "Running" : "—"}
-              </p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-[#555]">
-                  This week: <span className="text-white">{fmtHours(partnerWeekSeconds)}</span>
-                </p>
-                <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${partnerActive ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-white/5 text-[#444]"}`}>
-                  {partnerActive ? "Clocked In" : "Off Clock"}
-                </span>
-              </div>
-            </div>
-
-          </div>
-        </section>
 
         {order.map(renderSection)}
+
+        {/* TIME STATS — compact, always at bottom */}
+        <section>
+          <p className={sectionLabel}>Time Tracker — This Week</p>
+          <div className="bg-[#111] border border-white/10 p-5 flex items-center gap-8">
+            <div className="flex items-center gap-3">
+              {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />}
+              <span className="text-xs tracking-[2px] uppercase text-[#666]">{myName}</span>
+              <span className="text-sm font-bold">{fmtHours(myWeekSeconds + (isRunning ? elapsed : 0))}</span>
+              {isRunning && <span className="text-xs text-[#4ade80] font-mono">{fmtClock(elapsed)}</span>}
+            </div>
+            <div className="w-px h-4 bg-white/10" />
+            <div className="flex items-center gap-3">
+              {partnerActive && <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] animate-pulse flex-shrink-0" />}
+              <span className="text-xs tracking-[2px] uppercase text-[#666]">{partnerName || (userName.includes("RYAN") ? "Leif" : "Ryan")}</span>
+              <span className="text-sm font-bold">{fmtHours(partnerWeekSeconds)}</span>
+              {partnerActive && <span className="text-xs text-[#60a5fa] tracking-[1px] uppercase">Live</span>}
+            </div>
+          </div>
+        </section>
 
       </div>
     </main>
