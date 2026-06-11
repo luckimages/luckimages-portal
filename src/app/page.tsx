@@ -41,20 +41,19 @@ export default function Home() {
       </section>
 
       {/* SERVICES */}
-      <section id="services" className="px-8 py-20">
-        <p className="text-xs tracking-[4px] uppercase text-[#666] text-center mb-14">Services</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-px bg-white/5 border border-white/10 max-w-6xl mx-auto overflow-hidden">
+      <section id="services" className="px-8 pb-20 -mt-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-px bg-white/10 border border-white/10 max-w-6xl mx-auto overflow-hidden">
           {SERVICES.map((s) => (
             <Link
               key={s.slug}
               href={`/services/${s.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-[#181818] transition-colors group"
+              className="bg-white p-8 flex flex-col items-center gap-4 hover:bg-white/90 transition-colors group"
             >
-              <span className="text-[#444] group-hover:text-white transition-colors">{s.icon}</span>
-              <span className="text-xs tracking-[2px] uppercase text-[#666] group-hover:text-white transition-colors text-center">{s.name}</span>
-              <span className="text-[10px] tracking-[2px] uppercase text-[#333] group-hover:text-[#666] transition-colors">Learn More →</span>
+              <span className="text-black/40 group-hover:text-black transition-colors">{s.icon}</span>
+              <span className="text-xs tracking-[2px] uppercase text-black/60 group-hover:text-black transition-colors text-center">{s.name}</span>
+              <span className="text-[10px] tracking-[2px] uppercase text-black/30 group-hover:text-black/60 transition-colors">Learn More →</span>
             </Link>
           ))}
         </div>
