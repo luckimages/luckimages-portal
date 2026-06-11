@@ -78,12 +78,17 @@ export const SERVICES = [
     slug: "virtual-staging",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <line x1="5" y1="19" x2="15" y2="9" />
-        <path d="M15 9 l3-3 2 2-3 3" />
-        <path d="M17 6 l1-1 a1 1 0 0 1 1.4 1.4l-1 1" />
-        <line x1="5" y1="19" x2="8" y2="22" />
-        <line x1="5" y1="19" x2="2" y2="22" />
-        <path d="M3 21 l4 0" />
+        {/* sofa base */}
+        <rect x="3" y="11" width="18" height="7" rx="1" />
+        {/* sofa back */}
+        <rect x="5" y="7" width="14" height="5" rx="1" />
+        {/* left arm */}
+        <rect x="2" y="10" width="3" height="6" rx="1" />
+        {/* right arm */}
+        <rect x="19" y="10" width="3" height="6" rx="1" />
+        {/* legs */}
+        <line x1="6" y1="18" x2="6" y2="21" />
+        <line x1="18" y1="18" x2="18" y2="21" />
       </svg>
     ),
   },
@@ -92,16 +97,16 @@ export const SERVICES = [
     slug: "floorplans",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        {/* ruler body */}
-        <rect x="2" y="7" width="20" height="10" rx="1" />
-        {/* tick marks */}
-        <line x1="6" y1="7" x2="6" y2="11" />
-        <line x1="10" y1="7" x2="10" y2="11" />
-        <line x1="14" y1="7" x2="14" y2="11" />
-        <line x1="18" y1="7" x2="18" y2="11" />
-        <line x1="8" y1="7" x2="8" y2="9" />
-        <line x1="12" y1="7" x2="12" y2="9" />
-        <line x1="16" y1="7" x2="16" y2="9" />
+        {/* compass legs meeting at top pivot */}
+        <line x1="12" y1="3" x2="7" y2="19" />
+        <line x1="12" y1="3" x2="17" y2="19" />
+        {/* crossbar */}
+        <line x1="8.5" y1="11" x2="15.5" y2="11" />
+        {/* needle tips */}
+        <circle cx="7" cy="19.5" r="0.8" fill="currentColor" stroke="none" />
+        <circle cx="17" cy="19.5" r="0.8" fill="currentColor" stroke="none" />
+        {/* pivot point */}
+        <circle cx="12" cy="3" r="1" fill="currentColor" stroke="none" />
       </svg>
     ),
   },
