@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const { name, email, phone, service, message } = await request.json();
+  const { firstName, lastName, email, phone, address, listingType, services, deliverBy, details } = await request.json();
 
-  if (!name || !email || !message) {
+  if (!firstName || !email || !phone || !address || !services?.length) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const body = [
-    `Name: ${name}`,
+    `Name: ${firstName} ${lastName}`,
     `Email: ${email}`,
-    phone ? `Phone: ${phone}` : null,
-    service ? `Service: ${service}` : null,
-    ``,
-    `Message:`,
-    message,
+    `Phone: ${phone}`,
+    `Address: ${address}`,
+    listingType ? `Listing Type: ${listingType}` : null,
+    `Services: ${services.join(", ")}`,
+    deliverBy ? `Deliver By: ${deliverBy}` : null,
+    details ? `\nDetails:\n${details}` : null,
   ].filter(Boolean).join("\n");
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -25,9 +26,9 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       from: "Luck Images Contact <contact@luckimages.com>",
-      to: "ryan@luckimages.com",
+      to: ["ryan@luckimages.com", "leif@luckimages.com"],
       reply_to: email,
-      subject: `New inquiry from ${name}${service ? ` — ${service}` : ""}`,
+      subject: `New inquiry — ${firstName} ${lastName} · ${address}`,
       text: body,
     }),
   });
