@@ -25,11 +25,12 @@ const GALLERY_COUNTS: Record<string, number> = {
 
 const GALLERY_SERVICES = new Set(Object.keys(GALLERY_COUNTS));
 
-export default function ServicePage({ params }: { params: { slug: string } }) {
-  const service = SERVICES.find((s) => s.slug === params.slug);
+export default async function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const service = SERVICES.find((s) => s.slug === slug);
   if (!service) notFound();
 
-  const placeholderCount = GALLERY_COUNTS[params.slug] || 0;
+  const placeholderCount = GALLERY_COUNTS[slug] || 0;
   const photos = Array.from({ length: placeholderCount }, () => ({ src: "" }));
 
   return (
@@ -52,7 +53,7 @@ export default function ServicePage({ params }: { params: { slug: string } }) {
       </div>
 
       {/* Gallery */}
-      {GALLERY_SERVICES.has(params.slug) && (
+      {GALLERY_SERVICES.has(slug) && (
         <section className="px-8 pb-24 max-w-6xl mx-auto w-full">
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
             Portfolio
