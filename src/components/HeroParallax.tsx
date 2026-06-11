@@ -12,7 +12,7 @@ export default function HeroParallax() {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrent((c) => (c + 1) % IMAGES.length);
-    }, 10000);
+    }, 6000);
     return () => clearInterval(timer);
   }, []);
 
