@@ -9,6 +9,7 @@ const linkCls = "text-xs tracking-[3px] uppercase text-white/60 hover:text-white
 export default function HomeNav() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-5">
@@ -77,13 +78,25 @@ export default function HomeNav() {
       {menuOpen && (
         <div className="absolute top-full left-0 right-0 bg-[#0c0c0c]/95 border-b border-white/10 flex flex-col py-4 md:hidden">
           <a href="#home" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Home</a>
-          <div className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/40">Services</div>
-          {SERVICES.map((s) => (
-            <Link key={s.slug} href={`/services/${s.slug}`} target="_blank" onClick={() => setMenuOpen(false)}
-              className="px-10 py-2.5 text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors flex items-center gap-3">
-              <span>{s.icon}</span>{s.name}
-            </Link>
-          ))}
+
+          {/* Services accordion */}
+          <button
+            onClick={() => setMobileServicesOpen(!mobileServicesOpen)}
+            className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors flex items-center justify-between w-full"
+          >
+            Services
+            <span className={`text-[10px] opacity-60 transition-transform duration-200 ${mobileServicesOpen ? "rotate-180" : ""}`}>▾</span>
+          </button>
+          {mobileServicesOpen && (
+            <div className="border-t border-white/5">
+              {SERVICES.map((s) => (
+                <Link key={s.slug} href={`/services/${s.slug}`} target="_blank" onClick={() => setMenuOpen(false)}
+                  className="px-10 py-2.5 text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors flex items-center gap-3">
+                  <span>{s.icon}</span>{s.name}
+                </Link>
+              ))}
+            </div>
+          )}
           <a href="#pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</a>
           <a href="#about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</a>
           <a href="#contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</a>
