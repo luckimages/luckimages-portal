@@ -51,7 +51,7 @@ export default function HomeNav() {
           )}
         </div>
 
-        <a href="#pricing" className={linkCls}>Pricing</a>
+        <Link href="/pricing" className={linkCls}>Pricing</Link>
         <a href="#about" className={linkCls}>About</a>
         <a href="#contact" className={linkCls}>Contact</a>
 
@@ -97,7 +97,7 @@ export default function HomeNav() {
               ))}
             </div>
           )}
-          <a href="#pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</a>
+          <Link href="/pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</Link>
           <a href="#about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</a>
           <a href="#contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</a>
         </div>
