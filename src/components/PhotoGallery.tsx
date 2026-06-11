@@ -27,7 +27,7 @@ export default function PhotoGallery({ photos }: { photos: Photo[] }) {
                 className="w-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "2/3" }}>
+              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "16/9" }}>
                 Photo
               </div>
             )}
@@ -59,7 +59,7 @@ export default function PhotoGallery({ photos }: { photos: Photo[] }) {
             {photos[lightbox].src ? (
               <img src={photos[lightbox].src} alt="" className="max-h-[85vh] max-w-full object-contain" />
             ) : (
-              <div className="w-[800px] h-[500px] bg-[#1a1a1a] border border-white/10 flex items-center justify-center text-[#444] text-xs tracking-[2px] uppercase">
+              <div className="bg-[#1a1a1a] border border-white/10 flex items-center justify-center text-[#444] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "16/9", width: "min(800px, 90vw)" }}>
                 Photo Placeholder
               </div>
             )}
