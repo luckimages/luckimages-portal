@@ -42,7 +42,7 @@ export default function Home() {
 
       {/* SERVICES */}
       <section id="services" className="px-8 pb-20 -mt-1">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 max-w-6xl mx-auto border border-white/20 gap-px bg-white/20">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 max-w-6xl mx-auto border border-white/50 gap-px bg-white/50">
           {SERVICES.map((s) => (
             <Link
               key={s.slug}
