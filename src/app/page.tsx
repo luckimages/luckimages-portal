@@ -20,11 +20,11 @@ export default function Home() {
 
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center text-center">
-          <p className="text-xs tracking-[4px] uppercase text-white/50 mb-6">Austin, TX — Real Estate Media</p>
-          <h1 className="text-[clamp(48px,8vw,96px)] font-black tracking-tight leading-none uppercase mb-8">
+          <p className="text-xs tracking-[4px] uppercase text-white mb-6" style={{textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>Austin, TX — Real Estate Media</p>
+          <h1 className="text-[clamp(48px,8vw,96px)] font-black tracking-tight leading-none uppercase mb-8" style={{textShadow:"0 4px 24px rgba(0,0,0,0.7)"}}>
             LUCK IMAGES
           </h1>
-          <p className="text-white/50 text-lg max-w-md mb-12 leading-relaxed">
+          <p className="text-white text-lg max-w-md mb-12 leading-relaxed" style={{textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>
             Photography. Drone. Matterport. Video.
             <br />
             Built for agents who move fast.
