@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const IMAGES = ["/hero-1.jpg", "/hero-2.jpg", "/hero-3.jpg"];
-const INTERVAL = 5000;
+const INTERVAL = 10000;
 
 export default function HeroParallax() {
   const [current, setCurrent] = useState(0);
@@ -26,7 +26,7 @@ export default function HeroParallax() {
   // Clear prev after fade completes
   useEffect(() => {
     if (!fading) return;
-    const t = setTimeout(() => { setPrev(null); setFading(false); }, 1200);
+    const t = setTimeout(() => { setPrev(null); setFading(false); }, 3000);
     return () => clearTimeout(t);
   }, [fading]);
 
@@ -57,7 +57,7 @@ export default function HeroParallax() {
             className="absolute inset-0 w-full h-full object-cover will-change-transform"
             style={{
               transform: "translateX(0px) scale(1.08)",
-              transition: "transform 0.1s linear, opacity 1.2s ease",
+              transition: "transform 0.1s linear, opacity 3s ease",
               opacity: isActive ? 0.5 : 0,
             }}
           />
