@@ -41,7 +41,7 @@ export default function Home() {
       </section>
 
       {/* SERVICES */}
-      <section id="services" className="px-8 pb-20 -mt-1">
+      <section id="services" className="px-8 py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 max-w-6xl mx-auto border border-white/50 gap-px bg-white/50">
           {SERVICES.map((s) => (
             <Link
