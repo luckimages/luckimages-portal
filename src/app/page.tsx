@@ -11,7 +11,7 @@ export default function Home() {
       <HomeNav />
 
       {/* HERO */}
-      <section className="relative flex flex-col items-center justify-center text-center px-6 py-40 min-h-screen overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center text-center px-6 py-24 md:py-40 min-h-screen overflow-hidden">
 
         <HeroParallax />
 
