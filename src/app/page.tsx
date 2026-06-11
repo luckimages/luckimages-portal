@@ -16,7 +16,7 @@ export default function Home() {
         <HeroParallax />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0" style={{background: "linear-gradient(to bottom, rgba(12,12,12,0.6) 0%, transparent 25%, transparent 55%, rgba(12,12,12,1) 85%)"}} />
+        <div className="absolute inset-0" style={{background: "linear-gradient(to bottom, rgba(12,12,12,0.6) 0%, transparent 25%, transparent 50%, rgba(12,12,12,1) 72%)"}} />
 
         {/* Hero content */}
         <div className="relative z-10 flex flex-col items-center text-center flex-1 justify-center py-40">
@@ -41,14 +41,14 @@ export default function Home() {
 
         {/* Services grid — inside the hero, sits on the gradient */}
         <div id="services" className="relative z-10 w-full max-w-6xl mx-auto pb-16">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 border border-white/50 gap-px bg-white/50">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 border border-white/50 gap-px bg-white/30">
             {SERVICES.map((s) => (
               <Link
                 key={s.slug}
                 href={`/services/${s.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group"
+                className="bg-transparent p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group"
               >
                 <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
                 <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
