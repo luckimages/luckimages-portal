@@ -1,3 +1,4 @@
+import Link from "next/link";
 import HeroParallax from "@/components/HeroParallax";
 import HomeNav from "@/components/HomeNav";
 
