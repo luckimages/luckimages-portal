@@ -10,16 +10,16 @@ export default function Home() {
       {/* NAV */}
       <HomeNav />
 
-      {/* HERO */}
-      <section className="relative flex flex-col items-center justify-center text-center px-6 py-40 min-h-screen overflow-hidden">
+      {/* HERO + SERVICES — one continuous section */}
+      <section className="relative flex flex-col items-center text-center px-6 min-h-screen overflow-hidden">
 
         <HeroParallax />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0" style={{background: "linear-gradient(to bottom, rgba(12,12,12,0.6) 0%, transparent 30%, transparent 60%, rgba(12,12,12,0.95) 100%)"}} />
+        <div className="absolute inset-0" style={{background: "linear-gradient(to bottom, rgba(12,12,12,0.6) 0%, transparent 25%, transparent 55%, rgba(12,12,12,1) 85%)"}} />
 
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center text-center">
+        {/* Hero content */}
+        <div className="relative z-10 flex flex-col items-center text-center flex-1 justify-center py-40">
           <p className="text-xs tracking-[4px] uppercase text-white mb-6" style={{textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>Austin, TX — Real Estate Media</p>
           <h1 className="text-[clamp(48px,8vw,96px)] font-black tracking-tight leading-none uppercase mb-8" style={{textShadow:"0 4px 24px rgba(0,0,0,0.7)"}}>
             LUCK IMAGES
@@ -38,25 +38,26 @@ export default function Home() {
             </a>
           </div>
         </div>
-      </section>
 
-      {/* SERVICES */}
-      <section id="services" className="px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 max-w-6xl mx-auto border border-white/50 gap-px bg-white/50">
-          {SERVICES.map((s) => (
-            <Link
-              key={s.slug}
-              href={`/services/${s.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group"
-            >
-              <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
-              <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
-              <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
-            </Link>
-          ))}
+        {/* Services grid — inside the hero, sits on the gradient */}
+        <div id="services" className="relative z-10 w-full max-w-6xl mx-auto pb-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 border border-white/50 gap-px bg-white/50">
+            {SERVICES.map((s) => (
+              <Link
+                key={s.slug}
+                href={`/services/${s.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group"
+              >
+                <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
+                <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
+                <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
+              </Link>
+            ))}
+          </div>
         </div>
+
       </section>
 
       {/* FOOTER */}
