@@ -43,7 +43,7 @@ export default function HeroParallax() {
   }, []);
 
   return (
-    <>
+    <div className="absolute inset-0 opacity-50">
       {IMAGES.map((src, i) => {
         const isActive = i === current;
         const isPrev = i === prev;
@@ -58,11 +58,11 @@ export default function HeroParallax() {
             style={{
               transform: "translateX(0px) scale(1.08)",
               transition: "transform 0.1s linear, opacity 3s ease",
-              opacity: isActive ? 0.5 : 0,
+              opacity: isActive ? 1 : 0,
             }}
           />
         );
       })}
-    </>
+    </div>
   );
 }
