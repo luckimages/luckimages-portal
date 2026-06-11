@@ -42,18 +42,18 @@ export default function Home() {
 
       {/* SERVICES */}
       <section id="services" className="px-8 pb-20 -mt-1">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-px bg-white/10 border border-white/10 max-w-6xl mx-auto overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 max-w-6xl mx-auto">
           {SERVICES.map((s) => (
             <Link
               key={s.slug}
               href={`/services/${s.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-white p-8 flex flex-col items-center gap-4 hover:bg-white/90 transition-colors group"
+              className="bg-transparent p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group border border-white/20"
             >
-              <span className="text-black/40 group-hover:text-black transition-colors">{s.icon}</span>
-              <span className="text-xs tracking-[2px] uppercase text-black/60 group-hover:text-black transition-colors text-center">{s.name}</span>
-              <span className="text-[10px] tracking-[2px] uppercase text-black/30 group-hover:text-black/60 transition-colors">Learn More →</span>
+              <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
+              <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
+              <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
             </Link>
           ))}
         </div>
