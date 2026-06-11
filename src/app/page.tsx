@@ -16,7 +16,7 @@ export default function Home() {
         <HeroParallax />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-transparent" />
+        <div className="absolute inset-0" style={{background: "linear-gradient(to bottom, rgba(12,12,12,0.6) 0%, transparent 30%, transparent 60%, rgba(12,12,12,0.95) 100%)"}} />
 
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center text-center">
