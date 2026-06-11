@@ -53,7 +53,7 @@ export default function HomeNav() {
 
         <Link href="/pricing" className={linkCls}>Pricing</Link>
         <a href="#about" className={linkCls}>About</a>
-        <a href="#contact" className={linkCls}>Contact</a>
+        <Link href="/contact" className={linkCls}>Contact</Link>
 
         <Link href="/login" className="text-xs tracking-[3px] uppercase border border-white/25 px-5 py-2.5 hover:border-white hover:bg-white/5 transition-all">
           Login
@@ -99,7 +99,7 @@ export default function HomeNav() {
           )}
           <Link href="/pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</Link>
           <a href="#about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</a>
-          <a href="#contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</a>
+          <Link href="/contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</Link>
         </div>
       )}
     </nav>
