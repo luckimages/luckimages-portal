@@ -13,12 +13,12 @@ export default function PhotoGallery({ photos }: { photos: Photo[] }) {
   return (
     <>
       {/* Grid */}
-      <div className="columns-2 md:columns-3 gap-2 space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         {photos.map((p, i) => (
           <div
             key={i}
             onClick={() => setLightbox(i)}
-            className="break-inside-avoid cursor-pointer overflow-hidden group"
+            className="cursor-pointer overflow-hidden group"
           >
             {p.src ? (
               <img
@@ -27,7 +27,7 @@ export default function PhotoGallery({ photos }: { photos: Photo[] }) {
                 className="w-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: i % 3 === 0 ? "4/3" : i % 3 === 1 ? "3/4" : "16/9" }}>
+              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "16/9" }}>
                 Photo
               </div>
             )}
