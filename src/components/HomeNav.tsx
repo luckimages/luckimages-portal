@@ -30,7 +30,8 @@ export default function HomeNav() {
           </button>
 
           {servicesOpen && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-48 bg-[#111] border border-white/10 py-1">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 w-48 pt-3">
+            <div className="bg-[#111] border border-white/10 py-1">
               {SERVICES.map((s) => (
                 <Link
                   key={s.slug}
@@ -43,6 +44,7 @@ export default function HomeNav() {
                   {s.name}
                 </Link>
               ))}
+            </div>
             </div>
           )}
         </div>
