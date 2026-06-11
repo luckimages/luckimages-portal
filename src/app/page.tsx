@@ -28,16 +28,12 @@ export default function Home() {
       {/* HERO — video background */}
       <section className="relative flex flex-col items-center justify-center text-center px-6 py-40 min-h-screen overflow-hidden">
 
-        {/* Video background — swap src for your actual video file */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
-        >
-          <source src="/hero.mp4" type="video/mp4" />
-        </video>
+        {/* Hero background — swap to <video> when ready */}
+        <img
+          src="/hero.jpg"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover opacity-50"
+        />
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />
