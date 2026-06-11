@@ -1,6 +1,22 @@
 import Link from "next/link";
+import { SERVICES } from "@/lib/services";
+import { notFound } from "next/navigation";
 
-export default function MatterportPage() {
+const DESCRIPTIONS: Record<string, string> = {
+  "listing-photos": "Professional photography that makes every listing stand out. Sharp, well-lit images that move properties faster.",
+  "video": "Cinematic walkthrough videos that bring listings to life and reach buyers anywhere.",
+  "twilight": "Dramatic twilight photography that captures the warm glow of a property at golden hour.",
+  "drone": "FAA-certified aerial photography and video that showcases the property and its surroundings.",
+  "matterport": "Immersive 3D virtual tours that let buyers explore every room from anywhere in the world.",
+  "virtual-staging": "Transform empty spaces into beautifully furnished rooms — digitally, fast, and affordably.",
+  "floorplans": "Accurate, clean floorplan diagrams that give buyers a clear picture of every space.",
+  "brochures": "Print-ready and digital property brochures that make a lasting impression at open houses.",
+};
+
+export default function ServicePage({ params }: { params: { slug: string } }) {
+  const service = SERVICES.find((s) => s.slug === params.slug);
+  if (!service) notFound();
+
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10">
@@ -9,10 +25,10 @@ export default function MatterportPage() {
       </nav>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-32">
-        <span className="text-5xl mb-8 text-[#444]">◎</span>
+        <div className="text-[#444] mb-8 [&>svg]:w-12 [&>svg]:h-12">{service.icon}</div>
         <p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Services</p>
-        <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">Matterport</h1>
-        <p className="text-[#666] text-lg max-w-lg mb-12 leading-relaxed">Immersive 3D virtual tours that let buyers walk through a property from anywhere in the world.</p>
+        <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">{service.name}</h1>
+        <p className="text-[#666] text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p>
         <div className="flex gap-4">
           <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
           <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
