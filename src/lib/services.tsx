@@ -97,16 +97,13 @@ export const SERVICES = [
     slug: "floorplans",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        {/* compass legs meeting at top pivot */}
-        <line x1="12" y1="3" x2="7" y2="19" />
-        <line x1="12" y1="3" x2="17" y2="19" />
-        {/* crossbar */}
-        <line x1="8.5" y1="11" x2="15.5" y2="11" />
-        {/* needle tips */}
-        <circle cx="7" cy="19.5" r="0.8" fill="currentColor" stroke="none" />
-        <circle cx="17" cy="19.5" r="0.8" fill="currentColor" stroke="none" />
-        {/* pivot point */}
-        <circle cx="12" cy="3" r="1" fill="currentColor" stroke="none" />
+        {/* house outline */}
+        <path d="M3 10.5 L12 3 L21 10.5 V19 a1 1 0 0 1-1 1H4 a1 1 0 0 1-1-1Z" />
+        {/* dimension line below */}
+        <line x1="3" y1="22" x2="21" y2="22" />
+        {/* end ticks */}
+        <line x1="3" y1="21" x2="3" y2="23" />
+        <line x1="21" y1="21" x2="21" y2="23" />
       </svg>
     ),
   },
