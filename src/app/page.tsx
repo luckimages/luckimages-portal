@@ -14,7 +14,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
       {/* NAV */}
-      <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-8 py-6">
+      <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-8 py-6 bg-[#0c0c0c]">
         <span className="text-xl font-black tracking-tight uppercase">Luck Images</span>
         <div className="flex items-center gap-8">
           <a href="#services" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Services</a>
