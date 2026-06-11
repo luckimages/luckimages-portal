@@ -27,7 +27,7 @@ export default function PhotoGallery({ photos }: { photos: Photo[] }) {
                 className="w-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "16/9" }}>
+              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "2/3" }}>
                 Photo
               </div>
             )}
