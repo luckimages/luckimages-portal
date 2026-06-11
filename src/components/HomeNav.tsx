@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-
-const SERVICES = [
-  { name: "Listing Photos", icon: "◻", slug: "listing-photos" },
-  { name: "Video", icon: "▷", slug: "video" },
-  { name: "Twilight", icon: "◑", slug: "twilight" },
-  { name: "Drone", icon: "◈", slug: "drone" },
-  { name: "Matterport", icon: "◎", slug: "matterport" },
-  { name: "Virtual Staging", icon: "⬡", slug: "virtual-staging" },
-];
+import { SERVICES } from "@/lib/services";
 
 const linkCls = "text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors";
 

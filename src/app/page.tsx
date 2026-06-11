@@ -1,15 +1,7 @@
 import Link from "next/link";
 import HeroParallax from "@/components/HeroParallax";
 import HomeNav from "@/components/HomeNav";
-
-const SERVICES = [
-  { name: "Listing Photos", icon: "◻", slug: "listing-photos" },
-  { name: "Video", icon: "▷", slug: "video" },
-  { name: "Twilight", icon: "◑", slug: "twilight" },
-  { name: "Drone", icon: "◈", slug: "drone" },
-  { name: "Matterport", icon: "◎", slug: "matterport" },
-  { name: "Virtual Staging", icon: "⬡", slug: "virtual-staging" },
-];
+import { SERVICES } from "@/lib/services";
 
 export default function Home() {
   return (
@@ -18,7 +10,7 @@ export default function Home() {
       {/* NAV */}
       <HomeNav />
 
-      {/* HERO — video background */}
+      {/* HERO */}
       <section className="relative flex flex-col items-center justify-center text-center px-6 py-40 min-h-screen overflow-hidden">
 
         <HeroParallax />
@@ -51,7 +43,7 @@ export default function Home() {
       {/* SERVICES */}
       <section id="services" className="px-8 py-20">
         <p className="text-xs tracking-[4px] uppercase text-[#666] text-center mb-14">Services</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-white/5 border border-white/10 max-w-5xl mx-auto overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-px bg-white/5 border border-white/10 max-w-6xl mx-auto overflow-hidden">
           {SERVICES.map((s) => (
             <Link
               key={s.slug}
@@ -60,7 +52,7 @@ export default function Home() {
               rel="noopener noreferrer"
               className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-[#181818] transition-colors group"
             >
-              <span className="text-2xl text-[#444] group-hover:text-white transition-colors">{s.icon}</span>
+              <span className="text-[#444] group-hover:text-white transition-colors">{s.icon}</span>
               <span className="text-xs tracking-[2px] uppercase text-[#666] group-hover:text-white transition-colors text-center">{s.name}</span>
               <span className="text-[10px] tracking-[2px] uppercase text-[#333] group-hover:text-[#666] transition-colors">Learn More →</span>
             </Link>
