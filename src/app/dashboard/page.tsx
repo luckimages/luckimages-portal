@@ -3,41 +3,30 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 
-// QB data — synced June 15, 2026
-const QB = {
-  revMonth: 790,
-  revYTD: 10245,
-  netIncome: 10027,
-  expenses: 223,
-  shootsAllTime: 231,
-  ytdInvoices: 39,
-  newClients: 20,
-  repeatClients: 6,
-  services: {
-    photos: 11,
-    drone: 47,
-    matterport: 1,
-    video: 1,
-    headshots: 0,
-  },
-  recentInvoices: [
-    { num: "1254", client: "Mrs Natasha Park", date: "Jun 5", amount: "$200", paid: false },
-    { num: "1253", client: "Candice Putter", date: "Jun 4", amount: "$150", paid: false },
-    { num: "1252", client: "Beverly Ortiz", date: "Jun 4", amount: "$150", paid: false },
-    { num: "1251", client: "Mackenzie Smith", date: "Jun 4", amount: "$140", paid: false },
-    { num: "1249", client: "Elizabeth Spiva", date: "May 16", amount: "$2,400", paid: false },
-    { num: "1248", client: "Mr Doyle Wilson", date: "May 4", amount: "$450", paid: true },
-    { num: "1246", client: "Mr Greg Gibson", date: "Apr 30", amount: "$300", paid: true },
-    { num: "1245", client: "Mrs Iris Tombari", date: "Apr 24", amount: "$150", paid: true },
-  ],
-  monthly: [
-    { month: "Jan", rev: 700 },
-    { month: "Feb", rev: 1680 },
-    { month: "Mar", rev: 2575 },
-    { month: "Apr", rev: 1650 },
-    { month: "May", rev: 2850 },
-    { month: "Jun", rev: 790 },
-  ],
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+type KPI = {
+  revMonth: number;
+  revYTD: number;
+  netIncome: number;
+  expenses: number;
+  ytdInvoices: number;
+  unpaidCount: number;
+  recentInvoices: { num: string; client: string; date: string; amount: string; paid: boolean }[];
+  monthly: { month: string; rev: number }[];
+  syncedAt: string | null;
+};
+
+const DEFAULT_KPI: KPI = {
+  revMonth: 0,
+  revYTD: 0,
+  netIncome: 0,
+  expenses: 0,
+  ytdInvoices: 0,
+  unpaidCount: 0,
+  recentInvoices: [],
+  monthly: [],
+  syncedAt: null,
 };
 
 function fmtClock(seconds: number) {
@@ -87,7 +76,8 @@ function EditableNumber({ value, onChange }: { value: number; onChange: (v: numb
 }
 
 export default function DashboardPage() {
-  const avgPerShoot = Math.round(QB.revYTD / QB.ytdInvoices);
+  const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
+  const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
   type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices";
   const DEFAULT_ORDER: Section[] = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
@@ -125,6 +115,38 @@ export default function DashboardPage() {
       setUserName((meta?.full_name || data.user?.email || "").toUpperCase());
       if (meta?.section_order) setOrder(meta.section_order as Section[]);
       if (meta?.section_visible) setVisible(meta.section_visible as Record<Section, boolean>);
+
+      // Load live QB KPI snapshot
+      const { data: snap } = await supabase
+        .from("kpi_snapshots")
+        .select("*")
+        .eq("id", 1)
+        .single();
+      if (snap) {
+        const breakdown: Record<string, number> = snap.monthly_breakdown || {};
+        const year = new Date().getFullYear();
+        const monthly = Object.entries(breakdown)
+          .filter(([k]) => k.startsWith(`${year}-`))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => ({ month: MONTH_NAMES[parseInt(k.split("-")[1]) - 1], rev: v as number }));
+        setQB({
+          revMonth: snap.rev_month ?? 0,
+          revYTD: snap.rev_ytd ?? 0,
+          netIncome: snap.net_income ?? 0,
+          expenses: snap.expenses_ytd ?? 0,
+          ytdInvoices: snap.ytd_invoices ?? 0,
+          unpaidCount: snap.unpaid_count ?? 0,
+          recentInvoices: (snap.recent_invoices ?? []).map((i: { num: string; client: string; date: string; amount: string; paid: boolean }) => ({
+            num: i.num,
+            client: i.client,
+            date: i.date,
+            amount: i.amount,
+            paid: i.paid,
+          })),
+          monthly,
+          syncedAt: snap.synced_at ?? null,
+        });
+      }
 
       // Load pending shoot requests
       const { data: pending } = await supabase
@@ -276,7 +298,7 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState(0);
   const [bookings, setBookings] = useState(0);
   const [capTotal, setCapTotal] = useState(50);
-  const capPct = capTotal > 0 ? Math.min(100, Math.round((QB.ytdInvoices / capTotal) * 100)) : 0;
+  const capPct = capTotal > 0 ? Math.min(100, Math.round(((QB.ytdInvoices || 0) / capTotal) * 100)) : 0;
   const convPct = leads > 0 ? Math.min(100, Math.round((bookings / leads) * 100)) : 0;
 
   const sectionLabel = "text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']";
@@ -305,36 +327,43 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" valueClass={blur} />
           <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
-          <Card label="Avg Revenue / Shoot" value={`$${avgPerShoot.toLocaleString()}`} accent="#fbbf24" sub="YTD average" valueClass={blur} />
-          <Card label="Shoots Completed" value={QB.shootsAllTime.toString()} accent="#60a5fa" sub="Total invoices all-time" />
+          <Card label="Net Income YTD" value={`$${QB.netIncome.toLocaleString()}`} accent="#4ade80" sub={`After $${QB.expenses.toLocaleString()} expenses`} valueClass={blur} />
+          <Card label="Unpaid Invoices" value={QB.unpaidCount.toString()} accent="#fbbf24" sub="Outstanding balance" />
         </div>
       </section>
     );
     if (s === "Monthly Revenue") return (
       <section key={s}>
-        <p className={sectionLabel}>Monthly Revenue — 2026</p>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {QB.monthly.map((m) => {
-            const pct = Math.round((m.rev / 2850) * 100);
-            return (
-              <div key={m.month} className="bg-[#111] border border-white/10 p-5">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{m.month}</p>
-                <p className={`text-xl font-bold mb-3 transition-all duration-200 ${blur}`}>${m.rev.toLocaleString()}</p>
-                <div className="h-1 bg-[#222] rounded-full overflow-hidden">
-                  <div className="h-full bg-white/40 rounded-full" style={{ width: `${pct}%` }} />
+        <p className={sectionLabel}>Monthly Revenue — {new Date().getFullYear()}</p>
+        {QB.monthly.length === 0 ? (
+          <div className="bg-[#111] border border-white/10 p-8 text-center">
+            <p className="text-[#444] text-sm">No invoice data yet — add invoices in QuickBooks and they&apos;ll appear here after the next sync.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            {QB.monthly.map((m) => {
+              const maxRev = Math.max(...QB.monthly.map(x => x.rev), 1);
+              const pct = Math.round((m.rev / maxRev) * 100);
+              return (
+                <div key={m.month} className="bg-[#111] border border-white/10 p-5">
+                  <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{m.month}</p>
+                  <p className={`text-xl font-bold mb-3 transition-all duration-200 ${blur}`}>${m.rev.toLocaleString()}</p>
+                  <div className="h-1 bg-[#222] rounded-full overflow-hidden">
+                    <div className="h-full bg-white/40 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </section>
     );
     if (s === "Clients") return (
       <section key={s}>
         <p className={sectionLabel}>Clients — YTD</p>
         <div className="grid grid-cols-3 gap-3">
-          <Card label="New Clients" value={QB.newClients.toString()} accent="#60a5fa" sub="First-time this year" />
-          <Card label="Repeat Clients" value={QB.repeatClients.toString()} accent="#4ade80" sub="Returning this year" />
+          <Card label="Invoices YTD" value={QB.ytdInvoices.toString()} accent="#60a5fa" sub="Total invoices this year" />
+          <Card label="Avg per Invoice" value={avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"} accent="#4ade80" sub="YTD average" valueClass={blur} />
           <Card label="Referrals" accent="#a78bfa">
             <EditableNumber value={referrals} onChange={setReferrals} />
             <p className="text-xs text-[#444] mt-2">Click to edit</p>
@@ -347,15 +376,15 @@ export default function DashboardPage() {
         <p className={sectionLabel}>Services — YTD Bookings</p>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label: "Listing Photos", value: QB.services.photos },
-            { label: "Drone", value: QB.services.drone },
-            { label: "Matterport", value: QB.services.matterport },
-            { label: "Video", value: QB.services.video },
-            { label: "Headshots", value: QB.services.headshots },
+            { label: "Listing Photos", value: "—" },
+            { label: "Drone", value: "—" },
+            { label: "Matterport", value: "—" },
+            { label: "Video", value: "—" },
+            { label: "Headshots", value: "—" },
           ].map(item => (
             <div key={item.label} className="bg-[#111] border border-white/10 p-5">
               <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{item.label}</p>
-              <p className="text-2xl font-bold">{item.value}</p>
+              <p className="text-2xl font-bold text-[#555]">{item.value}</p>
             </div>
           ))}
         </div>
@@ -387,7 +416,7 @@ export default function DashboardPage() {
           <div className="bg-[#111] border border-white/10 p-6">
             <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Capacity Utilized</p>
             <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-3xl font-bold">{QB.ytdInvoices}</span>
+              <span className="text-3xl font-bold">{QB.ytdInvoices || 0}</span>
               <span className="text-[#555]">/</span>
               <input
                 type="number"
@@ -417,32 +446,38 @@ export default function DashboardPage() {
     if (s === "Recent Invoices") return (
       <section key={s}>
         <p className={sectionLabel}>Recent Invoices</p>
-        <div className="bg-[#111] border border-white/10 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10">
-                {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
-                  <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {QB.recentInvoices.map(inv => (
-                <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
-                  <td className="px-5 py-3">{inv.client}</td>
-                  <td className="px-5 py-3 text-[#888]">{inv.date}</td>
-                  <td className={`px-5 py-3 font-medium transition-all duration-200 ${blur}`}>{inv.amount}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
-                      {inv.paid ? "Paid" : "Unpaid"}
-                    </span>
-                  </td>
+        {QB.recentInvoices.length === 0 ? (
+          <div className="bg-[#111] border border-white/10 p-8 text-center">
+            <p className="text-[#444] text-sm">No invoices yet — add them in QuickBooks and they&apos;ll appear here after the next sync.</p>
+          </div>
+        ) : (
+          <div className="bg-[#111] border border-white/10 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
+                    <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {QB.recentInvoices.map(inv => (
+                  <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
+                    <td className="px-5 py-3">{inv.client}</td>
+                    <td className="px-5 py-3 text-[#888]">{inv.date}</td>
+                    <td className={`px-5 py-3 font-medium transition-all duration-200 ${blur}`}>{inv.amount}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
+                        {inv.paid ? "Paid" : "Unpaid"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     );
     return null;
@@ -488,7 +523,11 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-5">
-            <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 15, 2026</p>
+            <p className="text-xs tracking-[2px] uppercase text-[#444]">
+              {QB.syncedAt
+                ? `Last synced: ${new Date(QB.syncedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
+                : "Syncing..."}
+            </p>
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
