@@ -29,9 +29,6 @@ export async function GET(req: NextRequest) {
   });
 
   const responseText = await tokenRes.text();
-  console.log("[QB callback] Token exchange status:", tokenRes.status);
-  console.log("[QB callback] Token response:", responseText);
-  console.log("[QB callback] clientId length:", clientId.length, "secretLength:", clientSecret.length);
 
   let tokens: { refresh_token?: string; access_token?: string; expires_in?: number; [key: string]: unknown };
   try { tokens = JSON.parse(responseText); } catch { tokens = { raw: responseText }; }
@@ -41,7 +38,6 @@ export async function GET(req: NextRequest) {
       error: "Token exchange failed",
       httpStatus: tokenRes.status,
       details: tokens,
-      debug: { clientIdLen: clientId.length, secretLen: clientSecret.length, redirectUri, authHeaderStart: Buffer.from(`${clientId}:${clientSecret}`).toString("base64").substring(0, 20) },
     }, { status: 500 });
   }
 
