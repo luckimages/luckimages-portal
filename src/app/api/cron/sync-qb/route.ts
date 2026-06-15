@@ -56,53 +56,69 @@ export async function GET(req: Request) {
   const today = now.toISOString().split("T")[0];
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
-  const [plRes, invoicesRes] = await Promise.all([
+  const [plRes, plMonthlyRes, invoicesRes] = await Promise.all([
     fetch(
       `https://sandbox-quickbooks.api.intuit.com/v3/company/${realmId}/reports/ProfitAndLoss?start_date=${yearStart}&end_date=${today}&minorversion=70`,
+      { headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" } }
+    ),
+    fetch(
+      `https://sandbox-quickbooks.api.intuit.com/v3/company/${realmId}/reports/ProfitAndLoss?start_date=${yearStart}&end_date=${today}&summarize_column_by=Month&minorversion=70`,
       { headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" } }
     ),
     qbFetch(`/query?query=SELECT * FROM Invoice WHERE TxnDate >= '${yearStart}' ORDERBY TxnDate DESC MAXRESULTS 100`),
   ]);
 
-  const [plData, invoicesData] = await Promise.all([plRes.json(), invoicesRes.json()]);
+  const [plData, plMonthlyData, invoicesData] = await Promise.all([plRes.json(), plMonthlyRes.json(), invoicesRes.json()]);
 
-  // Parse P&L totals
+  // Parse P&L totals (single column)
   const rows = plData?.Rows?.Row || [];
   let revYTD = 0;
-  let expenses = 0;
   for (const row of rows) {
-    if (row.group === "Income" || row.type === "Section") {
+    if (row.group === "Income") {
       const total = row.Summary?.ColData?.[1]?.value;
-      if (total && row.group === "Income") revYTD = parseFloat(total) || 0;
-    }
-    if (row.group === "Expenses") {
-      const total = row.Summary?.ColData?.[1]?.value;
-      if (total) expenses = parseFloat(total) || 0;
+      if (total) revYTD = parseFloat(total) || 0;
     }
   }
+
+  // Parse monthly P&L — columns are months, find Income row
+  const monthCols: string[] = (plMonthlyData?.Columns?.Column || [])
+    .slice(1) // skip label column
+    .map((c: { ColTitle: string }) => c.ColTitle as string); // e.g. "Jan 2026"
+  const monthlyRows = plMonthlyData?.Rows?.Row || [];
+  const monthly: Record<string, number> = {};
+  for (const row of monthlyRows) {
+    if (row.group === "Income") {
+      const colData: { value: string }[] = row.Summary?.ColData || [];
+      colData.slice(1).forEach((cell, idx) => {
+        const val = parseFloat(cell.value) || 0;
+        if (val > 0 && monthCols[idx]) {
+          // ColTitle is like "Jan 2026" — convert to "2026-01"
+          const parts = monthCols[idx].split(" ");
+          const monthNum = String(new Date(`${parts[0]} 1`).getMonth() + 1).padStart(2, "0");
+          const year = parts[1] || String(now.getFullYear());
+          monthly[`${year}-${monthNum}`] = val;
+        }
+      });
+      break;
+    }
+  }
+
+  // Current month revenue from monthly breakdown
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const revMonth = monthly[currentMonthKey] || 0;
 
   // Parse invoices
   const invoices = invoicesData?.QueryResponse?.Invoice || [];
   const ytdInvoices = invoices.length;
   const unpaid = invoices.filter((i: { Balance: number }) => i.Balance > 0);
-  const revMonth = invoices
-    .filter((i: { TxnDate: string }) => i.TxnDate >= monthStart)
-    .reduce((sum: number, i: { TotalAmt: number }) => sum + (i.TotalAmt || 0), 0);
-
-  // Build monthly breakdown
-  const monthly: Record<string, number> = {};
-  for (const inv of invoices) {
-    const month = inv.TxnDate?.substring(0, 7);
-    if (month) monthly[month] = (monthly[month] || 0) + (inv.TotalAmt || 0);
-  }
 
   // Store snapshot
   await supabase.from("kpi_snapshots").upsert({
     id: 1,
     rev_ytd: revYTD,
     rev_month: revMonth,
-    expenses_ytd: expenses,
-    net_income: revYTD - expenses,
+    expenses_ytd: 0,
+    net_income: revYTD,
     ytd_invoices: ytdInvoices,
     unpaid_count: unpaid.length,
     monthly_breakdown: monthly,
