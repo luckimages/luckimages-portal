@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   console.log("[QB callback] Token response:", responseText);
   console.log("[QB callback] clientId length:", clientId.length, "secretLength:", clientSecret.length);
 
-  let tokens: Record<string, unknown>;
+  let tokens: { refresh_token?: string; access_token?: string; expires_in?: number; [key: string]: unknown };
   try { tokens = JSON.parse(responseText); } catch { tokens = { raw: responseText }; }
 
   if (!tokens.refresh_token) {
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     realm_id: realmId,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
-    expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+    expires_at: new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   });
 
