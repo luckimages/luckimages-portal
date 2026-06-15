@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       error: "Token exchange failed",
       httpStatus: tokenRes.status,
       details: tokens,
-      debug: { clientIdLen: clientId.length, secretLen: clientSecret.length, redirectUri },
+      debug: { clientIdLen: clientId.length, secretLen: clientSecret.length, redirectUri, authHeaderStart: Buffer.from(`${clientId}:${clientSecret}`).toString("base64").substring(0, 20) },
     }, { status: 500 });
   }
 
