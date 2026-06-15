@@ -88,7 +88,7 @@ export default function ClientPage() {
 
   const unpaidInvoices = invoices.filter(i => !i.paid);
   const totalOwed = unpaidInvoices.reduce((s, i) => s + i.amount_cents, 0);
-  const upcomingShoots = shoots.filter(s => s.status !== "completed" && s.status !== "cancelled");
+  const upcomingShoots = shoots.filter(s => s.status !== "cancelled");
   const totalSqFt = shoots.reduce((s, sh) => s + (sh.square_footage || 0), 0);
 
   const inputCls = "bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
@@ -139,8 +139,67 @@ export default function ClientPage() {
               </div>
             </div>
 
+            {/* ACTIVE SHOOT TRACKER */}
+            {upcomingShoots.length > 0 && (
+              <div>
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Active Shoots</p>
+                <div className="flex flex-col gap-4">
+                  {upcomingShoots.map(s => {
+                    const STAGES = [
+                      { key: "pending",    label: "Pending Confirmation" },
+                      { key: "en_route",   label: "En Route" },
+                      { key: "on_site",    label: "On Site" },
+                      { key: "wrapping",   label: "Wrapping Up" },
+                      { key: "editing",    label: "Editing" },
+                      { key: "delivered",  label: "Delivered" },
+                    ];
+                    const currentIdx = STAGES.findIndex(st => st.key === s.status);
+                    const activeIdx = currentIdx === -1 ? 0 : currentIdx;
+                    const isDelivered = s.status === "delivered";
+
+                    return (
+                      <div key={s.id} className="bg-[#111] border border-white/10 p-6">
+                        <div className="flex items-start justify-between mb-6">
+                          <div>
+                            <p className="font-semibold mb-1">{s.address}</p>
+                            <p className="text-xs text-[#555]">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
+                          </div>
+                          {isDelivered && (
+                            <button onClick={() => setTab("gallery")} className="text-xs tracking-[2px] uppercase text-[#4ade80] border border-[#4ade80]/30 px-4 py-2 hover:bg-[#4ade80]/10 transition-colors">
+                              View Media →
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Tracker bar */}
+                        <div className="flex items-center gap-0">
+                          {STAGES.map((stage, i) => {
+                            const done = i < activeIdx;
+                            const active = i === activeIdx;
+                            const last = i === STAGES.length - 1;
+                            return (
+                              <div key={stage.key} className="flex items-center flex-1 min-w-0">
+                                <div className="flex flex-col items-center flex-1 min-w-0">
+                                  <div className={`w-3 h-3 rounded-full border-2 transition-all mb-2 ${done || active ? "border-white bg-white" : "border-white/20 bg-transparent"} ${active ? "ring-2 ring-white/20 ring-offset-2 ring-offset-[#111]" : ""}`} />
+                                  <span className={`text-[9px] tracking-[1px] uppercase text-center leading-tight ${active ? "text-white" : done ? "text-white/50" : "text-white/20"}`}>{stage.label}</span>
+                                </div>
+                                {!last && (
+                                  <div className={`h-px flex-1 mx-1 mb-5 transition-all ${done ? "bg-white/50" : "bg-white/10"}`} />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* PAST SHOOTS */}
             <div>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Recent Shoots</p>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Shoot History</p>
               {shoots.length === 0 ? (
                 <div className="bg-[#111] border border-white/10 p-8 text-center">
                   <p className="text-[#555] text-sm mb-4">No shoots yet</p>
@@ -157,7 +216,7 @@ export default function ClientPage() {
                           <td className="px-5 py-3 text-[#888]">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString() : "—"}</td>
                           <td className="px-5 py-3 text-[#888] text-xs">{s.services?.join(", ")}</td>
                           <td className="px-5 py-3">
-                            <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${s.status === "completed" ? "bg-[#4ade8018] text-[#4ade80]" : s.status === "confirmed" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{s.status}</span>
+                            <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${s.status === "delivered" ? "bg-[#4ade8018] text-[#4ade80]" : s.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : s.status === "on_site" || s.status === "en_route" || s.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{s.status.replace("_", " ")}</span>
                           </td>
                         </tr>
                       ))}

@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 
-// QB data — synced June 10, 2026
+// QB data — synced June 15, 2026
 const QB = {
-  revMonth: 640,
-  revYTD: 10095,
+  revMonth: 790,
+  revYTD: 10245,
+  netIncome: 10027,
+  expenses: 223,
   shootsAllTime: 231,
   ytdInvoices: 39,
   newClients: 20,
@@ -34,7 +36,7 @@ const QB = {
     { month: "Mar", rev: 2575 },
     { month: "Apr", rev: 1650 },
     { month: "May", rev: 2850 },
-    { month: "Jun", rev: 640 },
+    { month: "Jun", rev: 790 },
   ],
 };
 
@@ -93,6 +95,11 @@ export default function DashboardPage() {
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
+  const [pendingShoots, setPendingShoots] = useState<Array<{
+    id: string; address: string; scheduled_at: string; services: string[];
+    notes: string; square_footage: number | null; client_email: string;
+  }>>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [order, setOrder] = useState<Section[]>(DEFAULT_ORDER);
   const [visible, setVisible] = useState<Record<Section, boolean>>(DEFAULT_VISIBLE);
 
@@ -118,6 +125,16 @@ export default function DashboardPage() {
       setUserName((meta?.full_name || data.user?.email || "").toUpperCase());
       if (meta?.section_order) setOrder(meta.section_order as Section[]);
       if (meta?.section_visible) setVisible(meta.section_visible as Record<Section, boolean>);
+
+      // Load pending shoot requests
+      const { data: pending } = await supabase
+        .from("shoots")
+        .select("id, address, scheduled_at, services, notes, square_footage, client_id")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
+      if (pending) {
+        setPendingShoots(pending.map(s => ({ ...s, client_email: s.client_id })));
+      }
 
       // Load active timer entry
       const { data: active } = await supabase
@@ -202,6 +219,22 @@ export default function DashboardPage() {
     setTimerStart(null);
     setMyWeekSeconds(s => s + elapsed);
     setElapsed(0);
+  }
+
+  async function approveShoot(id: string) {
+    setApprovingId(id);
+    const supabase = createClient();
+    await supabase.from("shoots").update({ status: "scheduled" }).eq("id", id);
+    setPendingShoots(prev => prev.filter(s => s.id !== id));
+    setApprovingId(null);
+  }
+
+  async function declineShoot(id: string) {
+    setApprovingId(id);
+    const supabase = createClient();
+    await supabase.from("shoots").update({ status: "cancelled" }).eq("id", id);
+    setPendingShoots(prev => prev.filter(s => s.id !== id));
+    setApprovingId(null);
   }
 
   function savePrefs(newOrder: Section[], newVisible: Record<Section, boolean>) {
@@ -455,7 +488,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-5">
-            <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 10, 2026</p>
+            <p className="text-xs tracking-[2px] uppercase text-[#444]">Last synced: June 15, 2026</p>
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
@@ -488,6 +521,74 @@ export default function DashboardPage() {
           </div>
         </div>
 
+
+        {/* PENDING SHOOT REQUESTS */}
+        <section>
+          <p className="text-xs tracking-[4px] uppercase mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            {pendingShoots.length > 0 ? (
+              <span className="text-[#fbbf24] flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-pulse" />
+                Pending Approval — {pendingShoots.length} Request{pendingShoots.length > 1 ? "s" : ""}
+              </span>
+            ) : (
+              <span className="text-[#555]">Shoot Requests</span>
+            )}
+          </p>
+          {pendingShoots.length === 0 ? (
+            <div className="bg-[#111] border border-white/10 p-8 text-center">
+              <p className="text-[#444] text-sm">No pending requests — you're all caught up.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pendingShoots.map(s => (
+                <div key={s.id} className="bg-[#111] border border-[#fbbf24]/20 p-6 flex flex-col md:flex-row md:items-center gap-6">
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Address</p>
+                      <p className="text-sm font-semibold">{s.address}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Requested Date</p>
+                      <p className="text-sm">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "TBD"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Services</p>
+                      <p className="text-sm text-[#888]">{s.services?.join(", ") || "—"}</p>
+                    </div>
+                    {s.square_footage && (
+                      <div>
+                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
+                        <p className="text-sm text-[#888]">{s.square_footage.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {s.notes && (
+                      <div className="col-span-2 md:col-span-4">
+                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                        <p className="text-sm text-[#888]">{s.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3 flex-shrink-0">
+                    <button
+                      onClick={() => approveShoot(s.id)}
+                      disabled={approvingId === s.id}
+                      className="text-xs tracking-[3px] uppercase bg-[#4ade80]/10 text-[#4ade80] border border-[#4ade80]/30 px-6 py-3 hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40"
+                    >
+                      {approvingId === s.id ? "..." : "Confirm ✓"}
+                    </button>
+                    <button
+                      onClick={() => declineShoot(s.id)}
+                      disabled={approvingId === s.id}
+                      className="text-xs tracking-[3px] uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-6 py-3 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {order.map(renderSection)}
 
