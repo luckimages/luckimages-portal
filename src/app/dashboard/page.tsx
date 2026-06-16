@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors";
-  const DEFAULT_ORDER: Section[] = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true };
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -207,6 +207,10 @@ export default function DashboardPage() {
       // Load realtors
       const realtorRes = await fetch("/api/admin/realtors");
       if (realtorRes.ok) setRealtors(await realtorRes.json());
+
+      // Load all upcoming shoots for calendar
+      const allShootsRes = await fetch("/api/admin/shoots?all=1");
+      if (allShootsRes.ok) setAllShoots(await allShootsRes.json());
     });
   }, []);
 
@@ -251,17 +255,26 @@ export default function DashboardPage() {
     setElapsed(0);
   }
 
+  async function refreshShoots() {
+    const [pendingRes, allRes] = await Promise.all([
+      fetch("/api/admin/shoots"),
+      fetch("/api/admin/shoots?all=1"),
+    ]);
+    if (pendingRes.ok) setPendingShoots(await pendingRes.json());
+    if (allRes.ok) setAllShoots(await allRes.json());
+  }
+
   async function approveShoot(id: string) {
     setApprovingId(id);
     await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "scheduled" }) });
-    setPendingShoots(prev => prev.filter(s => s.id !== id));
+    await refreshShoots();
     setApprovingId(null);
   }
 
   async function declineShoot(id: string) {
     setApprovingId(id);
     await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "cancelled" }) });
-    setPendingShoots(prev => prev.filter(s => s.id !== id));
+    await refreshShoots();
     setApprovingId(null);
   }
 
@@ -300,6 +313,10 @@ export default function DashboardPage() {
   const [realtors, setRealtors] = useState<Realtor[]>([]);
   const [realtorTab, setRealtorTab] = useState<"all" | "new">("all");
 
+  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string };
+  const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
+  const [calWeekOffset, setCalWeekOffset] = useState(0);
+
   const [hideRevenue, setHideRevenue] = useState(false);
   const blur = hideRevenue ? "blur-sm select-none" : "";
 
@@ -315,6 +332,82 @@ export default function DashboardPage() {
 
   function renderSection(s: Section) {
     if (!visible[s]) return null;
+    if (s === "Schedule") {
+      // Build week days based on offset
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0=Sun
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + calWeekOffset * 7);
+      monday.setHours(0, 0, 0, 0);
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        return d;
+      });
+      const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+      return (
+        <section key={s}>
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
+              Schedule
+            </p>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <button onClick={() => setCalWeekOffset(o => o - 1)} className="text-[#555] hover:text-white transition-colors px-2 py-1 text-sm">←</button>
+              <span className="text-xs tracking-[2px] uppercase text-[#666]">{weekLabel}</span>
+              <button onClick={() => setCalWeekOffset(o => o + 1)} className="text-[#555] hover:text-white transition-colors px-2 py-1 text-sm">→</button>
+              {calWeekOffset !== 0 && (
+                <button onClick={() => setCalWeekOffset(0)} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">Today</button>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {days.map((day, i) => {
+              const isToday = day.toDateString() === today.toDateString();
+              const dayStr = day.toISOString().split("T")[0];
+              const dayEvents = allShoots.filter(shoot => {
+                if (!shoot.scheduled_at) return false;
+                const shootDate = new Date(shoot.scheduled_at).toISOString().split("T")[0];
+                return shootDate === dayStr;
+              });
+              return (
+                <div key={i} className={`bg-[#111] border p-3 min-h-[120px] flex flex-col gap-2 ${isToday ? "border-white/30" : "border-white/10"}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs tracking-[2px] uppercase text-[#555]">{DAY_NAMES[i]}</span>
+                    <span className={`text-sm font-bold ${isToday ? "text-white" : "text-[#444]"}`}>{day.getDate()}</span>
+                  </div>
+                  {dayEvents.length === 0 && (
+                    <div className="flex-1" />
+                  )}
+                  {dayEvents.map(shoot => (
+                    <div
+                      key={shoot.id}
+                      className={`text-xs p-2 rounded-sm leading-tight ${
+                        shoot.status === "pending"
+                          ? "bg-[#fbbf2415] border border-[#fbbf2430] text-[#fbbf24]"
+                          : "bg-[#4ade8015] border border-[#4ade8030] text-[#4ade80]"
+                      }`}
+                    >
+                      <p className="font-semibold truncate">{shoot.client_name || "Client"}</p>
+                      <p className="text-[10px] opacity-70 truncate mt-0.5">{shoot.address}</p>
+                      {shoot.scheduled_at && (
+                        <p className="text-[10px] opacity-60 mt-0.5">
+                          {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        </p>
+                      )}
+                      {shoot.status === "pending" && (
+                        <p className="text-[9px] tracking-[1px] uppercase opacity-60 mt-1">Pending</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      );
+    }
     if (s === "Revenue") return (
       <section key={s}>
         <div className="flex items-center gap-3 mb-4">
