@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices";
-  const DEFAULT_ORDER: Section[] = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true };
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors";
+  const DEFAULT_ORDER: Section[] = ["Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -199,6 +199,10 @@ export default function DashboardPage() {
         setPartnerWeekSeconds(partnerTotal);
         setPartnerName(pName);
       }
+
+      // Load realtors
+      const realtorRes = await fetch("/api/admin/realtors");
+      if (realtorRes.ok) setRealtors(await realtorRes.json());
     });
   }, []);
 
@@ -289,6 +293,10 @@ export default function DashboardPage() {
       return next;
     });
   };
+
+  type Realtor = { id: string; full_name: string; email: string; phone: string | null; brokerage: string | null; referral_source: string | null; created_at: string };
+  const [realtors, setRealtors] = useState<Realtor[]>([]);
+  const [realtorTab, setRealtorTab] = useState<"all" | "new">("all");
 
   const [hideRevenue, setHideRevenue] = useState(false);
   const blur = hideRevenue ? "blur-sm select-none" : "";
@@ -480,6 +488,74 @@ export default function DashboardPage() {
         )}
       </section>
     );
+    if (s === "Realtors") {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const newRealtors = realtors.filter(r => new Date(r.created_at) >= sevenDaysAgo);
+      const displayed = realtorTab === "new" ? newRealtors : realtors;
+      return (
+        <section key={s}>
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
+              Realtors — Portal Members
+            </p>
+            <div className="flex flex-shrink-0 border border-white/10 overflow-hidden">
+              <button
+                onClick={() => setRealtorTab("all")}
+                className={`text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors ${realtorTab === "all" ? "bg-white text-black" : "text-[#555] hover:text-white"}`}
+              >
+                All ({realtors.length})
+              </button>
+              <button
+                onClick={() => setRealtorTab("new")}
+                className={`text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors flex items-center gap-2 ${realtorTab === "new" ? "bg-white text-black" : "text-[#555] hover:text-white"}`}
+              >
+                {newRealtors.length > 0 && realtorTab !== "new" && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />
+                )}
+                New ({newRealtors.length})
+              </button>
+            </div>
+          </div>
+          {displayed.length === 0 ? (
+            <div className="bg-[#111] border border-white/10 p-8 text-center">
+              <p className="text-[#444] text-sm">
+                {realtorTab === "new" ? "No new realtors in the last 7 days." : "No realtors have signed up yet."}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-[#111] border border-white/10 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    {["Name", "Email", "Phone", "Brokerage", "Source", "Joined"].map(h => (
+                      <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayed.map(r => {
+                    const isNew = new Date(r.created_at) >= sevenDaysAgo;
+                    return (
+                      <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                        <td className="px-5 py-3 font-medium flex items-center gap-2">
+                          {isNew && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] flex-shrink-0" title="New this week" />}
+                          {r.full_name || "—"}
+                        </td>
+                        <td className="px-5 py-3 text-[#888]">{r.email || "—"}</td>
+                        <td className="px-5 py-3 text-[#888]">{r.phone || "—"}</td>
+                        <td className="px-5 py-3 text-[#888]">{r.brokerage || "—"}</td>
+                        <td className="px-5 py-3 text-[#888]">{r.referral_source || "—"}</td>
+                        <td className="px-5 py-3 text-[#888]">{new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      );
+    }
     return null;
   }
 
