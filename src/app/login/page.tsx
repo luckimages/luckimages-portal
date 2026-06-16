@@ -37,28 +37,33 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
+    <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col relative overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <img src="/hero-4.jpg" alt="" className="w-full h-full object-cover opacity-65" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />
+      </div>
+      <div className="relative z-10 flex flex-col min-h-screen">
 
-      <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10">
+      <nav className="flex items-center justify-between px-8 py-6 border-b border-white/10" style={{textShadow:"0 2px 12px rgba(0,0,0,1)"}}>
         <Link href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">
           Luck Images
         </Link>
-        <Link href="/" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">
+        <Link href="/" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">
           ← Back
         </Link>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-20">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-sm" style={{textShadow:"0 2px 12px rgba(0,0,0,1)"}}>
 
           <div className="mb-10 text-center">
-            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-3">Portal Access</p>
-            <h1 className="text-3xl font-black tracking-tight uppercase">Sign In</h1>
+            <p className="text-xs tracking-[4px] uppercase text-white mb-3">Portal Access</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase text-white">Sign In</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label className="text-xs tracking-[2px] uppercase text-[#666]">Email</label>
+              <label className="text-xs tracking-[2px] uppercase text-white">Email</label>
               <input
                 type="email"
                 value={email}
@@ -70,7 +75,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs tracking-[2px] uppercase text-[#666]">Password</label>
+              <label className="text-xs tracking-[2px] uppercase text-white">Password</label>
               <input
                 type="password"
                 value={password}
@@ -91,21 +96,22 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{textShadow:"none", boxShadow:"0 4px 16px rgba(0,0,0,0.5)"}}
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
           <div className="mt-8 pt-8 border-t border-white/10 flex flex-col gap-3 text-center">
-            <p className="text-xs text-[#444] tracking-[1px]">
+            <p className="text-xs text-white tracking-[1px]">
               New realtor or client?{" "}
-              <Link href="/register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
+              <Link href="/register" className="text-white hover:text-white/70 transition-colors underline underline-offset-4">
                 Create account
               </Link>
             </p>
-            <p className="text-xs text-[#444] tracking-[1px]">
+            <p className="text-xs text-white tracking-[1px]">
               Luck Images photographer?{" "}
-              <Link href="/photographer-register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
+              <Link href="/photographer-register" className="text-white hover:text-white/70 transition-colors underline underline-offset-4">
                 Join the team
               </Link>
             </p>
@@ -115,11 +121,12 @@ export default function LoginPage() {
       </div>
 
       <footer className="border-t border-white/10 px-8 py-6 text-center">
-        <span className="text-xs tracking-[3px] uppercase text-[#333]">
+        <span className="text-xs tracking-[3px] uppercase text-white/30">
           © 2026 Luck Images — Austin, TX
         </span>
       </footer>
 
+      </div>
     </main>
   );
 }

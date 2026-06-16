@@ -5,12 +5,12 @@ import Link from "next/link";
 import HomeNav from "@/components/HomeNav";
 
 const SERVICES = [
-  "Listing Photos", "Twilight Photos", "Walk Through Video",
-  "Drone Photos", "Drone Video", "Matterport / 360 Tour",
-  "Virtual Staging", "Floorplans", "Brochures",
+  "Listing photos", "Twilight photos", "Walk through video",
+  "Drone photos", "Drone video", "Matterport / 360 tour",
+  "Virtual staging", "Floorplans", "Brochures",
 ];
 
-const LISTING_TYPES = ["Single Family", "Condo / Townhome", "Luxury", "Land / Lot", "Commercial", "New Construction"];
+const LISTING_TYPES = ["Single family", "Condo / townhome", "Luxury", "Land / lot", "Commercial", "New construction"];
 
 export default function ContactPage() {
   const [form, setForm] = useState({
@@ -42,7 +42,7 @@ export default function ContactPage() {
     }
   }
 
-  const inputCls = "bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors w-full placeholder:text-[#444]";
+  const inputCls = "bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/60 focus:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_0_16px_rgba(255,255,255,0.06)] transition-all duration-200 w-full placeholder:text-[#444]";
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -50,17 +50,28 @@ export default function ContactPage() {
 
       <div className="pt-32 pb-16 text-center px-6">
         <p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Get In Touch</p>
-        <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-6">Contact</h1>
-        <p className="text-[#666] text-lg max-w-md mx-auto leading-relaxed">
-          Ready to book or have questions? We'll get back to you fast.
+        <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-6">Let's Work Together</h1>
+        <p className="text-[#666] text-lg whitespace-nowrap">Fill out the form below and a member of our team will reach out shortly.</p>
+        <p className="text-[#666] text-sm mt-3">
+          Or call <a href="tel:5123751585" className="text-white/70 hover:text-white transition-colors">(512) 375-1585</a>
+          {" "}or email <a href="mailto:ryan@luckimages.com" className="text-white/70 hover:text-white transition-colors">ryan@luckimages.com</a>
         </p>
       </div>
 
       <div className="flex-1 px-6 pb-24 max-w-3xl mx-auto w-full">
+        <div className="border-[3px] border-white/50 p-8 md:p-12">
         {status === "sent" ? (
-          <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-12 text-center">
-            <p className="text-[#4ade80] text-sm tracking-[2px] uppercase mb-2">Message sent!</p>
-            <p className="text-[#666] text-sm">We'll be in touch within 24 hours.</p>
+          <div className="bg-[#0c0c0c] border border-white/20 p-12 text-center flex flex-col items-center gap-6">
+            <div>
+              <p className="text-white text-sm tracking-[2px] uppercase mb-2">Message sent!</p>
+              <p className="text-white/60 text-sm">We'll be in touch soon.</p>
+            </div>
+            <div className="border-t border-white/10 w-full pt-6 flex flex-col items-center gap-3">
+              <p className="text-white/50 text-xs tracking-[1px]">In the meantime, create your client account to get ready for your first shoot.</p>
+              <Link href="/register" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-3 font-semibold hover:bg-white/90 transition-colors">
+                Create Account →
+              </Link>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -103,7 +114,7 @@ export default function ContactPage() {
                   <button
                     key={t} type="button"
                     onClick={() => setForm(f => ({ ...f, listingType: f.listingType === t ? "" : t }))}
-                    className={`text-xs tracking-[1px] uppercase px-4 py-2 border transition-all ${form.listingType === t ? "border-white text-white bg-white/10" : "border-white/20 text-white/40 hover:border-white/40 hover:text-white/60"}`}
+                    className={`text-xs px-4 py-2 rounded-full border transition-all ${form.listingType === t ? "border-white text-white bg-white/10" : "border-white/20 text-white/40 hover:border-white/40 hover:text-white/60"}`}
                   >
                     {t}
                   </button>
@@ -119,7 +130,7 @@ export default function ContactPage() {
                   <button
                     key={s} type="button"
                     onClick={() => toggleService(s)}
-                    className={`text-xs tracking-[1px] uppercase px-4 py-2 border transition-all ${selectedServices.includes(s) ? "border-white text-white bg-white/10" : "border-white/20 text-white/40 hover:border-white/40 hover:text-white/60"}`}
+                    className={`text-xs px-4 py-2 rounded-full border transition-all ${selectedServices.includes(s) ? "border-white text-white bg-white/10" : "border-white/20 text-white/40 hover:border-white/40 hover:text-white/60"}`}
                   >
                     {s}
                   </button>
@@ -151,6 +162,7 @@ export default function ContactPage() {
             </button>
           </form>
         )}
+        </div>
       </div>
 
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { SERVICES } from "@/lib/services";
 
@@ -13,13 +14,14 @@ export default function HomeNav() {
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-5">
-      <Link href="/" className="text-base font-black tracking-tight uppercase hover:opacity-80 transition-opacity whitespace-nowrap">
-        Luck Images
+      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <Image src="/logo.png" alt="Luck Images" width={32} height={32} className="w-8 h-8" />
+        <span className="text-base font-black tracking-tight uppercase whitespace-nowrap">Luck Images</span>
       </Link>
 
       {/* Desktop nav */}
       <div className="hidden md:flex items-center gap-8">
-        <a href="#home" className={linkCls}>Home</a>
+        <Link href="/" className={linkCls}>Home</Link>
 
         <div
           className="relative"
@@ -52,7 +54,7 @@ export default function HomeNav() {
         </div>
 
         <Link href="/pricing" className={linkCls}>Pricing</Link>
-        <a href="#about" className={linkCls}>About</a>
+        <Link href="/about" className={linkCls}>About</Link>
         <Link href="/contact" className={linkCls}>Contact</Link>
 
         <Link href="/login" className="text-xs tracking-[3px] uppercase border border-white/25 px-5 py-2.5 hover:border-white hover:bg-white/5 transition-all">
@@ -77,7 +79,7 @@ export default function HomeNav() {
       {/* Mobile menu */}
       {menuOpen && (
         <div className="absolute top-full left-0 right-0 bg-[#0c0c0c]/95 border-b border-white/10 flex flex-col py-4 md:hidden">
-          <a href="#home" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Home</a>
+          <Link href="/" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Home</Link>
 
           {/* Services accordion */}
           <button
@@ -98,7 +100,7 @@ export default function HomeNav() {
             </div>
           )}
           <Link href="/pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</Link>
-          <a href="#about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</a>
+          <Link href="/about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</Link>
           <Link href="/contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</Link>
         </div>
       )}

@@ -40,9 +40,11 @@ export default function Home() {
         </div>
       </section>
 
+
       {/* SERVICES */}
-      <section id="services" className="px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 max-w-6xl mx-auto border border-white/50 gap-px bg-white/50">
+
+      <section id="services" className="px-8 pb-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 max-w-4xl mx-auto border border-white/50 gap-px bg-white/50">
           {SERVICES.map((s) => (
             <Link
               key={s.slug}
@@ -55,6 +57,26 @@ export default function Home() {
               <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
               <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
             </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* LOGO MARQUEE */}
+      <section className="py-8 border-y border-white/10 overflow-hidden">
+        <div className="flex w-max animate-marquee">
+          {[...Array(2)].map((_, copy) => (
+            <div key={copy} className="flex items-center gap-14 px-14">
+              {[
+                "Compass", "Keller Williams", "eXp Realty", "RE/MAX",
+                "Coldwell Banker", "Century 21", "Sotheby's International Realty",
+                "Douglas Elliman", "Berkshire Hathaway HomeServices", "United Real Estate",
+                "Better Homes & Gardens", "Moreland Properties",
+              ].map((name) => (
+                <span key={name + copy} className="text-[11px] tracking-[4px] uppercase font-semibold text-white/30 whitespace-nowrap">
+                  {name}
+                </span>
+              ))}
+            </div>
           ))}
         </div>
       </section>
