@@ -113,8 +113,18 @@ export default function DashboardPage() {
       const meta = data.user?.user_metadata;
       setUserId(uid);
       setUserName((meta?.full_name || data.user?.email || "").toUpperCase());
-      if (meta?.section_order) setOrder(meta.section_order as Section[]);
-      if (meta?.section_visible) setVisible(meta.section_visible as Record<Section, boolean>);
+      if (meta?.section_order) {
+        const saved = meta.section_order as Section[];
+        // Merge: keep saved order, append any new sections not yet in prefs
+        const merged = [...saved, ...DEFAULT_ORDER.filter(s => !saved.includes(s))];
+        setOrder(merged);
+      }
+      if (meta?.section_visible) {
+        const saved = meta.section_visible as Record<Section, boolean>;
+        // Merge: apply saved visibility, default new sections to visible
+        const merged = { ...DEFAULT_VISIBLE, ...saved };
+        setVisible(merged);
+      }
 
       // Load live QB KPI snapshot
       const { data: snap } = await supabase
