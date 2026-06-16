@@ -87,7 +87,7 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState("");
   const [pendingShoots, setPendingShoots] = useState<Array<{
     id: string; address: string; scheduled_at: string; services: string[];
-    notes: string; square_footage: number | null; client_email: string;
+    notes: string; square_footage: number | null; client_name: string; client_email: string;
   }>>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [order, setOrder] = useState<Section[]>(DEFAULT_ORDER);
@@ -158,15 +158,9 @@ export default function DashboardPage() {
         });
       }
 
-      // Load pending shoot requests
-      const { data: pending } = await supabase
-        .from("shoots")
-        .select("id, address, scheduled_at, services, notes, square_footage, client_id")
-        .eq("status", "pending")
-        .order("created_at", { ascending: true });
-      if (pending) {
-        setPendingShoots(pending.map(s => ({ ...s, client_email: s.client_id })));
-      }
+      // Load pending shoot requests (server-side to resolve client names)
+      const shootsRes = await fetch("/api/admin/shoots");
+      if (shootsRes.ok) setPendingShoots(await shootsRes.json());
 
       // Load active timer entry
       const { data: active } = await supabase
@@ -259,16 +253,14 @@ export default function DashboardPage() {
 
   async function approveShoot(id: string) {
     setApprovingId(id);
-    const supabase = createClient();
-    await supabase.from("shoots").update({ status: "scheduled" }).eq("id", id);
+    await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "scheduled" }) });
     setPendingShoots(prev => prev.filter(s => s.id !== id));
     setApprovingId(null);
   }
 
   async function declineShoot(id: string) {
     setApprovingId(id);
-    const supabase = createClient();
-    await supabase.from("shoots").update({ status: "cancelled" }).eq("id", id);
+    await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "cancelled" }) });
     setPendingShoots(prev => prev.filter(s => s.id !== id));
     setApprovingId(null);
   }
@@ -668,6 +660,11 @@ export default function DashboardPage() {
               {pendingShoots.map(s => (
                 <div key={s.id} className="bg-[#111] border border-[#fbbf24]/20 p-6 flex flex-col md:flex-row md:items-center gap-6">
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Client</p>
+                      <p className="text-sm font-semibold">{s.client_name || "—"}</p>
+                      {s.client_email && <p className="text-xs text-[#555] mt-0.5">{s.client_email}</p>}
+                    </div>
                     <div>
                       <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Address</p>
                       <p className="text-sm font-semibold">{s.address}</p>
