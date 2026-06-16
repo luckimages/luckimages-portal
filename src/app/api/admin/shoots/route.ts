@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createShootEvent } from "@/lib/googleCalendar";
 
 export async function GET(req: Request) {
   const supabase = createClient(
@@ -59,7 +60,49 @@ export async function PATCH(req: Request) {
   );
 
   const { id, status } = await req.json();
+
+  // Fetch shoot details before updating (needed for calendar event)
+  const { data: shoot } = await supabase
+    .from("shoots")
+    .select("id, address, scheduled_at, services, notes, client_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase.from("shoots").update({ status }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // If confirming, create Google Calendar event
+  if (status === "scheduled" && shoot?.scheduled_at) {
+    try {
+      // Resolve client name + email
+      let clientName = "";
+      let clientEmail = "";
+      if (shoot.client_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", shoot.client_id)
+          .single();
+        clientName = profile?.full_name ?? "";
+
+        const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+        const user = users?.users.find(u => u.id === shoot.client_id);
+        clientEmail = user?.email ?? "";
+      }
+
+      await createShootEvent({
+        address: shoot.address,
+        scheduledAt: shoot.scheduled_at,
+        services: shoot.services ?? [],
+        notes: shoot.notes ?? "",
+        clientEmail: clientEmail || undefined,
+        clientName: clientName || undefined,
+      });
+    } catch (calErr) {
+      console.error("Google Calendar event creation failed:", calErr);
+      // Don't fail the whole request if calendar fails
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
