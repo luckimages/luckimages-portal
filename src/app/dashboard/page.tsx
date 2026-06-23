@@ -421,6 +421,9 @@ export default function DashboardPage() {
 
   const [selectedShoot, setSelectedShoot] = useState<typeof pendingShoots[0] | null>(null);
   const [viewShoot, setViewShoot] = useState<ShootEvent | null>(null);
+  const [viewShootPhotographers, setViewShootPhotographers] = useState<string[]>([]);
+  const [savingAssignment, setSavingAssignment] = useState(false);
+  const [assignSaved, setAssignSaved] = useState(false);
   const [callsExpanded, setCallsExpanded] = useState(false);
 
   // Create shoot modal state
@@ -527,7 +530,7 @@ export default function DashboardPage() {
   const [realtors, setRealtors] = useState<Realtor[]>([]);
   const [realtorTab, setRealtorTab] = useState<"all" | "new">("all");
 
-  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string };
+  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[] };
   const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
   const [calWeekOffset, setCalWeekOffset] = useState(0);
 
@@ -657,7 +660,7 @@ export default function DashboardPage() {
                       onClick={() => {
                         const pending = pendingShoots.find(p => p.id === shoot.id);
                         if (pending) setSelectedShoot(pending);
-                        else setViewShoot(shoot);
+                        else { setViewShoot(shoot); setViewShootPhotographers(shoot.photographer_ids || []); setAssignSaved(false); }
                       }}
                       className={`text-xs p-2 rounded-sm leading-tight cursor-pointer transition-colors ${
                         shoot.status === "pending"
@@ -730,9 +733,41 @@ export default function DashboardPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-3 pt-1">
+                {/* Photographer assignment */}
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Assigned Photographer(s)</p>
+                  {photographers.length === 0 ? (
+                    <p className="text-xs text-[#444] italic">No photographers in system yet.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {photographers.map(p => {
+                        const assigned = viewShootPhotographers.includes(p.id);
+                        return (
+                          <button key={p.id} type="button"
+                            onClick={() => { setAssignSaved(false); setViewShootPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
+                            className={`text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button
+                    onClick={async () => {
+                      if (!viewShoot) return;
+                      setSavingAssignment(true);
+                      await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: viewShoot.id, status: viewShoot.status, photographer_ids: viewShootPhotographers }) });
+                      setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? { ...s, photographer_ids: viewShootPhotographers } : s));
+                      setSavingAssignment(false); setAssignSaved(true);
+                    }}
+                    disabled={savingAssignment}
+                    className="w-full py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                    {savingAssignment ? "Saving..." : assignSaved ? "Saved ✓" : "Save Assignment"}
+                  </button>
+                </div>
+                <div className="flex gap-3">
                   <a href="/admin/shoots" className="flex-1 text-center text-xs tracking-[2px] uppercase border border-white/10 text-[#888] px-4 py-2.5 hover:border-white/30 hover:text-white transition-colors">Manage Shoots →</a>
-                  <button onClick={() => setViewShoot(null)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black hover:bg-[#ddd] transition-colors">Close</button>
+                  <button onClick={() => setViewShoot(null)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
                 </div>
               </div>
             </div>

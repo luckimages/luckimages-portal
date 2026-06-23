@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const query = supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, status")
+    .select("id, address, scheduled_at, services, notes, square_footage, client_id, status, photographer_ids")
     .order("scheduled_at", { ascending: true });
 
   if (!all) query.eq("status", "pending");
@@ -55,6 +55,7 @@ export async function GET(req: Request) {
     ...s,
     client_name: nameMap[s.client_id] || emailMap[s.client_id] || s.client_id,
     client_email: emailMap[s.client_id] || "",
+    photographer_ids: s.photographer_ids || [],
   }));
 
   return NextResponse.json(result);
