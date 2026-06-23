@@ -1711,7 +1711,6 @@ export default function DashboardPage() {
           <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Contacts</a>
           <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">📞 Cold Calls</a>
           <a href="/admin/invite" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Invite Photographer</a>
-          <a href="/photographer" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Photographer Portal</a>
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Admin</span>
           <form action="/api/auth/signout" method="post" className="inline">
             <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
