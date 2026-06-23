@@ -539,6 +539,11 @@ export default function DashboardPage() {
   const [shootLogEntries, setShootLogEntries] = useState<TimeEntry[]>([]);
   const [shootLogExpanded, setShootLogExpanded] = useState(false);
   const [shootLogLoaded, setShootLogLoaded] = useState(false);
+  const [updatesHistoryOpen, setUpdatesHistoryOpen] = useState(false);
+  const [historyUpdates, setHistoryUpdates] = useState<typeof updates>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyMonth, setHistoryMonth] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; });
+  const [historySelectedDay, setHistorySelectedDay] = useState<string|null>(null);
   const [shootLogFilter, setShootLogFilter] = useState<"all"|"scheduled"|"completed"|"pending"|"cancelled">("all");
   const [shootLogMonth, setShootLogMonth] = useState("");
 
@@ -1310,7 +1315,17 @@ export default function DashboardPage() {
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
               <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                 <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
-                <span className="text-xs text-[#444]">48h</span>
+                <button onClick={async () => {
+                  setUpdatesHistoryOpen(true);
+                  if (historyUpdates.length === 0) {
+                    setHistoryLoading(true);
+                    const res = await fetch("/api/admin/company-updates?history=1");
+                    const json = await res.json();
+                    const all = [...(json.posts||[]).map((p: {id:string;message:string;created_at:string;created_by?:string}) => ({ id: p.id, type: "post", message: p.message, created_at: p.created_at, by: p.created_by })), ...(json.auto||[])].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    setHistoryUpdates(all);
+                    setHistoryLoading(false);
+                  }
+                }} className="text-xs text-[#444] hover:text-white transition-colors">120h · History →</button>
               </div>
               <div className="flex-1 overflow-y-auto min-h-0">
                 {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
@@ -1330,6 +1345,107 @@ export default function DashboardPage() {
                 <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
               </form>
             </div>
+
+            {/* UPDATES HISTORY MODAL */}
+            {updatesHistoryOpen && (() => {
+              const [year, month] = historyMonth.split("-").map(Number);
+              const monthStart = new Date(year, month - 1, 1);
+              const monthEnd = new Date(year, month, 0);
+              const daysInMonth = monthEnd.getDate();
+              const firstDow = monthStart.getDay();
+
+              // Group history by date string
+              const byDay: Record<string, typeof historyUpdates> = {};
+              for (const u of historyUpdates) {
+                const d = new Date(u.created_at);
+                if (d.getFullYear() === year && d.getMonth() === month - 1) {
+                  const key = String(d.getDate());
+                  if (!byDay[key]) byDay[key] = [];
+                  byDay[key].push(u);
+                }
+              }
+
+              // Available months from history
+              const monthSet = new Set(historyUpdates.map(u => {
+                const d = new Date(u.created_at);
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+              }));
+              const availableMonths = Array.from(monthSet).sort().reverse();
+
+              const selectedDay = historySelectedDay;
+              const setSelectedDay = setHistorySelectedDay;
+
+              return (
+                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setUpdatesHistoryOpen(false)}>
+                  <div className="bg-[#111] border border-white/10 w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+                      <span className="text-xs tracking-[3px] uppercase text-white">Update History</span>
+                      <div className="flex items-center gap-4">
+                        <select value={historyMonth} onChange={e => { setHistoryMonth(e.target.value); setHistorySelectedDay(null); }}
+                          className="bg-[#1a1a1a] border border-white/10 text-xs text-[#888] px-2 py-1 outline-none">
+                          {availableMonths.length === 0
+                            ? <option value={historyMonth}>{new Date(year, month-1).toLocaleDateString("en-US",{month:"long",year:"numeric"})}</option>
+                            : availableMonths.map(m => {
+                              const [y,mo] = m.split("-").map(Number);
+                              return <option key={m} value={m}>{new Date(y,mo-1).toLocaleDateString("en-US",{month:"long",year:"numeric"})}</option>;
+                            })}
+                        </select>
+                        <button onClick={() => setUpdatesHistoryOpen(false)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">×</button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-1 min-h-0">
+                      {/* Calendar */}
+                      <div className="w-80 flex-shrink-0 p-4 border-r border-white/10 overflow-y-auto">
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                          {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
+                            <div key={d} className="text-[10px] text-[#444] text-center">{d}</div>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                          {Array.from({length: firstDow}).map((_,i) => <div key={`e${i}`} />)}
+                          {Array.from({length: daysInMonth}).map((_,i) => {
+                            const day = String(i+1);
+                            const hasDots = byDay[day]?.length > 0;
+                            const isSelected = selectedDay === day;
+                            return (
+                              <button key={day} onClick={() => setSelectedDay(isSelected ? null : day)}
+                                className={`aspect-square flex flex-col items-center justify-center text-xs transition-colors rounded ${isSelected ? "bg-white text-black" : hasDots ? "text-white hover:bg-white/10" : "text-[#333] hover:bg-white/5"}`}>
+                                {i+1}
+                                {hasDots && !isSelected && <span className="w-1 h-1 rounded-full bg-[#4ade80] mt-0.5" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Day detail */}
+                      <div className="flex-1 overflow-y-auto min-h-0 p-4">
+                        {!selectedDay ? (
+                          <div className="text-xs text-[#333] italic">Select a day to view updates</div>
+                        ) : !byDay[selectedDay]?.length ? (
+                          <div className="text-xs text-[#333] italic">No activity on {new Date(year, month-1, Number(selectedDay)).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
+                        ) : (
+                          <>
+                            <p className="text-xs text-[#555] tracking-[2px] uppercase mb-3">{new Date(year, month-1, Number(selectedDay)).toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
+                            {byDay[selectedDay].map(u => {
+                              const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : "💬";
+                              return (
+                                <div key={u.id} className="py-2 border-b border-white/5">
+                                  <p className="text-xs">{icon} {u.message}</p>
+                                  <p className="text-[10px] text-[#444] mt-0.5">{new Date(u.created_at).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}{u.by ? ` · ${u.by}` : ""}</p>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {historyLoading && <div className="px-5 py-3 border-t border-white/10 text-xs text-[#444]">Loading history...</div>}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </section>
       );

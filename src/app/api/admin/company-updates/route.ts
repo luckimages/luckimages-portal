@@ -11,22 +11,28 @@ function service() {
   );
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = service();
 
-  // Manual posts
-  const { data: posts } = await db.from("company_updates").select("*").order("created_at", { ascending: false }).limit(20);
+  const url = new URL(req.url ?? "http://localhost");
+  const history = url.searchParams.get("history") === "1";
 
-  // Auto-generated activity from other tables (last 48h)
-  const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  // Manual posts
+  const postsQuery = db.from("company_updates").select("*").order("created_at", { ascending: false });
+  if (!history) postsQuery.limit(20);
+  const { data: posts } = await postsQuery;
+
+  // Auto-generated activity from other tables (last 120h, or all-time if ?history=1)
+  const since = history ? new Date(0).toISOString() : new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString();
+  const rowLimit = history ? 500 : 15;
   const [{ data: calls }, { data: contacts }, { data: shoots }] = await Promise.all([
-    db.from("cold_calls").select("id, called_at, outcome, called_by, listing_address, contact_id").gte("called_at", since).order("called_at", { ascending: false }).limit(10),
-    db.from("contacts").select("id, name, created_at, stage").gte("created_at", since).order("created_at", { ascending: false }).limit(10),
-    db.from("shoots").select("id, address, scheduled_at, status, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(5),
+    db.from("cold_calls").select("id, called_at, outcome, called_by, listing_address, contact_id").gte("called_at", since).order("called_at", { ascending: false }).limit(rowLimit),
+    db.from("contacts").select("id, name, created_at, stage").gte("created_at", since).order("created_at", { ascending: false }).limit(rowLimit),
+    db.from("shoots").select("id, address, scheduled_at, status, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(rowLimit),
   ]);
 
   // Merge contact names into calls
