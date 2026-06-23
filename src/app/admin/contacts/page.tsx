@@ -282,15 +282,14 @@ export default function ContactsPage() {
         )}
       </div>
 
-      {/* Profile Drawer */}
+      {/* Profile Modal */}
       {profile && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setProfile(null)} />
-          <div className="fixed right-0 top-0 h-full w-full max-w-md bg-zinc-950 border-l border-zinc-800 z-50 overflow-y-auto flex flex-col">
-            {/* Drawer header */}
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Header */}
             <div className="flex items-start justify-between p-6 border-b border-zinc-800">
               <div className="flex items-center gap-3">
-                <button onClick={() => toggleHot(profile)} className="text-2xl leading-none" title="Toggle hot lead">
+                <button onClick={() => toggleHot(profile)} className="text-2xl leading-none">
                   {profile.is_hot ? "🔥" : <span className="text-zinc-700 hover:text-zinc-500">🔥</span>}
                 </button>
                 <div>
@@ -304,21 +303,23 @@ export default function ContactsPage() {
             </div>
 
             {/* Contact info */}
-            <div className="p-6 border-b border-zinc-800 space-y-3">
+            <div className="p-6 border-b border-zinc-800 space-y-4">
               {profileEditing ? (
                 <form onSubmit={saveProfileEdit} className="space-y-3">
                   <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="Name" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-                  <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                    placeholder="Phone" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-                  <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="Email" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-                  <input value={form.brokerage} onChange={e => setForm(f => ({ ...f, brokerage: e.target.value }))}
-                    placeholder="Brokerage" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-                  <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none">
-                    {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                      placeholder="Phone" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
+                    <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="Email" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
+                    <input value={form.brokerage} onChange={e => setForm(f => ({ ...f, brokerage: e.target.value }))}
+                      placeholder="Brokerage" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
+                    <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                      {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
                   <textarea rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                     placeholder="Notes..." className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500 resize-none" />
                   <div className="flex gap-2 pt-1">
@@ -332,79 +333,71 @@ export default function ContactsPage() {
                 </form>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <p className="text-zinc-500 text-xs mb-0.5">Phone</p>
+                      <p className="text-zinc-500 text-xs mb-1">Phone</p>
                       <p>{profile.phone || "—"}</p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 text-xs mb-0.5">Email</p>
+                      <p className="text-zinc-500 text-xs mb-1">Email</p>
                       <p className="truncate">{profile.email || "—"}</p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 text-xs mb-0.5">Brokerage</p>
+                      <p className="text-zinc-500 text-xs mb-1">Brokerage</p>
                       <p>{profile.brokerage || "—"}</p>
                     </div>
                     <div>
-                      <p className="text-zinc-500 text-xs mb-0.5">Revenue</p>
+                      <p className="text-zinc-500 text-xs mb-1">Revenue</p>
                       <p className="font-medium">{profile.total_revenue > 0 ? `$${profile.total_revenue.toLocaleString()}` : "—"}</p>
                     </div>
                   </div>
                   {profile.notes && (
-                    <div className="pt-1">
+                    <div>
                       <p className="text-zinc-500 text-xs mb-1">Notes</p>
                       <p className="text-sm text-zinc-300">{profile.notes}</p>
                     </div>
                   )}
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-1">
                     <button onClick={() => setProfileEditing(true)}
-                      className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm hover:bg-zinc-800 transition-colors">
-                      Edit
-                    </button>
+                      className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm hover:bg-zinc-800 transition-colors">Edit</button>
                     <button onClick={() => router.push(`/admin/cold-calls?contact=${profile.id}`)}
-                      className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm transition-colors">
-                      📞 Call
-                    </button>
+                      className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm transition-colors">📞 Call</button>
                     <button onClick={() => deleteContact(profile)}
-                      className="px-3 py-2 rounded-lg border border-zinc-800 text-sm text-zinc-600 hover:text-red-400 hover:border-red-900 transition-colors">
-                      Delete
-                    </button>
+                      className="px-4 py-2 rounded-lg border border-zinc-800 text-sm text-zinc-600 hover:text-red-400 hover:border-red-900 transition-colors">Delete</button>
                   </div>
                 </>
               )}
             </div>
 
             {/* Call history */}
-            <div className="p-6 flex-1">
+            <div className="p-6">
               <p className="text-xs text-zinc-500 uppercase tracking-widest mb-4">Call History</p>
               {profileCalls.length === 0 ? (
                 <p className="text-zinc-600 text-sm">No calls logged yet.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {profileCalls.map(call => (
-                    <div key={call.id} className="bg-zinc-900 rounded-lg p-3 border border-zinc-800">
-                      <div className="flex items-center justify-between mb-1">
+                    <div key={call.id} className="bg-zinc-800 rounded-lg p-3 flex items-start justify-between gap-3">
+                      <div>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           call.outcome === "booked" ? "bg-green-900 text-green-300" :
                           call.outcome === "interested" || call.outcome === "callback" ? "bg-blue-900 text-blue-300" :
                           call.outcome === "not_interested" ? "bg-red-950 text-red-400" :
                           "bg-zinc-700 text-zinc-300"
-                        }`}>
-                          {OUTCOME_LABELS[call.outcome] || call.outcome}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {new Date(call.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        </span>
+                        }`}>{OUTCOME_LABELS[call.outcome] || call.outcome}</span>
+                        {call.listing_address && <p className="text-xs text-zinc-400 mt-1">{call.listing_address}</p>}
+                        {call.notes && <p className="text-xs text-zinc-500 mt-1 italic">{call.notes}</p>}
                       </div>
-                      {call.listing_address && <p className="text-xs text-zinc-400 mt-1">{call.listing_address}</p>}
-                      {call.notes && <p className="text-xs text-zinc-500 mt-1 italic">{call.notes}</p>}
+                      <span className="text-xs text-zinc-500 whitespace-nowrap">
+                        {new Date(call.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Add Modal */}
