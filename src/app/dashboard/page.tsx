@@ -463,11 +463,7 @@ export default function DashboardPage() {
     });
     if (!res.ok) { setCsSaving(false); return; }
     const { shoot } = await res.json();
-    // Trigger Google Calendar event via PATCH
-    await fetch("/api/admin/shoots", {
-      method: "PATCH", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ id: shoot.id, status: "scheduled", photographer_ids: csPhotographers }),
-    });
+    void shoot; // calendar event already fired in POST handler
     // Generate client invite link if client selected
     if (csClient?.email) {
       const ir = await fetch("/api/admin/invite-client", {

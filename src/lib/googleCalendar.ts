@@ -32,6 +32,7 @@ export async function createShootEvent({
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2hr block
 
   const attendees: { email: string; displayName?: string }[] = [
+    { email: "ryan@luckimages.com", displayName: "Ryan" },
     { email: "leif@luckimages.com", displayName: "Leif" },
   ];
   if (clientEmail) {
