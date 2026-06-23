@@ -212,46 +212,36 @@ export default function DashboardPage() {
       const pgRes = await fetch("/api/admin/photographers");
       if (pgRes.ok) setPhotographers(await pgRes.json());
 
-      // Load active timer entry
-      const { data: active } = await supabase
-        .from("time_entries")
-        .select("*")
-        .eq("user_id", uid)
-        .is("stopped_at", null)
-        .single();
-      if (active) {
-        setActiveEntryId(active.id);
-        setTimerStart(new Date(active.started_at));
-        setElapsed(Math.floor((Date.now() - new Date(active.started_at).getTime()) / 1000));
-      }
-
-      // Load this week's stats for all admins
-      const ws = weekStart();
-      const { data: weekEntries } = await supabase
-        .from("time_entries")
-        .select("user_id, user_name, duration_seconds, started_at, stopped_at")
-        .gte("started_at", ws.toISOString());
-
-      if (weekEntries) {
-        let myTotal = 0;
-        let partnerTotal = 0;
-        let pName = "";
-        const now = Date.now();
-        weekEntries.forEach(e => {
-          const secs = e.stopped_at
-            ? (e.duration_seconds || 0)
-            : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
-          if (e.user_id === uid) {
-            myTotal += secs;
-          } else {
-            partnerTotal += secs;
-            pName = e.user_name;
-            if (!e.stopped_at) setPartnerActive(true);
-          }
-        });
-        setMyWeekSeconds(myTotal);
-        setPartnerWeekSeconds(partnerTotal);
-        setPartnerName(pName);
+      // Load active timer + week stats via API (uses service role to bypass RLS)
+      const timerRes = await fetch("/api/admin/time-entries");
+      if (timerRes.ok) {
+        const { active, weekEntries } = await timerRes.json();
+        if (active) {
+          setActiveEntryId(active.id);
+          setTimerStart(new Date(active.started_at));
+          setElapsed(Math.floor((Date.now() - new Date(active.started_at).getTime()) / 1000));
+        }
+        if (weekEntries) {
+          let myTotal = 0;
+          let partnerTotal = 0;
+          let pName = "";
+          const now = Date.now();
+          weekEntries.forEach((e: { user_id: string; user_name: string; duration_seconds: number; started_at: string; stopped_at: string | null }) => {
+            const secs = e.stopped_at
+              ? (e.duration_seconds || 0)
+              : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
+            if (e.user_id === uid) {
+              myTotal += secs;
+            } else {
+              partnerTotal += secs;
+              pName = e.user_name;
+              if (!e.stopped_at) setPartnerActive(true);
+            }
+          });
+          setMyWeekSeconds(myTotal);
+          setPartnerWeekSeconds(partnerTotal);
+          setPartnerName(pName);
+        }
       }
 
       // Load realtors
@@ -277,33 +267,25 @@ export default function DashboardPage() {
   }, [timerStart]);
 
   async function startTimer() {
-    const supabase = createClient();
-    const name = userName || "Unknown";
-    const { data, error } = await supabase
-      .from("time_entries")
-      .insert({ user_id: userId, user_name: name, started_at: new Date().toISOString() })
-      .select()
-      .single();
-    if (error) {
-      console.error("startTimer error:", error);
-      alert("Timer error: " + error.message);
-      return;
-    }
-    if (data) {
-      setActiveEntryId(data.id);
-      setTimerStart(new Date(data.started_at));
-      setElapsed(0);
-    }
+    const res = await fetch("/api/admin/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "start", userName }),
+    });
+    const json = await res.json();
+    if (!res.ok) { alert("Timer error: " + json.error); return; }
+    setActiveEntryId(json.entry.id);
+    setTimerStart(new Date(json.entry.started_at));
+    setElapsed(0);
   }
 
   async function stopTimer() {
     if (!activeEntryId) return;
-    const supabase = createClient();
-    const stoppedAt = new Date().toISOString();
-    await supabase.from("time_entries").update({
-      stopped_at: stoppedAt,
-      duration_seconds: elapsed,
-    }).eq("id", activeEntryId);
+    await fetch("/api/admin/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "stop", entryId: activeEntryId, elapsed }),
+    });
     setActiveEntryId(null);
     setTimerStart(null);
     setMyWeekSeconds(s => s + elapsed);
