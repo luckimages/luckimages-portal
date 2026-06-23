@@ -270,11 +270,16 @@ export default function DashboardPage() {
   async function startTimer() {
     const supabase = createClient();
     const name = userName || "Unknown";
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("time_entries")
       .insert({ user_id: userId, user_name: name, started_at: new Date().toISOString() })
       .select()
       .single();
+    if (error) {
+      console.error("startTimer error:", error);
+      alert("Timer error: " + error.message);
+      return;
+    }
     if (data) {
       setActiveEntryId(data.id);
       setTimerStart(new Date(data.started_at));
