@@ -36,7 +36,7 @@ export default function PhotographerPage() {
       setUserId(uid);
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
       const [{ data: shootData }, { data: payData }] = await Promise.all([
-        supabase.from("shoots").select("*").eq("photographer_id", uid).order("scheduled_at", { ascending: true }),
+        supabase.from("shoots").select("*").contains("photographer_ids", [uid]).order("scheduled_at", { ascending: true }),
         supabase.from("pay_stubs").select("*, shoots(address, scheduled_at)").eq("photographer_id", uid).order("created_at", { ascending: false }),
       ]);
       setShoots(shootData || []);
