@@ -89,6 +89,13 @@ export default function ContactsPage() {
     setContacts(cs => cs.map(c => c.id === contact.id ? { ...c, stage } : c));
   }
 
+  async function deleteContact(contact: Contact) {
+    if (!confirm(`Delete ${contact.name}? This cannot be undone.`)) return;
+    const supabase = createClient();
+    await supabase.from("contacts").delete().eq("id", contact.id);
+    setContacts(cs => cs.filter(c => c.id !== contact.id));
+  }
+
   function openEdit(contact: Contact) {
     setSelected(contact);
     setForm({
@@ -232,6 +239,12 @@ export default function ContactsPage() {
                           className="text-xs text-zinc-500 hover:text-white transition-colors"
                         >
                           Call
+                        </button>
+                        <button
+                          onClick={() => deleteContact(contact)}
+                          className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+                        >
+                          Delete
                         </button>
                       </div>
                     </td>
