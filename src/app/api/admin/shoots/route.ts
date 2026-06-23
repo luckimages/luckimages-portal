@@ -17,13 +17,15 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const all = searchParams.get("all") === "1";
+  const full = searchParams.get("full") === "1"; // all statuses including completed/cancelled
 
   const query = supabase
     .from("shoots")
     .select("id, address, scheduled_at, services, notes, square_footage, client_id, status, photographer_ids")
-    .order("scheduled_at", { ascending: true });
+    .order("scheduled_at", { ascending: false });
 
-  if (!all) query.eq("status", "pending");
+  if (full) { /* no filter — return all */ }
+  else if (!all) query.eq("status", "pending");
   else query.in("status", ["pending", "scheduled"]);
 
   const { data: shoots, error } = await query;
@@ -121,6 +123,14 @@ export async function PATCH(req: Request) {
     .select("id, address, scheduled_at, services, notes, client_id, status")
     .eq("id", id)
     .single();
+
+  // Block completion if no media uploaded
+  if (status === "completed") {
+    const { count } = await supabase.from("media").select("id", { count: "exact", head: true }).eq("shoot_id", id);
+    if (!count || count === 0) {
+      return NextResponse.json({ error: "No media uploaded yet. Upload photos before marking complete." }, { status: 400 });
+    }
+  }
 
   const updatePayload: Record<string, unknown> = { status };
   if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;

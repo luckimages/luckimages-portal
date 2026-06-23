@@ -53,7 +53,7 @@ export default function ShootsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/admin/shoots?all=1").then(r => r.json()),
+      fetch("/api/admin/shoots?full=1").then(r => r.json()),
       fetch("/api/admin/photographers").then(r => r.json()),
       fetch("/api/admin/realtors").then(r => r.json()),
     ]).then(([shootData, photoData, clientData]) => {
@@ -109,12 +109,20 @@ export default function ShootsPage() {
     setSaving(false);
   }
 
+  const [statusError, setStatusError] = useState<Record<string, string>>({});
+
   async function updateStatus(id: string, status: string, photographer_ids?: string[]) {
-    await fetch("/api/admin/shoots", {
+    setStatusError(e => ({ ...e, [id]: "" }));
+    const res = await fetch("/api/admin/shoots", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status, photographer_ids }),
     });
+    if (!res.ok) {
+      const d = await res.json();
+      setStatusError(e => ({ ...e, [id]: d.error || "Failed" }));
+      return;
+    }
     setShoots(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   }
 
@@ -125,6 +133,7 @@ export default function ShootsPage() {
 
   function ShootCard({ shoot }: { shoot: Shoot }) {
     const [expanded, setExpanded] = useState(false);
+    const err = statusError[shoot.id];
     return (
       <div className={`bg-[#111] border border-white/10 p-4 hover:border-white/20 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""}`}>
         <div className="flex items-start justify-between gap-4">
@@ -185,7 +194,20 @@ export default function ShootsPage() {
                   </button>
                 </>
               )}
+              {shoot.status === "completed" && (
+                <button onClick={() => updateStatus(shoot.id, "scheduled")}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#fbbf24]/10 border border-[#fbbf24]/20 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors">
+                  ↩ Undo Complete
+                </button>
+              )}
+              {shoot.status === "cancelled" && (
+                <button onClick={() => updateStatus(shoot.id, "scheduled")}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white/5 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">
+                  ↩ Reopen
+                </button>
+              )}
             </div>
+            {err && <p className="text-xs text-red-400 mt-2">{err}</p>}
           </div>
         )}
       </div>
