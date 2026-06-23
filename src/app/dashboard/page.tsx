@@ -187,7 +187,7 @@ export default function DashboardPage() {
 
       // Load contacts + call logs
       const [{ data: cs }, { data: cls }] = await Promise.all([
-        supabase.from("contacts").select("*").order("is_hot", { ascending: false }).order("total_revenue", { ascending: false }),
+        supabase.from("contacts").select("*").order("name", { ascending: true }),
         supabase.from("cold_calls").select("*").order("called_at", { ascending: false }).limit(200),
       ]);
       setContacts(cs || []);

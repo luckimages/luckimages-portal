@@ -56,7 +56,7 @@ export default function ContactsPage() {
     const { data } = await supabase
       .from("contacts")
       .select("*")
-      .order("total_revenue", { ascending: false });
+      .order("name", { ascending: true });
     setContacts(data || []);
     setLoading(false);
   }
@@ -117,9 +117,7 @@ export default function ContactsPage() {
     return matchSearch && matchStage;
   });
 
-  const hotLeads = filtered.filter(c => c.is_hot);
-  const rest = filtered.filter(c => !c.is_hot);
-  const allSorted = [...hotLeads, ...rest];
+  const allSorted = filtered;
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
