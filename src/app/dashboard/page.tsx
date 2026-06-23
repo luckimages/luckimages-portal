@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Cold Calls", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: false, "Cold Calls": true };
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: false, "Cold Calls": true, "Command Center": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1235,16 +1235,14 @@ export default function DashboardPage() {
     }
     if (s === "Contacts") return null;
 
-    if (s === "Cold Calls") {
-      // Render Command Center above Cold Calls (compact height)
+    if (s === "Command Center") {
       const urgentCount = todos.filter(t => t.is_urgent).length;
       const visibleTodos = todoFilter === "urgent" ? todos.filter(t => t.is_urgent) : todos;
-      const commandCenter = (
-        <section key="command-center" className="mb-6">
+      return (
+        <section key={s}>
           <p className={sectionLabel}>Command Center</p>
           <div className="grid grid-cols-2 gap-4">
-
-            {/* TO DO + NEEDS ATTENTION merged */}
+            {/* TO DO + NEEDS ATTENTION */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
               <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                 <div className="flex items-center gap-1">
@@ -1288,7 +1286,6 @@ export default function DashboardPage() {
                 <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">+</button>
               </form>
             </div>
-
             {/* UPDATES */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
               <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
@@ -1313,11 +1310,11 @@ export default function DashboardPage() {
                 <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
               </form>
             </div>
-
           </div>
         </section>
       );
-      // Fall through to render Cold Calls below — we prepend commandCenter via a fragment
+    }
+    if (s === "Cold Calls") {
       const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
       const weekLogs = callLogs.filter(l => new Date(l.called_at) >= weekStart);
       const weekLeads = weekLogs.filter(l => ["interested","callback","booked"].includes(l.outcome));
@@ -1327,9 +1324,7 @@ export default function DashboardPage() {
       );
       const recentLogs = callLogs.slice(0, 8);
       return (
-        <>
-          {commandCenter}
-          <section key={s}>
+        <section key={s}>
             <div className="flex items-center gap-4 mb-4">
               <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
                 Cold Calls
@@ -1519,8 +1514,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-          </section>
-        </>
+        </section>
       );
     }
 
