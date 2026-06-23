@@ -114,10 +114,10 @@ export async function PATCH(req: Request) {
 
   const { id, status, photographer_ids } = await req.json();
 
-  // Fetch shoot details before updating (needed for calendar event)
+  // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, client_id")
+    .select("id, address, scheduled_at, services, notes, client_id, status")
     .eq("id", id)
     .single();
 
@@ -127,8 +127,8 @@ export async function PATCH(req: Request) {
   const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // If confirming, create Google Calendar event
-  if (status === "scheduled" && shoot?.scheduled_at) {
+  // Only create calendar event when transitioning pending → scheduled (not already scheduled)
+  if (status === "scheduled" && shoot?.scheduled_at && shoot?.status === "pending") {
     try {
       // Resolve client name + email
       let clientName = "";
