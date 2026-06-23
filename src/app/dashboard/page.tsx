@@ -140,7 +140,17 @@ export default function DashboardPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Command center state
-  type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; is_urgent: boolean };
+  type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; completed_by?: string; is_urgent: boolean };
+
+  function userColor(name: string) {
+    if (name === "ryan") return "text-[#4ade80]";
+    if (name === "leif") return "text-[#60a5fa]";
+    return "text-[#888]";
+  }
+  function fmtTime(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
   type UpdateItem = { id: string; type: string; message: string; created_at: string; by?: string };
   const [todos, setTodos] = useState<Todo[]>([]);
   const [todoInput, setTodoInput] = useState("");
@@ -238,13 +248,14 @@ export default function DashboardPage() {
           let pName = "";
           const now = Date.now();
           weekEntries.forEach((e: { user_id: string; user_name: string; duration_seconds: number; started_at: string; stopped_at: string | null }) => {
-            const secs = e.stopped_at
-              ? (e.duration_seconds || 0)
-              : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
+            // Only count stopped entries — active entry is tracked live via `elapsed`
+            const secs = e.stopped_at ? (e.duration_seconds || 0) : 0;
             if (e.user_id === uid) {
               myTotal += secs;
             } else {
-              partnerTotal += secs;
+              // Partner: use live seconds for their active entry
+              const partnerSecs = e.stopped_at ? (e.duration_seconds || 0) : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
+              partnerTotal += partnerSecs;
               pName = e.user_name;
               if (!e.stopped_at) setPartnerActive(true);
             }
@@ -322,9 +333,9 @@ export default function DashboardPage() {
         let myTotal = 0; let partnerTotal = 0; let pName = "";
         const now = Date.now();
         weekEntries.forEach((e: { user_id: string; user_name: string; duration_seconds: number; started_at: string; stopped_at: string | null }) => {
-          const secs = e.stopped_at ? (e.duration_seconds || 0) : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
+          const secs = e.stopped_at ? (e.duration_seconds || 0) : 0;
           if (e.user_id === userId) { myTotal += secs; }
-          else { partnerTotal += secs; pName = e.user_name; }
+          else { partnerTotal += e.stopped_at ? (e.duration_seconds || 0) : Math.floor((now - new Date(e.started_at).getTime()) / 1000); pName = e.user_name; }
         });
         setMyWeekSeconds(myTotal);
         setPartnerWeekSeconds(partnerTotal);
@@ -408,8 +419,76 @@ export default function DashboardPage() {
     createClient().auth.updateUser({ data: { section_order: newOrder, section_visible: newVisible } });
   }
 
+  const [selectedShoot, setSelectedShoot] = useState<typeof pendingShoots[0] | null>(null);
+  const [viewShoot, setViewShoot] = useState<ShootEvent | null>(null);
+  const [callsExpanded, setCallsExpanded] = useState(false);
+
+  // Create shoot modal state
+  const [createShootOpen, setCreateShootOpen] = useState(false);
+  const [csAddress, setCsAddress] = useState("");
+  const [csDateTime, setCsDateTime] = useState("");
+  const [csServices, setCsServices] = useState<string[]>([]);
+  const [csNotes, setCsNotes] = useState("");
+  const [csSqft, setCsSqft] = useState("");
+  const [csClientSearch, setCsClientSearch] = useState("");
+  const [csClientResults, setCsClientResults] = useState<{id:string;name:string;email:string}[]>([]);
+  const [csClient, setCsClient] = useState<{id:string;name:string;email:string}|null>(null);
+  const [csPhotographers, setCsPhotographers] = useState<string[]>([]);
+  const [csSaving, setCsSaving] = useState(false);
+  const [csInviteLink, setCsInviteLink] = useState("");
+
+  const DASHBOARD_SERVICES = ["HDR Photography","Aerial / Drone","Virtual Staging","Video Walkthrough","3D Tour / Matterport","Floor Plan","Twilight Photography","Headshots / Agent Photos"];
+
+  function csToggleService(s: string) { setCsServices(p => p.includes(s) ? p.filter(x=>x!==s) : [...p,s]); }
+  function csTogglePhotographer(id: string) { setCsPhotographers(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]); }
+  function csSearchClients(q: string) {
+    setCsClientSearch(q);
+    if (!q.trim()) { setCsClientResults([]); return; }
+    const lower = q.toLowerCase();
+    setCsClientResults(realtors.filter((r:{id:string;full_name:string;email:string}) =>
+      (r.full_name||"").toLowerCase().includes(lower) || (r.email||"").toLowerCase().includes(lower)
+    ).slice(0,5).map((r:{id:string;full_name:string;email:string}) => ({id:r.id,name:r.full_name||r.email,email:r.email})));
+  }
+
+  async function createShootFromDashboard() {
+    if (!csAddress.trim()) return;
+    setCsSaving(true); setCsInviteLink("");
+    const res = await fetch("/api/admin/shoots", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        address: csAddress, scheduled_at: csDateTime||null, services: csServices,
+        notes: csNotes||null, square_footage: csSqft ? parseInt(csSqft) : null,
+        client_id: csClient?.id||null, photographer_ids: csPhotographers, status: "scheduled",
+      }),
+    });
+    if (!res.ok) { setCsSaving(false); return; }
+    const { shoot } = await res.json();
+    // Trigger Google Calendar event via PATCH
+    await fetch("/api/admin/shoots", {
+      method: "PATCH", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ id: shoot.id, status: "scheduled", photographer_ids: csPhotographers }),
+    });
+    // Generate client invite link if client selected
+    if (csClient?.email) {
+      const ir = await fetch("/api/admin/invite-client", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ email: csClient.email, name: csClient.name }),
+      });
+      const id = await ir.json();
+      if (id.link) setCsInviteLink(id.link);
+    }
+    await refreshShoots();
+    setCsSaving(false);
+    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsNotes(""); setCsSqft("");
+    setCsClient(null); setCsClientSearch(""); setCsPhotographers([]);
+    if (!csClient?.email) setCreateShootOpen(false);
+  }
+
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dragItem = useRef<number | null>(null);
+  const dragOver = useRef<number | null>(null);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
@@ -423,6 +502,19 @@ export default function DashboardPage() {
     setVisible(next);
     savePrefs(order, next);
   };
+
+  const onDragEnd = () => {
+    if (dragItem.current === null || dragOver.current === null || dragItem.current === dragOver.current) {
+      dragItem.current = null; dragOver.current = null; return;
+    }
+    const next = [...order];
+    const [moved] = next.splice(dragItem.current, 1);
+    next.splice(dragOver.current, 0, moved);
+    dragItem.current = null; dragOver.current = null;
+    setOrder(next);
+    savePrefs(next, visible);
+  };
+
   const moveSection = (s: Section, dir: -1 | 1) => {
     setOrder(prev => {
       const next = [...prev];
@@ -523,6 +615,7 @@ export default function DashboardPage() {
               Schedule
             </p>
             <div className="flex items-center gap-3 flex-shrink-0">
+              <button onClick={() => setCreateShootOpen(true)} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 hover:border-white/30 px-3 py-1">+ New Shoot</button>
               <button onClick={() => setCalWeekOffset(o => o - 1)} className="text-[#555] hover:text-white transition-colors px-2 py-1 text-sm">←</button>
               <span className="text-xs tracking-[2px] uppercase text-[#666]">{weekLabel}</span>
               <button onClick={() => setCalWeekOffset(o => o + 1)} className="text-[#555] hover:text-white transition-colors px-2 py-1 text-sm">→</button>
@@ -531,6 +624,19 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+          {/* TBD pending shoots — no date yet */}
+          {pendingShoots.filter(s => !s.scheduled_at).length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {pendingShoots.filter(s => !s.scheduled_at).map(s => (
+                <button key={s.id} onClick={() => setSelectedShoot(s)}
+                  className="text-xs px-3 py-1.5 bg-[#fbbf2415] border border-[#fbbf2430] text-[#fbbf24] hover:bg-[#fbbf2425] transition-colors flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-pulse" />
+                  {s.client_name || s.client_email || "Client"} — No date yet · tap to review
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-7 gap-2">
             {days.map((day, i) => {
               const isToday = day.toDateString() === today.toDateString();
@@ -552,10 +658,15 @@ export default function DashboardPage() {
                   {dayEvents.map(shoot => (
                     <div
                       key={shoot.id}
-                      className={`text-xs p-2 rounded-sm leading-tight ${
+                      onClick={() => {
+                        const pending = pendingShoots.find(p => p.id === shoot.id);
+                        if (pending) setSelectedShoot(pending);
+                        else setViewShoot(shoot);
+                      }}
+                      className={`text-xs p-2 rounded-sm leading-tight cursor-pointer transition-colors ${
                         shoot.status === "pending"
-                          ? "bg-[#fbbf2415] border border-[#fbbf2430] text-[#fbbf24]"
-                          : "bg-[#4ade8015] border border-[#4ade8030] text-[#4ade80]"
+                          ? "bg-[#fbbf2415] border border-[#fbbf2430] text-[#fbbf24] hover:bg-[#fbbf2425]"
+                          : "bg-[#4ade8015] border border-[#4ade8030] text-[#4ade80] hover:bg-[#4ade8025]"
                       }`}
                     >
                       <p className="font-semibold truncate">{shoot.client_name || "Client"}</p>
@@ -565,15 +676,286 @@ export default function DashboardPage() {
                           {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                         </p>
                       )}
-                      {shoot.status === "pending" && (
-                        <p className="text-[9px] tracking-[1px] uppercase opacity-60 mt-1">Pending</p>
-                      )}
+                      <p className="text-[9px] tracking-[1px] uppercase opacity-50 mt-1">
+                        {shoot.status === "pending" ? "Proposed ↗" : "View ↗"}
+                      </p>
                     </div>
                   ))}
                 </div>
               );
             })}
           </div>
+
+          {/* View shoot detail popup (confirmed/scheduled) */}
+          {viewShoot && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setViewShoot(null)}>
+              <div className="absolute inset-0 bg-black/70" />
+              <div className="relative bg-[#141414] border border-[#4ade80]/20 w-full max-w-lg p-6 space-y-5" onClick={e => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
+                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">Scheduled Shoot</p>
+                    </div>
+                    <p className="text-base font-semibold">{viewShoot.address}</p>
+                  </div>
+                  <button onClick={() => setViewShoot(null)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+                    <p>{viewShoot.scheduled_at ? new Date(viewShoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + " · " + new Date(viewShoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "TBD"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Client</p>
+                    <p className="font-medium">{viewShoot.client_name || "—"}</p>
+                    {viewShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{viewShoot.client_email}</p>}
+                  </div>
+                  {viewShoot.services?.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {viewShoot.services.map((svc: string) => (
+                          <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{svc}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {viewShoot.square_footage && (
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
+                      <p>{viewShoot.square_footage?.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {viewShoot.notes && (
+                    <div className="col-span-2">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                      <p className="text-[#888] text-xs">{viewShoot.notes}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <a href="/admin/shoots" className="flex-1 text-center text-xs tracking-[2px] uppercase border border-white/10 text-[#888] px-4 py-2.5 hover:border-white/30 hover:text-white transition-colors">Manage Shoots →</a>
+                  <button onClick={() => setViewShoot(null)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black hover:bg-[#ddd] transition-colors">Close</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Approval modal */}
+          {selectedShoot && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelectedShoot(null)}>
+              <div className="absolute inset-0 bg-black/70" />
+              <div className="relative bg-[#141414] border border-[#fbbf24]/30 w-full max-w-lg p-6 space-y-5" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-pulse" />
+                      <p className="text-[10px] tracking-[3px] uppercase text-[#fbbf24]">Pending Approval</p>
+                    </div>
+                    <p className="text-base font-semibold">{selectedShoot.address}</p>
+                  </div>
+                  <button onClick={() => setSelectedShoot(null)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+                </div>
+
+                {/* Details grid */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Client</p>
+                    <p className="font-medium">{selectedShoot.client_name || "—"}</p>
+                    {selectedShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{selectedShoot.client_email}</p>}
+                  </div>
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Requested Date</p>
+                    <p>{selectedShoot.scheduled_at ? new Date(selectedShoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + " · " + new Date(selectedShoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "No date requested"}</p>
+                  </div>
+                  {selectedShoot.services?.length > 0 && (
+                    <div className="col-span-2">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedShoot.services.map((svc: string) => (
+                          <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{svc}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedShoot.square_footage && (
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
+                      <p>{selectedShoot.square_footage.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {selectedShoot.notes && (
+                    <div className="col-span-2">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                      <p className="text-[#888] text-xs">{selectedShoot.notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Photographer assign */}
+                {photographers.length > 0 && (
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Assign Photographer(s)</p>
+                    <div className="flex flex-wrap gap-2">
+                      {photographers.map(p => {
+                        const selected = (shootPhotographers[selectedShoot.id] || []).includes(p.id);
+                        return (
+                          <button key={p.id} type="button" onClick={() => toggleShootPhotographer(selectedShoot.id, p.id)}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${selected ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {p.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={async () => { await approveShoot(selectedShoot.id); setSelectedShoot(null); }}
+                    disabled={approvingId === selectedShoot.id}
+                    className="flex-1 text-xs tracking-[3px] uppercase bg-[#4ade80]/10 text-[#4ade80] border border-[#4ade80]/30 px-5 py-3 hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40">
+                    {approvingId === selectedShoot.id ? "Confirming..." : "Confirm ✓"}
+                  </button>
+                  <button
+                    onClick={async () => { await declineShoot(selectedShoot.id); setSelectedShoot(null); }}
+                    disabled={approvingId === selectedShoot.id}
+                    className="text-xs tracking-[3px] uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-5 py-3 hover:bg-red-500/20 transition-colors disabled:opacity-40">
+                    Decline
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Create Shoot modal */}
+          {createShootOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { if (!csSaving) setCreateShootOpen(false); }}>
+              <div className="absolute inset-0 bg-black/80" />
+              <div className="relative bg-[#141414] border border-white/15 w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="sticky top-0 bg-[#141414] border-b border-white/10 px-6 py-4 flex items-center justify-between z-10">
+                  <p className="text-xs tracking-[3px] uppercase font-semibold">New Shoot</p>
+                  <button onClick={() => setCreateShootOpen(false)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+                </div>
+
+                {csInviteLink ? (
+                  // Success state — show invite link
+                  <div className="p-6 space-y-5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#4ade80]" />
+                      <p className="text-sm font-semibold">Shoot created + added to Google Calendar</p>
+                    </div>
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Client Invite Link</p>
+                      <p className="text-[10px] text-[#888] mb-3">Send this to your client — they click it to access their portal and see the shoot.</p>
+                      <div className="bg-[#111] border border-white/10 p-3 flex items-center gap-3">
+                        <p className="text-xs text-[#4ade80] font-mono break-all flex-1">{csInviteLink}</p>
+                        <button onClick={() => navigator.clipboard.writeText(csInviteLink)}
+                          className="text-xs tracking-[1px] uppercase px-3 py-1.5 border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-colors flex-shrink-0">Copy</button>
+                      </div>
+                    </div>
+                    <button onClick={() => { setCreateShootOpen(false); setCsInviteLink(""); }}
+                      className="w-full py-3 bg-white text-black text-xs tracking-[2px] uppercase font-semibold hover:bg-[#ddd] transition-colors">Done</button>
+                  </div>
+                ) : (
+                  <div className="p-6 space-y-5">
+                    {/* Address */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Address *</p>
+                      <input value={csAddress} onChange={e => setCsAddress(e.target.value)} placeholder="123 Main St, Austin TX"
+                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    </div>
+
+                    {/* Date + Sqft */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Date & Time</p>
+                        <input type="datetime-local" value={csDateTime} onChange={e => setCsDateTime(e.target.value)}
+                          className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 [color-scheme:dark]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Square Footage</p>
+                        <input type="number" value={csSqft} onChange={e => setCsSqft(e.target.value)} placeholder="2,400"
+                          className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                      </div>
+                    </div>
+
+                    {/* Services */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                      <div className="flex flex-wrap gap-2">
+                        {DASHBOARD_SERVICES.map(svc => (
+                          <button key={svc} type="button" onClick={() => csToggleService(svc)}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${csServices.includes(svc) ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {svc}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Client */}
+                    <div className="relative">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Client / Realtor</p>
+                      {csClient ? (
+                        <div className="flex items-center gap-3 bg-[#111] border border-white/20 px-4 py-3">
+                          <div className="flex-1">
+                            <p className="text-sm">{csClient.name}</p>
+                            <p className="text-xs text-[#555]">{csClient.email}</p>
+                          </div>
+                          <button type="button" onClick={() => { setCsClient(null); setCsClientSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
+                        </div>
+                      ) : (
+                        <>
+                          <input value={csClientSearch} onChange={e => csSearchClients(e.target.value)} placeholder="Search by name or email..."
+                            className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                          {csClientResults.length > 0 && (
+                            <div className="absolute z-10 w-full bg-[#1a1a1a] border border-white/20 mt-1">
+                              {csClientResults.map(c => (
+                                <button key={c.id} type="button" onClick={() => { setCsClient(c); setCsClientSearch(""); setCsClientResults([]); }}
+                                  className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors">
+                                  <p className="text-sm">{c.name}</p>
+                                  <p className="text-xs text-[#555]">{c.email}</p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Photographers */}
+                    {photographers.length > 0 && (
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+                        <div className="flex flex-wrap gap-2">
+                          {photographers.map(p => (
+                            <button key={p.id} type="button" onClick={() => csTogglePhotographer(p.id)}
+                              className={`text-xs px-3 py-1.5 border transition-colors ${csPhotographers.includes(p.id) ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
+                      <textarea value={csNotes} onChange={e => setCsNotes(e.target.value)} rows={2} placeholder="Any special instructions..."
+                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333] resize-none" />
+                    </div>
+
+                    <button onClick={createShootFromDashboard} disabled={!csAddress.trim() || csSaving}
+                      className="w-full py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors disabled:opacity-30">
+                      {csSaving ? "Creating..." : "Create Shoot + Add to Calendar"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       );
     }
@@ -853,11 +1235,16 @@ export default function DashboardPage() {
                 )}
                 {visibleTodos.map(t => (
                   <div key={t.id}
-                    className={`flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${t.is_urgent ? "border-l-2 border-l-red-500/60" : ""}`}>
+                    className={`flex items-start gap-2.5 px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${t.is_urgent ? "border-l-2 border-l-red-500/60" : ""}`}>
                     <button onClick={() => completeTodo(t.id)}
-                      className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
-                    <p className="text-xs truncate flex-1">{t.text}</p>
-                    <span className="text-[10px] text-[#444] flex-shrink-0">{t.created_by}</span>
+                      className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 mt-0.5 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs truncate">{t.text}</p>
+                      <p className="text-[9px] mt-0.5 flex items-center gap-1">
+                        <span className={userColor(t.created_by)}>{t.created_by}</span>
+                        <span className="text-[#333]">· {fmtTime(t.created_at)}</span>
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -900,188 +1287,208 @@ export default function DashboardPage() {
         </section>
       );
       // Fall through to render Cold Calls below — we prepend commandCenter via a fragment
-      return (
-        <>
-          {commandCenter}
-          {(() => {
+      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
+      const weekLogs = callLogs.filter(l => new Date(l.called_at) >= weekStart);
+      const weekLeads = weekLogs.filter(l => ["interested","callback","booked"].includes(l.outcome));
       const filteredCallContacts = contacts.filter(c =>
         !callContactSearch || c.name.toLowerCase().includes(callContactSearch.toLowerCase()) ||
         c.brokerage?.toLowerCase().includes(callContactSearch.toLowerCase())
       );
-      const recentLogs = callLogs.slice(0, 6);
+      const recentLogs = callLogs.slice(0, 8);
       return (
-        <section key={s}>
-          <div className="flex items-center gap-4 mb-4">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
-              📞 Cold Calls — {todayCalls}/{DAILY_GOAL} today
-            </p>
-            <a href="/admin/cold-calls" className="flex-shrink-0 text-xs tracking-[2px] uppercase border border-white/10 px-4 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all">
-              Full View →
-            </a>
-          </div>
-          <div className="bg-[#111] border border-white/10">
-
-            {/* Progress bar */}
-            <div className="px-5 pt-5 pb-4 border-b border-white/5 flex items-center gap-4">
-              <div className="flex-1 h-1.5 bg-[#222] overflow-hidden">
-                <div className="h-full bg-[#4ade80] transition-all duration-500" style={{ width: `${Math.min((todayCalls / DAILY_GOAL) * 100, 100)}%` }} />
-              </div>
-              <span className="text-sm font-bold text-[#4ade80] tabular-nums">{todayCalls}/{DAILY_GOAL}</span>
+        <>
+          {commandCenter}
+          <section key={s}>
+            <div className="flex items-center gap-4 mb-4">
+              <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
+                Cold Calls
+              </p>
+              <a href="/admin/cold-calls" className="flex-shrink-0 text-xs tracking-[2px] uppercase border border-white/10 px-4 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all">
+                Full View →
+              </a>
             </div>
 
-            <div className="grid grid-cols-2 divide-x divide-white/5">
-              {/* LEFT — log a call */}
-              <div className="p-5 space-y-4">
-
-                {/* Zillow import */}
-                <div>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Zillow Listing URL</p>
-                  <div className="flex gap-2">
-                    <input value={zillowUrl} onChange={e => setZillowUrl(e.target.value)}
-                      placeholder="https://zillow.com/homedetails/..."
-                      className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 transition-colors placeholder:text-[#333]" />
-                    <button onClick={async () => {
-                      if (!zillowUrl.trim()) return;
-                      setZillowLoading(true);
-                      try {
-                        const res = await fetch("/api/admin/zillow-import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: zillowUrl }) });
-                        const d = await res.json();
-                        if (d.address) setCallListingAddress(d.address);
-                      } finally { setZillowLoading(false); }
-                    }} disabled={zillowLoading}
-                      className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
-                      {zillowLoading ? "..." : "Import"}
-                    </button>
+            {/* Collapsed stat card */}
+            {!callsExpanded ? (
+              <div className="bg-[#111] border border-white/10 flex items-center">
+                <div className="flex-1 grid grid-cols-2 divide-x divide-white/5">
+                  <div className="px-8 py-6">
+                    <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
+                    <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
                   </div>
-                  {callListingAddress && (
-                    <p className="text-xs text-[#4ade80] mt-1.5">📍 {callListingAddress}</p>
-                  )}
+                  <div className="px-8 py-6">
+                    <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekLeads.length}</p>
+                    <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
+                  </div>
+                </div>
+                <div className="px-6 flex-shrink-0">
+                  <button onClick={() => setCallsExpanded(true)}
+                    className="px-8 py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
+                    Start Calling →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#111] border border-white/10">
+                {/* Expanded header */}
+                <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <span className="text-xs text-[#555]"><span className="text-white font-bold tabular-nums">{weekLogs.length}</span> calls this week</span>
+                    <span className="text-xs text-[#555]"><span className="text-[#4ade80] font-bold tabular-nums">{weekLeads.length}</span> leads</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-32 h-1 bg-[#222] overflow-hidden">
+                        <div className="h-full bg-[#4ade80] transition-all duration-500" style={{ width: `${Math.min((todayCalls / DAILY_GOAL) * 100, 100)}%` }} />
+                      </div>
+                      <span className="text-xs text-[#4ade80] tabular-nums">{todayCalls}/{DAILY_GOAL} today</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setCallsExpanded(false)} className="text-[#555] hover:text-white text-xs transition-colors tracking-[1px] uppercase">Collapse ▲</button>
                 </div>
 
-                {/* Contact */}
-                <div>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact</p>
-                  {activeCallContact ? (
-                    <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{activeCallContact.name}</p>
-                        <p className="text-xs text-[#555]">{activeCallContact.brokerage || activeCallContact.phone || "—"}</p>
-                      </div>
-                      <button onClick={() => { setActiveCallContact(null); setCallContactSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
-                    </div>
-                  ) : showCallNewContact ? (
-                    <div className="space-y-2">
-                      <input autoFocus value={callNewContact.name} onChange={e => setCallNewContact(f => ({ ...f, name: e.target.value }))}
-                        placeholder="Name *" className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input value={callNewContact.phone} onChange={e => setCallNewContact(f => ({ ...f, phone: e.target.value }))}
-                          placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
-                        <input value={callNewContact.brokerage} onChange={e => setCallNewContact(f => ({ ...f, brokerage: e.target.value }))}
-                          placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
-                      </div>
+                <div className="grid grid-cols-2 divide-x divide-white/5">
+                  {/* LEFT — log a call */}
+                  <div className="p-5 space-y-4">
+                    {/* Zillow import */}
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Zillow Listing URL</p>
                       <div className="flex gap-2">
-                        <button onClick={() => setShowCallNewContact(false)} className="text-xs text-[#555] hover:text-white px-3 py-1.5 border border-white/10">Cancel</button>
+                        <input value={zillowUrl} onChange={e => setZillowUrl(e.target.value)}
+                          placeholder="https://zillow.com/homedetails/..."
+                          className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 transition-colors placeholder:text-[#333]" />
                         <button onClick={async () => {
-                          if (!callNewContact.name.trim()) return;
-                          const supabase = createClient();
-                          const { data } = await supabase.from("contacts").insert({
-                            name: callNewContact.name, phone: callNewContact.phone || null,
-                            brokerage: callNewContact.brokerage || null, stage: "lead", type: "lead",
-                          }).select().single();
-                          if (data) { setActiveCallContact(data); setContacts(cs => [...cs, data].sort((a,b) => a.name.localeCompare(b.name))); }
-                          setShowCallNewContact(false);
-                          setCallNewContact({ name: "", phone: "", brokerage: "" });
-                        }} className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-1.5 hover:bg-[#ddd]">
-                          Create &amp; Select
+                          if (!zillowUrl.trim()) return;
+                          setZillowLoading(true);
+                          try {
+                            const res = await fetch("/api/admin/zillow-import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: zillowUrl }) });
+                            const d = await res.json();
+                            if (d.address) setCallListingAddress(d.address);
+                          } finally { setZillowLoading(false); }
+                        }} disabled={zillowLoading}
+                          className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
+                          {zillowLoading ? "..." : "Import"}
                         </button>
                       </div>
+                      {callListingAddress && <p className="text-xs text-[#4ade80] mt-1.5">📍 {callListingAddress}</p>}
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <input value={callContactSearch} onChange={e => setCallContactSearch(e.target.value)}
-                        placeholder="Search contacts..."
-                        className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                      {callContactSearch && (
-                        <div className="bg-[#181818] border border-white/10 max-h-32 overflow-y-auto divide-y divide-white/5">
-                          {filteredCallContacts.slice(0, 8).map(c => (
-                            <button key={c.id} onClick={() => { setActiveCallContact(c); setCallContactSearch(""); }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors">
-                              <span className="font-medium">{c.name}</span>
-                              {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+
+                    {/* Contact */}
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact</p>
+                      {activeCallContact ? (
+                        <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{activeCallContact.name}</p>
+                            <p className="text-xs text-[#555]">{activeCallContact.brokerage || activeCallContact.phone || "—"}</p>
+                          </div>
+                          <button onClick={() => { setActiveCallContact(null); setCallContactSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
+                        </div>
+                      ) : showCallNewContact ? (
+                        <div className="space-y-2">
+                          <input autoFocus value={callNewContact.name} onChange={e => setCallNewContact(f => ({ ...f, name: e.target.value }))}
+                            placeholder="Name *" className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={callNewContact.phone} onChange={e => setCallNewContact(f => ({ ...f, phone: e.target.value }))}
+                              placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
+                            <input value={callNewContact.brokerage} onChange={e => setCallNewContact(f => ({ ...f, brokerage: e.target.value }))}
+                              placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setShowCallNewContact(false)} className="text-xs text-[#555] hover:text-white px-3 py-1.5 border border-white/10">Cancel</button>
+                            <button onClick={async () => {
+                              if (!callNewContact.name.trim()) return;
+                              const supabase = createClient();
+                              const { data } = await supabase.from("contacts").insert({
+                                name: callNewContact.name, phone: callNewContact.phone || null,
+                                brokerage: callNewContact.brokerage || null, stage: "lead", type: "lead",
+                              }).select().single();
+                              if (data) { setActiveCallContact(data); setContacts(cs => [...cs, data].sort((a,b) => a.name.localeCompare(b.name))); }
+                              setShowCallNewContact(false);
+                              setCallNewContact({ name: "", phone: "", brokerage: "" });
+                            }} className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-1.5 hover:bg-[#ddd]">
+                              Create &amp; Select
                             </button>
-                          ))}
-                          {filteredCallContacts.length === 0 && (
-                            <p className="px-3 py-2 text-xs text-[#444]">No match — </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <input value={callContactSearch} onChange={e => setCallContactSearch(e.target.value)}
+                            placeholder="Search contacts..."
+                            className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                          {callContactSearch && (
+                            <div className="bg-[#181818] border border-white/10 max-h-32 overflow-y-auto divide-y divide-white/5">
+                              {filteredCallContacts.slice(0, 8).map(c => (
+                                <button key={c.id} onClick={() => { setActiveCallContact(c); setCallContactSearch(""); }}
+                                  className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors">
+                                  <span className="font-medium">{c.name}</span>
+                                  {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                                </button>
+                              ))}
+                              {filteredCallContacts.length === 0 && <p className="px-3 py-2 text-xs text-[#444]">No match</p>}
+                            </div>
                           )}
+                          <button onClick={() => setShowCallNewContact(true)} className="text-xs text-[#555] hover:text-white transition-colors">+ New contact</button>
                         </div>
                       )}
-                      <button onClick={() => setShowCallNewContact(true)}
-                        className="text-xs text-[#555] hover:text-white transition-colors">
-                        + New contact
-                      </button>
                     </div>
-                  )}
-                </div>
 
-                {/* Outcome */}
-                <div>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Outcome</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CALL_OUTCOMES.map(o => (
-                      <button key={o.value} onClick={() => setCallOutcome(callOutcome === o.value ? "" : o.value)}
-                        className={`text-xs px-2.5 py-1 rounded-full transition-all ${callOutcome === o.value ? o.color : "bg-[#1a1a1a] text-[#555] hover:text-white"}`}>
-                        {o.label}
-                      </button>
-                    ))}
+                    {/* Outcome */}
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Outcome</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CALL_OUTCOMES.map(o => (
+                          <button key={o.value} onClick={() => setCallOutcome(callOutcome === o.value ? "" : o.value)}
+                            className={`text-xs px-2.5 py-1 rounded-full transition-all ${callOutcome === o.value ? o.color : "bg-[#1a1a1a] text-[#555] hover:text-white"}`}>
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
+                      <textarea value={callNote} onChange={e => setCallNote(e.target.value)} rows={2}
+                        placeholder="Quick note..."
+                        className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
+                    </div>
+
+                    <button onClick={logCallFromDashboard} disabled={!activeCallContact || !callOutcome || loggingCall}
+                      className="w-full py-2.5 text-xs tracking-[3px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                      {loggingCall ? "Logging..." : "Log Call"}
+                    </button>
+                  </div>
+
+                  {/* RIGHT — recent call log */}
+                  <div className="p-5">
+                    <p className="text-xs tracking-[2px] uppercase text-[#555] mb-3">Recent Calls</p>
+                    {recentLogs.length === 0 ? (
+                      <p className="text-xs text-[#333] italic">No calls logged yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {recentLogs.map(log => {
+                          const contact = contacts.find(c => c.id === log.contact_id);
+                          const outcome = CALL_OUTCOMES.find(o => o.value === log.outcome);
+                          return (
+                            <div key={log.id} className="border border-white/5 p-3 space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-medium truncate">{contact?.name || "Unknown"}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${outcome?.color || "bg-zinc-800 text-zinc-400"}`}>
+                                  {outcome?.label || log.outcome}
+                                </span>
+                              </div>
+                              {log.listing_address && <p className="text-xs text-[#555]">📍 {log.listing_address}</p>}
+                              {log.notes && <p className="text-xs text-[#444] italic">{log.notes}</p>}
+                              <p className="text-xs text-[#333]">{new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Notes */}
-                <div>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
-                  <textarea value={callNote} onChange={e => setCallNote(e.target.value)} rows={2}
-                    placeholder="Quick note..."
-                    className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
-                </div>
-
-                <button onClick={logCallFromDashboard} disabled={!activeCallContact || !callOutcome || loggingCall}
-                  className="w-full py-2.5 text-xs tracking-[3px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                  {loggingCall ? "Logging..." : "Log Call"}
-                </button>
               </div>
-
-              {/* RIGHT — recent call log */}
-              <div className="p-5">
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-3">Recent Calls</p>
-                {recentLogs.length === 0 ? (
-                  <p className="text-xs text-[#333] italic">No calls logged yet.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {recentLogs.map(log => {
-                      const contact = contacts.find(c => c.id === log.contact_id);
-                      const outcome = CALL_OUTCOMES.find(o => o.value === log.outcome);
-                      return (
-                        <div key={log.id} className="border border-white/5 p-3 space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-medium truncate">{contact?.name || "Unknown"}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${outcome?.color || "bg-zinc-800 text-zinc-400"}`}>
-                              {outcome?.label || log.outcome}
-                            </span>
-                          </div>
-                          {log.listing_address && <p className="text-xs text-[#555]">📍 {log.listing_address}</p>}
-                          {log.notes && <p className="text-xs text-[#444] italic">{log.notes}</p>}
-                          <p className="text-xs text-[#333]">{new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      );
-      })()}
+            )}
+          </section>
         </>
       );
     }
@@ -1172,7 +1579,7 @@ export default function DashboardPage() {
                 {qbSyncing ? "Syncing..." : "Sync QB"}
               </button>
             </div>
-            <div className="relative" ref={menuRef}>
+            <div ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
                 className="text-xs tracking-[2px] uppercase text-white flex items-center gap-1.5 hover:text-white/70 transition-colors"
@@ -1180,126 +1587,61 @@ export default function DashboardPage() {
                 Sections
                 <span className="text-[10px]">{menuOpen ? "▲" : "▼"}</span>
               </button>
+
+              {/* Slide-out panel */}
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-[#181818] border border-white/10 py-2 z-50 min-w-[200px]">
-                  <button
-                    onClick={() => { setOrder(DEFAULT_ORDER); setVisible(DEFAULT_VISIBLE); savePrefs(DEFAULT_ORDER, DEFAULT_VISIBLE); }}
-                    className="w-full text-left px-3 py-2 text-xs tracking-[2px] uppercase text-[#666] hover:text-white hover:bg-white/5 transition-colors border-b border-white/10 mb-1"
-                  >
-                    Reset to Default
-                  </button>
-                  {order.map((s, i) => (
-                    <div key={s} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 transition-colors">
-                      <input type="checkbox" checked={visible[s]} onChange={() => toggle(s)} className="accent-white w-3 h-3 cursor-pointer flex-shrink-0" />
-                      <span className="text-xs tracking-[2px] uppercase text-white flex-1">{s}</span>
-                      <div className="flex flex-col gap-0.5">
-                        <button onClick={() => moveSection(s, -1)} disabled={i === 0} className="text-[#555] hover:text-white disabled:opacity-20 leading-none text-[10px]">▲</button>
-                        <button onClick={() => moveSection(s, 1)} disabled={i === order.length - 1} className="text-[#555] hover:text-white disabled:opacity-20 leading-none text-[10px]">▼</button>
-                      </div>
+                <div className="fixed inset-0 z-50 flex">
+                  {/* Backdrop */}
+                  <div className="flex-1" onClick={() => setMenuOpen(false)} />
+                  {/* Panel */}
+                  <div className="w-72 bg-[#131313] border-l border-white/10 flex flex-col h-full shadow-2xl">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+                      <p className="text-xs tracking-[3px] uppercase font-semibold">Sections</p>
+                      <button onClick={() => setMenuOpen(false)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
                     </div>
-                  ))}
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] px-5 pt-4 pb-2">Drag to reorder · click to show/hide</p>
+                    <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                      {order.map((s, i) => (
+                        <div
+                          key={s}
+                          draggable
+                          onDragStart={() => { dragItem.current = i; }}
+                          onDragEnter={() => { dragOver.current = i; }}
+                          onDragEnd={onDragEnd}
+                          onDragOver={e => e.preventDefault()}
+                          onClick={() => toggle(s)}
+                          className={`flex items-center gap-3 px-3 py-3 rounded cursor-pointer select-none transition-colors group
+                            ${visible[s] ? "hover:bg-white/5" : "opacity-40 hover:opacity-60 hover:bg-white/5"}`}
+                        >
+                          {/* Drag grip */}
+                          <span className="text-[#333] group-hover:text-[#666] transition-colors cursor-grab active:cursor-grabbing flex-shrink-0" style={{ lineHeight: 1 }}>
+                            ⠿
+                          </span>
+                          <span className={`text-xs tracking-[2px] uppercase flex-1 transition-colors ${visible[s] ? "text-white" : "text-[#555]"}`}>
+                            {s}
+                          </span>
+                          {/* Toggle pill */}
+                          <div className={`w-8 h-4 rounded-full flex-shrink-0 transition-colors relative ${visible[s] ? "bg-white/20" : "bg-white/5"}`}>
+                            <div className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${visible[s] ? "bg-white right-0.5" : "bg-[#444] left-0.5"}`} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-5 py-4 border-t border-white/10">
+                      <button
+                        onClick={() => { setOrder(DEFAULT_ORDER); setVisible(DEFAULT_VISIBLE); savePrefs(DEFAULT_ORDER, DEFAULT_VISIBLE); }}
+                        className="w-full text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors py-2 border border-white/10 hover:border-white/30"
+                      >
+                        Reset to Default
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-
-        {/* PENDING SHOOT REQUESTS */}
-        <section>
-          <p className="text-xs tracking-[4px] uppercase mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            {pendingShoots.length > 0 ? (
-              <span className="text-[#fbbf24] flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-pulse" />
-                Pending Approval — {pendingShoots.length} Request{pendingShoots.length > 1 ? "s" : ""}
-              </span>
-            ) : (
-              <span className="text-[#555]">Shoot Requests</span>
-            )}
-          </p>
-          {pendingShoots.length === 0 ? (
-            <div className="bg-[#111] border border-white/10 p-8 text-center">
-              <p className="text-[#444] text-sm">No pending requests — you're all caught up.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {pendingShoots.map(s => (
-                <div key={s.id} className="bg-[#111] border border-[#fbbf24]/20 p-6 flex flex-col md:flex-row md:items-center gap-6">
-                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Client</p>
-                      <p className="text-sm font-semibold">{s.client_name || "—"}</p>
-                      {s.client_email && <p className="text-xs text-[#555] mt-0.5">{s.client_email}</p>}
-                    </div>
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Address</p>
-                      <p className="text-sm font-semibold">{s.address}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Requested Date</p>
-                      <p className="text-sm">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "TBD"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Services</p>
-                      <p className="text-sm text-[#888]">{s.services?.join(", ") || "—"}</p>
-                    </div>
-                    {s.square_footage && (
-                      <div>
-                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
-                        <p className="text-sm text-[#888]">{s.square_footage.toLocaleString()}</p>
-                      </div>
-                    )}
-                    {s.notes && (
-                      <div className="col-span-2 md:col-span-4">
-                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
-                        <p className="text-sm text-[#888]">{s.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-3 flex-shrink-0 min-w-[200px]">
-                    {photographers.length > 0 && (
-                      <div>
-                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Assign Photographers</p>
-                        <div className="flex flex-col gap-1.5">
-                          {photographers.map(p => {
-                            const selected = (shootPhotographers[s.id] || []).includes(p.id);
-                            return (
-                              <label key={p.id} className="flex items-center gap-2.5 cursor-pointer group">
-                                <input
-                                  type="checkbox"
-                                  checked={selected}
-                                  onChange={() => toggleShootPhotographer(s.id, p.id)}
-                                  className="accent-white w-3 h-3"
-                                />
-                                <span className={`text-xs tracking-[1px] uppercase transition-colors ${selected ? "text-white" : "text-[#555] group-hover:text-[#888]"}`}>{p.name}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => approveShoot(s.id)}
-                        disabled={approvingId === s.id}
-                        className="text-xs tracking-[3px] uppercase bg-[#4ade80]/10 text-[#4ade80] border border-[#4ade80]/30 px-5 py-3 hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40 flex-1"
-                      >
-                        {approvingId === s.id ? "..." : "Confirm ✓"}
-                      </button>
-                      <button
-                        onClick={() => declineShoot(s.id)}
-                        disabled={approvingId === s.id}
-                        className="text-xs tracking-[3px] uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-5 py-3 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
 
         {order.map(renderSection)}
 
@@ -1471,7 +1813,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />}
               <span className="text-xs tracking-[2px] uppercase text-[#666]">{myName}</span>
-              <span className="text-sm font-bold">{fmtHours(myWeekSeconds + (isRunning ? elapsed : 0))}</span>
+              <span className="text-sm font-bold">{fmtHours(myWeekSeconds + elapsed)}</span>
               {isRunning && <span className="text-xs text-[#4ade80] font-mono">{fmtClock(elapsed)}</span>}
             </div>
             <div className="w-px h-4 bg-white/10" />

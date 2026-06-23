@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase-server";
 import { createShootEvent } from "@/lib/googleCalendar";
+
+const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+
+function service() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 export async function GET(req: Request) {
   const supabase = createClient(
@@ -51,6 +58,52 @@ export async function GET(req: Request) {
   }));
 
   return NextResponse.json(result);
+}
+
+export async function POST(req: Request) {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { address, scheduled_at, services, notes, square_footage, client_id, photographer_ids, status: reqStatus } = await req.json();
+  if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
+
+  const db = service();
+  const insertStatus = reqStatus === "scheduled" ? "scheduled" : "pending";
+  const payload: Record<string, unknown> = {
+    address: address.trim(),
+    scheduled_at: scheduled_at || null,
+    services: services || [],
+    notes: notes?.trim() || null,
+    square_footage: square_footage || null,
+    client_id: client_id || null,
+    photographer_ids: photographer_ids || [],
+    status: insertStatus,
+  };
+
+  const { data, error } = await db.from("shoots").insert(payload).select().single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // If created as scheduled, fire Google Calendar event immediately
+  if (insertStatus === "scheduled" && data.scheduled_at) {
+    try {
+      let clientName = ""; let clientEmail = "";
+      if (client_id) {
+        const { data: profile } = await db.from("profiles").select("full_name").eq("id", client_id).single();
+        clientName = profile?.full_name ?? "";
+        const { data: users } = await db.auth.admin.listUsers({ perPage: 1000 });
+        const u = users?.users.find((u: {id: string}) => u.id === client_id);
+        clientEmail = (u as {email?: string})?.email ?? "";
+      }
+      await createShootEvent({
+        address: data.address, scheduledAt: data.scheduled_at,
+        services: data.services ?? [], notes: data.notes ?? "",
+        clientEmail: clientEmail || undefined, clientName: clientName || undefined,
+      });
+    } catch (e) { console.error("Calendar event failed:", e); }
+  }
+
+  return NextResponse.json({ shoot: data });
 }
 
 export async function PATCH(req: Request) {

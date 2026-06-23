@@ -3,7 +3,17 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; is_urgent: boolean };
+type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; completed_by?: string; is_urgent: boolean };
+
+function userColor(name: string) {
+  if (name === "ryan") return "text-[#4ade80]";
+  if (name === "leif") return "text-[#60a5fa]";
+  return "text-[#888]";
+}
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    + " · " + new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
 
 export default function TodosPage() {
   const router = useRouter();
@@ -75,7 +85,10 @@ export default function TodosPage() {
                     </button>
                     <div className="flex-1">
                       <p className="text-sm">{t.text}</p>
-                      <p className="text-xs text-[#444] mt-0.5">{t.created_by} · {new Date(t.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>
+                      <p className="text-xs mt-0.5 flex items-center gap-1.5">
+                        <span className={userColor(t.created_by)}>{t.created_by}</span>
+                        <span className="text-[#333]">· {fmtTime(t.created_at)}</span>
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -98,9 +111,16 @@ export default function TodosPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm line-through text-[#666]">{t.text}</p>
-                        <p className="text-xs text-[#333] mt-0.5">
-                          {t.created_by} · Created {new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          {t.completed_at && ` · Done ${new Date(t.completed_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                        <p className="text-xs mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span className={userColor(t.created_by)}>{t.created_by}</span>
+                          <span className="text-[#2a2a2a]">created {fmtTime(t.created_at)}</span>
+                          {t.completed_at && (
+                            <>
+                              <span className="text-[#2a2a2a]">·</span>
+                              <span className={userColor(t.completed_by || "")}>done {t.completed_by}</span>
+                              <span className="text-[#2a2a2a]">{fmtTime(t.completed_at)}</span>
+                            </>
+                          )}
                         </p>
                       </div>
                       <button onClick={() => del(t.id)} className="text-[#444] hover:text-red-400 text-xs transition-colors">✕</button>
