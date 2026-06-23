@@ -36,6 +36,17 @@ const OUTCOMES = [
   { value: "booked", label: "Booked!", color: "bg-green-900 text-green-300" },
 ];
 
+const SERVICES = [
+  { label: "Drone Photos (Lot Lines)", price: 200 },
+  { label: "Interior/Exterior Photos", price: 175 },
+  { label: "Photo + Drone Package", price: 325 },
+  { label: "Video Walkthrough", price: 250 },
+  { label: "Matterport 3D Tour", price: 225 },
+  { label: "Twilight Shoot", price: 250 },
+  { label: "Full Package", price: 750 },
+  { label: "Custom", price: 0 },
+];
+
 const EMAIL_TEMPLATES = [
   {
     label: "Drone Follow-up",
@@ -66,41 +77,39 @@ function ColdCallsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [todayCount, setTodayCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
   const [dailyGoal] = useState(20);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
-  const [search, setSearch] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContact, setNewContact] = useState({ name: "", phone: "", email: "", brokerage: "" });
   const [outcome, setOutcome] = useState("");
   const [callNotes, setCallNotes] = useState("");
   const [listingAddress, setListingAddress] = useState("");
   const [callbackAt, setCallbackAt] = useState("");
+  const [zillow, setZillow] = useState("");
+  const [zillowLoading, setZillowLoading] = useState(false);
+  const [zillowAgent, setZillowAgent] = useState<{ name: string; phone: string } | null>(null);
+  const [service, setService] = useState("");
+  const [servicePrice, setServicePrice] = useState("");
   const [logging, setLogging] = useState(false);
+  const [callerName, setCallerName] = useState("ryan");
   const [showEmail, setShowEmail] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [showAddContact, setShowAddContact] = useState(false);
-  const [newContact, setNewContact] = useState({ name: "", email: "", phone: "", brokerage: "", listing_address: "" });
-  const [zillow, setZillow] = useState("");
-  const [zillowLoading, setZillowLoading] = useState(false);
-  const [callerName, setCallerName] = useState("ryan");
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
     const [{ data: cs }, { data: logs }] = await Promise.all([
-      supabase.from("contacts").select("*").order("is_hot", { ascending: false }).order("total_revenue", { ascending: false }),
+      supabase.from("contacts").select("*").order("name", { ascending: true }),
       supabase.from("cold_calls").select("*").order("called_at", { ascending: false }),
     ]);
     setContacts(cs || []);
     setCallLogs(logs || []);
-
     const today = new Date().toISOString().split("T")[0];
-    const todayCalls = (logs || []).filter(l => l.called_at.startsWith(today));
-    setTodayCount(todayCalls.length);
-    setTotalCount((logs || []).length);
-
+    setTodayCount((logs || []).filter((l: CallLog) => l.called_at.startsWith(today)).length);
     if (preselectedId && cs) {
-      const found = cs.find(c => c.id === preselectedId);
+      const found = cs.find((c: Contact) => c.id === preselectedId);
       if (found) setActiveContact(found);
     }
   }, [preselectedId]);
@@ -114,325 +123,405 @@ function ColdCallsPage() {
     loadData();
   }, [router, loadData]);
 
-  async function logCall() {
-    if (!activeContact || !outcome) return;
-    setLogging(true);
-    const supabase = createClient();
-    await supabase.from("cold_calls").insert({
-      contact_id: activeContact.id,
-      outcome,
-      notes: callNotes || null,
-      listing_address: listingAddress || null,
-      callback_at: callbackAt ? new Date(callbackAt).toISOString() : null,
-      called_by: callerName,
-    });
-
-    // Update contact stage based on outcome
-    const stageMap: Record<string, string> = {
-      interested: "interested",
-      callback: "follow-up",
-      booked: "booked",
-      not_interested: "dead",
-    };
-    if (stageMap[outcome]) {
-      await supabase.from("contacts").update({ stage: stageMap[outcome] }).eq("id", activeContact.id);
-    }
-
-    setOutcome("");
-    setCallNotes("");
-    setListingAddress("");
-    setCallbackAt("");
-    setLogging(false);
-    await loadData();
-
-    // Auto-show email if interested or callback
-    if (outcome === "interested" || outcome === "callback") {
-      const tmpl = EMAIL_TEMPLATES[0];
-      setEmailSubject(tmpl.subject);
-      setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
-      setShowEmail(true);
-    }
-  }
-
-  async function sendEmail() {
-    if (!activeContact?.email) return;
-    setSendingEmail(true);
-    const res = await fetch("/api/admin/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactId: activeContact.id, to: activeContact.email, subject: emailSubject, body: emailBody }),
-    });
-    if (res.ok) {
-      setShowEmail(false);
-      setEmailSubject("");
-      setEmailBody("");
-      await loadData();
-    }
-    setSendingEmail(false);
-  }
-
-  async function addContact(e: React.FormEvent) {
-    e.preventDefault();
-    const supabase = createClient();
-    const { data } = await supabase.from("contacts").insert({
-      ...newContact,
-      type: "lead",
-      stage: "lead",
-    }).select().single();
-    if (data) setActiveContact(data);
-    setShowAddContact(false);
-    setNewContact({ name: "", email: "", phone: "", brokerage: "", listing_address: "" });
-    await loadData();
-  }
-
   async function importFromZillow() {
     if (!zillow.trim()) return;
     setZillowLoading(true);
+    setZillowAgent(null);
     try {
       const res = await fetch("/api/admin/zillow-import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: zillow }),
       });
       const data = await res.json();
-      if (data.address) {
-        setNewContact(n => ({ ...n, listing_address: data.address, brokerage: data.brokerage || n.brokerage }));
+      if (data.address) setListingAddress(data.address);
+      if (data.agentName) {
+        setZillowAgent({ name: data.agentName, phone: data.agentPhone || "" });
+        // Pre-fill new contact form if no contact selected
+        if (!activeContact) {
+          setShowNewContact(true);
+          setNewContact(f => ({
+            ...f,
+            name: data.agentName || f.name,
+            phone: data.agentPhone || f.phone,
+          }));
+        }
       }
     } catch {}
     setZillowLoading(false);
     setZillow("");
   }
 
+  async function logCall() {
+    if (!activeContact || !outcome) return;
+    setLogging(true);
+    const supabase = createClient();
+    const notesWithService = [
+      service ? `Service: ${service}${servicePrice ? ` ($${servicePrice})` : ""}` : "",
+      callNotes,
+    ].filter(Boolean).join("\n");
+
+    await supabase.from("cold_calls").insert({
+      contact_id: activeContact.id,
+      outcome,
+      notes: notesWithService || null,
+      listing_address: listingAddress || null,
+      callback_at: callbackAt ? new Date(callbackAt).toISOString() : null,
+      called_by: callerName,
+    });
+    const stageMap: Record<string, string> = { interested: "interested", callback: "follow-up", booked: "booked", not_interested: "dead" };
+    if (stageMap[outcome]) await supabase.from("contacts").update({ stage: stageMap[outcome] }).eq("id", activeContact.id);
+    if (outcome === "interested" || outcome === "callback") {
+      const tmpl = EMAIL_TEMPLATES[0];
+      setEmailSubject(tmpl.subject);
+      setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
+      setShowEmail(true);
+    }
+    setOutcome(""); setCallNotes(""); setListingAddress(""); setCallbackAt(""); setZillow(""); setZillowAgent(null); setService(""); setServicePrice("");
+    setLogging(false);
+    await loadData();
+  }
+
+  async function createAndSelect(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newContact.name.trim()) return;
+    const supabase = createClient();
+    const { data } = await supabase.from("contacts").insert({
+      name: newContact.name, phone: newContact.phone || null,
+      email: newContact.email || null, brokerage: newContact.brokerage || null,
+      stage: "lead", type: "lead",
+    }).select().single();
+    if (data) setActiveContact(data);
+    setShowNewContact(false);
+    setNewContact({ name: "", phone: "", email: "", brokerage: "" });
+    await loadData();
+  }
+
+  async function sendEmail() {
+    if (!activeContact?.email) return;
+    setSendingEmail(true);
+    await fetch("/api/admin/send-email", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: activeContact.id, to: activeContact.email, subject: emailSubject, body: emailBody }),
+    });
+    setSendingEmail(false);
+    setShowEmail(false);
+  }
+
+  // Follow-up queue: contacts whose last call was no_answer or callback, or stage is follow-up/interested
+  const followUpQueue = contacts.filter(c => {
+    if (c.stage === "interested" || c.stage === "follow-up") return true;
+    const lastCall = callLogs.find(l => l.contact_id === c.id);
+    return lastCall && (lastCall.outcome === "no_answer" || lastCall.outcome === "callback");
+  }).map(c => {
+    const lastCall = callLogs.find(l => l.contact_id === c.id);
+    return { contact: c, lastCall };
+  });
+
   const filteredContacts = contacts.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email?.toLowerCase().includes(search.toLowerCase()) ||
-    c.brokerage?.toLowerCase().includes(search.toLowerCase())
+    !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+    c.brokerage?.toLowerCase().includes(contactSearch.toLowerCase())
   );
 
-  const contactCallLogs = callLogs.filter(l => l.contact_id === activeContact?.id);
-  const todayProgress = Math.min((todayCount / dailyGoal) * 100, 100);
+  const recentLogs = callLogs.slice(0, 12);
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Top bar */}
-      <div className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0c0c0c] text-white">
+      {/* Header */}
+      <div className="border-b border-white/10 px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <button onClick={() => router.push("/dashboard")} className="text-zinc-500 text-sm hover:text-white">
+          <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">
             ← Dashboard
           </button>
-          <h1 className="text-lg font-bold">📞 Cold Calls</h1>
+          <h1 className="text-sm font-bold tracking-[3px] uppercase">📞 Cold Calls</h1>
         </div>
         <div className="flex items-center gap-6">
-          {/* Daily goal */}
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-sm font-bold">{todayCount} <span className="text-zinc-500 font-normal">/ {dailyGoal} today</span></div>
-              <div className="text-xs text-zinc-500">{totalCount} all time</div>
+            <div className="w-32 h-1.5 bg-[#222] overflow-hidden">
+              <div className="h-full bg-[#4ade80] transition-all duration-500" style={{ width: `${Math.min((todayCount / dailyGoal) * 100, 100)}%` }} />
             </div>
-            <div className="w-32 h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 rounded-full transition-all duration-500"
-                style={{ width: `${todayProgress}%` }}
-              />
-            </div>
-            <div className="text-sm font-bold text-green-400">{Math.round(todayProgress)}%</div>
+            <span className="text-sm font-bold text-[#4ade80] tabular-nums">{todayCount}/{dailyGoal} today</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
+          <div className="flex items-center gap-2 text-xs text-[#555]">
             Logging as:
             <select value={callerName} onChange={e => setCallerName(e.target.value)}
-              className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs text-white focus:outline-none">
+              className="bg-[#181818] border border-white/10 px-2 py-1 text-xs text-white focus:outline-none">
               <option value="ryan">Ryan</option>
               <option value="leif">Leif</option>
             </select>
           </div>
-          <button onClick={() => router.push("/admin/contacts")} className="text-sm text-zinc-400 hover:text-white">
-            All Contacts →
-          </button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel — contact list */}
-        <div className="w-72 border-r border-zinc-800 flex flex-col">
-          <div className="p-3 border-b border-zinc-800 space-y-2">
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search contacts..."
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-600"
-            />
-            <button
-              onClick={() => setShowAddContact(true)}
-              className="w-full py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-            >
-              + New Contact
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {filteredContacts.map(c => {
-              const lastCall = callLogs.find(l => l.contact_id === c.id);
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveContact(c)}
-                  className={`w-full text-left px-4 py-3 border-b border-zinc-800/50 hover:bg-zinc-800/40 transition-colors ${activeContact?.id === c.id ? "bg-zinc-800/60" : ""}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm truncate">{c.is_hot ? "🔥 " : ""}{c.name}</span>
-                    {lastCall && (
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${OUTCOMES.find(o => o.value === lastCall.outcome)?.color || "bg-zinc-700 text-zinc-400"}`}>
-                        {OUTCOMES.find(o => o.value === lastCall.outcome)?.label || lastCall.outcome}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-zinc-500 truncate mt-0.5">{c.brokerage || c.email || "—"}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div className="max-w-7xl mx-auto px-8 py-8 space-y-8">
 
-        {/* Right panel — active contact */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {activeContact ? (
-            <>
-              {/* Contact header */}
-              <div className="px-6 py-5 border-b border-zinc-800">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold">{activeContact.name}</h2>
-                    <div className="flex gap-4 mt-1 text-sm text-zinc-400">
-                      {activeContact.phone && <span>📱 {activeContact.phone}</span>}
-                      {activeContact.email && <span>✉️ {activeContact.email}</span>}
-                      {activeContact.brokerage && <span>🏢 {activeContact.brokerage}</span>}
+        {/* FOLLOW-UP QUEUE */}
+        {followUpQueue.length > 0 && (
+          <section>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              Follow-Up Queue — {followUpQueue.length} to contact
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {followUpQueue.map(({ contact, lastCall }) => {
+                const outcomeInfo = OUTCOMES.find(o => o.value === lastCall?.outcome);
+                return (
+                  <button
+                    key={contact.id}
+                    onClick={() => { setActiveContact(contact); window.scrollTo({ top: 400, behavior: "smooth" }); }}
+                    className={`bg-[#111] border text-left p-4 hover:border-white/20 transition-all ${activeContact?.id === contact.id ? "border-white/30" : "border-white/10"}`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <p className="text-sm font-medium truncate">{contact.is_hot ? "🔥 " : ""}{contact.name}</p>
+                      {lastCall && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${outcomeInfo?.color || "bg-zinc-700 text-zinc-300"}`}>
+                          {outcomeInfo?.label || lastCall.outcome}
+                        </span>
+                      )}
                     </div>
-                    {activeContact.notes && <p className="text-xs text-zinc-500 mt-2">{activeContact.notes}</p>}
-                  </div>
-                  <div className="flex gap-2">
-                    {activeContact.email && (
-                      <button
-                        onClick={() => {
-                          const tmpl = EMAIL_TEMPLATES[0];
-                          setEmailSubject(tmpl.subject);
-                          setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
-                          setShowEmail(true);
-                        }}
-                        className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-                      >
-                        ✉️ Email
+                    <p className="text-xs text-[#555]">{contact.brokerage || contact.phone || "—"}</p>
+                    {lastCall?.listing_address && <p className="text-xs text-[#444] mt-1">📍 {lastCall.listing_address}</p>}
+                    {lastCall && (
+                      <p className="text-xs text-[#333] mt-1">
+                        Last called {new Date(lastCall.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    )}
+                    {contact.stage === "interested" && !lastCall && (
+                      <span className="text-xs text-blue-400">Interested — follow up</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* MAIN 2-COL: LOG A CALL + RECENT CALLS */}
+        <div className="grid grid-cols-2 gap-8">
+
+          {/* LEFT — Log a call */}
+          <section>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              Log a Call
+            </p>
+            <div className="bg-[#111] border border-white/10 p-6 space-y-5">
+
+              {/* Zillow */}
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Zillow Listing URL</p>
+                <div className="flex gap-2">
+                  <input value={zillow} onChange={e => setZillow(e.target.value)}
+                    placeholder="https://zillow.com/homedetails/..."
+                    className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                  <button onClick={importFromZillow} disabled={zillowLoading || !zillow.trim()}
+                    className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2.5 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
+                    {zillowLoading ? "..." : "Import"}
+                  </button>
+                </div>
+                {listingAddress && <p className="text-xs text-[#4ade80] mt-1.5">📍 {listingAddress}</p>}
+                {zillowAgent && (
+                  <div className="mt-2 bg-blue-950/40 border border-blue-800/40 px-3 py-2 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-blue-300 font-medium">Agent found: {zillowAgent.name}</p>
+                      {zillowAgent.phone && <p className="text-xs text-blue-400/70">{zillowAgent.phone}</p>}
+                    </div>
+                    {!activeContact && (
+                      <button onClick={() => { setShowNewContact(true); setNewContact(f => ({ ...f, name: zillowAgent.name, phone: zillowAgent.phone })); }}
+                        className="text-xs text-blue-300 border border-blue-700/50 px-2 py-1 hover:bg-blue-900/30 transition-colors flex-shrink-0">
+                        Use as Contact
                       </button>
                     )}
-                    {activeContact.phone && (
-                      <a href={`tel:${activeContact.phone}`}
-                        className="px-3 py-1.5 text-sm bg-green-900 hover:bg-green-800 text-green-300 rounded-lg transition-colors">
-                        📞 Call
-                      </a>
-                    )}
                   </div>
+                )}
+              </div>
+
+              {/* Contact */}
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact</p>
+                {activeContact ? (
+                  <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{activeContact.name}</p>
+                      <p className="text-xs text-[#555]">{activeContact.brokerage || activeContact.phone || "—"}</p>
+                      {activeContact.phone && (
+                        <a href={`tel:${activeContact.phone}`} className="text-xs text-[#4ade80] hover:underline mt-0.5 block">
+                          📱 {activeContact.phone}
+                        </a>
+                      )}
+                    </div>
+                    <button onClick={() => { setActiveContact(null); setContactSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
+                  </div>
+                ) : showNewContact ? (
+                  <form onSubmit={createAndSelect} className="space-y-2">
+                    <input required autoFocus value={newContact.name} onChange={e => setNewContact(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Name *" className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={newContact.phone} onChange={e => setNewContact(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30" />
+                      <input value={newContact.brokerage} onChange={e => setNewContact(f => ({ ...f, brokerage: e.target.value }))}
+                        placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30" />
+                    </div>
+                    <input type="email" value={newContact.email} onChange={e => setNewContact(f => ({ ...f, email: e.target.value }))}
+                      placeholder="Email" className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30" />
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setShowNewContact(false)}
+                        className="text-xs text-[#555] hover:text-white px-3 py-2 border border-white/10 transition-colors">Cancel</button>
+                      <button type="submit"
+                        className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-2 hover:bg-[#ddd] transition-colors">
+                        Create &amp; Select
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="space-y-2">
+                    <input value={contactSearch} onChange={e => setContactSearch(e.target.value)}
+                      placeholder="Search contacts..."
+                      className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    {contactSearch && (
+                      <div className="bg-[#181818] border border-white/10 max-h-40 overflow-y-auto divide-y divide-white/5">
+                        {filteredContacts.slice(0, 10).map(c => (
+                          <button key={c.id} onClick={() => { setActiveContact(c); setContactSearch(""); }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors">
+                            <span className="font-medium">{c.name}</span>
+                            {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                          </button>
+                        ))}
+                        {filteredContacts.length === 0 && (
+                          <p className="px-3 py-2 text-xs text-[#444]">No match</p>
+                        )}
+                      </div>
+                    )}
+                    <button onClick={() => setShowNewContact(true)} className="text-xs text-[#555] hover:text-white transition-colors">
+                      + New contact
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Listing address (manual if no Zillow) */}
+              {!listingAddress && (
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Listing Address <span className="normal-case text-[#333]">(or use Zillow above)</span></p>
+                  <input value={listingAddress} onChange={e => setListingAddress(e.target.value)}
+                    placeholder="123 Main St, Austin TX"
+                    className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                </div>
+              )}
+
+              {/* Outcome */}
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Outcome</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {OUTCOMES.map(o => (
+                    <button key={o.value} onClick={() => setOutcome(outcome === o.value ? "" : o.value)}
+                      className={`text-xs px-3 py-1.5 rounded-full transition-all ${outcome === o.value ? o.color : "bg-[#1a1a1a] text-[#555] hover:text-white"}`}>
+                      {o.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Log a call */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-                  <h3 className="text-sm font-semibold mb-4">Log This Call</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-xs text-zinc-500 mb-2 block">Outcome *</label>
-                      <div className="flex flex-wrap gap-2">
-                        {OUTCOMES.map(o => (
-                          <button
-                            key={o.value}
-                            onClick={() => setOutcome(o.value)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
-                              outcome === o.value
-                                ? `${o.color} border-transparent scale-105`
-                                : "bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500"
-                            }`}
-                          >
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-500 mb-1 block">Listing Address</label>
-                      <input
-                        value={listingAddress}
-                        onChange={e => setListingAddress(e.target.value)}
-                        placeholder="123 Main St, Austin TX"
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-500 mb-1 block">Notes</label>
-                      <textarea
-                        rows={2}
-                        value={callNotes}
-                        onChange={e => setCallNotes(e.target.value)}
-                        placeholder="What happened on the call..."
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500 resize-none"
-                      />
-                    </div>
-                    {(outcome === "callback") && (
-                      <div>
-                        <label className="text-xs text-zinc-500 mb-1 block">Callback Date/Time</label>
-                        <input
-                          type="datetime-local"
-                          value={callbackAt}
-                          onChange={e => setCallbackAt(e.target.value)}
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500"
-                        />
-                      </div>
-                    )}
-                    <button
-                      onClick={logCall}
-                      disabled={!outcome || logging}
-                      className="w-full py-2.5 bg-white text-black rounded-lg text-sm font-medium hover:bg-zinc-200 transition-colors disabled:opacity-40"
-                    >
-                      {logging ? "Logging..." : "Log Call"}
-                    </button>
-                  </div>
+              {/* Callback date if applicable */}
+              {outcome === "callback" && (
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Callback Date/Time</p>
+                  <input type="datetime-local" value={callbackAt} onChange={e => setCallbackAt(e.target.value)}
+                    className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30" />
                 </div>
+              )}
 
-                {/* Call history */}
-                {contactCallLogs.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-3 text-zinc-400">Call History</h3>
-                    <div className="space-y-2">
-                      {contactCallLogs.map(log => (
-                        <div key={log.id} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3">
-                          <div className="flex items-center justify-between">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${OUTCOMES.find(o => o.value === log.outcome)?.color || "bg-zinc-700 text-zinc-300"}`}>
-                              {OUTCOMES.find(o => o.value === log.outcome)?.label || log.outcome}
-                            </span>
-                            <span className="text-xs text-zinc-500">
-                              {new Date(log.called_at).toLocaleDateString()} · {log.called_by}
-                            </span>
-                          </div>
-                          {log.listing_address && <p className="text-xs text-zinc-400 mt-1">📍 {log.listing_address}</p>}
-                          {log.notes && <p className="text-xs text-zinc-400 mt-1">{log.notes}</p>}
-                          {log.callback_at && (
-                            <p className="text-xs text-yellow-400 mt-1">
-                              📅 Callback: {new Date(log.callback_at).toLocaleString()}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+              {/* Service */}
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Service Pitched</p>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {SERVICES.map(s => (
+                    <button key={s.label} onClick={() => {
+                      setService(s.label === service ? "" : s.label);
+                      if (s.price && s.label !== service) setServicePrice(String(s.price));
+                      else if (s.label === service) setServicePrice("");
+                    }}
+                      className={`text-xs px-3 py-1.5 border transition-all ${service === s.label ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
+                      {s.label}{s.price ? ` · $${s.price}` : ""}
+                    </button>
+                  ))}
+                </div>
+                {service && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#555]">Price quoted:</span>
+                    <div className="flex items-center bg-[#181818] border border-white/10">
+                      <span className="text-xs text-[#555] px-2">$</span>
+                      <input type="number" value={servicePrice} onChange={e => setServicePrice(e.target.value)}
+                        placeholder="0" className="w-24 bg-transparent text-white text-xs px-2 py-2 outline-none" />
                     </div>
                   </div>
                 )}
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-zinc-600">
-                <div className="text-5xl mb-4">📞</div>
-                <div className="text-lg font-medium text-zinc-500">Select a contact to start calling</div>
-                <div className="text-sm text-zinc-600 mt-1">or add a new one from Zillow</div>
+
+              {/* Notes */}
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
+                <textarea value={callNotes} onChange={e => setCallNotes(e.target.value)} rows={3}
+                  placeholder="What happened on the call..."
+                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
+              </div>
+
+              <div className="flex gap-3">
+                {activeContact?.email && (
+                  <button onClick={() => {
+                    const tmpl = EMAIL_TEMPLATES[0];
+                    setEmailSubject(tmpl.subject);
+                    setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
+                    setShowEmail(true);
+                  }} className="px-4 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                    ✉ Email
+                  </button>
+                )}
+                <button onClick={logCall} disabled={!activeContact || !outcome || logging}
+                  className="flex-1 py-2.5 text-xs tracking-[3px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                  {logging ? "Logging..." : "Log Call"}
+                </button>
               </div>
             </div>
-          )}
+          </section>
+
+          {/* RIGHT — Recent call log */}
+          <section>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              Recent Calls
+            </p>
+            <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
+              {recentLogs.length === 0 ? (
+                <p className="text-xs text-[#333] italic p-6">No calls logged yet.</p>
+              ) : recentLogs.map(log => {
+                const contact = contacts.find(c => c.id === log.contact_id);
+                const outcomeInfo = OUTCOMES.find(o => o.value === log.outcome);
+                return (
+                  <div key={log.id} className="p-4 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                    onClick={() => contact && setActiveContact(contact)}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-medium truncate">{contact?.name || "Unknown"}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${outcomeInfo?.color || "bg-zinc-800 text-zinc-400"}`}>
+                        {outcomeInfo?.label || log.outcome}
+                      </span>
+                    </div>
+                    {log.listing_address && <p className="text-xs text-[#555]">📍 {log.listing_address}</p>}
+                    {log.notes && (() => {
+                      const lines = log.notes.split("\n");
+                      const svcLine = lines.find(l => l.startsWith("Service:"));
+                      const otherLines = lines.filter(l => !l.startsWith("Service:")).join(" ");
+                      return (
+                        <>
+                          {svcLine && <p className="text-xs text-[#6366f1] mt-0.5">{svcLine}</p>}
+                          {otherLines && <p className="text-xs text-[#444] italic mt-0.5">{otherLines}</p>}
+                        </>
+                      );
+                    })()}
+                    <p className="text-xs text-[#333] mt-1">
+                      {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </div>
 
@@ -467,73 +556,12 @@ function ColdCallsPage() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowEmail(false)}
-                className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm hover:bg-zinc-800 transition-colors">
-                Cancel
-              </button>
+                className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm hover:bg-zinc-800 transition-colors">Cancel</button>
               <button onClick={sendEmail} disabled={sendingEmail || !activeContact.email}
                 className="flex-1 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-zinc-200 disabled:opacity-40 transition-colors">
                 {sendingEmail ? "Sending..." : "Send Email"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Contact Modal */}
-      {showAddContact && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold mb-5">Add New Contact</h2>
-            {/* Zillow import */}
-            <div className="mb-4 p-3 bg-zinc-800 rounded-lg">
-              <label className="text-xs text-zinc-500 mb-1 block">Paste Zillow listing URL to auto-fill</label>
-              <div className="flex gap-2">
-                <input value={zillow} onChange={e => setZillow(e.target.value)}
-                  placeholder="https://zillow.com/homedetails/..."
-                  className="flex-1 bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-500" />
-                <button onClick={importFromZillow} disabled={zillowLoading || !zillow}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium disabled:opacity-40 transition-colors">
-                  {zillowLoading ? "..." : "Import"}
-                </button>
-              </div>
-            </div>
-            <form onSubmit={addContact} className="space-y-3">
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Name *</label>
-                <input required value={newContact.name} onChange={e => setNewContact(n => ({ ...n, name: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Phone</label>
-                <input value={newContact.phone} onChange={e => setNewContact(n => ({ ...n, phone: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Email</label>
-                <input type="email" value={newContact.email} onChange={e => setNewContact(n => ({ ...n, email: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Brokerage</label>
-                <input value={newContact.brokerage} onChange={e => setNewContact(n => ({ ...n, brokerage: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Listing Address</label>
-                <input value={newContact.listing_address} onChange={e => setNewContact(n => ({ ...n, listing_address: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowAddContact(false)}
-                  className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm hover:bg-zinc-800 transition-colors">
-                  Cancel
-                </button>
-                <button type="submit"
-                  className="flex-1 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-zinc-200 transition-colors">
-                  Add Contact
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
