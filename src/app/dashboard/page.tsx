@@ -80,8 +80,8 @@ export default function DashboardPage() {
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
   type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Contacts", "Cold Calls", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: true, "Cold Calls": true };
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Cold Calls", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: false, "Cold Calls": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1110,40 +1110,87 @@ export default function DashboardPage() {
 
         {order.map(renderSection)}
 
-        {/* CLIENT INVITE */}
-        <section>
-          <p className={sectionLabel}>Invite Client</p>
-          <div className="bg-[#111] border border-white/10 p-6 max-w-lg">
-            <p className="text-xs text-[#555] mb-4">Generate a magic link for a realtor to create their account and access media.</p>
-            <form onSubmit={generateClientInvite} className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
-                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
-                <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+        {/* CLIENT INVITE + CONTACTS side by side */}
+        <div className="grid grid-cols-2 gap-8">
+          <section>
+            <p className={sectionLabel}>Invite Client</p>
+            <div className="bg-[#111] border border-white/10 p-6 h-full">
+              <p className="text-xs text-[#555] mb-4">Generate a magic link for a realtor to create their account and access media.</p>
+              <form onSubmit={generateClientInvite} className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+                  <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+                </div>
+                <button type="submit" disabled={inviteLoading}
+                  className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-3 hover:bg-white/90 transition-colors disabled:opacity-50">
+                  {inviteLoading ? "Generating..." : "Generate Magic Link"}
+                </button>
+              </form>
+              {inviteLink && (
+                <div className="mt-4 border border-white/10 p-4 flex flex-col gap-3">
+                  <p className="text-xs font-mono text-[#888] break-all">{inviteLink}</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
+                      className="flex-1 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/90 transition-colors">
+                      {inviteCopied ? "Copied!" : "Copy Link"}
+                    </button>
+                    <a href={`mailto:${inviteEmail}?subject=Your Luck Images Portal Access&body=Hi ${inviteName},%0A%0AHere's your link to access your photos on the Luck Images portal:%0A%0A${encodeURIComponent(inviteLink)}%0A%0AClick the link to create your account and download your media.%0A%0ARyan%0ALuck Images`}
+                      className="flex-1 border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/5 transition-colors text-center">
+                      Email It
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section>
+            <p className={sectionLabel}>Contacts</p>
+            <div className="bg-[#111] border border-white/10 p-6 h-full flex flex-col justify-between gap-6">
+              <div>
+                <p className="text-4xl font-bold">{contacts.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Total Contacts</p>
               </div>
-              <button type="submit" disabled={inviteLoading}
-                className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-3 hover:bg-white/90 transition-colors disabled:opacity-50">
-                {inviteLoading ? "Generating..." : "Generate Magic Link"}
-              </button>
-            </form>
-            {inviteLink && (
-              <div className="mt-4 border border-white/10 p-4 flex flex-col gap-3">
-                <p className="text-xs font-mono text-[#888] break-all">{inviteLink}</p>
-                <div className="flex gap-3">
-                  <button onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
-                    className="flex-1 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/90 transition-colors">
-                    {inviteCopied ? "Copied!" : "Copy Link"}
+              {showQuickAdd ? (
+                <form onSubmit={saveQuickContact} className="flex flex-col gap-3">
+                  <input required autoFocus value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Name *" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))}
+                      placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                    <input value={quickAddForm.brokerage} onChange={e => setQuickAddForm(f => ({ ...f, brokerage: e.target.value }))}
+                      placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  </div>
+                  <input type="email" value={quickAddForm.email} onChange={e => setQuickAddForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="Email" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setShowQuickAdd(false)}
+                      className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">
+                      Cancel
+                    </button>
+                    <button type="submit" disabled={quickAddSaving}
+                      className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                      {quickAddSaving ? "Saving..." : "Save Contact"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => setShowQuickAdd(true)}
+                    className="w-full py-3 text-xs tracking-[3px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                    + New Contact
                   </button>
-                  <a href={`mailto:${inviteEmail}?subject=Your Luck Images Portal Access&body=Hi ${inviteName},%0A%0AHere's your link to access your photos on the Luck Images portal:%0A%0A${encodeURIComponent(inviteLink)}%0A%0AClick the link to create your account and download your media.%0A%0ARyan%0ALuck Images`}
-                    className="flex-1 border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/5 transition-colors text-center">
-                    Email It
+                  <a href="/admin/contacts"
+                    className="w-full py-3 text-xs tracking-[3px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all text-center">
+                    View All →
                   </a>
                 </div>
-              </div>
-            )}
-          </div>
-        </section>
+              )}
+            </div>
+          </section>
+        </div>
 
         {/* TIME STATS — compact, always at bottom */}
         <section>
