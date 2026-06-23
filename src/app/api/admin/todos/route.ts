@@ -32,12 +32,12 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { action, text, id } = await req.json();
+  const { action, text, id, is_urgent } = await req.json();
   const db = service();
   const name = user.email?.split("@")[0] || "unknown";
 
   if (action === "create" && text?.trim()) {
-    const { data, error } = await db.from("todos").insert({ text: text.trim(), created_by: name }).select().single();
+    const { data, error } = await db.from("todos").insert({ text: text.trim(), created_by: name, is_urgent: !!is_urgent }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ todo: data });
   }

@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null };
+type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; is_urgent: boolean };
 
 export default function TodosPage() {
   const router = useRouter();
   const [active, setActive] = useState<Todo[]>([]);
   const [completed, setCompleted] = useState<Todo[]>([]);
   const [input, setInput] = useState("");
+  const [urgent, setUrgent] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -24,8 +25,8 @@ export default function TodosPage() {
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
-    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", text: input }) });
-    if (res.ok) { const { todo } = await res.json(); setActive(t => [...t, todo]); setInput(""); }
+    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", text: input, is_urgent: urgent }) });
+    if (res.ok) { const { todo } = await res.json(); setActive(t => [...t, todo]); setInput(""); setUrgent(false); }
   }
 
   async function complete(id: string) {
@@ -60,12 +61,15 @@ export default function TodosPage() {
               <form onSubmit={add} className="flex gap-2 mb-4">
                 <input value={input} onChange={e => setInput(e.target.value)} placeholder="Add a task..."
                   className="flex-1 bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                <button type="button" onClick={() => setUrgent(u => !u)}
+                  className={`px-4 border text-sm font-bold transition-colors ${urgent ? "border-red-500 text-red-400 bg-red-500/10" : "border-white/10 text-[#555] hover:text-white"}`}
+                  title="Mark as urgent">!</button>
                 <button type="submit" className="px-6 bg-white text-black text-xs tracking-[2px] uppercase font-semibold hover:bg-[#ddd] transition-colors">Add</button>
               </form>
               <div className="space-y-2">
                 {active.length === 0 && <p className="text-xs text-[#444] italic">Nothing pending — you're all clear.</p>}
                 {active.map(t => (
-                  <div key={t.id} className="bg-[#111] border border-white/10 flex items-center gap-4 px-4 py-3 hover:border-white/20 transition-colors">
+                  <div key={t.id} className={`bg-[#111] flex items-center gap-4 px-4 py-3 hover:border-white/20 transition-colors ${t.is_urgent ? "border border-red-500/40" : "border border-white/10"}`}>
                     <button onClick={() => complete(t.id)}
                       className="w-5 h-5 border border-white/20 rounded flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all flex items-center justify-center">
                     </button>

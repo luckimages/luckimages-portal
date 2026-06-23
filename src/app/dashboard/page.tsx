@@ -140,10 +140,12 @@ export default function DashboardPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Command center state
-  type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null };
+  type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; is_urgent: boolean };
   type UpdateItem = { id: string; type: string; message: string; created_at: string; by?: string };
   const [todos, setTodos] = useState<Todo[]>([]);
   const [todoInput, setTodoInput] = useState("");
+  const [todoUrgent, setTodoUrgent] = useState(false);
+  const [todoFilter, setTodoFilter] = useState<"all" | "urgent">("all");
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [updateInput, setUpdateInput] = useState("");
   const [needsAttention, setNeedsAttention] = useState<UpdateItem[]>([]);
@@ -334,8 +336,8 @@ export default function DashboardPage() {
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     if (!todoInput.trim()) return;
-    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", text: todoInput }) });
-    if (res.ok) { const { todo } = await res.json(); setTodos(t => [...t, todo]); setTodoInput(""); }
+    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", text: todoInput, is_urgent: todoUrgent }) });
+    if (res.ok) { const { todo } = await res.json(); setTodos(t => [...t, todo]); setTodoInput(""); setTodoUrgent(false); }
   }
 
   async function completeTodo(id: string) {
@@ -822,46 +824,65 @@ export default function DashboardPage() {
 
     if (s === "Cold Calls") {
       // Render Command Center above Cold Calls (compact height)
+      const urgentCount = todos.filter(t => t.is_urgent).length;
+      const visibleTodos = todoFilter === "urgent" ? todos.filter(t => t.is_urgent) : todos;
       const commandCenter = (
         <section key="command-center" className="mb-6">
           <p className={sectionLabel}>Command Center</p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
 
-            {/* TO DO */}
+            {/* TO DO + NEEDS ATTENTION merged */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888]">To Do</span>
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setTodoFilter("all")}
+                    className={`text-xs px-2 py-0.5 transition-colors ${todoFilter === "all" ? "text-white" : "text-[#555] hover:text-[#888]"}`}>
+                    All {todos.length > 0 && <span className="text-[#444]">({todos.length})</span>}
+                  </button>
+                  <button onClick={() => setTodoFilter("urgent")}
+                    className={`text-xs px-2 py-0.5 transition-colors flex items-center gap-1 ${todoFilter === "urgent" ? "text-red-400" : "text-[#555] hover:text-[#888]"}`}>
+                    {urgentCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
+                    Urgent {urgentCount > 0 && <span>({urgentCount})</span>}
+                  </button>
+                </div>
                 <a href="/admin/todos" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
               </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-white/5 min-h-0">
-                {todos.length === 0 && <p className="text-xs text-[#333] italic p-3">Nothing pending.</p>}
-                {todos.map(t => (
-                  <div key={t.id} className="flex items-center gap-3 px-3 py-2 hover:bg-white/[0.02]">
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {visibleTodos.length === 0 && (
+                  <p className="text-xs text-[#333] italic p-3">{todoFilter === "urgent" ? "No urgent items." : "Nothing pending."}</p>
+                )}
+                {visibleTodos.map(t => (
+                  <div key={t.id}
+                    className={`flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${t.is_urgent ? "border-l-2 border-l-red-500/60" : ""}`}>
                     <button onClick={() => completeTodo(t.id)}
                       className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
-                    <p className="text-xs truncate">{t.text}</p>
+                    <p className="text-xs truncate flex-1">{t.text}</p>
+                    <span className="text-[10px] text-[#444] flex-shrink-0">{t.created_by}</span>
                   </div>
                 ))}
               </div>
-              <form onSubmit={addTodo} className="border-t border-white/10 flex">
+              <form onSubmit={addTodo} className="border-t border-white/10 flex items-center">
                 <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Add a task..."
                   className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
-                <button type="submit" className="px-3 text-[#555] hover:text-white transition-colors">+</button>
+                <button type="button" onClick={() => setTodoUrgent(u => !u)}
+                  className={`text-xs px-2 py-2 transition-colors flex-shrink-0 ${todoUrgent ? "text-red-400" : "text-[#444] hover:text-[#888]"}`}
+                  title="Mark as urgent">!</button>
+                <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">+</button>
               </form>
             </div>
 
             {/* UPDATES */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                 <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
                 <span className="text-xs text-[#444]">48h</span>
               </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-white/5 min-h-0">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
                 {updates.slice(0, 12).map(u => {
                   const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : "💬";
                   return (
-                    <div key={u.id} className="px-3 py-2 hover:bg-white/[0.02]">
+                    <div key={u.id} className="px-3 py-2 hover:bg-white/[0.02] border-b border-white/5">
                       <p className="text-xs truncate">{icon} {u.message}</p>
                       <p className="text-[10px] text-[#444]">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
                     </div>
@@ -871,31 +892,8 @@ export default function DashboardPage() {
               <form onSubmit={postUpdate} className="border-t border-white/10 flex">
                 <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update..."
                   className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
-                <button type="submit" className="px-3 text-[#555] hover:text-white transition-colors">→</button>
+                <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
               </form>
-            </div>
-
-            {/* NEEDS ATTENTION */}
-            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888] flex items-center gap-2">
-                  {needsAttention.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
-                  Needs Attention
-                </span>
-                {needsAttention.length > 0 && <span className="text-xs text-red-400">{needsAttention.length}</span>}
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-white/5 min-h-0">
-                {needsAttention.length === 0 && <p className="text-xs text-[#333] italic p-3">All clear.</p>}
-                {needsAttention.map(u => (
-                  <div key={u.id} className="px-3 py-2 hover:bg-white/[0.02] flex items-start gap-2">
-                    <span className="text-red-400 text-xs flex-shrink-0">!</span>
-                    <p className="text-xs truncate">{u.message}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-white/10 px-3 py-2">
-                <p className="text-[10px] text-[#333]">Voicemails, texts, emails coming soon</p>
-              </div>
             </div>
 
           </div>
