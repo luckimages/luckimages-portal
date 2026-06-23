@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true };
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Contacts", "Cold Calls", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Realtors"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: true, "Cold Calls": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -748,6 +748,119 @@ export default function DashboardPage() {
         </section>
       );
     }
+    if (s === "Contacts") {
+      const filtered = contacts.filter(c =>
+        !contactSearch ||
+        c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+        c.email?.toLowerCase().includes(contactSearch.toLowerCase()) ||
+        c.brokerage?.toLowerCase().includes(contactSearch.toLowerCase())
+      );
+      return (
+        <section key={s}>
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
+              Contacts — {contacts.length} total · {contacts.filter(c => c.is_hot).length} 🔥 hot
+            </p>
+            <a href="/admin/contacts" className="flex-shrink-0 text-xs tracking-[2px] uppercase border border-white/10 px-4 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all">
+              Manage →
+            </a>
+          </div>
+          <div className="bg-[#111] border border-white/10 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                value={contactSearch}
+                onChange={e => setContactSearch(e.target.value)}
+                placeholder="Search contacts..."
+                className="flex-1 bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 transition-colors placeholder:text-[#444]"
+              />
+            </div>
+            <div className="divide-y divide-white/5 max-h-72 overflow-y-auto">
+              {filtered.slice(0, 20).map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2.5 gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {c.is_hot && <span className="text-sm flex-shrink-0">🔥</span>}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      <p className="text-xs text-[#555] truncate">{c.brokerage || c.email || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {c.total_revenue > 0 && <span className="text-xs text-[#888]">${c.total_revenue.toLocaleString()}</span>}
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      c.stage === "client" ? "bg-emerald-900 text-emerald-300" :
+                      c.stage === "interested" ? "bg-blue-900 text-blue-300" :
+                      c.stage === "booked" ? "bg-green-900 text-green-300" :
+                      c.stage === "follow-up" ? "bg-yellow-900 text-yellow-300" :
+                      c.stage === "dead" ? "bg-red-950 text-red-400" :
+                      "bg-zinc-800 text-zinc-400"
+                    }`}>{c.stage}</span>
+                    <button onClick={() => setActiveCallContact(c)} className="text-xs text-[#555] hover:text-white transition-colors">
+                      Call
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {contacts.length === 0 && <p className="text-[#444] text-sm text-center py-8">No contacts yet</p>}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    if (s === "Cold Calls") {
+      return (
+        <section key={s}>
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
+              📞 Cold Calls — {todayCalls}/{DAILY_GOAL} Today
+            </p>
+            <a href="/admin/cold-calls" className="flex-shrink-0 text-xs tracking-[2px] uppercase border border-white/10 px-4 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all">
+              Full View →
+            </a>
+          </div>
+          <div className="bg-[#111] border border-white/10 p-5 space-y-5">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-2 bg-[#222] rounded-full overflow-hidden">
+                <div className="h-full bg-[#4ade80] rounded-full transition-all duration-500" style={{ width: `${Math.min((todayCalls / DAILY_GOAL) * 100, 100)}%` }} />
+              </div>
+              <span className="text-sm font-bold text-[#4ade80]">{Math.round((todayCalls / DAILY_GOAL) * 100)}%</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-[#555] mb-2">Active Contact</p>
+                {activeCallContact ? (
+                  <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{activeCallContact.name}</p>
+                      <p className="text-xs text-[#555]">{activeCallContact.brokerage || activeCallContact.phone || "—"}</p>
+                    </div>
+                    <button onClick={() => setActiveCallContact(null)} className="text-[#555] hover:text-white text-xs">✕</button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#444] italic">Select from Contacts above</p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-[#555] mb-2">Outcome</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {CALL_OUTCOMES.map(o => (
+                    <button key={o.value} onClick={() => setCallOutcome(o.value)}
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all ${callOutcome === o.value ? o.color : "bg-[#1a1a1a] text-[#555] hover:text-white"}`}>
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button onClick={logCallFromDashboard} disabled={!activeCallContact || !callOutcome || loggingCall}
+              className="w-full py-2.5 text-xs tracking-[3px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+              {loggingCall ? "Logging..." : "Log Call"}
+            </button>
+          </div>
+        </section>
+      );
+    }
+
     return null;
   }
 
@@ -987,155 +1100,6 @@ export default function DashboardPage() {
                     className="flex-1 border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/5 transition-colors text-center">
                     Email It
                   </a>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* CONTACTS BLOCK */}
-        <section>
-          <p className="text-xs tracking-[4px] uppercase mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            <span className="text-[#555]">Contacts — {contacts.length} total · {contacts.filter(c => c.is_hot).length} 🔥 hot</span>
-          </p>
-          <div className="bg-[#111] border border-white/10 p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <input
-                value={contactSearch}
-                onChange={e => setContactSearch(e.target.value)}
-                placeholder="Search contacts..."
-                className="flex-1 bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 transition-colors placeholder:text-[#444]"
-              />
-              <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase border border-white/10 px-4 py-2.5 text-[#888] hover:border-white/30 hover:text-white transition-all whitespace-nowrap">
-                All Contacts →
-              </a>
-            </div>
-            <div className="divide-y divide-white/5 max-h-72 overflow-y-auto">
-              {contacts
-                .filter(c => !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) || c.email?.toLowerCase().includes(contactSearch.toLowerCase()) || c.brokerage?.toLowerCase().includes(contactSearch.toLowerCase()))
-                .slice(0, 20)
-                .map(c => (
-                  <div key={c.id} className="flex items-center justify-between py-2.5 gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {c.is_hot && <span className="text-sm flex-shrink-0">🔥</span>}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{c.name}</p>
-                        <p className="text-xs text-[#555] truncate">{c.brokerage || c.email || "—"}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {c.total_revenue > 0 && <span className="text-xs text-[#888]">${c.total_revenue.toLocaleString()}</span>}
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        c.stage === "client" ? "bg-emerald-900 text-emerald-300" :
-                        c.stage === "interested" ? "bg-blue-900 text-blue-300" :
-                        c.stage === "booked" ? "bg-green-900 text-green-300" :
-                        c.stage === "follow-up" ? "bg-yellow-900 text-yellow-300" :
-                        c.stage === "dead" ? "bg-red-950 text-red-400" :
-                        "bg-zinc-800 text-zinc-400"
-                      }`}>{c.stage}</span>
-                      <button
-                        onClick={() => setActiveCallContact(c)}
-                        className="text-xs text-[#555] hover:text-white transition-colors"
-                      >
-                        Call
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              {contacts.length === 0 && <p className="text-[#444] text-sm text-center py-8">No contacts yet</p>}
-            </div>
-          </div>
-        </section>
-
-        {/* COLD CALLS BLOCK */}
-        <section>
-          <p className="text-xs tracking-[4px] uppercase mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            <span className="text-[#555]">📞 Cold Calls — {todayCalls}/{DAILY_GOAL} Today</span>
-          </p>
-          <div className="bg-[#111] border border-white/10 p-5 space-y-5">
-            {/* Progress bar */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-2 bg-[#222] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#4ade80] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min((todayCalls / DAILY_GOAL) * 100, 100)}%` }}
-                />
-              </div>
-              <span className="text-sm font-bold text-[#4ade80]">{Math.round((todayCalls / DAILY_GOAL) * 100)}%</span>
-              <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:border-white/30 hover:text-white transition-all whitespace-nowrap">
-                Full View →
-              </a>
-            </div>
-
-            {/* Log a call */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact</p>
-                {activeCallContact ? (
-                  <div className="flex items-center justify-between bg-[#181818] border border-white/10 px-3 py-2.5">
-                    <div>
-                      <p className="text-sm font-medium">{activeCallContact.name}</p>
-                      <p className="text-xs text-[#555]">{activeCallContact.brokerage || activeCallContact.phone || "—"}</p>
-                    </div>
-                    <button onClick={() => setActiveCallContact(null)} className="text-xs text-[#555] hover:text-white ml-3">✕</button>
-                  </div>
-                ) : (
-                  <div className="bg-[#181818] border border-white/10 px-3 py-2.5 text-sm text-[#444]">
-                    Select from contacts list above
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Outcome</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {CALL_OUTCOMES.map(o => (
-                    <button
-                      key={o.value}
-                      onClick={() => setCallOutcome(o.value)}
-                      className={`text-xs px-2.5 py-1 rounded-full transition-all border ${
-                        callOutcome === o.value ? `${o.color} border-transparent` : "bg-[#181818] text-[#555] border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <input
-                value={callNote}
-                onChange={e => setCallNote(e.target.value)}
-                placeholder="Quick note (optional)..."
-                className="flex-1 bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 transition-colors placeholder:text-[#444]"
-              />
-              <button
-                onClick={logCallFromDashboard}
-                disabled={!activeCallContact || !callOutcome || loggingCall}
-                className="text-xs tracking-[3px] uppercase bg-white text-black font-semibold px-6 py-2.5 hover:bg-white/90 transition-colors disabled:opacity-30"
-              >
-                {loggingCall ? "..." : "Log Call"}
-              </button>
-            </div>
-
-            {/* Recent calls */}
-            {callLogs.length > 0 && (
-              <div>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Recent Calls</p>
-                <div className="divide-y divide-white/5">
-                  {callLogs.slice(0, 5).map(log => {
-                    const contact = contacts.find(c => c.id === log.contact_id);
-                    const outcome = CALL_OUTCOMES.find(o => o.value === log.outcome);
-                    return (
-                      <div key={log.id} className="flex items-center justify-between py-2 gap-4">
-                        <span className="text-sm text-[#888] truncate">{contact?.name || "Unknown"}</span>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${outcome?.color || "bg-zinc-800 text-zinc-400"}`}>{outcome?.label || log.outcome}</span>
-                          <span className="text-xs text-[#555]">{new Date(log.called_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             )}

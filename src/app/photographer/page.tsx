@@ -25,6 +25,7 @@ export default function PhotographerPage() {
   const [selectedShoot, setSelectedShoot] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [advancingId, setAdvancingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,24 +47,42 @@ export default function PhotographerPage() {
   async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files?.length || !selectedShoot) return;
     setUploading(true); setUploadStatus("");
-    const supabase = createClient();
     const files = Array.from(e.target.files);
     let errors = 0;
-    await Promise.all(files.map(async (file) => {
-      const path = `${selectedShoot}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("shoot-media").upload(path, file);
-      if (uploadError) { errors++; return; }
-      await supabase.from("media").insert({
-        shoot_id: selectedShoot,
-        uploaded_by: userId,
-        file_path: path,
-        file_name: file.name,
-        file_type: file.type,
-      });
-    }));
+    // Upload sequentially to avoid overwhelming the server watermarking process
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("shoot_id", selectedShoot);
+      formData.append("file", file);
+      const res = await fetch("/api/photographer/upload", { method: "POST", body: formData });
+      if (!res.ok) errors++;
+    }
     setUploading(false);
     setUploadStatus(errors === 0 ? `success:${files.length}` : `error:${errors}`);
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  const SHOOT_STAGES = [
+    { key: "scheduled", label: "Scheduled" },
+    { key: "en_route",  label: "En Route" },
+    { key: "on_site",   label: "On Site" },
+    { key: "wrapping",  label: "Wrapping Up" },
+    { key: "editing",   label: "Editing" },
+    { key: "delivered", label: "Delivered" },
+  ];
+
+  async function advanceStatus(shoot: Shoot) {
+    const idx = SHOOT_STAGES.findIndex(s => s.key === shoot.status);
+    if (idx === -1 || idx >= SHOOT_STAGES.length - 1) return;
+    const nextStatus = SHOOT_STAGES[idx + 1].key;
+    setAdvancingId(shoot.id);
+    await fetch("/api/photographer/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: shoot.id, status: nextStatus }),
+    });
+    setShoots(prev => prev.map(s => s.id === shoot.id ? { ...s, status: nextStatus } : s));
+    setAdvancingId(null);
   }
 
   function signOut() {
@@ -142,17 +161,54 @@ export default function PhotographerPage() {
                 <div className="bg-[#111] border border-white/10 p-8 text-center"><p className="text-[#555] text-sm">No upcoming shoots assigned yet</p></div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {upcoming.map(s => (
-                    <div key={s.id} className="bg-[#111] border border-white/10 p-5">
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="font-medium">{s.address}</p>
-                        <span className="text-xs tracking-[1px] uppercase px-2 py-1 bg-[#60a5fa18] text-[#60a5fa]">{s.status}</span>
+                  {upcoming.map(s => {
+                    const stageIdx = SHOOT_STAGES.findIndex(st => st.key === s.status);
+                    const isLast = stageIdx === SHOOT_STAGES.length - 1;
+                    const nextStage = !isLast && stageIdx !== -1 ? SHOOT_STAGES[stageIdx + 1] : null;
+                    const statusColor = s.status === "delivered" ? "#4ade80" : s.status === "editing" ? "#a78bfa" : s.status === "on_site" || s.status === "wrapping" ? "#fbbf24" : "#60a5fa";
+                    return (
+                      <div key={s.id} className="bg-[#111] border border-white/10 p-5">
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="font-medium">{s.address}</p>
+                          <span className="text-xs tracking-[1px] uppercase px-2 py-1" style={{ backgroundColor: `${statusColor}18`, color: statusColor }}>{s.status.replace("_", " ")}</span>
+                        </div>
+                        <p className="text-xs text-[#555] mb-1">{new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} at {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
+                        <p className="text-xs text-[#666] mb-3">{s.services?.join(" · ")}</p>
+                        {s.notes && <p className="text-xs text-[#444] mb-3 italic">"{s.notes}"</p>}
+                        {/* Stage tracker */}
+                        <div className="flex items-center gap-0 mb-4">
+                          {SHOOT_STAGES.map((stage, i) => {
+                            const done = i < stageIdx || (stageIdx === -1 && false);
+                            const active = i === stageIdx;
+                            const last = i === SHOOT_STAGES.length - 1;
+                            return (
+                              <div key={stage.key} className="flex items-center flex-1 min-w-0">
+                                <div className="flex flex-col items-center flex-1 min-w-0">
+                                  <div className={`w-2 h-2 rounded-full border-2 transition-all mb-1.5 ${done || active ? "border-white bg-white" : "border-white/20 bg-transparent"} ${active ? "ring-2 ring-white/20 ring-offset-1 ring-offset-[#111]" : ""}`} />
+                                  <span className={`text-[8px] tracking-[0.5px] uppercase text-center leading-tight ${active ? "text-white" : done ? "text-white/40" : "text-white/15"}`}>{stage.label}</span>
+                                </div>
+                                {!last && <div className={`h-px flex-1 mx-0.5 mb-4 transition-all ${done ? "bg-white/40" : "bg-white/10"}`} />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {nextStage && (
+                          <button
+                            onClick={() => advanceStatus(s)}
+                            disabled={advancingId === s.id}
+                            className="w-full text-xs tracking-[2px] uppercase bg-white text-black font-semibold py-2.5 hover:bg-white/90 transition-colors disabled:opacity-40"
+                          >
+                            {advancingId === s.id ? "Updating..." : `Mark as ${nextStage.label} →`}
+                          </button>
+                        )}
+                        {isLast && (
+                          <div className="text-center py-2">
+                            <span className="text-xs tracking-[2px] uppercase text-[#4ade80]">✓ Delivered</span>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-xs text-[#555] mb-1">{new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} at {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
-                      <p className="text-xs text-[#666]">{s.services?.join(" · ")}</p>
-                      {s.notes && <p className="text-xs text-[#444] mt-2 italic">"{s.notes}"</p>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

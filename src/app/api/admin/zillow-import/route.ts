@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       // Convert slug to readable address: "123-Main-St-Austin-TX-78701" -> "123 Main St, Austin TX 78701"
       const parts = slug.replace(/-(\d{5})_zpid$/, "").split("-");
       // Find state abbreviation (2 caps) to insert comma before city
-      const stateIdx = parts.findIndex(p => /^[A-Z]{2}$/.test(p));
+      const stateIdx = parts.findIndex((p: string) => /^[A-Z]{2}$/.test(p));
       let address = "";
       if (stateIdx > 0) {
         const street = parts.slice(0, stateIdx - 1).join(" ");

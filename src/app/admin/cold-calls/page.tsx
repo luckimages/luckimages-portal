@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -54,7 +54,11 @@ const EMAIL_TEMPLATES = [
   },
 ];
 
-export default function ColdCallsPage() {
+export default function ColdCallsPageWrapper() {
+  return <Suspense><ColdCallsPage /></Suspense>;
+}
+
+function ColdCallsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedId = searchParams.get("contact");

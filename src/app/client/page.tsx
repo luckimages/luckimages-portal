@@ -26,6 +26,11 @@ export default function ClientPage() {
   const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasPassword, setHasPassword] = useState(true);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState<"" | "saving" | "success" | "error">("");
+  const [passwordError, setPasswordError] = useState("");
 
   const SERVICES = ["Listing Photos", "Drone", "Matterport", "Video", "Headshots"];
 
@@ -34,6 +39,12 @@ export default function ClientPage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push("/login"); return; }
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
+      // Detect if user signed in via magic link (no password set yet)
+      const identities = data.user.identities ?? [];
+      const hasEmailPassword = identities.some(i => i.provider === "email" && i.identity_data?.email_verified);
+      const lastSignIn = data.user.last_sign_in_at ?? "";
+      // If they have no password, their only identity will be via OTP/magic link
+      setHasPassword(data.user.user_metadata?.has_password === true || (!lastSignIn.includes("otp") && hasEmailPassword));
       const uid = data.user.id;
       const created = new Date(data.user.created_at);
       const now = new Date();
@@ -80,6 +91,25 @@ export default function ClientPage() {
     setShoots(shootData || []);
   }
 
+  async function savePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError("");
+    if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters."); return; }
+    if (newPassword !== confirmPassword) { setPasswordError("Passwords don't match."); return; }
+    setPasswordStatus("saving");
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      setPasswordStatus("error");
+      setPasswordError(error.message);
+    } else {
+      setPasswordStatus("success");
+      setHasPassword(true);
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  }
+
   function signOut() {
     const form = document.createElement("form");
     form.method = "post"; form.action = "/api/auth/signout";
@@ -108,6 +138,50 @@ export default function ClientPage() {
       </header>
 
       <div className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
+
+        {/* Set password prompt — shown to magic-link users who haven't set one yet */}
+        {!hasPassword && passwordStatus !== "success" && (
+          <div className="mb-6 bg-[#fbbf2408] border border-[#fbbf24]/20 p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-xs tracking-[2px] uppercase text-[#fbbf24] mb-1">Set a Password</p>
+                <p className="text-xs text-[#666] mb-4">You signed in with a magic link. Set a password so you can log in directly next time.</p>
+                <form onSubmit={savePassword} className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="password"
+                    placeholder="New password (8+ chars)"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] flex-1"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] flex-1"
+                  />
+                  <button
+                    type="submit"
+                    disabled={passwordStatus === "saving"}
+                    className="bg-[#fbbf24] text-black text-xs tracking-[2px] uppercase font-semibold px-6 py-2.5 hover:bg-[#fbbf24]/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {passwordStatus === "saving" ? "Saving..." : "Save Password"}
+                  </button>
+                </form>
+                {passwordError && <p className="text-xs text-red-400 mt-2">{passwordError}</p>}
+              </div>
+              <button onClick={() => setHasPassword(true)} className="text-[#444] hover:text-white transition-colors text-lg leading-none flex-shrink-0">✕</button>
+            </div>
+          </div>
+        )}
+
+        {passwordStatus === "success" && (
+          <div className="mb-6 bg-[#4ade8008] border border-[#4ade80]/20 p-4 flex items-center justify-between">
+            <p className="text-xs text-[#4ade80] tracking-[1px]">✓ Password set — you can now log in with your email and password.</p>
+            <button onClick={() => setPasswordStatus("")} className="text-[#444] hover:text-white transition-colors text-sm">✕</button>
+          </div>
+        )}
 
         <div className="mb-8">
           <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
@@ -318,19 +392,19 @@ export default function ClientPage() {
         {tab === "gallery" && (
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Shoot Media</p>
-            {shoots.filter(s => s.status === "completed").length === 0 ? (
+            {shoots.filter(s => s.status === "delivered" || s.status === "completed").length === 0 ? (
               <div className="bg-[#111] border border-white/10 p-8 text-center">
-                <p className="text-[#555] text-sm">Media will appear here once your shoot is completed and photos are uploaded.</p>
+                <p className="text-[#555] text-sm">Media will appear here once your shoot photos are delivered.</p>
               </div>
             ) : (
               <div className="grid gap-3">
-                {shoots.filter(s => s.status === "completed").map(s => (
+                {shoots.filter(s => s.status === "delivered" || s.status === "completed").map(s => (
                   <Link key={s.id} href={`/client/gallery/${s.id}`} className="bg-[#111] border border-white/10 p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                     <div>
                       <p className="font-medium mb-1">{s.address}</p>
                       <p className="text-xs text-[#555]">{new Date(s.scheduled_at).toLocaleDateString()} · {s.services?.join(", ")}</p>
                     </div>
-                    <span className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white">View Photos →</span>
+                    <span className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white">View & Download →</span>
                   </Link>
                 ))}
               </div>

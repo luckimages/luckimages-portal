@@ -68,8 +68,27 @@ export default function GalleryPage() {
         )}
 
         {media.length > 0 && (
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex items-center justify-between">
             <p className="text-xs text-[#444] tracking-[1px]">{media.length} file{media.length !== 1 ? "s" : ""}</p>
+            <button
+              onClick={async () => {
+                for (const m of media) {
+                  const url = urls[m.id];
+                  if (!url) continue;
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = m.file_name;
+                  a.target = "_blank";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  await new Promise(r => setTimeout(r, 200));
+                }
+              }}
+              className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-5 py-2.5 hover:bg-white/5 transition-colors"
+            >
+              ↓ Download All
+            </button>
           </div>
         )}
       </div>

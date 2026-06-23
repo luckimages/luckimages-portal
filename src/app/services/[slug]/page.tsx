@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SERVICES } from "@/lib/services";
 import { notFound } from "next/navigation";
 import PhotoGallery from "@/components/PhotoGallery";
+import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 
 const DESCRIPTIONS: Record<string, string> = {
   "listing-photos": "Professional photography that makes every listing stand out. Sharp, well-lit images that move properties faster.",
@@ -51,6 +52,22 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
         </div>
       </div>
+
+      {/* Virtual Staging — before/after sliders */}
+      {slug === "virtual-staging" && (
+        <section className="px-8 pb-24 max-w-5xl mx-auto w-full">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Before & After
+          </p>
+          <p className="text-xs text-[#555] mb-8 tracking-wide">Drag the slider to compare.</p>
+          <div className="flex flex-col gap-6">
+            {/* Placeholder pairs — swap src values for real before/after images */}
+            <BeforeAfterSlider before="/staging-before-1.jpg" after="/staging-after-1.jpg" />
+            <BeforeAfterSlider before="/staging-before-2.jpg" after="/staging-after-2.jpg" />
+            <BeforeAfterSlider before="/staging-before-3.jpg" after="/staging-after-3.jpg" />
+          </div>
+        </section>
+      )}
 
       {/* Gallery */}
       {GALLERY_SERVICES.has(slug) && (

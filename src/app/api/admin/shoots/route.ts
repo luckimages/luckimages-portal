@@ -59,7 +59,7 @@ export async function PATCH(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { id, status } = await req.json();
+  const { id, status, photographer_ids } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event)
   const { data: shoot } = await supabase
@@ -68,7 +68,10 @@ export async function PATCH(req: Request) {
     .eq("id", id)
     .single();
 
-  const { error } = await supabase.from("shoots").update({ status }).eq("id", id);
+  const updatePayload: Record<string, unknown> = { status };
+  if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;
+
+  const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // If confirming, create Google Calendar event
