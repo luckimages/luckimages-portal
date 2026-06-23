@@ -90,6 +90,13 @@ export default function DashboardPage() {
     notes: string; square_footage: number | null; client_name: string; client_email: string;
   }>>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [shootPhotographers, setShootPhotographers] = useState<Record<string, string[]>>({});
+  const [photographers, setPhotographers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [order, setOrder] = useState<Section[]>(DEFAULT_ORDER);
   const [visible, setVisible] = useState<Record<Section, boolean>>(DEFAULT_VISIBLE);
 
@@ -161,6 +168,10 @@ export default function DashboardPage() {
       // Load pending shoot requests (server-side to resolve client names)
       const shootsRes = await fetch("/api/admin/shoots");
       if (shootsRes.ok) setPendingShoots(await shootsRes.json());
+
+      // Load photographers for assignment dropdown
+      const pgRes = await fetch("/api/admin/photographers");
+      if (pgRes.ok) setPhotographers(await pgRes.json());
 
       // Load active timer entry
       const { data: active } = await supabase
@@ -266,9 +277,34 @@ export default function DashboardPage() {
 
   async function approveShoot(id: string) {
     setApprovingId(id);
-    await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "scheduled" }) });
+    const photographer_ids = shootPhotographers[id]?.length ? shootPhotographers[id] : [];
+    await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status: "scheduled", photographer_ids }) });
     await refreshShoots();
     setApprovingId(null);
+  }
+
+  function toggleShootPhotographer(shootId: string, photographerId: string) {
+    setShootPhotographers(prev => {
+      const current = prev[shootId] || [];
+      const updated = current.includes(photographerId)
+        ? current.filter(id => id !== photographerId)
+        : [...current, photographerId];
+      return { ...prev, [shootId]: updated };
+    });
+  }
+
+  async function generateClientInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteLoading(true);
+    setInviteLink("");
+    const res = await fetch("/api/admin/invite-client", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail, name: inviteName }),
+    });
+    const data = await res.json();
+    setInviteLoading(false);
+    if (data.link) setInviteLink(data.link);
   }
 
   async function declineShoot(id: string) {
@@ -317,7 +353,38 @@ export default function DashboardPage() {
   const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
   const [calWeekOffset, setCalWeekOffset] = useState(0);
 
-  const [hideRevenue, setHideRevenue] = useState(false);
+  const [qbSyncing, setQbSyncing] = useState(false);
+
+  async function syncQB() {
+    setQbSyncing(true);
+    try {
+      const res = await fetch("/api/admin/sync-qb", { method: "POST" });
+      if (res.ok) {
+        const snap = await res.json();
+        const breakdown: Record<string, number> = snap.monthly_breakdown || {};
+        const year = new Date().getFullYear();
+        const monthly = Object.entries(breakdown)
+          .filter(([k]) => k.startsWith(`${year}-`))
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => ({ month: MONTH_NAMES[parseInt(k.split("-")[1]) - 1], rev: v as number }));
+        setQB({
+          revMonth: snap.rev_month ?? 0,
+          revYTD: snap.rev_ytd ?? 0,
+          netIncome: snap.net_income ?? 0,
+          expenses: snap.expenses_ytd ?? 0,
+          ytdInvoices: snap.ytd_invoices ?? 0,
+          unpaidCount: snap.unpaid_count ?? 0,
+          recentInvoices: snap.recent_invoices ?? [],
+          monthly,
+          syncedAt: snap.synced_at ?? null,
+        });
+      }
+    } finally {
+      setQbSyncing(false);
+    }
+  }
+
+  const [hideRevenue, setHideRevenue] = useState(true);
   const blur = hideRevenue ? "blur-sm select-none" : "";
 
   const [referrals, setReferrals] = useState(0);
@@ -664,6 +731,8 @@ export default function DashboardPage() {
       <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-6">
+          <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Contacts</a>
+          <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">📞 Cold Calls</a>
           <a href="/admin/invite" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Invite Photographer</a>
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Admin</span>
           <form action="/api/auth/signout" method="post" className="inline">
@@ -694,11 +763,21 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-5">
-            <p className="text-xs tracking-[2px] uppercase text-[#444]">
-              {QB.syncedAt
-                ? `Last synced: ${new Date(QB.syncedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`
-                : "Syncing..."}
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs tracking-[2px] uppercase text-[#444]">
+                {QB.syncedAt
+                  ? `QB synced: ${new Date(QB.syncedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                  : "Not yet synced"}
+              </p>
+              <button
+                onClick={syncQB}
+                disabled={qbSyncing}
+                className="text-xs tracking-[2px] uppercase border border-white/10 px-3 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all disabled:opacity-40 flex items-center gap-2"
+              >
+                {qbSyncing && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />}
+                {qbSyncing ? "Syncing..." : "Sync QB"}
+              </button>
+            </div>
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
@@ -783,21 +862,44 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-3 flex-shrink-0">
-                    <button
-                      onClick={() => approveShoot(s.id)}
-                      disabled={approvingId === s.id}
-                      className="text-xs tracking-[3px] uppercase bg-[#4ade80]/10 text-[#4ade80] border border-[#4ade80]/30 px-6 py-3 hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40"
-                    >
-                      {approvingId === s.id ? "..." : "Confirm ✓"}
-                    </button>
-                    <button
-                      onClick={() => declineShoot(s.id)}
-                      disabled={approvingId === s.id}
-                      className="text-xs tracking-[3px] uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-6 py-3 hover:bg-red-500/20 transition-colors disabled:opacity-40"
-                    >
-                      Decline
-                    </button>
+                  <div className="flex flex-col gap-3 flex-shrink-0 min-w-[200px]">
+                    {photographers.length > 0 && (
+                      <div>
+                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Assign Photographers</p>
+                        <div className="flex flex-col gap-1.5">
+                          {photographers.map(p => {
+                            const selected = (shootPhotographers[s.id] || []).includes(p.id);
+                            return (
+                              <label key={p.id} className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleShootPhotographer(s.id, p.id)}
+                                  className="accent-white w-3 h-3"
+                                />
+                                <span className={`text-xs tracking-[1px] uppercase transition-colors ${selected ? "text-white" : "text-[#555] group-hover:text-[#888]"}`}>{p.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => approveShoot(s.id)}
+                        disabled={approvingId === s.id}
+                        className="text-xs tracking-[3px] uppercase bg-[#4ade80]/10 text-[#4ade80] border border-[#4ade80]/30 px-5 py-3 hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40 flex-1"
+                      >
+                        {approvingId === s.id ? "..." : "Confirm ✓"}
+                      </button>
+                      <button
+                        onClick={() => declineShoot(s.id)}
+                        disabled={approvingId === s.id}
+                        className="text-xs tracking-[3px] uppercase bg-red-500/10 text-red-400 border border-red-500/20 px-5 py-3 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -806,6 +908,41 @@ export default function DashboardPage() {
         </section>
 
         {order.map(renderSection)}
+
+        {/* CLIENT INVITE */}
+        <section>
+          <p className={sectionLabel}>Invite Client</p>
+          <div className="bg-[#111] border border-white/10 p-6 max-w-lg">
+            <p className="text-xs text-[#555] mb-4">Generate a magic link for a realtor to create their account and access media.</p>
+            <form onSubmit={generateClientInvite} className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
+                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+                <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+              </div>
+              <button type="submit" disabled={inviteLoading}
+                className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-3 hover:bg-white/90 transition-colors disabled:opacity-50">
+                {inviteLoading ? "Generating..." : "Generate Magic Link"}
+              </button>
+            </form>
+            {inviteLink && (
+              <div className="mt-4 border border-white/10 p-4 flex flex-col gap-3">
+                <p className="text-xs font-mono text-[#888] break-all">{inviteLink}</p>
+                <div className="flex gap-3">
+                  <button onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
+                    className="flex-1 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/90 transition-colors">
+                    {inviteCopied ? "Copied!" : "Copy Link"}
+                  </button>
+                  <a href={`mailto:${inviteEmail}?subject=Your Luck Images Portal Access&body=Hi ${inviteName},%0A%0AHere's your link to access your photos on the Luck Images portal:%0A%0A${encodeURIComponent(inviteLink)}%0A%0AClick the link to create your account and download your media.%0A%0ARyan%0ALuck Images`}
+                    className="flex-1 border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/5 transition-colors text-center">
+                    Email It
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* TIME STATS — compact, always at bottom */}
         <section>
