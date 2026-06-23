@@ -88,7 +88,8 @@ function ColdCallsPage() {
   const [callbackAt, setCallbackAt] = useState("");
   const [zillow, setZillow] = useState("");
   const [zillowLoading, setZillowLoading] = useState(false);
-  const [zillowAgent, setZillowAgent] = useState<{ name: string; phone: string } | null>(null);
+  const [zillowAgent, setZillowAgent] = useState<{ name: string; phone: string }>({ name: "", phone: "" });
+  const [showAgentFields, setShowAgentFields] = useState(false);
   const [service, setService] = useState("");
   const [servicePrice, setServicePrice] = useState("");
   const [logging, setLogging] = useState(false);
@@ -126,7 +127,6 @@ function ColdCallsPage() {
   async function importFromZillow() {
     if (!zillow.trim()) return;
     setZillowLoading(true);
-    setZillowAgent(null);
     try {
       const res = await fetch("/api/admin/zillow-import", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -134,18 +134,8 @@ function ColdCallsPage() {
       });
       const data = await res.json();
       if (data.address) setListingAddress(data.address);
-      if (data.agentName) {
-        setZillowAgent({ name: data.agentName, phone: data.agentPhone || "" });
-        // Pre-fill new contact form if no contact selected
-        if (!activeContact) {
-          setShowNewContact(true);
-          setNewContact(f => ({
-            ...f,
-            name: data.agentName || f.name,
-            phone: data.agentPhone || f.phone,
-          }));
-        }
-      }
+      setZillowAgent({ name: data.agentName || "", phone: data.agentPhone || "" });
+      setShowAgentFields(true);
     } catch {}
     setZillowLoading(false);
     setZillow("");
@@ -157,6 +147,7 @@ function ColdCallsPage() {
     const supabase = createClient();
     const notesWithService = [
       service ? `Service: ${service}${servicePrice ? ` ($${servicePrice})` : ""}` : "",
+      showAgentFields && zillowAgent.name ? `Agent: ${zillowAgent.name}${zillowAgent.phone ? ` · ${zillowAgent.phone}` : ""}` : "",
       callNotes,
     ].filter(Boolean).join("\n");
 
@@ -176,7 +167,7 @@ function ColdCallsPage() {
       setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
       setShowEmail(true);
     }
-    setOutcome(""); setCallNotes(""); setListingAddress(""); setCallbackAt(""); setZillow(""); setZillowAgent(null); setService(""); setServicePrice("");
+    setOutcome(""); setCallNotes(""); setListingAddress(""); setCallbackAt(""); setZillow(""); setZillowAgent({ name: "", phone: "" }); setShowAgentFields(false); setService(""); setServicePrice("");
     setLogging(false);
     await loadData();
   }
@@ -317,16 +308,23 @@ function ColdCallsPage() {
                   </button>
                 </div>
                 {listingAddress && <p className="text-xs text-[#4ade80] mt-1.5">📍 {listingAddress}</p>}
-                {zillowAgent && (
-                  <div className="mt-2 bg-blue-950/40 border border-blue-800/40 px-3 py-2 flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-xs text-blue-300 font-medium">Agent found: {zillowAgent.name}</p>
-                      {zillowAgent.phone && <p className="text-xs text-blue-400/70">{zillowAgent.phone}</p>}
+                {showAgentFields && (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-[#555] tracking-[1px] uppercase">Listing Agent</p>
+                    <div className="flex gap-2">
+                      <input value={zillowAgent.name} onChange={e => setZillowAgent(a => ({ ...a, name: e.target.value }))}
+                        placeholder="Agent name"
+                        className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                      <input value={zillowAgent.phone} onChange={e => setZillowAgent(a => ({ ...a, phone: e.target.value }))}
+                        placeholder="Phone"
+                        className="w-36 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
                     </div>
-                    {!activeContact && (
-                      <button onClick={() => { setShowNewContact(true); setNewContact(f => ({ ...f, name: zillowAgent.name, phone: zillowAgent.phone })); }}
-                        className="text-xs text-blue-300 border border-blue-700/50 px-2 py-1 hover:bg-blue-900/30 transition-colors flex-shrink-0">
-                        Use as Contact
+                    {!activeContact && zillowAgent.name && (
+                      <button onClick={() => {
+                        setShowNewContact(true);
+                        setNewContact(f => ({ ...f, name: zillowAgent.name, phone: zillowAgent.phone }));
+                      }} className="text-xs text-[#4ade80] hover:underline">
+                        + Use as contact
                       </button>
                     )}
                   </div>
