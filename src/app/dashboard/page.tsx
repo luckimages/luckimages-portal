@@ -1330,7 +1330,11 @@ export default function DashboardPage() {
 
         {/* TIME STATS — compact, always at bottom */}
         <section>
-          <p className={sectionLabel}>Time Tracker — This Week <a href="/admin/time-tracker" className="ml-3 text-[#555] hover:text-white transition-colors normal-case tracking-normal font-normal">View all →</a></p>
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555]">Time Tracker — This Week</p>
+            <a href="/admin/time-tracker" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
           <div className="bg-[#111] border border-white/10 p-5 flex items-center gap-8">
             <div className="flex items-center gap-3">
               {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />}
