@@ -114,6 +114,9 @@ export default function DashboardPage() {
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [contactSearch, setContactSearch] = useState("");
   const [activeCallContact, setActiveCallContact] = useState<Contact | null>(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddForm, setQuickAddForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead" });
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
   const [callOutcome, setCallOutcome] = useState("");
   const [callNote, setCallNote] = useState("");
   const [loggingCall, setLoggingCall] = useState(false);
@@ -431,6 +434,18 @@ export default function DashboardPage() {
   const convPct = leads > 0 ? Math.min(100, Math.round((bookings / leads) * 100)) : 0;
 
   const sectionLabel = "text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']";
+
+  async function saveQuickContact(e: React.FormEvent) {
+    e.preventDefault();
+    if (!quickAddForm.name.trim()) return;
+    setQuickAddSaving(true);
+    const supabase = createClient();
+    const { data } = await supabase.from("contacts").insert({ ...quickAddForm, type: "lead" }).select().single();
+    if (data) setContacts(cs => [...cs, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setQuickAddSaving(false);
+    setShowQuickAdd(false);
+    setQuickAddForm({ name: "", email: "", phone: "", brokerage: "", stage: "lead" });
+  }
 
   function renderSection(s: Section) {
     if (!visible[s]) return null;
@@ -754,58 +769,77 @@ export default function DashboardPage() {
       );
     }
     if (s === "Contacts") {
-      const filtered = contacts.filter(c =>
-        !contactSearch ||
-        c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-        c.email?.toLowerCase().includes(contactSearch.toLowerCase()) ||
-        c.brokerage?.toLowerCase().includes(contactSearch.toLowerCase())
-      );
+      const hotCount = contacts.filter(c => c.is_hot).length;
+      const stageCount = (stage: string) => contacts.filter(c => c.stage === stage).length;
       return (
         <section key={s}>
-          <div className="flex items-center gap-4 mb-4">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
-              Contacts — {contacts.length} total · {contacts.filter(c => c.is_hot).length} 🔥 hot
-            </p>
-            <a href="/admin/contacts" className="flex-shrink-0 text-xs tracking-[2px] uppercase border border-white/10 px-4 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all">
-              Manage →
-            </a>
-          </div>
-          <div className="bg-[#111] border border-white/10 p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <input
-                value={contactSearch}
-                onChange={e => setContactSearch(e.target.value)}
-                placeholder="Search contacts..."
-                className="flex-1 bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 transition-colors placeholder:text-[#444]"
-              />
-            </div>
-            <div className="divide-y divide-white/5 max-h-72 overflow-y-auto">
-              {filtered.slice(0, 20).map(c => (
-                <div key={c.id} className="flex items-center justify-between py-2.5 gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {c.is_hot && <span className="text-sm flex-shrink-0">🔥</span>}
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{c.name}</p>
-                      <p className="text-xs text-[#555] truncate">{c.brokerage || c.email || "—"}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {c.total_revenue > 0 && <span className="text-xs text-[#888]">${c.total_revenue.toLocaleString()}</span>}
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      c.stage === "client" ? "bg-emerald-900 text-emerald-300" :
-                      c.stage === "interested" ? "bg-blue-900 text-blue-300" :
-                      c.stage === "booked" ? "bg-green-900 text-green-300" :
-                      c.stage === "follow-up" ? "bg-yellow-900 text-yellow-300" :
-                      c.stage === "dead" ? "bg-red-950 text-red-400" :
-                      "bg-zinc-800 text-zinc-400"
-                    }`}>{c.stage}</span>
-                    <button onClick={() => setActiveCallContact(c)} className="text-xs text-[#555] hover:text-white transition-colors">
-                      Call
-                    </button>
-                  </div>
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Contacts
+          </p>
+          <div className="bg-[#111] border border-white/10">
+            {/* Stats row */}
+            <div className="grid grid-cols-5 divide-x divide-white/5 border-b border-white/10">
+              {[
+                { label: "Total", value: contacts.length },
+                { label: "Hot", value: hotCount },
+                { label: "Leads", value: stageCount("lead") + stageCount("interested") + stageCount("follow-up") },
+                { label: "Booked", value: stageCount("booked") },
+                { label: "Clients", value: stageCount("client") },
+              ].map(stat => (
+                <div key={stat.label} className="px-5 py-4 text-center">
+                  <p className="text-2xl font-bold">{stat.value}</p>
+                  <p className="text-xs text-[#555] mt-0.5 tracking-[1px] uppercase">{stat.label}</p>
                 </div>
               ))}
-              {contacts.length === 0 && <p className="text-[#444] text-sm text-center py-8">No contacts yet</p>}
+            </div>
+
+            {/* Quick add form (inline, toggleable) */}
+            {showQuickAdd ? (
+              <form onSubmit={saveQuickContact} className="p-5 border-b border-white/10">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <input required autoFocus value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Name *" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 col-span-2" />
+                  <input value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  <input value={quickAddForm.brokerage} onChange={e => setQuickAddForm(f => ({ ...f, brokerage: e.target.value }))}
+                    placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  <input type="email" value={quickAddForm.email} onChange={e => setQuickAddForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="Email" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  <select value={quickAddForm.stage} onChange={e => setQuickAddForm(f => ({ ...f, stage: e.target.value }))}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none">
+                    {["lead","interested","follow-up","booked","client"].map(st => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowQuickAdd(false)}
+                    className="px-4 py-2 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={quickAddSaving}
+                    className="flex-1 py-2 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                    {quickAddSaving ? "Saving..." : "Save Contact"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-3 divide-x divide-white/5">
+              <button onClick={() => { setShowQuickAdd(true); }}
+                className="flex flex-col items-center gap-2 py-5 text-[#888] hover:text-white hover:bg-white/[0.03] transition-all">
+                <span className="text-xl">+</span>
+                <span className="text-xs tracking-[2px] uppercase">New Contact</span>
+              </button>
+              <a href="/admin/contacts"
+                className="flex flex-col items-center gap-2 py-5 text-[#888] hover:text-white hover:bg-white/[0.03] transition-all">
+                <span className="text-xl">☰</span>
+                <span className="text-xs tracking-[2px] uppercase">View All</span>
+              </a>
+              <a href="/admin/cold-calls"
+                className="flex flex-col items-center gap-2 py-5 text-[#888] hover:text-white hover:bg-white/[0.03] transition-all">
+                <span className="text-xl">📞</span>
+                <span className="text-xs tracking-[2px] uppercase">Cold Calls</span>
+              </a>
             </div>
           </div>
         </section>
