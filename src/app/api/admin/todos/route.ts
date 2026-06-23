@@ -32,14 +32,30 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { action, text, id, is_urgent } = await req.json();
+  const { action, text, title, details, id, is_urgent } = await req.json();
   const db = service();
   const name = user.email?.split("@")[0] || "unknown";
 
-  if (action === "create" && text?.trim()) {
-    const { data, error } = await db.from("todos").insert({ text: text.trim(), created_by: name, is_urgent: !!is_urgent }).select().single();
+  if (action === "create" && (title?.trim() || text?.trim())) {
+    const { data, error } = await db.from("todos").insert({
+      text: (title || text || "").trim(),
+      title: title?.trim() || null,
+      details: details?.trim() || null,
+      created_by: name,
+      is_urgent: !!is_urgent,
+    }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ todo: data });
+  }
+
+  if (action === "update" && id) {
+    const patch: Record<string, unknown> = {};
+    if (title !== undefined) { patch.title = title?.trim() || null; patch.text = (title || "").trim(); }
+    if (details !== undefined) patch.details = details?.trim() || null;
+    if (is_urgent !== undefined) patch.is_urgent = is_urgent;
+    const { error } = await db.from("todos").update(patch).eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
   }
 
   if (action === "complete" && id) {

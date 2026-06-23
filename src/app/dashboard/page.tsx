@@ -140,7 +140,7 @@ export default function DashboardPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Command center state
-  type Todo = { id: string; text: string; created_by: string; created_at: string; completed_at: string | null; completed_by?: string; is_urgent: boolean };
+  type Todo = { id: string; text: string; title?: string; details?: string; created_by: string; created_at: string; completed_at: string | null; completed_by?: string; is_urgent: boolean };
 
   function userColor(name: string) {
     if (name === "ryan") return "text-[#4ade80]";
@@ -156,6 +156,12 @@ export default function DashboardPage() {
   const [todoInput, setTodoInput] = useState("");
   const [todoUrgent, setTodoUrgent] = useState(false);
   const [todoFilter, setTodoFilter] = useState<"all" | "urgent">("all");
+  const [todoExpanded, setTodoExpanded] = useState<string | null>(null);
+  const [todoEditing, setTodoEditing] = useState<string | null>(null);
+  const [todoEditTitle, setTodoEditTitle] = useState("");
+  const [todoEditDetails, setTodoEditDetails] = useState("");
+  const [todoDetailsInput, setTodoDetailsInput] = useState("");
+  const [todoAddOpen, setTodoAddOpen] = useState(false);
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [updateInput, setUpdateInput] = useState("");
   const [needsAttention, setNeedsAttention] = useState<UpdateItem[]>([]);
@@ -347,8 +353,14 @@ export default function DashboardPage() {
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     if (!todoInput.trim()) return;
-    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", text: todoInput, is_urgent: todoUrgent }) });
-    if (res.ok) { const { todo } = await res.json(); setTodos(t => [...t, todo]); setTodoInput(""); setTodoUrgent(false); }
+    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", title: todoInput, details: todoDetailsInput, is_urgent: todoUrgent }) });
+    if (res.ok) { const { todo } = await res.json(); setTodos(t => [...t, todo]); setTodoInput(""); setTodoDetailsInput(""); setTodoUrgent(false); setTodoAddOpen(false); }
+  }
+
+  async function saveTodoEdit(id: string) {
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update", id, title: todoEditTitle, details: todoEditDetails }) });
+    setTodos(ts => ts.map(t => t.id === id ? { ...t, title: todoEditTitle, text: todoEditTitle, details: todoEditDetails } : t));
+    setTodoEditing(null);
   }
 
   async function completeTodo(id: string) {
@@ -1282,29 +1294,78 @@ export default function DashboardPage() {
                 {visibleTodos.length === 0 && (
                   <p className="text-xs text-[#333] italic p-3">{todoFilter === "urgent" ? "No urgent items." : "Nothing pending."}</p>
                 )}
-                {visibleTodos.map(t => (
-                  <div key={t.id}
-                    className={`flex items-start gap-2.5 px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${t.is_urgent ? "border-l-2 border-l-red-500/60" : ""}`}>
-                    <button onClick={() => completeTodo(t.id)}
-                      className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 mt-0.5 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs truncate">{t.text}</p>
-                      <p className="text-[9px] mt-0.5 flex items-center gap-1">
-                        <span className={userColor(t.created_by)}>{t.created_by}</span>
-                        <span className="text-[#333]">· {fmtTime(t.created_at)}</span>
-                      </p>
+                {visibleTodos.map(t => {
+                  const isOpen = todoExpanded === t.id;
+                  const isEdit = todoEditing === t.id;
+                  const title = t.title || t.text;
+                  return (
+                    <div key={t.id} className={`border-b border-white/5 ${t.is_urgent ? "border-l-2 border-l-red-500/60" : ""}`}>
+                      {/* Title row */}
+                      <div className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.02] cursor-pointer"
+                        onClick={() => setTodoExpanded(isOpen ? null : t.id)}>
+                        <button onClick={e => { e.stopPropagation(); completeTodo(t.id); }}
+                          className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
+                        <p className="text-xs flex-1 truncate">{title}</p>
+                        <span className="text-[#333] text-[10px] ml-auto">{isOpen ? "▲" : "▼"}</span>
+                      </div>
+                      {/* Expanded detail */}
+                      {isOpen && (
+                        <div className="px-3 pb-3 bg-white/[0.015]">
+                          {isEdit ? (
+                            <div className="flex flex-col gap-1.5 pt-1">
+                              <input value={todoEditTitle} onChange={e => setTodoEditTitle(e.target.value)}
+                                className="bg-[#1a1a1a] border border-white/10 text-xs px-2 py-1.5 outline-none text-white w-full"
+                                placeholder="Title" />
+                              <textarea value={todoEditDetails} onChange={e => setTodoEditDetails(e.target.value)}
+                                className="bg-[#1a1a1a] border border-white/10 text-xs px-2 py-1.5 outline-none text-white w-full resize-none"
+                                rows={3} placeholder="Details (optional)" />
+                              <div className="flex gap-2">
+                                <button onClick={() => saveTodoEdit(t.id)}
+                                  className="text-[10px] tracking-[1px] uppercase text-[#4ade80] hover:text-white transition-colors">Save</button>
+                                <button onClick={() => setTodoEditing(null)}
+                                  className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {t.details ? (
+                                <p className="text-[11px] text-[#777] leading-relaxed pt-1.5 whitespace-pre-wrap">{t.details}</p>
+                              ) : (
+                                <p className="text-[10px] text-[#333] italic pt-1.5">No details added.</p>
+                              )}
+                              <div className="flex items-center gap-3 mt-2">
+                                <p className="text-[9px] flex items-center gap-1">
+                                  <span className={userColor(t.created_by)}>{t.created_by}</span>
+                                  <span className="text-[#333]">· {fmtTime(t.created_at)}</span>
+                                </p>
+                                <button onClick={() => { setTodoEditing(t.id); setTodoEditTitle(t.title || t.text); setTodoEditDetails(t.details || ""); }}
+                                  className="text-[9px] text-[#444] hover:text-white transition-colors uppercase tracking-[1px]">Edit</button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <form onSubmit={addTodo} className="border-t border-white/10 flex items-center">
-                <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Add a task..."
-                  className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
-                <button type="button" onClick={() => setTodoUrgent(u => !u)}
-                  className={`text-xs px-2 py-2 transition-colors flex-shrink-0 ${todoUrgent ? "text-red-400" : "text-[#444] hover:text-[#888]"}`}
-                  title="Mark as urgent">!</button>
-                <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">+</button>
-              </form>
+              {/* Add task — collapsed by default, expands inline */}
+              {todoAddOpen ? (
+                <form onSubmit={addTodo} className="border-t border-white/10 flex flex-col gap-1 p-2">
+                  <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Title"
+                    className="bg-transparent text-xs px-2 py-1.5 outline-none placeholder:text-[#333] text-white border border-white/10" autoFocus />
+                  <input value={todoDetailsInput} onChange={e => setTodoDetailsInput(e.target.value)} placeholder="Details (optional)"
+                    className="bg-transparent text-xs px-2 py-1.5 outline-none placeholder:text-[#333] text-white border border-white/10" />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setTodoUrgent(u => !u)}
+                      className={`text-[10px] uppercase tracking-[1px] transition-colors ${todoUrgent ? "text-red-400" : "text-[#444] hover:text-[#888]"}`}>! Urgent</button>
+                    <button type="submit" className="text-[10px] uppercase tracking-[1px] text-[#4ade80] hover:text-white transition-colors ml-auto">Add</button>
+                    <button type="button" onClick={() => setTodoAddOpen(false)} className="text-[10px] uppercase tracking-[1px] text-[#444] hover:text-white transition-colors">Cancel</button>
+                  </div>
+                </form>
+              ) : (
+                <button onClick={() => setTodoAddOpen(true)} className="border-t border-white/10 w-full text-left px-3 py-2 text-xs text-[#444] hover:text-white transition-colors">+ Add task</button>
+              )}
             </div>
             {/* UPDATES */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
