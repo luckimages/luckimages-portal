@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: false, "Cold Calls": true, "Command Center": true };
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: false, "Cold Calls": true, "Command Center": true, "Shoot Log": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -532,6 +532,26 @@ export default function DashboardPage() {
 
   type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[] };
   const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
+
+  // Shoot Log
+  type TimeEntry = { id: string; user_id: string; user_name: string; started_at: string; stopped_at: string | null; duration_seconds: number };
+  const [shootLog, setShootLog] = useState<ShootEvent[]>([]);
+  const [shootLogEntries, setShootLogEntries] = useState<TimeEntry[]>([]);
+  const [shootLogExpanded, setShootLogExpanded] = useState(false);
+  const [shootLogLoaded, setShootLogLoaded] = useState(false);
+  const [shootLogFilter, setShootLogFilter] = useState<"all"|"scheduled"|"completed"|"pending"|"cancelled">("all");
+  const [shootLogMonth, setShootLogMonth] = useState("");
+
+  async function loadShootLog() {
+    if (shootLogLoaded) return;
+    const [shootsRes, timeRes] = await Promise.all([
+      fetch("/api/admin/shoots?full=1"),
+      fetch("/api/admin/time-entries?mode=all"),
+    ]);
+    if (shootsRes.ok) setShootLog(await shootsRes.json());
+    if (timeRes.ok) { const d = await timeRes.json(); setShootLogEntries(d.allEntries || []); }
+    setShootLogLoaded(true);
+  }
   const [calWeekOffset, setCalWeekOffset] = useState(0);
 
   const [qbSyncing, setQbSyncing] = useState(false);
@@ -1514,6 +1534,137 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+        </section>
+      );
+    }
+
+    if (s === "Shoot Log") {
+      const thisMonth = new Date().toISOString().slice(0, 7);
+      const completedCount = allShoots.filter(s => s.status === "completed").length + shootLog.filter(s => s.status === "completed").length;
+      const totalCount = allShoots.length;
+      const thisMonthCount = allShoots.filter(s => s.scheduled_at?.startsWith(thisMonth)).length;
+
+      // Build filtered log for expanded view
+      const filtered = shootLog
+        .filter(s => shootLogFilter === "all" || s.status === shootLogFilter)
+        .filter(s => !shootLogMonth || s.scheduled_at?.startsWith(shootLogMonth))
+        .sort((a, b) => new Date(b.scheduled_at || 0).getTime() - new Date(a.scheduled_at || 0).getTime());
+
+      // Build day → hours map from time entries
+      const dayHours: Record<string, { ryan: number; leif: number }> = {};
+      for (const e of shootLogEntries) {
+        const day = e.started_at.slice(0, 10);
+        if (!dayHours[day]) dayHours[day] = { ryan: 0, leif: 0 };
+        const secs = e.stopped_at ? (e.duration_seconds || 0) : 0;
+        if (e.user_name === "ryan") dayHours[day].ryan += secs;
+        else if (e.user_name === "leif") dayHours[day].leif += secs;
+      }
+
+      const fmtH = (s: number) => s > 0 ? `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m` : "—";
+
+      const statusColor = (st: string) => {
+        if (st === "completed") return "text-[#4ade80]";
+        if (st === "scheduled") return "text-[#60a5fa]";
+        if (st === "pending") return "text-[#fbbf24]";
+        return "text-[#555]";
+      };
+
+      const months = [...new Set(shootLog.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean))].sort().reverse();
+
+      return (
+        <section key={s}>
+          <p className={sectionLabel}>Shoot Log</p>
+          {!shootLogExpanded ? (
+            <div className="bg-[#111] border border-white/10 flex items-center">
+              <div className="flex-1 grid grid-cols-3 divide-x divide-white/5">
+                <div className="px-8 py-6">
+                  <p className="text-4xl font-bold tabular-nums">{totalCount}</p>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Total Shoots</p>
+                </div>
+                <div className="px-8 py-6">
+                  <p className="text-4xl font-bold tabular-nums">{thisMonthCount}</p>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">This Month</p>
+                </div>
+                <div className="px-8 py-6">
+                  <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{completedCount}</p>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Completed</p>
+                </div>
+              </div>
+              <div className="px-6 flex-shrink-0">
+                <button onClick={() => { setShootLogExpanded(true); loadShootLog(); }}
+                  className="px-8 py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
+                  View Log ↓
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#111] border border-white/10">
+              {/* Header */}
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {(["all","scheduled","completed","pending","cancelled"] as const).map(f => (
+                    <button key={f} onClick={() => setShootLogFilter(f)}
+                      className={`text-xs tracking-[1px] uppercase px-3 py-1 transition-colors ${shootLogFilter === f ? "text-white border border-white/20" : "text-[#555] hover:text-white"}`}>
+                      {f}
+                    </button>
+                  ))}
+                  <select value={shootLogMonth} onChange={e => setShootLogMonth(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-xs text-[#888] px-3 py-1 outline-none ml-2">
+                    <option value="">All months</option>
+                    {months.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <button onClick={() => setShootLogExpanded(false)} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">Collapse ▲</button>
+              </div>
+
+              {!shootLogLoaded ? (
+                <p className="text-xs text-[#444] italic p-6">Loading...</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-xs text-[#444] italic p-6">No shoots match this filter.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[#444] tracking-[1px] uppercase">
+                        <th className="text-left px-4 py-2.5 font-normal">Date</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Address</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Client</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Services</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Status</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Ryan hrs</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Leif hrs</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(shoot => {
+                        const day = shoot.scheduled_at?.slice(0, 10) || "";
+                        const dh = dayHours[day];
+                        return (
+                          <tr key={shoot.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 py-3 text-[#888] whitespace-nowrap">
+                              {shoot.scheduled_at ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                            </td>
+                            <td className="px-4 py-3 max-w-[200px]">
+                              <p className="truncate font-medium">{shoot.address}</p>
+                            </td>
+                            <td className="px-4 py-3 text-[#888] whitespace-nowrap">{shoot.client_name || "—"}</td>
+                            <td className="px-4 py-3 text-[#555] max-w-[160px]">
+                              <p className="truncate">{shoot.services?.join(", ") || "—"}</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`tracking-[1px] uppercase ${statusColor(shoot.status)}`}>{shoot.status}</span>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-[#4ade80]">{dh ? fmtH(dh.ryan) : "—"}</td>
+                            <td className="px-4 py-3 font-mono text-[#60a5fa]">{dh ? fmtH(dh.leif) : "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       );
     }
