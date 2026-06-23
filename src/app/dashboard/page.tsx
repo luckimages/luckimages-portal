@@ -821,6 +821,91 @@ export default function DashboardPage() {
     if (s === "Contacts") return null;
 
     if (s === "Cold Calls") {
+      // Render Command Center above Cold Calls (compact height)
+      const commandCenter = (
+        <section key="command-center" className="mb-6">
+          <p className={sectionLabel}>Command Center</p>
+          <div className="grid grid-cols-3 gap-4">
+
+            {/* TO DO */}
+            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                <span className="text-xs tracking-[2px] uppercase text-[#888]">To Do</span>
+                <a href="/admin/todos" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y divide-white/5 min-h-0">
+                {todos.length === 0 && <p className="text-xs text-[#333] italic p-3">Nothing pending.</p>}
+                {todos.map(t => (
+                  <div key={t.id} className="flex items-center gap-3 px-3 py-2 hover:bg-white/[0.02]">
+                    <button onClick={() => completeTodo(t.id)}
+                      className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
+                    <p className="text-xs truncate">{t.text}</p>
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={addTodo} className="border-t border-white/10 flex">
+                <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Add a task..."
+                  className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
+                <button type="submit" className="px-3 text-[#555] hover:text-white transition-colors">+</button>
+              </form>
+            </div>
+
+            {/* UPDATES */}
+            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
+                <span className="text-xs text-[#444]">48h</span>
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y divide-white/5 min-h-0">
+                {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
+                {updates.slice(0, 12).map(u => {
+                  const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : "💬";
+                  return (
+                    <div key={u.id} className="px-3 py-2 hover:bg-white/[0.02]">
+                      <p className="text-xs truncate">{icon} {u.message}</p>
+                      <p className="text-[10px] text-[#444]">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <form onSubmit={postUpdate} className="border-t border-white/10 flex">
+                <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update..."
+                  className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
+                <button type="submit" className="px-3 text-[#555] hover:text-white transition-colors">→</button>
+              </form>
+            </div>
+
+            {/* NEEDS ATTENTION */}
+            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                <span className="text-xs tracking-[2px] uppercase text-[#888] flex items-center gap-2">
+                  {needsAttention.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
+                  Needs Attention
+                </span>
+                {needsAttention.length > 0 && <span className="text-xs text-red-400">{needsAttention.length}</span>}
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y divide-white/5 min-h-0">
+                {needsAttention.length === 0 && <p className="text-xs text-[#333] italic p-3">All clear.</p>}
+                {needsAttention.map(u => (
+                  <div key={u.id} className="px-3 py-2 hover:bg-white/[0.02] flex items-start gap-2">
+                    <span className="text-red-400 text-xs flex-shrink-0">!</span>
+                    <p className="text-xs truncate">{u.message}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-white/10 px-3 py-2">
+                <p className="text-[10px] text-[#333]">Voicemails, texts, emails coming soon</p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+      );
+      // Fall through to render Cold Calls below — we prepend commandCenter via a fragment
+      return (
+        <>
+          {commandCenter}
+          {(() => {
       const filteredCallContacts = contacts.filter(c =>
         !callContactSearch || c.name.toLowerCase().includes(callContactSearch.toLowerCase()) ||
         c.brokerage?.toLowerCase().includes(callContactSearch.toLowerCase())
@@ -997,6 +1082,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+      );
+      })()}
+        </>
       );
     }
 
@@ -1338,93 +1426,6 @@ export default function DashboardPage() {
             })()}
           </section>
         </div>
-
-        {/* COMMAND CENTER */}
-        <section>
-          <p className={sectionLabel}>Command Center</p>
-          <div className="grid grid-cols-3 gap-4">
-
-            {/* TO DO */}
-            <div className="bg-[#111] border border-white/10 flex flex-col" style={{ minHeight: 320 }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888]">To Do</span>
-                <a href="/admin/todos" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-                {todos.length === 0 && <p className="text-xs text-[#333] italic p-4">Nothing pending.</p>}
-                {todos.map(t => (
-                  <div key={t.id} className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.02] group">
-                    <button onClick={() => completeTodo(t.id)}
-                      className="mt-0.5 w-4 h-4 border border-white/20 rounded-sm flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm leading-snug">{t.text}</p>
-                      <p className="text-xs text-[#444] mt-0.5">{t.created_by} · {new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <form onSubmit={addTodo} className="border-t border-white/10 flex">
-                <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Add a task..."
-                  className="flex-1 bg-transparent text-xs px-4 py-3 outline-none placeholder:text-[#333] text-white" />
-                <button type="submit" className="px-4 text-[#555] hover:text-white transition-colors text-lg leading-none">+</button>
-              </form>
-            </div>
-
-            {/* UPDATES */}
-            <div className="bg-[#111] border border-white/10 flex flex-col" style={{ minHeight: 320 }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
-                <span className="text-xs text-[#444]">Last 48h</span>
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-                {updates.length === 0 && <p className="text-xs text-[#333] italic p-4">No recent activity.</p>}
-                {updates.slice(0, 12).map(u => {
-                  const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : "💬";
-                  return (
-                    <div key={u.id} className="px-4 py-2.5 hover:bg-white/[0.02]">
-                      <p className="text-xs leading-snug">{icon} {u.message}</p>
-                      <p className="text-xs text-[#444] mt-0.5">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
-                    </div>
-                  );
-                })}
-              </div>
-              <form onSubmit={postUpdate} className="border-t border-white/10 flex">
-                <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update..."
-                  className="flex-1 bg-transparent text-xs px-4 py-3 outline-none placeholder:text-[#333] text-white" />
-                <button type="submit" className="px-4 text-[#555] hover:text-white transition-colors text-lg leading-none">→</button>
-              </form>
-            </div>
-
-            {/* NEEDS ATTENTION */}
-            <div className="bg-[#111] border border-white/10 flex flex-col" style={{ minHeight: 320 }}>
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888] flex items-center gap-2">
-                  {needsAttention.length > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
-                  Needs Attention
-                </span>
-                {needsAttention.length > 0 && <span className="text-xs text-red-400">{needsAttention.length}</span>}
-              </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-                {needsAttention.length === 0 && <p className="text-xs text-[#333] italic p-4">All clear.</p>}
-                {needsAttention.map(u => (
-                  <div key={u.id} className="px-4 py-3 hover:bg-white/[0.02]">
-                    <div className="flex items-start gap-2">
-                      <span className="text-red-400 text-xs mt-0.5">!</span>
-                      <div>
-                        <p className="text-xs leading-snug">{u.message}</p>
-                        <p className="text-xs text-[#444] mt-0.5">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-white/10 px-4 py-3">
-                <p className="text-xs text-[#333]">More sources coming soon — voicemails, texts, emails</p>
-              </div>
-            </div>
-
-          </div>
-        </section>
 
         {/* CLIENT INVITE */}
         <section>
