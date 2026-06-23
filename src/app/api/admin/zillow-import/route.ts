@@ -1,103 +1,124 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 
+const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+
+function parseAddressFromSlug(url: string): string {
+  const match = url.match(/homedetails\/([^/]+)\//);
+  if (!match) return "";
+  const slug = match[1];
+  const parts = slug.replace(/-(\d{5})(_zpid)?$/, "").split("-");
+  const stateIdx = parts.findIndex((p: string) => /^[A-Z]{2}$/.test(p));
+  if (stateIdx > 0) {
+    const street = parts.slice(0, stateIdx - 1).join(" ");
+    const city = parts[stateIdx - 1];
+    const state = parts[stateIdx];
+    const zip = slug.match(/(\d{5})(_zpid)?$/)?.[1] || "";
+    return `${street}, ${city} ${state}${zip ? " " + zip : ""}`;
+  }
+  return parts.join(" ");
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { url } = await req.json();
-
-  // Parse address from slug first (fast, no fetch)
-  let address = "";
-  const match = url.match(/homedetails\/([^/]+)\//);
-  if (match) {
-    const slug = match[1];
-    const parts = slug.replace(/-(\d{5})(_zpid)?$/, "").split("-");
-    const stateIdx = parts.findIndex((p: string) => /^[A-Z]{2}$/.test(p));
-    if (stateIdx > 0) {
-      const street = parts.slice(0, stateIdx - 1).join(" ");
-      const city = parts[stateIdx - 1];
-      const state = parts[stateIdx];
-      const zip = slug.match(/(\d{5})(_zpid)?$/)?.[1] || "";
-      address = `${street}, ${city} ${state}${zip ? " " + zip : ""}`;
-    } else {
-      address = parts.join(" ");
-    }
+  if (!user || !ADMIN_EMAILS.includes(user.email || "")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fetch the page to scrape agent info
+  const { url } = await req.json();
+  const address = parseAddressFromSlug(url);
+
   let agentName = "";
   let agentPhone = "";
-  let agentEmail = "";
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
+    // Use puppeteer with serverless chromium to render the full JS page
+    const chromium = await import("@sparticuz/chromium-min");
+    const puppeteer = await import("puppeteer-core");
+
+    const executablePath = await chromium.default.executablePath(
+      "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar"
+    );
+
+    const browser = await puppeteer.default.launch({
+      args: chromium.default.args,
+      defaultViewport: { width: 1280, height: 900 },
+      executablePath,
+      headless: true,
     });
 
-    if (res.ok) {
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    );
+
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 20000 });
+
+    // Wait for agent info to appear
+    await page.waitForSelector('[data-testid="bdp-agent-card"]', { timeout: 8000 }).catch(() => {});
+
+    // Extract agent name and phone from the DOM
+    const agentData = await page.evaluate(() => {
+      // Try agent card first
+      const card = document.querySelector('[data-testid="bdp-agent-card"]');
+      if (card) {
+        const name = card.querySelector('[data-testid="agent-name"]')?.textContent?.trim()
+          || card.querySelector("span.Text-c11n-8-100-2__sc-aiai24-0")?.textContent?.trim()
+          || "";
+        const phone = card.querySelector('[data-testid="agent-phone"]')?.textContent?.trim()
+          || card.querySelector("a[href^='tel:']")?.textContent?.trim()
+          || "";
+        if (name) return { name, phone };
+      }
+
+      // Fallback: look for listing agent section anywhere on page
+      const allLinks = Array.from(document.querySelectorAll("a[href^='tel:']"));
+      const phone = allLinks[0]?.textContent?.trim() || "";
+
+      // Look for agent name near the phone link
+      const agentSection = document.querySelector('[class*="listing-agent"]')
+        || document.querySelector('[class*="agentName"]')
+        || document.querySelector('[aria-label*="agent"]');
+      const name = agentSection?.textContent?.trim() || "";
+
+      return { name, phone };
+    });
+
+    agentName = agentData.name || "";
+    agentPhone = agentData.phone || "";
+
+    await browser.close();
+  } catch (err) {
+    // Puppeteer unavailable (local dev) — fall back to static HTML fetch
+    console.error("Puppeteer failed, falling back:", err);
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      });
       const html = await res.text();
 
-      // Zillow embeds listing data in __NEXT_DATA__ JSON
-      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
-      if (nextDataMatch) {
-        try {
-          const nextData = JSON.parse(nextDataMatch[1]);
-          // Navigate to listing agent data
-          const gdpClientCache = nextData?.props?.pageProps?.componentProps?.gdpClientCache;
-          if (gdpClientCache) {
-            const cacheStr = typeof gdpClientCache === "string" ? gdpClientCache : JSON.stringify(gdpClientCache);
-            // Look for attributionInfo which has the listing agent
-            const attrMatch = cacheStr.match(/"attributionInfo"\s*:\s*\{([^}]{0,800})\}/);
-            if (attrMatch) {
-              const attrStr = attrMatch[1];
-              const nameMatch = attrStr.match(/"agentName"\s*:\s*"([^"]+)"/);
-              const phoneMatch = attrStr.match(/"agentPhoneNumber"\s*:\s*"([^"]+)"/);
-              if (nameMatch) agentName = nameMatch[1];
-              if (phoneMatch) agentPhone = phoneMatch[1].replace(/[^\d+]/g, "").replace(/^(\d{10})$/, "($1)").replace(/^\((\d{3})(\d{3})(\d{4})\)$/, "($1) $2-$3");
-            }
-          }
-        } catch {}
+      const laMatch = html.match(/"listingAgent"\s*:\s*\{[^}]{0,400}\}/);
+      if (laMatch) {
+        const dnMatch = laMatch[0].match(/"displayName"\s*:\s*"([^"]+)"/);
+        const pnMatch = laMatch[0].match(/"phoneNumber"\s*:\s*"([^"]+)"/);
+        if (dnMatch) agentName = dnMatch[1];
+        if (pnMatch) agentPhone = pnMatch[1];
       }
 
-      // Fallback: look for agent info in og:description or structured data
       if (!agentName) {
-        const ldMatch = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/);
-        if (ldMatch) {
-          try {
-            const ld = JSON.parse(ldMatch[1]);
-            const items = Array.isArray(ld) ? ld : [ld];
-            for (const item of items) {
-              if (item?.agent?.name) { agentName = item.agent.name; break; }
-              if (item?.author?.name) { agentName = item.author.name; break; }
-            }
-          } catch {}
+        const attrMatch = html.match(/"attributionInfo"\s*:\s*\{([^}]{0,800})\}/);
+        if (attrMatch) {
+          const nameMatch = attrMatch[1].match(/"agentName"\s*:\s*"([^"]+)"/);
+          const phoneMatch = attrMatch[1].match(/"agentPhoneNumber"\s*:\s*"([^"]+)"/);
+          if (nameMatch) agentName = nameMatch[1];
+          if (phoneMatch) agentPhone = phoneMatch[1];
         }
       }
+    } catch {}
+  }
 
-      // Another common pattern: "listingAgent":{"displayName":"...","phoneNumber":"..."}
-      if (!agentName) {
-        const laMatch = html.match(/"listingAgent"\s*:\s*\{[^}]{0,400}\}/);
-        if (laMatch) {
-          const dnMatch = laMatch[0].match(/"displayName"\s*:\s*"([^"]+)"/);
-          const pnMatch = laMatch[0].match(/"phoneNumber"\s*:\s*"([^"]+)"/);
-          if (dnMatch) agentName = dnMatch[1];
-          if (pnMatch) agentPhone = pnMatch[1];
-        }
-      }
-
-      // Pattern: "brokerName":"...", "brokerPhoneNumber":"..."
-      if (!agentPhone) {
-        const bpMatch = html.match(/"brokerPhoneNumber"\s*:\s*"([^"]+)"/);
-        if (bpMatch) agentPhone = bpMatch[1];
-      }
-    }
-  } catch {}
-
-  return NextResponse.json({ address, agentName, agentPhone, agentEmail });
+  return NextResponse.json({ address, agentName, agentPhone });
 }
