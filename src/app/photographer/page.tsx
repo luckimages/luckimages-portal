@@ -18,6 +18,7 @@ type PayStub = {
 export default function PhotographerPage() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [payStubs, setPayStubs] = useState<PayStub[]>([]);
@@ -34,6 +35,7 @@ export default function PhotographerPage() {
       if (!data.user) { router.push("/login"); return; }
       const uid = data.user.id;
       setUserId(uid);
+      setUserEmail(data.user.email || "");
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
       const [{ data: shootData }, { data: payData }] = await Promise.all([
         supabase.from("shoots").select("*").contains("photographer_ids", [uid]).order("scheduled_at", { ascending: true }),
@@ -117,6 +119,9 @@ export default function PhotographerPage() {
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-6">
           <span className="text-xs tracking-[2px] uppercase text-[#666]">Photographer</span>
+          {["ryan@luckimages.com", "leif@luckimages.com"].includes(userEmail) && (
+            <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Admin Dashboard</a>
+          )}
           <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
         </div>
       </header>
