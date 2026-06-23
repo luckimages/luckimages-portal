@@ -11,28 +11,33 @@ function service() {
   );
 }
 
-// GET — load active entry + this-week stats for all admins
-export async function GET() {
+// GET — ?mode=week (default) or ?mode=all
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const mode = searchParams.get("mode") || "week";
   const db = service();
+
   const weekStart = new Date();
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
   weekStart.setHours(0, 0, 0, 0);
 
-  const [{ data: active }, { data: weekEntries }] = await Promise.all([
+  const [{ data: active }, entriesQuery] = await Promise.all([
     db.from("time_entries").select("*").eq("user_id", user.id).is("stopped_at", null).maybeSingle(),
-    db.from("time_entries").select("user_id, user_name, duration_seconds, started_at, stopped_at").gte("started_at", weekStart.toISOString()),
+    mode === "all"
+      ? db.from("time_entries").select("*").order("started_at", { ascending: false })
+      : db.from("time_entries").select("user_id, user_name, duration_seconds, started_at, stopped_at").gte("started_at", weekStart.toISOString()),
   ]);
 
-  return NextResponse.json({ active, weekEntries: weekEntries || [] });
+  return NextResponse.json({ active, weekEntries: mode === "week" ? (entriesQuery.data || []) : [], allEntries: mode === "all" ? (entriesQuery.data || []) : [] });
 }
 
-// POST — start or stop timer
+// POST — start or stop
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

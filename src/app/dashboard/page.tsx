@@ -288,8 +288,24 @@ export default function DashboardPage() {
     });
     setActiveEntryId(null);
     setTimerStart(null);
-    setMyWeekSeconds(s => s + elapsed);
     setElapsed(0);
+    // Refetch totals so we don't double-count the running time already in the initial load
+    const res = await fetch("/api/admin/time-entries");
+    if (res.ok) {
+      const { weekEntries } = await res.json();
+      if (weekEntries) {
+        let myTotal = 0; let partnerTotal = 0; let pName = "";
+        const now = Date.now();
+        weekEntries.forEach((e: { user_id: string; user_name: string; duration_seconds: number; started_at: string; stopped_at: string | null }) => {
+          const secs = e.stopped_at ? (e.duration_seconds || 0) : Math.floor((now - new Date(e.started_at).getTime()) / 1000);
+          if (e.user_id === userId) { myTotal += secs; }
+          else { partnerTotal += secs; pName = e.user_name; }
+        });
+        setMyWeekSeconds(myTotal);
+        setPartnerWeekSeconds(partnerTotal);
+        setPartnerName(pName);
+      }
+    }
   }
 
   async function refreshShoots() {
@@ -1314,7 +1330,7 @@ export default function DashboardPage() {
 
         {/* TIME STATS — compact, always at bottom */}
         <section>
-          <p className={sectionLabel}>Time Tracker — This Week</p>
+          <p className={sectionLabel}>Time Tracker — This Week <a href="/admin/time-tracker" className="ml-3 text-[#555] hover:text-white transition-colors normal-case tracking-normal font-normal">View all →</a></p>
           <div className="bg-[#111] border border-white/10 p-5 flex items-center gap-8">
             <div className="flex items-center gap-3">
               {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />}
