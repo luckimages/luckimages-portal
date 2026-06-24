@@ -1,6 +1,7 @@
 import Link from "next/link";
 import HeroParallax from "@/components/HeroParallax";
 import HomeNav from "@/components/HomeNav";
+import HeroCTA from "@/components/HeroCTA";
 import { SERVICES } from "@/lib/services";
 
 export default function Home() {
@@ -29,14 +30,7 @@ export default function Home() {
             <br />
             Built for agents who move fast.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">
-              Client Portal
-            </Link>
-            <a href="#services" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">
-              Our Services
-            </a>
-          </div>
+          <HeroCTA />
         </div>
       </section>
 
