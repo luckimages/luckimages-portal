@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { contactId, to, subject, body } = await req.json();
+  const { contactId, to, subject, body, html } = await req.json();
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         from: "Ryan Luck <ryan@luckimages.com>",
         to: [to],
         subject,
-        text: body,
+        ...(html ? { html } : { text: body }),
       }),
     });
   }

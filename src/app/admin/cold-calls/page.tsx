@@ -29,41 +29,130 @@ type CallLog = {
 };
 
 const OUTCOMES = [
-  { value: "no_answer", label: "No Answer", color: "bg-zinc-700 text-zinc-300" },
-  { value: "not_interested", label: "Not Interested", color: "bg-red-900 text-red-300" },
-  { value: "interested", label: "Interested", color: "bg-blue-900 text-blue-300" },
-  { value: "callback", label: "Callback", color: "bg-yellow-900 text-yellow-300" },
-  { value: "booked", label: "Booked!", color: "bg-green-900 text-green-300" },
+  { value: "no_answer",     label: "No Answer",      color: "bg-zinc-700 text-zinc-300" },
+  { value: "not_interested",label: "Not Interested",  color: "bg-red-900 text-red-300" },
+  { value: "interested",    label: "Interested",      color: "bg-blue-900 text-blue-300" },
+  { value: "callback",      label: "Callback",        color: "bg-yellow-900 text-yellow-300" },
+  { value: "booked",        label: "Booked!",         color: "bg-green-900 text-green-300" },
 ];
 
 const SERVICES = [
   { label: "Drone Photos (Lot Lines)", price: 200 },
   { label: "Interior/Exterior Photos", price: 175 },
-  { label: "Photo + Drone Package", price: 325 },
-  { label: "Video Walkthrough", price: 250 },
-  { label: "Matterport 3D Tour", price: 225 },
-  { label: "Twilight Shoot", price: 250 },
-  { label: "Full Package", price: 750 },
-  { label: "Custom", price: 0 },
+  { label: "Photo + Drone Package",    price: 325 },
+  { label: "Video Walkthrough",        price: 250 },
+  { label: "Matterport 3D Tour",       price: 225 },
+  { label: "Twilight Shoot",           price: 250 },
+  { label: "Full Package",             price: 750 },
+  { label: "Custom",                   price: 0 },
 ];
 
-const EMAIL_TEMPLATES = [
-  {
-    label: "Drone Follow-up",
-    subject: "Drone Photos for Your Listing",
-    body: (name: string) => `Hi ${name},\n\nGreat speaking with you! As mentioned, I specialize in drone photography with lot lines overlaid — 10 aerial shots delivered within 24 hours for $200 flat.\n\nPerfect for land and lot listings to show buyers exactly what they're getting.\n\nHappy to get out there this week — what day works best?\n\nRyan Luck\nLuck Images\n(512) 555-0100\nluckimages.com`,
-  },
-  {
-    label: "Full Package Follow-up",
-    subject: "Real Estate Photography — Luck Images",
-    body: (name: string) => `Hi ${name},\n\nThanks for your time today! I'd love to show you what we do at Luck Images.\n\nWe offer listing photos, drone aerials, video walkthroughs, Matterport 3D tours, and twilight shoots — all with next-day turnaround.\n\nCheck out our portfolio at luckimages.com and let me know when you have a listing coming up.\n\nRyan Luck\nLuck Images\n(512) 555-0100`,
-  },
-  {
-    label: "Left Voicemail",
-    subject: "Following Up — Luck Images Real Estate Photography",
-    body: (name: string) => `Hi ${name},\n\nI left you a voicemail earlier — just wanted to follow up in case email is easier.\n\nI'm Ryan with Luck Images, a real estate photography company based in Austin. I noticed your listing and wanted to reach out about drone photos with lot lines overlaid.\n\n10 aerial shots, 24hr turnaround, $200 flat.\n\nLet me know if you'd like to set something up!\n\nRyan Luck\nLuck Images\nluckimages.com`,
-  },
-];
+function buildPitchHtml(firstName: string, email: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Luck Images — Real Estate Media</title>
+</head>
+<body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#ffffff;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+        <!-- Logo / Brand -->
+        <tr><td style="padding-bottom:32px;border-bottom:1px solid #222;">
+          <p style="margin:0;font-size:22px;font-weight:900;letter-spacing:4px;text-transform:uppercase;color:#fff;">LUCK IMAGES</p>
+          <p style="margin:4px 0 0;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#555;">Real Estate Media · Austin, TX</p>
+        </td></tr>
+
+        <!-- Greeting -->
+        <tr><td style="padding:32px 0 24px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#aaa;">Hi ${firstName},</p>
+          <p style="margin:0;font-size:15px;line-height:1.7;color:#ccc;">
+            Thanks for taking my call. I wanted to follow up with our full service menu and some examples of what we do for agents across the Austin area.
+          </p>
+        </td></tr>
+
+        <!-- Services & Pricing -->
+        <tr><td style="padding-bottom:32px;">
+          <p style="margin:0 0 16px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;border-bottom:1px solid #222;padding-bottom:10px;">Services &amp; Pricing</p>
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:12px 0;font-size:13px;color:#fff;">Interior / Exterior Photos</td>
+              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$175</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:12px 0;font-size:13px;color:#fff;">Drone Photos + Lot Lines</td>
+              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$200</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:12px 0;font-size:13px;color:#fff;">Photo + Drone Package</td>
+              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$325</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:12px 0;font-size:13px;color:#fff;">Video Walkthrough</td>
+              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$250</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:12px 0;font-size:13px;color:#fff;">Matterport 3D Tour</td>
+              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$225</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1a1a1a;">
+              <td style="padding:12px 0;font-size:13px;color:#fff;">Twilight Shoot</td>
+              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$250</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 0;font-size:13px;color:#fff;font-weight:700;">Full Package <span style="font-weight:400;color:#666;font-size:11px;">(Photos + Drone + Video + 3D)</span></td>
+              <td style="padding:12px 0;font-size:15px;color:#4ade80;text-align:right;font-weight:900;">$750</td>
+            </tr>
+          </table>
+          <p style="margin:12px 0 0;font-size:11px;color:#444;letter-spacing:1px;">All shoots include next-day delivery. Rush same-day available.</p>
+        </td></tr>
+
+        <!-- Portal CTA -->
+        <tr><td style="padding-bottom:32px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;">
+            <tr><td style="padding:24px;">
+              <p style="margin:0 0 6px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;">Client Portal</p>
+              <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#fff;">Your media, delivered instantly</p>
+              <p style="margin:0 0 16px;font-size:13px;color:#888;line-height:1.6;">
+                Every client gets access to a private portal where you can download full-resolution photos, drone video, and walkthrough footage — all in one place, the moment they're ready.
+              </p>
+              <a href="https://luckimages-portal.vercel.app" style="display:inline-block;background:#fff;color:#000;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:12px 24px;text-decoration:none;">
+                View Portal →
+              </a>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- Portfolio CTA -->
+        <tr><td style="padding-bottom:40px;">
+          <p style="margin:0 0 16px;font-size:13px;color:#888;line-height:1.6;">
+            Want to see the work first? Check out our full portfolio at <a href="https://luckimages.com" style="color:#4ade80;text-decoration:none;">luckimages.com</a> — everything from aerial lot shots to full twilight packages.
+          </p>
+          <a href="https://luckimages.com" style="display:inline-block;border:1px solid #333;color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:12px 24px;text-decoration:none;">
+            View Portfolio →
+          </a>
+        </td></tr>
+
+        <!-- Sign-off -->
+        <tr><td style="border-top:1px solid #1a1a1a;padding-top:24px;">
+          <p style="margin:0;font-size:13px;color:#aaa;line-height:1.7;">
+            Ready to book or have questions? Just reply to this email or call me directly.<br/>
+            I can usually get out within 24–48 hours of booking.
+          </p>
+          <p style="margin:20px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
+          <p style="margin:2px 0 0;font-size:12px;color:#555;">Luck Images · (512) 555-0100 · ryan@luckimages.com</p>
+          <p style="margin:2px 0 0;font-size:12px;color:#555;">luckimages.com</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
 
 export default function ColdCallsPageWrapper() {
   return <Suspense><ColdCallsPage /></Suspense>;
@@ -77,7 +166,10 @@ function ColdCallsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [todayCount, setTodayCount] = useState(0);
-  const [dailyGoal] = useState(20);
+  const [weekCallCount, setWeekCallCount] = useState(0);
+  const [weekLeadCount, setWeekLeadCount] = useState(0);
+  const DAILY_GOAL = 20;
+
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [showNewContact, setShowNewContact] = useState(false);
@@ -92,12 +184,14 @@ function ColdCallsPage() {
   const [showAgentFields, setShowAgentFields] = useState(false);
   const [service, setService] = useState("");
   const [servicePrice, setServicePrice] = useState("");
-  const [logging, setLogging] = useState(false);
+  const [concluding, setConcluding] = useState(false);
+  const [concluded, setConcluded] = useState(false);
   const [callerName, setCallerName] = useState("ryan");
-  const [showEmail, setShowEmail] = useState(false);
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
-  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const [showPitchModal, setShowPitchModal] = useState(false);
+  const [pitchSubject, setPitchSubject] = useState("Real Estate Media — Luck Images");
+  const [sendingPitch, setSendingPitch] = useState(false);
+  const [pitchSent, setPitchSent] = useState(false);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -108,9 +202,18 @@ function ColdCallsPage() {
     setContacts(cs || []);
     setCallLogs(logs || []);
     const today = new Date().toISOString().split("T")[0];
-    setTodayCount((logs || []).filter((l: CallLog) => l.called_at.startsWith(today)).length);
+    const todayLogs = (logs || []).filter((l: CallLog) => l.called_at.startsWith(today));
+    setTodayCount(todayLogs.length);
+
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weekLogs = (logs || []).filter((l: CallLog) => new Date(l.called_at) >= weekStart);
+    setWeekCallCount(weekLogs.length);
+    setWeekLeadCount(weekLogs.filter((l: CallLog) => ["interested", "callback", "booked"].includes(l.outcome)).length);
+
     if (preselectedId && cs) {
-      const found = cs.find((c: Contact) => c.id === preselectedId);
+      const found = (cs as Contact[]).find(c => c.id === preselectedId);
       if (found) setActiveContact(found);
     }
   }, [preselectedId]);
@@ -136,14 +239,14 @@ function ColdCallsPage() {
       if (data.address) setListingAddress(data.address);
       setZillowAgent({ name: data.agentName || "", phone: data.agentPhone || "" });
       setShowAgentFields(true);
-    } catch {}
+    } catch { /* ignore */ }
     setZillowLoading(false);
     setZillow("");
   }
 
-  async function logCall() {
+  async function concludeCall() {
     if (!activeContact || !outcome) return;
-    setLogging(true);
+    setConcluding(true);
     const supabase = createClient();
     const notesWithService = [
       service ? `Service: ${service}${servicePrice ? ` ($${servicePrice})` : ""}` : "",
@@ -161,14 +264,19 @@ function ColdCallsPage() {
     });
     const stageMap: Record<string, string> = { interested: "interested", callback: "follow-up", booked: "booked", not_interested: "dead" };
     if (stageMap[outcome]) await supabase.from("contacts").update({ stage: stageMap[outcome] }).eq("id", activeContact.id);
-    if (outcome === "interested" || outcome === "callback") {
-      const tmpl = EMAIL_TEMPLATES[0];
-      setEmailSubject(tmpl.subject);
-      setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
-      setShowEmail(true);
+
+    // Automatically open pitch email modal on interested / callback
+    if ((outcome === "interested" || outcome === "callback") && activeContact.email) {
+      setPitchSubject("Real Estate Photography — Luck Images");
+      setPitchSent(false);
+      setShowPitchModal(true);
     }
-    setOutcome(""); setCallNotes(""); setListingAddress(""); setCallbackAt(""); setZillow(""); setZillowAgent({ name: "", phone: "" }); setShowAgentFields(false); setService(""); setServicePrice("");
-    setLogging(false);
+
+    setOutcome(""); setCallNotes(""); setListingAddress(""); setCallbackAt(""); setZillow("");
+    setZillowAgent({ name: "", phone: "" }); setShowAgentFields(false); setService(""); setServicePrice("");
+    setConcluding(false);
+    setConcluded(true);
+    setTimeout(() => setConcluded(false), 2000);
     await loadData();
   }
 
@@ -181,59 +289,65 @@ function ColdCallsPage() {
       email: newContact.email || null, brokerage: newContact.brokerage || null,
       stage: "lead", type: "lead",
     }).select().single();
-    if (data) setActiveContact(data);
+    if (data) setActiveContact(data as Contact);
     setShowNewContact(false);
     setNewContact({ name: "", phone: "", email: "", brokerage: "" });
     await loadData();
   }
 
-  async function sendEmail() {
+  async function sendPitchEmail() {
     if (!activeContact?.email) return;
-    setSendingEmail(true);
+    setSendingPitch(true);
+    const firstName = activeContact.name.split(" ")[0];
+    const html = buildPitchHtml(firstName, activeContact.email);
     await fetch("/api/admin/send-email", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contactId: activeContact.id, to: activeContact.email, subject: emailSubject, body: emailBody }),
+      body: JSON.stringify({
+        contactId: activeContact.id,
+        to: activeContact.email,
+        subject: pitchSubject,
+        html,
+        body: `Hi ${firstName},\n\nPlease see attached for our full service menu and pricing.\n\nRyan Luck\nLuck Images`,
+      }),
     });
-    setSendingEmail(false);
-    setShowEmail(false);
+    setSendingPitch(false);
+    setPitchSent(true);
   }
 
-  // Follow-up queue: contacts whose last call was no_answer or callback, or stage is follow-up/interested
   const followUpQueue = contacts.filter(c => {
     if (c.stage === "interested" || c.stage === "follow-up") return true;
     const lastCall = callLogs.find(l => l.contact_id === c.id);
     return lastCall && (lastCall.outcome === "no_answer" || lastCall.outcome === "callback");
-  }).map(c => {
-    const lastCall = callLogs.find(l => l.contact_id === c.id);
-    return { contact: c, lastCall };
-  });
+  }).map(c => ({ contact: c, lastCall: callLogs.find(l => l.contact_id === c.id) }));
 
   const filteredContacts = contacts.filter(c =>
-    !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+    !contactSearch ||
+    c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
     c.brokerage?.toLowerCase().includes(contactSearch.toLowerCase())
   );
 
-  const recentLogs = callLogs.slice(0, 12);
+  const recentLogs = callLogs.slice(0, 15);
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
+
       {/* Header */}
-      <div className="border-b border-white/10 px-8 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">
-            ← Dashboard
+      <div className="border-b border-white/10 px-4 md:px-8 py-4 md:py-5 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4 md:gap-6">
+          <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors shrink-0">
+            ← Back
           </button>
           <h1 className="text-sm font-bold tracking-[3px] uppercase">📞 Cold Calls</h1>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 md:gap-6 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-32 h-1.5 bg-[#222] overflow-hidden">
-              <div className="h-full bg-[#4ade80] transition-all duration-500" style={{ width: `${Math.min((todayCount / dailyGoal) * 100, 100)}%` }} />
+            <div className="w-24 md:w-32 h-1.5 bg-[#222] overflow-hidden">
+              <div className="h-full bg-[#4ade80] transition-all duration-500" style={{ width: `${Math.min((todayCount / DAILY_GOAL) * 100, 100)}%` }} />
             </div>
-            <span className="text-sm font-bold text-[#4ade80] tabular-nums">{todayCount}/{dailyGoal} today</span>
+            <span className="text-sm font-bold text-[#4ade80] tabular-nums">{todayCount}/{DAILY_GOAL}</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-[#555]">
-            Logging as:
+            <span className="hidden sm:inline">Logging as:</span>
             <select value={callerName} onChange={e => setCallerName(e.target.value)}
               className="bg-[#181818] border border-white/10 px-2 py-1 text-xs text-white focus:outline-none">
               <option value="ryan">Ryan</option>
@@ -243,7 +357,27 @@ function ColdCallsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8 space-y-8">
+      {/* Week stats bar */}
+      <div className="border-b border-white/10 px-4 md:px-8 py-3 flex items-center gap-6 md:gap-10 bg-[#0e0e0e]">
+        <div className="flex items-center gap-2">
+          <span className="text-xl md:text-2xl font-bold tabular-nums">{weekCallCount}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">calls this week</span>
+        </div>
+        <div className="w-px h-5 bg-white/10" />
+        <div className="flex items-center gap-2">
+          <span className="text-xl md:text-2xl font-bold tabular-nums text-[#4ade80]">{weekLeadCount}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">leads</span>
+        </div>
+        <div className="w-px h-5 bg-white/10 hidden md:block" />
+        <div className="hidden md:flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">
+            {weekCallCount > 0 ? Math.round((weekLeadCount / weekCallCount) * 100) : 0}%
+          </span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">conversion</span>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8 space-y-8">
 
         {/* FOLLOW-UP QUEUE */}
         {followUpQueue.length > 0 && (
@@ -251,13 +385,13 @@ function ColdCallsPage() {
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
               Follow-Up Queue — {followUpQueue.length} to contact
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {followUpQueue.map(({ contact, lastCall }) => {
                 const outcomeInfo = OUTCOMES.find(o => o.value === lastCall?.outcome);
                 return (
                   <button
                     key={contact.id}
-                    onClick={() => { setActiveContact(contact); window.scrollTo({ top: 400, behavior: "smooth" }); }}
+                    onClick={() => { setActiveContact(contact); window.scrollTo({ top: 300, behavior: "smooth" }); }}
                     className={`bg-[#111] border text-left p-4 hover:border-white/20 transition-all ${activeContact?.id === contact.id ? "border-white/30" : "border-white/10"}`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -272,11 +406,8 @@ function ColdCallsPage() {
                     {lastCall?.listing_address && <p className="text-xs text-[#444] mt-1">📍 {lastCall.listing_address}</p>}
                     {lastCall && (
                       <p className="text-xs text-[#333] mt-1">
-                        Last called {new Date(lastCall.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        Last: {new Date(lastCall.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </p>
-                    )}
-                    {contact.stage === "interested" && !lastCall && (
-                      <span className="text-xs text-blue-400">Interested — follow up</span>
                     )}
                   </button>
                 );
@@ -286,20 +417,21 @@ function ColdCallsPage() {
         )}
 
         {/* MAIN 2-COL: LOG A CALL + RECENT CALLS */}
-        <div className="grid grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
 
           {/* LEFT — Log a call */}
           <section>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
               Log a Call
             </p>
-            <div className="bg-[#111] border border-white/10 p-6 space-y-5">
+            <div className="bg-[#111] border border-white/10 p-5 md:p-6 space-y-5">
 
               {/* Zillow */}
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Zillow Listing URL</p>
                 <div className="flex gap-2">
                   <input value={zillow} onChange={e => setZillow(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && importFromZillow()}
                     placeholder="https://zillow.com/homedetails/..."
                     className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
                   <button onClick={importFromZillow} disabled={zillowLoading || !zillow.trim()}
@@ -317,7 +449,7 @@ function ColdCallsPage() {
                         className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
                       <input value={zillowAgent.phone} onChange={e => setZillowAgent(a => ({ ...a, phone: e.target.value }))}
                         placeholder="Phone"
-                        className="w-36 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                        className="w-32 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
                     </div>
                     {!activeContact && zillowAgent.name && (
                       <button onClick={() => {
@@ -335,17 +467,30 @@ function ColdCallsPage() {
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact</p>
                 {activeContact ? (
-                  <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{activeContact.name}</p>
+                  <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{activeContact.name}</p>
                       <p className="text-xs text-[#555]">{activeContact.brokerage || activeContact.phone || "—"}</p>
                       {activeContact.phone && (
                         <a href={`tel:${activeContact.phone}`} className="text-xs text-[#4ade80] hover:underline mt-0.5 block">
                           📱 {activeContact.phone}
                         </a>
                       )}
+                      {activeContact.email && (
+                        <p className="text-xs text-[#555] mt-0.5">{activeContact.email}</p>
+                      )}
                     </div>
-                    <button onClick={() => { setActiveContact(null); setContactSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {activeContact.email && (
+                        <button
+                          onClick={() => { setPitchSubject("Real Estate Photography — Luck Images"); setPitchSent(false); setShowPitchModal(true); }}
+                          className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-1.5 text-[#888] hover:text-white hover:border-white/30 transition-all whitespace-nowrap"
+                        >
+                          ✉ Send Pitch
+                        </button>
+                      )}
+                      <button onClick={() => { setActiveContact(null); setContactSearch(""); }} className="text-[#444] hover:text-white text-xs transition-colors">✕</button>
+                    </div>
                   </div>
                 ) : showNewContact ? (
                   <form onSubmit={createAndSelect} className="space-y-2">
@@ -363,7 +508,7 @@ function ColdCallsPage() {
                       <button type="button" onClick={() => setShowNewContact(false)}
                         className="text-xs text-[#555] hover:text-white px-3 py-2 border border-white/10 transition-colors">Cancel</button>
                       <button type="submit"
-                        className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-2 hover:bg-[#ddd] transition-colors">
+                        className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-2 hover:bg-[#ddd] transition-colors font-semibold">
                         Create &amp; Select
                       </button>
                     </div>
@@ -382,9 +527,7 @@ function ColdCallsPage() {
                             {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
                           </button>
                         ))}
-                        {filteredContacts.length === 0 && (
-                          <p className="px-3 py-2 text-xs text-[#444]">No match</p>
-                        )}
+                        {filteredContacts.length === 0 && <p className="px-3 py-2 text-xs text-[#444]">No match</p>}
                       </div>
                     )}
                     <button onClick={() => setShowNewContact(true)} className="text-xs text-[#555] hover:text-white transition-colors">
@@ -394,7 +537,7 @@ function ColdCallsPage() {
                 )}
               </div>
 
-              {/* Listing address (manual if no Zillow) */}
+              {/* Listing address (manual) */}
               {!listingAddress && (
                 <div>
                   <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Listing Address <span className="normal-case text-[#333]">(or use Zillow above)</span></p>
@@ -417,16 +560,16 @@ function ColdCallsPage() {
                 </div>
               </div>
 
-              {/* Callback date if applicable */}
+              {/* Callback date */}
               {outcome === "callback" && (
                 <div>
                   <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Callback Date/Time</p>
                   <input type="datetime-local" value={callbackAt} onChange={e => setCallbackAt(e.target.value)}
-                    className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30" />
+                    className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 [color-scheme:dark]" />
                 </div>
               )}
 
-              {/* Service */}
+              {/* Service pitched */}
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Service Pitched</p>
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -447,7 +590,7 @@ function ColdCallsPage() {
                     <div className="flex items-center bg-[#181818] border border-white/10">
                       <span className="text-xs text-[#555] px-2">$</span>
                       <input type="number" value={servicePrice} onChange={e => setServicePrice(e.target.value)}
-                        placeholder="0" className="w-24 bg-transparent text-white text-xs px-2 py-2 outline-none" />
+                        placeholder="0" className="w-20 bg-transparent text-white text-xs px-2 py-2 outline-none" />
                     </div>
                   </div>
                 )}
@@ -461,22 +604,15 @@ function ColdCallsPage() {
                   className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
               </div>
 
-              <div className="flex gap-3">
-                {activeContact?.email && (
-                  <button onClick={() => {
-                    const tmpl = EMAIL_TEMPLATES[0];
-                    setEmailSubject(tmpl.subject);
-                    setEmailBody(tmpl.body(activeContact.name.split(" ")[0]));
-                    setShowEmail(true);
-                  }} className="px-4 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all">
-                    ✉ Email
-                  </button>
-                )}
-                <button onClick={logCall} disabled={!activeContact || !outcome || logging}
-                  className="flex-1 py-2.5 text-xs tracking-[3px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                  {logging ? "Logging..." : "Log Call"}
-                </button>
-              </div>
+              <button
+                onClick={concludeCall}
+                disabled={!activeContact || !outcome || concluding}
+                className={`w-full py-3 text-xs tracking-[3px] uppercase font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                  concluded ? "bg-[#4ade80] text-black" : "bg-white text-black hover:bg-[#ddd]"
+                }`}
+              >
+                {concluding ? "Logging..." : concluded ? "✓ Concluded" : "Conclude Call"}
+              </button>
             </div>
           </section>
 
@@ -504,11 +640,11 @@ function ColdCallsPage() {
                     {log.notes && (() => {
                       const lines = log.notes.split("\n");
                       const svcLine = lines.find(l => l.startsWith("Service:"));
-                      const otherLines = lines.filter(l => !l.startsWith("Service:")).join(" ");
+                      const other = lines.filter(l => !l.startsWith("Service:")).join(" ");
                       return (
                         <>
                           {svcLine && <p className="text-xs text-[#6366f1] mt-0.5">{svcLine}</p>}
-                          {otherLines && <p className="text-xs text-[#444] italic mt-0.5">{otherLines}</p>}
+                          {other && <p className="text-xs text-[#444] italic mt-0.5">{other}</p>}
                         </>
                       );
                     })()}
@@ -520,46 +656,66 @@ function ColdCallsPage() {
               })}
             </div>
           </section>
+
         </div>
       </div>
 
-      {/* Email Modal */}
-      {showEmail && activeContact && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg">
-            <h2 className="text-lg font-bold mb-4">Send Follow-up Email</h2>
-            <div className="space-y-3 mb-4">
-              <div className="flex gap-2 flex-wrap">
-                {EMAIL_TEMPLATES.map(t => (
-                  <button key={t.label} onClick={() => { setEmailSubject(t.subject); setEmailBody(t.body(activeContact.name.split(" ")[0])); }}
-                    className="text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors">
-                    {t.label}
+      {/* Pitch Email Modal */}
+      {showPitchModal && activeContact && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" onClick={() => !sendingPitch && setShowPitchModal(false)}>
+          <div className="bg-[#111] border border-white/15 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div>
+                <p className="text-xs tracking-[3px] uppercase font-semibold">Send Pitch Email</p>
+                <p className="text-xs text-[#555] mt-0.5">Sends pricing, portfolio + portal info</p>
+              </div>
+              <button onClick={() => setShowPitchModal(false)} className="text-[#555] hover:text-white text-lg leading-none transition-colors">✕</button>
+            </div>
+
+            {pitchSent ? (
+              <div className="p-8 text-center space-y-3">
+                <p className="text-3xl">✓</p>
+                <p className="text-sm font-semibold text-[#4ade80]">Email sent to {activeContact.email}</p>
+                <p className="text-xs text-[#555]">They&apos;ll receive pricing, portfolio link, and portal info.</p>
+                <button onClick={() => setShowPitchModal(false)}
+                  className="mt-4 text-xs tracking-[2px] uppercase border border-white/10 px-6 py-2.5 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1.5">To</p>
+                  <div className="bg-[#181818] border border-white/10 px-4 py-2.5 text-sm text-white">
+                    {activeContact.name} — {activeContact.email}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1.5">Subject</p>
+                  <input value={pitchSubject} onChange={e => setPitchSubject(e.target.value)}
+                    className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                </div>
+                <div className="bg-[#0e0e0e] border border-white/5 p-4 space-y-1">
+                  <p className="text-xs text-[#555] tracking-[1px] uppercase mb-2">Email includes</p>
+                  {["Full services & pricing (Photos, Drone, Video, Matterport, Twilight, Full Package)", "Portfolio link — luckimages.com", "Client portal overview — how media delivery works", "Personal sign-off from Ryan"].map(item => (
+                    <p key={item} className="text-xs text-[#888] flex items-start gap-2"><span className="text-[#4ade80] shrink-0">✓</span>{item}</p>
+                  ))}
+                </div>
+                {!activeContact.email && (
+                  <p className="text-xs text-[#fbbf24]">⚠ No email on file for this contact — add one first.</p>
+                )}
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowPitchModal(false)}
+                    className="flex-1 py-3 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                    Cancel
                   </button>
-                ))}
+                  <button onClick={sendPitchEmail} disabled={sendingPitch || !activeContact.email}
+                    className="flex-1 py-3 text-xs tracking-[2px] uppercase font-bold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                    {sendingPitch ? "Sending..." : "Send Email →"}
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">To</label>
-                <div className="text-sm text-zinc-300 bg-zinc-800 px-3 py-2 rounded-lg">{activeContact.email}</div>
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Subject</label>
-                <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-              </div>
-              <div>
-                <label className="text-xs text-zinc-500 mb-1 block">Body</label>
-                <textarea rows={8} value={emailBody} onChange={e => setEmailBody(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500 resize-none font-mono text-xs" />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowEmail(false)}
-                className="flex-1 py-2 rounded-lg border border-zinc-700 text-sm hover:bg-zinc-800 transition-colors">Cancel</button>
-              <button onClick={sendEmail} disabled={sendingEmail || !activeContact.email}
-                className="flex-1 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-zinc-200 disabled:opacity-40 transition-colors">
-                {sendingEmail ? "Sending..." : "Send Email"}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

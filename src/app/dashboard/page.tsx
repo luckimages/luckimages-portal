@@ -1452,202 +1452,29 @@ export default function DashboardPage() {
       const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
       const weekLogs = callLogs.filter(l => new Date(l.called_at) >= weekStart);
       const weekLeads = weekLogs.filter(l => ["interested","callback","booked"].includes(l.outcome));
-      const filteredCallContacts = contacts.filter(c =>
-        !callContactSearch || c.name.toLowerCase().includes(callContactSearch.toLowerCase()) ||
-        c.brokerage?.toLowerCase().includes(callContactSearch.toLowerCase())
-      );
-      const recentLogs = callLogs.slice(0, 8);
       return (
         <section key={s}>
-            <div className="flex items-center gap-4 mb-4">
-              <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
-                Cold Calls
-              </p>
-              <a href="/admin/cold-calls" className="flex-shrink-0 text-xs tracking-[2px] uppercase border border-white/10 px-4 py-1.5 text-[#888] hover:border-white/30 hover:text-white transition-all">
-                Full View →
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">Cold Calls</p>
+          </div>
+          <div className="bg-[#111] border border-white/10">
+            <div className="grid grid-cols-2 divide-x divide-white/5">
+              <div className="px-6 py-5">
+                <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
+              </div>
+              <div className="px-6 py-5">
+                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekLeads.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
+              </div>
+            </div>
+            <div className="border-t border-white/10 p-4">
+              <a href="/admin/cold-calls"
+                className="block w-full py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors text-center">
+                Start Calling →
               </a>
             </div>
-
-            {/* Collapsed stat card */}
-            {!callsExpanded ? (
-              <div className="bg-[#111] border border-white/10">
-                <div className="grid grid-cols-2 divide-x divide-white/5">
-                  <div className="px-6 py-5">
-                    <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
-                    <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
-                  </div>
-                  <div className="px-6 py-5">
-                    <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekLeads.length}</p>
-                    <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
-                  </div>
-                </div>
-                <div className="border-t border-white/10 p-4">
-                  <button onClick={() => setCallsExpanded(true)}
-                    className="w-full py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors">
-                    Start Calling →
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-[#111] border border-white/10">
-                {/* Expanded header */}
-                <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <span className="text-xs text-[#555]"><span className="text-white font-bold tabular-nums">{weekLogs.length}</span> calls this week</span>
-                    <span className="text-xs text-[#555]"><span className="text-[#4ade80] font-bold tabular-nums">{weekLeads.length}</span> leads</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 h-1 bg-[#222] overflow-hidden">
-                        <div className="h-full bg-[#4ade80] transition-all duration-500" style={{ width: `${Math.min((todayCalls / DAILY_GOAL) * 100, 100)}%` }} />
-                      </div>
-                      <span className="text-xs text-[#4ade80] tabular-nums">{todayCalls}/{DAILY_GOAL} today</span>
-                    </div>
-                  </div>
-                  <button onClick={() => setCallsExpanded(false)} className="text-[#555] hover:text-white text-xs transition-colors tracking-[1px] uppercase">Collapse ▲</button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x divide-white/5">
-                  {/* LEFT — log a call */}
-                  <div className="p-5 space-y-4">
-                    {/* Zillow import */}
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Zillow Listing URL</p>
-                      <div className="flex gap-2">
-                        <input value={zillowUrl} onChange={e => setZillowUrl(e.target.value)}
-                          placeholder="https://zillow.com/homedetails/..."
-                          className="flex-1 bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 transition-colors placeholder:text-[#333]" />
-                        <button onClick={async () => {
-                          if (!zillowUrl.trim()) return;
-                          setZillowLoading(true);
-                          try {
-                            const res = await fetch("/api/admin/zillow-import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: zillowUrl }) });
-                            const d = await res.json();
-                            if (d.address) setCallListingAddress(d.address);
-                          } finally { setZillowLoading(false); }
-                        }} disabled={zillowLoading}
-                          className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
-                          {zillowLoading ? "..." : "Import"}
-                        </button>
-                      </div>
-                      {callListingAddress && <p className="text-xs text-[#4ade80] mt-1.5">📍 {callListingAddress}</p>}
-                    </div>
-
-                    {/* Contact */}
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact</p>
-                      {activeCallContact ? (
-                        <div className="bg-[#181818] border border-white/10 p-3 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium">{activeCallContact.name}</p>
-                            <p className="text-xs text-[#555]">{activeCallContact.brokerage || activeCallContact.phone || "—"}</p>
-                          </div>
-                          <button onClick={() => { setActiveCallContact(null); setCallContactSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
-                        </div>
-                      ) : showCallNewContact ? (
-                        <div className="space-y-2">
-                          <input autoFocus value={callNewContact.name} onChange={e => setCallNewContact(f => ({ ...f, name: e.target.value }))}
-                            placeholder="Name *" className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input value={callNewContact.phone} onChange={e => setCallNewContact(f => ({ ...f, phone: e.target.value }))}
-                              placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
-                            <input value={callNewContact.brokerage} onChange={e => setCallNewContact(f => ({ ...f, brokerage: e.target.value }))}
-                              placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30" />
-                          </div>
-                          <div className="flex gap-2">
-                            <button onClick={() => setShowCallNewContact(false)} className="text-xs text-[#555] hover:text-white px-3 py-1.5 border border-white/10">Cancel</button>
-                            <button onClick={async () => {
-                              if (!callNewContact.name.trim()) return;
-                              const supabase = createClient();
-                              const { data } = await supabase.from("contacts").insert({
-                                name: callNewContact.name, phone: callNewContact.phone || null,
-                                brokerage: callNewContact.brokerage || null, stage: "lead", type: "lead",
-                              }).select().single();
-                              if (data) { setActiveCallContact(data); setContacts(cs => [...cs, data].sort((a,b) => a.name.localeCompare(b.name))); }
-                              setShowCallNewContact(false);
-                              setCallNewContact({ name: "", phone: "", brokerage: "" });
-                            }} className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-1.5 hover:bg-[#ddd]">
-                              Create &amp; Select
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <input value={callContactSearch} onChange={e => setCallContactSearch(e.target.value)}
-                            placeholder="Search contacts..."
-                            className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                          {callContactSearch && (
-                            <div className="bg-[#181818] border border-white/10 max-h-32 overflow-y-auto divide-y divide-white/5">
-                              {filteredCallContacts.slice(0, 8).map(c => (
-                                <button key={c.id} onClick={() => { setActiveCallContact(c); setCallContactSearch(""); }}
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition-colors">
-                                  <span className="font-medium">{c.name}</span>
-                                  {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
-                                </button>
-                              ))}
-                              {filteredCallContacts.length === 0 && <p className="px-3 py-2 text-xs text-[#444]">No match</p>}
-                            </div>
-                          )}
-                          <button onClick={() => setShowCallNewContact(true)} className="text-xs text-[#555] hover:text-white transition-colors">+ New contact</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Outcome */}
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Outcome</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {CALL_OUTCOMES.map(o => (
-                          <button key={o.value} onClick={() => setCallOutcome(callOutcome === o.value ? "" : o.value)}
-                            className={`text-xs px-2.5 py-1 rounded-full transition-all ${callOutcome === o.value ? o.color : "bg-[#1a1a1a] text-[#555] hover:text-white"}`}>
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
-                      <textarea value={callNote} onChange={e => setCallNote(e.target.value)} rows={2}
-                        placeholder="Quick note..."
-                        className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
-                    </div>
-
-                    <button onClick={logCallFromDashboard} disabled={!activeCallContact || !callOutcome || loggingCall}
-                      className="w-full py-2.5 text-xs tracking-[3px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                      {loggingCall ? "Logging..." : "Log Call"}
-                    </button>
-                  </div>
-
-                  {/* RIGHT — recent call log */}
-                  <div className="p-5">
-                    <p className="text-xs tracking-[2px] uppercase text-[#555] mb-3">Recent Calls</p>
-                    {recentLogs.length === 0 ? (
-                      <p className="text-xs text-[#333] italic">No calls logged yet.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {recentLogs.map(log => {
-                          const contact = contacts.find(c => c.id === log.contact_id);
-                          const outcome = CALL_OUTCOMES.find(o => o.value === log.outcome);
-                          return (
-                            <div key={log.id} className="border border-white/5 p-3 space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-medium truncate">{contact?.name || "Unknown"}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${outcome?.color || "bg-zinc-800 text-zinc-400"}`}>
-                                  {outcome?.label || log.outcome}
-                                </span>
-                              </div>
-                              {log.listing_address && <p className="text-xs text-[#555]">📍 {log.listing_address}</p>}
-                              {log.notes && <p className="text-xs text-[#444] italic">{log.notes}</p>}
-                              <p className="text-xs text-[#333]">{new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+          </div>
         </section>
       );
     }
