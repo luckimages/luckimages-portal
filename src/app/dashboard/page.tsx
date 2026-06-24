@@ -1470,20 +1470,20 @@ export default function DashboardPage() {
 
             {/* Collapsed stat card */}
             {!callsExpanded ? (
-              <div className="bg-[#111] border border-white/10 flex items-center">
-                <div className="flex-1 grid grid-cols-2 divide-x divide-white/5">
-                  <div className="px-8 py-6">
+              <div className="bg-[#111] border border-white/10">
+                <div className="grid grid-cols-2 divide-x divide-white/5">
+                  <div className="px-6 py-5">
                     <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
                     <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
                   </div>
-                  <div className="px-8 py-6">
+                  <div className="px-6 py-5">
                     <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekLeads.length}</p>
                     <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
                   </div>
                 </div>
-                <div className="px-6 flex-shrink-0">
+                <div className="border-t border-white/10 p-4">
                   <button onClick={() => setCallsExpanded(true)}
-                    className="px-8 py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
+                    className="w-full py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors">
                     Start Calling →
                   </button>
                 </div>
@@ -1949,31 +1949,22 @@ export default function DashboardPage() {
       <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-10 md:space-y-12">
 
         {/* TITLE */}
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-2">Welcome back</p>
-            <div className="flex items-center gap-5">
-              <h1 className="text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
+        <div className="flex flex-col gap-3">
+          <p className="text-xs tracking-[4px] uppercase text-[#666]">Welcome back</p>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={isRunning ? stopTimer : startTimer}
-                className={`text-xs tracking-[3px] uppercase font-semibold px-4 py-2 transition-colors flex items-center gap-2 ${
+                className={`text-xs tracking-[3px] uppercase font-semibold px-3 py-2 transition-colors flex items-center gap-2 ${
                   isRunning
                     ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
                     : "bg-white/5 text-white border border-white/10 hover:bg-white/10"
                 }`}
               >
                 {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}
-                {isRunning ? `Stop  ${fmtClock(elapsed)}` : "Start Timer"}
+                {isRunning ? `Stop ${fmtClock(elapsed)}` : "Start Timer"}
               </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-3">
-              <p className="text-xs tracking-[2px] uppercase text-[#444]">
-                {QB.syncedAt
-                  ? `QB synced: ${new Date(QB.syncedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                  : "Not yet synced"}
-              </p>
               <button
                 onClick={syncQB}
                 disabled={qbSyncing}
@@ -1982,11 +1973,10 @@ export default function DashboardPage() {
                 {qbSyncing && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />}
                 {qbSyncing ? "Syncing..." : "Sync QB"}
               </button>
-            </div>
-            <div ref={menuRef}>
+              <div ref={menuRef}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
-                className="text-xs tracking-[2px] uppercase text-white flex items-center gap-1.5 hover:text-white/70 transition-colors"
+                className="text-xs tracking-[2px] uppercase text-white flex items-center gap-1.5 hover:text-white/70 transition-colors border border-white/10 px-3 py-1.5"
               >
                 Sections
                 <span className="text-[10px]">{menuOpen ? "▲" : "▼"}</span>
@@ -2044,6 +2034,7 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+        </div>
         </div>
 
 
