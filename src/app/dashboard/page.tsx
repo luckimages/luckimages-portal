@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: false, "Cold Calls": true, "Command Center": true, "Shoot Log": true };
+  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Portal Members" | "Invite Client" | "Time Tracker";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Contacts", "Portal Members", "Invite Client", "Time Tracker"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Portal Members": true, "Invite Client": true, "Time Tracker": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1265,7 +1265,58 @@ export default function DashboardPage() {
         </section>
       );
     }
-    if (s === "Contacts") return null;
+    if (s === "Contacts") return (
+      <section key={s}>
+        <p className={sectionLabel}>Contacts</p>
+        <div className="bg-[#111] border border-white/10 flex flex-col max-w-lg">
+          <div className="p-5 border-b border-white/10 flex items-end justify-between">
+            <div>
+              <p className="text-4xl font-bold">{contacts.length}</p>
+              <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Total</p>
+            </div>
+            <div className="flex gap-4 text-right">
+              <div>
+                <p className="text-lg font-semibold text-[#fbbf24]">{contacts.filter(c => c.is_hot).length}</p>
+                <p className="text-xs text-[#555]">Hot</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-[#4ade80]">{contacts.filter(c => c.stage === "client").length}</p>
+                <p className="text-xs text-[#555]">Clients</p>
+              </div>
+            </div>
+          </div>
+          {showQuickAdd ? (
+            <form onSubmit={saveQuickContact} className="p-5 flex flex-col gap-3">
+              <input required autoFocus value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Name *" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+              <div className="grid grid-cols-2 gap-3">
+                <input value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                <input value={quickAddForm.brokerage} onChange={e => setQuickAddForm(f => ({ ...f, brokerage: e.target.value }))}
+                  placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+              </div>
+              <input type="email" value={quickAddForm.email} onChange={e => setQuickAddForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="Email" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowQuickAdd(false)}
+                  className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Cancel</button>
+                <button type="submit" disabled={quickAddSaving}
+                  className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                  {quickAddSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="grid grid-cols-2 divide-x divide-white/5">
+              <button onClick={() => setShowQuickAdd(true)}
+                className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">+ New Contact</button>
+              <a href="/admin/contacts"
+                className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all text-center">View All →</a>
+            </div>
+          )}
+        </div>
+      </section>
+    );
 
     if (s === "Command Center") {
       const urgentCount = todos.filter(t => t.is_urgent).length;
@@ -1730,6 +1781,121 @@ export default function DashboardPage() {
       );
     }
 
+    if (s === "Portal Members") {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const newRealtors = realtors.filter(r => new Date(r.created_at) >= sevenDaysAgo);
+      return (
+        <section key={s}>
+          <div className="flex items-center gap-4 mb-4">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">Portal Members</p>
+            <div className="flex flex-shrink-0 border border-white/10 overflow-hidden">
+              <button onClick={() => setRealtorTab("all")}
+                className={`text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors ${realtorTab === "all" ? "bg-white text-black" : "text-[#555] hover:text-white"}`}>
+                All ({realtors.length})
+              </button>
+              <button onClick={() => setRealtorTab("new")}
+                className={`text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors flex items-center gap-2 ${realtorTab === "new" ? "bg-white text-black" : "text-[#555] hover:text-white"}`}>
+                {newRealtors.length > 0 && realtorTab !== "new" && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />}
+                New ({newRealtors.length})
+              </button>
+            </div>
+          </div>
+          {realtors.length === 0 ? (
+            <div className="bg-[#111] border border-white/10 p-8 text-center"><p className="text-[#444] text-sm">No realtors have signed up yet.</p></div>
+          ) : (
+            <div className="bg-[#111] border border-white/10 overflow-hidden max-h-64 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-[#111]">
+                  <tr className="border-b border-white/10">
+                    {["Name", "Email", "Brokerage", "Joined"].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(realtorTab === "new" ? newRealtors : realtors).map(r => {
+                    const isNew = new Date(r.created_at) >= sevenDaysAgo;
+                    return (
+                      <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                        <td className="px-4 py-3 font-medium flex items-center gap-2">
+                          {isNew && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] flex-shrink-0" />}
+                          {r.full_name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-[#888] text-xs truncate max-w-[120px]">{r.email || "—"}</td>
+                        <td className="px-4 py-3 text-[#888] text-xs">{r.brokerage || "—"}</td>
+                        <td className="px-4 py-3 text-[#888] text-xs">{new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    if (s === "Invite Client") return (
+      <section key={s}>
+        <p className={sectionLabel}>Invite Client</p>
+        <div className="bg-[#111] border border-white/10 p-6 max-w-lg">
+          <p className="text-xs text-[#555] mb-4">Generate a magic link for a realtor to create their account and access media.</p>
+          <form onSubmit={generateClientInvite} className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
+                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+              <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
+            </div>
+            <button type="submit" disabled={inviteLoading}
+              className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-3 hover:bg-white/90 transition-colors disabled:opacity-50">
+              {inviteLoading ? "Generating..." : "Generate Magic Link"}
+            </button>
+          </form>
+          {inviteLink && (
+            <div className="mt-4 border border-white/10 p-4 flex flex-col gap-3">
+              <p className="text-xs font-mono text-[#888] break-all">{inviteLink}</p>
+              <div className="flex gap-3">
+                <button onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
+                  className="flex-1 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/90 transition-colors">
+                  {inviteCopied ? "Copied!" : "Copy Link"}
+                </button>
+                <a href={`mailto:${inviteEmail}?subject=Your Luck Images Portal Access&body=Hi ${inviteName},%0A%0AHere's your link to access your photos on the Luck Images portal:%0A%0A${encodeURIComponent(inviteLink)}%0A%0AClick the link to create your account and download your media.%0A%0ARyan%0ALuck Images`}
+                  className="flex-1 border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/5 transition-colors text-center">
+                  Email It
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+
+    if (s === "Time Tracker") return (
+      <section key={s}>
+        <div className="flex items-center gap-4 mb-4">
+          <p className="text-xs tracking-[4px] uppercase text-[#555]">Time Tracker — This Week</p>
+          <a href="/admin/time-tracker" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <div className="bg-[#111] border border-white/10 p-5 flex items-center gap-8">
+          <div className="flex items-center gap-3">
+            {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />}
+            <span className="text-xs tracking-[2px] uppercase text-[#666]">{myName}</span>
+            <span className="text-sm font-bold">{fmtHours(myWeekSeconds + elapsed)}</span>
+            {isRunning && <span className="text-xs text-[#4ade80] font-mono">{fmtClock(elapsed)}</span>}
+          </div>
+          <div className="w-px h-4 bg-white/10" />
+          <div className="flex items-center gap-3">
+            {partnerActive && <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] animate-pulse flex-shrink-0" />}
+            <span className="text-xs tracking-[2px] uppercase text-[#666]">{partnerName || (userName.includes("RYAN") ? "Leif" : "Ryan")}</span>
+            <span className="text-sm font-bold">{fmtHours(partnerWeekSeconds)}</span>
+            {partnerActive && <span className="text-xs text-[#60a5fa] tracking-[1px] uppercase">Live</span>}
+          </div>
+        </div>
+      </section>
+    );
+
     return null;
   }
 
@@ -1882,186 +2048,6 @@ export default function DashboardPage() {
 
         {order.map(renderSection)}
 
-        {/* CONTACTS + PORTAL MEMBERS side by side */}
-        <div className="grid grid-cols-2 gap-8">
-          {/* Contacts */}
-          <section>
-            <p className={sectionLabel}>Contacts</p>
-            <div className="bg-[#111] border border-white/10 flex flex-col">
-              <div className="p-5 border-b border-white/10 flex items-end justify-between">
-                <div>
-                  <p className="text-4xl font-bold">{contacts.length}</p>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Total</p>
-                </div>
-                <div className="flex gap-4 text-right">
-                  <div>
-                    <p className="text-lg font-semibold text-[#fbbf24]">{contacts.filter(c => c.is_hot).length}</p>
-                    <p className="text-xs text-[#555]">Hot</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-[#4ade80]">{contacts.filter(c => c.stage === "client").length}</p>
-                    <p className="text-xs text-[#555]">Clients</p>
-                  </div>
-                </div>
-              </div>
-              {showQuickAdd ? (
-                <form onSubmit={saveQuickContact} className="p-5 flex flex-col gap-3">
-                  <input required autoFocus value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Name *" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))}
-                      placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-                    <input value={quickAddForm.brokerage} onChange={e => setQuickAddForm(f => ({ ...f, brokerage: e.target.value }))}
-                      placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-                  </div>
-                  <input type="email" value={quickAddForm.email} onChange={e => setQuickAddForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="Email" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setShowQuickAdd(false)}
-                      className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={quickAddSaving}
-                      className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
-                      {quickAddSaving ? "Saving..." : "Save"}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="grid grid-cols-2 divide-x divide-white/5">
-                  <button onClick={() => setShowQuickAdd(true)}
-                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">
-                    + New Contact
-                  </button>
-                  <a href="/admin/contacts"
-                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all text-center">
-                    View All →
-                  </a>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Portal Members */}
-          <section>
-            {(() => {
-              const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-              const newRealtors = realtors.filter(r => new Date(r.created_at) >= sevenDaysAgo);
-              return (
-                <>
-                  <div className="flex items-center gap-4 mb-4">
-                    <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">
-                      Portal Members
-                    </p>
-                    <div className="flex flex-shrink-0 border border-white/10 overflow-hidden">
-                      <button onClick={() => setRealtorTab("all")}
-                        className={`text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors ${realtorTab === "all" ? "bg-white text-black" : "text-[#555] hover:text-white"}`}>
-                        All ({realtors.length})
-                      </button>
-                      <button onClick={() => setRealtorTab("new")}
-                        className={`text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors flex items-center gap-2 ${realtorTab === "new" ? "bg-white text-black" : "text-[#555] hover:text-white"}`}>
-                        {newRealtors.length > 0 && realtorTab !== "new" && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />}
-                        New ({newRealtors.length})
-                      </button>
-                    </div>
-                  </div>
-                  {realtors.length === 0 ? (
-                    <div className="bg-[#111] border border-white/10 p-8 text-center">
-                      <p className="text-[#444] text-sm">No realtors have signed up yet.</p>
-                    </div>
-                  ) : (
-                    <div className="bg-[#111] border border-white/10 overflow-hidden max-h-64 overflow-y-auto">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-[#111]">
-                          <tr className="border-b border-white/10">
-                            {["Name", "Email", "Brokerage", "Joined"].map(h => (
-                              <th key={h} className="text-left px-4 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(realtorTab === "new" ? newRealtors : realtors).map(r => {
-                            const isNew = new Date(r.created_at) >= sevenDaysAgo;
-                            return (
-                              <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                                <td className="px-4 py-3 font-medium flex items-center gap-2">
-                                  {isNew && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] flex-shrink-0" />}
-                                  {r.full_name || "—"}
-                                </td>
-                                <td className="px-4 py-3 text-[#888] text-xs truncate max-w-[120px]">{r.email || "—"}</td>
-                                <td className="px-4 py-3 text-[#888] text-xs">{r.brokerage || "—"}</td>
-                                <td className="px-4 py-3 text-[#888] text-xs">{new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </section>
-        </div>
-
-        {/* CLIENT INVITE */}
-        <section>
-          <p className={sectionLabel}>Invite Client</p>
-          <div className="bg-[#111] border border-white/10 p-6 max-w-lg">
-            <p className="text-xs text-[#555] mb-4">Generate a magic link for a realtor to create their account and access media.</p>
-            <form onSubmit={generateClientInvite} className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
-                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
-                <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444]" />
-              </div>
-              <button type="submit" disabled={inviteLoading}
-                className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-3 hover:bg-white/90 transition-colors disabled:opacity-50">
-                {inviteLoading ? "Generating..." : "Generate Magic Link"}
-              </button>
-            </form>
-            {inviteLink && (
-              <div className="mt-4 border border-white/10 p-4 flex flex-col gap-3">
-                <p className="text-xs font-mono text-[#888] break-all">{inviteLink}</p>
-                <div className="flex gap-3">
-                  <button onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
-                    className="flex-1 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/90 transition-colors">
-                    {inviteCopied ? "Copied!" : "Copy Link"}
-                  </button>
-                  <a href={`mailto:${inviteEmail}?subject=Your Luck Images Portal Access&body=Hi ${inviteName},%0A%0AHere's your link to access your photos on the Luck Images portal:%0A%0A${encodeURIComponent(inviteLink)}%0A%0AClick the link to create your account and download your media.%0A%0ARyan%0ALuck Images`}
-                    className="flex-1 border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-2.5 hover:bg-white/5 transition-colors text-center">
-                    Email It
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* TIME STATS — compact, always at bottom */}
-        <section>
-          <div className="flex items-center gap-4 mb-4">
-            <p className="text-xs tracking-[4px] uppercase text-[#555]">Time Tracker — This Week</p>
-            <a href="/admin/time-tracker" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
-            <div className="flex-1 h-px bg-white/10" />
-          </div>
-          <div className="bg-[#111] border border-white/10 p-5 flex items-center gap-8">
-            <div className="flex items-center gap-3">
-              {isRunning && <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse flex-shrink-0" />}
-              <span className="text-xs tracking-[2px] uppercase text-[#666]">{myName}</span>
-              <span className="text-sm font-bold">{fmtHours(myWeekSeconds + elapsed)}</span>
-              {isRunning && <span className="text-xs text-[#4ade80] font-mono">{fmtClock(elapsed)}</span>}
-            </div>
-            <div className="w-px h-4 bg-white/10" />
-            <div className="flex items-center gap-3">
-              {partnerActive && <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] animate-pulse flex-shrink-0" />}
-              <span className="text-xs tracking-[2px] uppercase text-[#666]">{partnerName || (userName.includes("RYAN") ? "Leif" : "Ryan")}</span>
-              <span className="text-sm font-bold">{fmtHours(partnerWeekSeconds)}</span>
-              {partnerActive && <span className="text-xs text-[#60a5fa] tracking-[1px] uppercase">Live</span>}
-            </div>
-          </div>
-        </section>
 
       </div>
     </main>
