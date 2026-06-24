@@ -1,3 +1,8 @@
 {
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/admin/sync-shoots-sheet",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

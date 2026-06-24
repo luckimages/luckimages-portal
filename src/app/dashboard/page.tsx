@@ -1531,11 +1531,15 @@ export default function DashboardPage() {
                   <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Completed</p>
                 </div>
               </div>
-              <div className="px-6 flex-shrink-0">
+              <div className="px-6 flex-shrink-0 flex flex-col gap-2">
                 <button onClick={() => { setShootLogExpanded(true); loadShootLog(); }}
-                  className="px-8 py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
+                  className="px-8 py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
                   View Log ↓
                 </button>
+                <a href="/admin/shoots/master"
+                  className="px-8 py-3 border border-white/10 text-center text-xs tracking-[2px] uppercase text-[#888] hover:text-white hover:border-white/30 transition-colors whitespace-nowrap">
+                  Master List →
+                </a>
               </div>
             </div>
           ) : (
@@ -1571,6 +1575,7 @@ export default function DashboardPage() {
                         <th className="text-left px-4 py-2.5 font-normal">Address</th>
                         <th className="text-left px-4 py-2.5 font-normal">Client</th>
                         <th className="text-left px-4 py-2.5 font-normal">Services</th>
+                        <th className="text-left px-4 py-2.5 font-normal">Price</th>
                         <th className="text-left px-4 py-2.5 font-normal">Status</th>
                         <th className="text-left px-4 py-2.5 font-normal">Ryan hrs</th>
                         <th className="text-left px-4 py-2.5 font-normal">Leif hrs</th>
@@ -1591,6 +1596,9 @@ export default function DashboardPage() {
                             <td className="px-4 py-3 text-[#888] whitespace-nowrap">{shoot.client_name || "—"}</td>
                             <td className="px-4 py-3 text-[#555] max-w-[160px]">
                               <p className="truncate">{shoot.services?.join(", ") || "—"}</p>
+                            </td>
+                            <td className="px-4 py-3 font-bold text-[#4ade80]">
+                              {(shoot as {price?: number}).price != null ? `$${(shoot as {price: number}).price.toLocaleString()}` : <span className="text-[#333] font-normal">—</span>}
                             </td>
                             <td className="px-4 py-3">
                               <span className={`tracking-[1px] uppercase ${statusColor(shoot.status)}`}>{shoot.status}</span>

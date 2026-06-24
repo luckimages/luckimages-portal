@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   const query = supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, status, photographer_ids")
+    .select("id, address, scheduled_at, services, notes, square_footage, client_id, status, photographer_ids, price, package_name")
     .order("scheduled_at", { ascending: false });
 
   if (full) { /* no filter — return all */ }
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, scheduled_at, services, notes, square_footage, client_id, photographer_ids, status: reqStatus } = await req.json();
+  const { address, scheduled_at, services, notes, square_footage, client_id, photographer_ids, status: reqStatus, price, package_name } = await req.json();
   if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
 
   const db = service();
@@ -83,6 +83,8 @@ export async function POST(req: Request) {
     client_id: client_id || null,
     photographer_ids: photographer_ids || [],
     status: insertStatus,
+    price: price || null,
+    package_name: package_name || null,
   };
 
   const { data, error } = await db.from("shoots").insert(payload).select().single();
@@ -125,7 +127,7 @@ export async function PATCH(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { id, status, photographer_ids } = await req.json();
+  const { id, status, photographer_ids, price, package_name } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
@@ -144,6 +146,8 @@ export async function PATCH(req: Request) {
 
   const updatePayload: Record<string, unknown> = { status };
   if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;
+  if (price !== undefined) updatePayload.price = price;
+  if (package_name !== undefined) updatePayload.package_name = package_name;
 
   const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
