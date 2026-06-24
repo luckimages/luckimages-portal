@@ -135,6 +135,7 @@ function ColdCallsPage() {
   const [zillow, setZillow] = useState("");
   const [zillowLoading, setZillowLoading] = useState(false);
   const [address, setAddress] = useState("");
+  const [addressFromZillow, setAddressFromZillow] = useState(false);
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", brokerage: "" });
@@ -199,7 +200,7 @@ function ColdCallsPage() {
         body: JSON.stringify({ url: zillow }),
       });
       const data = await res.json();
-      if (data.address) setAddress(data.address);
+      if (data.address) { setAddress(data.address); setAddressFromZillow(true); }
       if (data.agentName && !contact) {
         setContactForm({
           name: data.agentName,
@@ -261,6 +262,7 @@ function ColdCallsPage() {
 
     setNotes("");
     setAddress("");
+    setAddressFromZillow(false);
     setContact(null);
     setContactMode("none");
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
@@ -414,15 +416,15 @@ function ColdCallsPage() {
                 {zillowLoading ? "..." : "Import"}
               </button>
             </div>
-            {address ? (
+            {addressFromZillow && address ? (
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-[#4ade80]">📍 {address}</p>
-                <button onClick={() => setAddress("")} className="text-[#444] hover:text-white text-xs">✕</button>
+                <button onClick={() => { setAddress(""); setAddressFromZillow(false); }} className="text-[#444] hover:text-white text-xs">✕</button>
               </div>
             ) : (
               <input
                 value={address}
-                onChange={e => setAddress(e.target.value)}
+                onChange={e => { setAddress(e.target.value); setAddressFromZillow(false); }}
                 placeholder="Or type address manually..."
                 className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
               />
