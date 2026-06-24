@@ -242,8 +242,8 @@ export default function ContactsPage() {
                 {filtered.map(contact => (
                   <tr
                     key={contact.id}
-                    onClick={() => openProfile(contact)}
-                    className={`border-b border-zinc-800/50 cursor-pointer transition-colors ${profile?.id === contact.id ? "bg-zinc-800/60" : "hover:bg-zinc-800/30"}`}
+                    onClick={() => router.push(`/admin/contacts/${contact.id}`)}
+                    className="border-b border-zinc-800/50 cursor-pointer transition-colors hover:bg-zinc-800/30"
                   >
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <button onClick={() => toggleHot(contact)} className="text-lg leading-none" title="Toggle hot lead">

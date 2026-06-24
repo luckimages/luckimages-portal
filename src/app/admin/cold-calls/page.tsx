@@ -622,12 +622,25 @@ function ColdCallsPage() {
                 dead: "Dead",
               };
               return (
-                <div key={log.id}
-                  className="px-4 py-3.5 hover:bg-white/[0.02] cursor-pointer transition-colors"
-                  onClick={() => log.contact && setContact(log.contact)}
-                >
+                <div key={log.id} className="px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-sm font-medium truncate">{log.contact?.name || "Unknown"}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => log.contact && setContact(log.contact)}
+                        className="text-sm font-medium truncate hover:underline text-left"
+                      >
+                        {log.contact?.name || "Unknown"}
+                      </button>
+                      {log.contact && (
+                        <a
+                          href={`/admin/contacts/${log.contact.id}`}
+                          className="text-[10px] text-[#444] hover:text-white transition-colors shrink-0"
+                          title="View profile"
+                        >
+                          ↗
+                        </a>
+                      )}
+                    </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 font-semibold tracking-wide uppercase ${colors[log.outcome] || "text-[#444] bg-white/5"}`}>
                       {labels[log.outcome] || log.outcome}
                     </span>
