@@ -129,15 +129,15 @@ export default function ClientPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
       <PreviewBanner role="realtor" />
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-        <div className="flex items-center gap-6">
-          <span className="text-xs tracking-[2px] uppercase text-[#666]">Client Portal</span>
+      <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
+        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
+        <div className="flex items-center gap-3 md:gap-6">
+          <span className="text-xs tracking-[2px] uppercase text-[#666] hidden sm:inline">Client Portal</span>
           <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
         </div>
       </header>
 
-      <div className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-8 py-8 md:py-10 max-w-5xl mx-auto w-full">
 
         {/* Set password prompt — shown to magic-link users who haven't set one yet */}
         {!hasPassword && passwordStatus !== "success" && (
@@ -189,7 +189,7 @@ export default function ClientPage() {
         </div>
 
         {/* TABS */}
-        <div className="flex border-b border-white/10 mb-8 gap-1">
+        <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
           {(["overview", "book", "invoices", "gallery"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>{t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : "My Gallery"}</button>
           ))}
@@ -198,16 +198,16 @@ export default function ClientPage() {
         {/* OVERVIEW */}
         {tab === "overview" && (
           <div className="space-y-8">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#60a5fa]">
+            <div className="grid grid-cols-3 gap-2 md:gap-3">
+              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
                 <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
                 <p className="text-3xl font-bold">{shoots.length}</p>
               </div>
-              <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#fbbf24]">
+              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#fbbf24]">
                 <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Sq Ft Captured</p>
-                <p className="text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
+                <p className="text-2xl md:text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
               </div>
-              <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#4ade80]">
+              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#4ade80]">
                 <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Client For</p>
                 <p className="text-3xl font-bold">{memberSince || "—"}</p>
               </div>
@@ -280,8 +280,8 @@ export default function ClientPage() {
                   <button onClick={() => setTab("book")} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
                 </div>
               ) : (
-                <div className="bg-[#111] border border-white/10 overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="bg-[#111] border border-white/10 overflow-x-auto">
+                  <table className="w-full text-sm min-w-[520px]">
                     <thead><tr className="border-b border-white/10">{["Address", "Date", "Services", "Status"].map(h => <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                     <tbody>
                       {shoots.slice(0, 5).map(s => (
@@ -364,8 +364,8 @@ export default function ClientPage() {
                 <p className="text-[#555] text-sm">No invoices yet</p>
               </div>
             ) : (
-              <div className="bg-[#111] border border-white/10 overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="bg-[#111] border border-white/10 overflow-x-auto">
+                <table className="w-full text-sm min-w-[480px]">
                   <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                   <tbody>
                     {invoices.map(inv => (

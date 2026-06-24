@@ -115,41 +115,41 @@ export default function PhotographerPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
       <PreviewBanner role="photographer" />
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-        <div className="flex items-center gap-6">
-          <span className="text-xs tracking-[2px] uppercase text-[#666]">Photographer</span>
+      <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
+        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
+        <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
+          <span className="text-xs tracking-[2px] uppercase text-[#666] hidden sm:inline">Photographer</span>
           {["ryan@luckimages.com", "leif@luckimages.com"].includes(userEmail) && (
-            <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Admin Dashboard</a>
+            <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">Admin</a>
           )}
           <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
         </div>
       </header>
 
-      <div className="flex-1 px-8 py-10 max-w-5xl mx-auto w-full">
+      <div className="flex-1 px-4 md:px-8 py-8 md:py-10 max-w-5xl mx-auto w-full">
 
         <div className="mb-8">
           <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
           <h1 className="text-3xl font-black tracking-tight uppercase">{userName}</h1>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#60a5fa]">
+        <div className="grid grid-cols-3 gap-2 md:gap-3 mb-8">
+          <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
             <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
             <p className="text-3xl font-bold">{shoots.length}</p>
           </div>
-          <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#fbbf24]">
+          <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#fbbf24]">
             <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Pay Period</p>
-            <p className="text-xl font-bold">{payPeriod}</p>
+            <p className="text-base md:text-xl font-bold">{payPeriod}</p>
           </div>
-          <div className="bg-[#111] border border-white/10 p-6 border-b-2 border-b-[#4ade80]">
+          <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#4ade80]">
             <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Pending Pay</p>
             <p className="text-3xl font-bold">${(totalPending / 100).toLocaleString()}</p>
           </div>
         </div>
 
         {/* TABS */}
-        <div className="flex border-b border-white/10 mb-8 gap-1">
+        <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
           {(["schedule", "upload", "pay"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
               {t === "schedule" ? "My Schedule" : t === "upload" ? "Upload Media" : "Pay Stubs"}
@@ -220,8 +220,8 @@ export default function PhotographerPage() {
             {past.length > 0 && (
               <div>
                 <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Past Shoots</p>
-                <div className="bg-[#111] border border-white/10 overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="bg-[#111] border border-white/10 overflow-x-auto">
+                  <table className="w-full text-sm min-w-[480px]">
                     <thead><tr className="border-b border-white/10">{["Address", "Date", "Services"].map(h => <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                     <tbody>
                       {past.map(s => (
@@ -295,8 +295,8 @@ export default function PhotographerPage() {
                 <p className="text-[#555] text-sm">No pay stubs yet</p>
               </div>
             ) : (
-              <div className="bg-[#111] border border-white/10 overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="bg-[#111] border border-white/10 overflow-x-auto">
+                <table className="w-full text-sm min-w-[560px]">
                   <thead><tr className="border-b border-white/10">{["Shoot", "Date", "Amount", "Status", "Paid On"].map(h => <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                   <tbody>
                     {payStubs.map(p => (

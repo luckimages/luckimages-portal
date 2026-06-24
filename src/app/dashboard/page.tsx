@@ -668,7 +668,8 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-7 gap-2">
+          <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+          <div className="grid grid-cols-7 gap-2 min-w-[560px]">
             {days.map((day, i) => {
               const isToday = day.toDateString() === today.toDateString();
               const dayStr = day.toISOString().split("T")[0];
@@ -715,6 +716,7 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+          </div>
           </div>
 
           {/* View shoot detail popup (confirmed/scheduled) */}
@@ -1078,7 +1080,7 @@ export default function DashboardPage() {
     if (s === "Clients") return (
       <section key={s}>
         <p className={sectionLabel}>Clients — YTD</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card label="Invoices YTD" value={QB.ytdInvoices.toString()} accent="#60a5fa" sub="Total invoices this year" />
           <Card label="Avg per Invoice" value={avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"} accent="#4ade80" sub="YTD average" valueClass={blur} />
           <Card label="Referrals" accent="#a78bfa">
@@ -1110,7 +1112,7 @@ export default function DashboardPage() {
     if (s === "Marketing") return (
       <section key={s}>
         <p className={sectionLabel}>Marketing — This Month</p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card label="Cold Calls Made" accent="#fbbf24">
             <EditableNumber value={coldCalls} onChange={setColdCalls} />
             <p className="text-xs text-[#444] mt-2">Click to edit</p>
@@ -1324,7 +1326,7 @@ export default function DashboardPage() {
       return (
         <section key={s}>
           <p className={sectionLabel}>Command Center</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* TO DO + NEEDS ATTENTION */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
               <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
@@ -1503,7 +1505,7 @@ export default function DashboardPage() {
                   <button onClick={() => setCallsExpanded(false)} className="text-[#555] hover:text-white text-xs transition-colors tracking-[1px] uppercase">Collapse ▲</button>
                 </div>
 
-                <div className="grid grid-cols-2 divide-x divide-white/5">
+                <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x divide-white/5">
                   {/* LEFT — log a call */}
                   <div className="p-5 space-y-4">
                     {/* Zillow import */}
@@ -1932,20 +1934,19 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
       {/* HEADER */}
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/10">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-        <div className="flex items-center gap-6">
-          <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Contacts</a>
-          <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">📞 Cold Calls</a>
-          <a href="/admin/invite" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Invite Photographer</a>
-          <span className="text-xs tracking-[2px] uppercase text-[#666]">Admin</span>
+      <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
+        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
+        <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
+          <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">Contacts</a>
+          <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">📞 Calls</a>
+          <a href="/choose-portal" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Portals</a>
           <form action="/api/auth/signout" method="post" className="inline">
             <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
           </form>
         </div>
       </header>
 
-      <div className="flex-1 px-8 py-12 max-w-7xl mx-auto w-full space-y-12">
+      <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-10 md:space-y-12">
 
         {/* TITLE */}
         <div className="flex items-end justify-between">

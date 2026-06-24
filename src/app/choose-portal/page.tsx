@@ -36,7 +36,7 @@ export default function ChoosePortalPage() {
       <h1 className="text-3xl font-black tracking-tight uppercase mb-2">View As</h1>
       <p className="text-xs text-[#444] tracking-wide mb-12">Choose which portal to enter</p>
 
-      <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl">
         {[
           { role: "admin", label: "Admin", desc: "KPI dashboard & management", accent: "#a78bfa" },
           { role: "realtor", label: "Realtor", desc: "Book shoots, pay invoices, view media", accent: "#60a5fa" },
