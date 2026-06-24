@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase-server";
 import { createShootEvent } from "@/lib/googleCalendar";
+import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -106,6 +107,15 @@ export async function POST(req: Request) {
     } catch (e) { console.error("Calendar event failed:", e); }
   }
 
+  // Notify admins of new booking
+  try {
+    await sendPushToAdmins(
+      "📷 New Shoot Requested",
+      `${address.trim()}${scheduled_at ? " · " + new Date(scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}`,
+      { shootId: data.id }
+    );
+  } catch (e) { console.error("Push notification failed:", e); }
+
   return NextResponse.json({ shoot: data });
 }
 
@@ -137,6 +147,28 @@ export async function PATCH(req: Request) {
 
   const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Notify newly assigned photographers
+  if (photographer_ids?.length && shoot) {
+    try {
+      const dateStr = shoot.scheduled_at
+        ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+        : "";
+      await Promise.all(photographer_ids.map((uid: string) =>
+        sendPushToUser(uid, "📷 Shoot Assigned", `${shoot.address}${dateStr ? " · " + dateStr : ""}`, { shootId: id })
+      ));
+    } catch (e) { console.error("Push notification failed:", e); }
+  }
+
+  // Notify client when shoot is confirmed (pending → scheduled)
+  if (status === "scheduled" && shoot?.status === "pending" && shoot?.client_id) {
+    try {
+      const dateStr = shoot.scheduled_at
+        ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+        : "";
+      await sendPushToUser(shoot.client_id, "✅ Shoot Confirmed", `Your shoot at ${shoot.address}${dateStr ? " is confirmed for " + dateStr : " has been confirmed."}`);
+    } catch (e) { console.error("Push notification failed:", e); }
+  }
 
   // Only create calendar event when transitioning pending → scheduled (not already scheduled)
   if (status === "scheduled" && shoot?.scheduled_at && shoot?.status === "pending") {
