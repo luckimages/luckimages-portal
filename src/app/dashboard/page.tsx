@@ -450,6 +450,7 @@ export default function DashboardPage() {
   const [csDateTime, setCsDateTime] = useState("");
   const [csServices, setCsServices] = useState<string[]>([]);
   const [csNotes, setCsNotes] = useState("");
+  const [csAccess, setCsAccess] = useState("");
   const [csSqft, setCsSqft] = useState("");
   const [csPropertyType, setCsPropertyType] = useState("");
   const [csClientSearch, setCsClientSearch] = useState("");
@@ -525,7 +526,7 @@ export default function DashboardPage() {
   }
 
   function csReset() {
-    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsNotes(""); setCsSqft("");
+    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsNotes(""); setCsSqft(""); setCsAccess("");
     setCsPropertyType(""); setCsClient(null); setCsClientSearch(""); setCsPhotographers([]);
     setCsCreateNew(false); setCsNewName(""); setCsNewPhone(""); setCsNewEmail(""); setCsNewBrokerage("");
   }
@@ -538,9 +539,10 @@ export default function DashboardPage() {
       method: "POST", headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
         address: csAddress, scheduled_at: csDateTime||null, services: csServices,
-        notes: csNotes||null, square_footage: csSqft ? parseInt(csSqft) : null,
+        square_footage: csSqft ? parseInt(csSqft) : null,
         contact_id: csClient?.id||null, photographer_ids: csPhotographers, status: "scheduled",
         price: csAutoQuote || null, package_name: packageName,
+        notes: [csAccess ? `ACCESS: ${csAccess}` : "", csNotes].filter(Boolean).join("\n\n") || null,
       }),
     });
     if (!res.ok) { setCsSaving(false); return; }
@@ -1110,7 +1112,15 @@ export default function DashboardPage() {
                         className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 [color-scheme:dark]" />
                     </div>
 
-                    {/* 7. Photographers */}
+                    {/* 7. Property Access */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Access</p>
+                      <input value={csAccess} onChange={e => setCsAccess(e.target.value)}
+                        placeholder="Lockbox, gate code, supra, agent on-site..."
+                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    </div>
+
+                    {/* 8. Photographers */}
                     {photographers.length > 0 && (
                       <div>
                         <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
@@ -1125,7 +1135,7 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* 8. Notes */}
+                    {/* 9. Notes */}
                     <div>
                       <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
                       <textarea value={csNotes} onChange={e => setCsNotes(e.target.value)} rows={2} placeholder="Gate codes, special instructions, parking..."
@@ -1178,20 +1188,18 @@ export default function DashboardPage() {
       <section key={s}>
         <p className={sectionLabel}>Invoices</p>
         <div className="bg-[#111] border border-white/10 overflow-hidden">
-          <div className="grid grid-cols-3 divide-x divide-white/10">
+          <div className="grid grid-cols-2 divide-x divide-white/10">
             <div className="p-5">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Shoots YTD</p>
-              <p className="text-3xl font-bold tabular-nums" style={{ borderBottom: "2px solid #60a5fa", paddingBottom: "2px", display: "inline-block" }}>{shootsThisYear.length}</p>
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Invoices YTD</p>
+              <p className="text-3xl font-bold tabular-nums" style={{ borderBottom: "2px solid #60a5fa", paddingBottom: "2px", display: "inline-block" }}>{QB.ytdInvoices}</p>
+              <p className="text-xs text-[#444] mt-2">Synced from QuickBooks</p>
             </div>
             <div className="p-5">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Completed</p>
-              <p className="text-3xl font-bold tabular-nums" style={{ borderBottom: "2px solid #4ade80", paddingBottom: "2px", display: "inline-block" }}>{completedThisYear.length}</p>
-            </div>
-            <div className="p-5">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Avg Price</p>
-              <p className={`text-3xl font-bold tabular-nums transition-all duration-200 ${blur}`} style={{ borderBottom: "2px solid #a78bfa", paddingBottom: "2px", display: "inline-block" }}>
-                {avgShootPrice > 0 ? `$${avgShootPrice.toLocaleString()}` : "—"}
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Invoiced YTD</p>
+              <p className={`text-3xl font-bold tabular-nums transition-all duration-200 ${blur}`} style={{ borderBottom: "2px solid #4ade80", paddingBottom: "2px", display: "inline-block" }}>
+                {QB.revYTD > 0 ? `$${QB.revYTD.toLocaleString()}` : "—"}
               </p>
+              <p className="text-xs text-[#444] mt-2">Synced from QuickBooks</p>
             </div>
           </div>
           <div className="border-t border-white/10">
