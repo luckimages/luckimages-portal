@@ -41,6 +41,18 @@ export default function RegisterPage() {
       }
     });
     if (error) { setError(error.message); setLoading(false); return; }
+
+    // Auto-link contact by email (or by contact_id param if present)
+    const contactId = new URLSearchParams(window.location.search).get("contact_id");
+    const { data: { user: newUser } } = await supabase.auth.getUser();
+    if (newUser) {
+      await fetch("/api/auth/link-contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: contactId || null, email: form.email, userId: newUser.id }),
+      });
+    }
+
     router.push("/client");
   }
 

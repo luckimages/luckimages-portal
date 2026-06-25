@@ -18,6 +18,7 @@ type Contact = {
   total_invoices: number;
   total_revenue: number;
   is_hot: boolean;
+  user_id: string | null;
   created_at: string;
 };
 
@@ -113,6 +114,10 @@ export default function ContactProfilePage() {
   const [noteInput, setNoteInput] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
+  // Invite
+  const [inviting, setInviting] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
+
   // Related contacts
   const [linkSearch, setLinkSearch] = useState("");
   const [linkRelationship, setLinkRelationship] = useState("Spouse");
@@ -190,6 +195,27 @@ export default function ContactProfilePage() {
     setSavingNote(false);
   }
 
+  async function sendInvite() {
+    if (!contact?.email || inviting) return;
+    setInviting(true);
+    await fetch("/api/admin/invite-contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: contact.id }),
+    });
+    setInviting(false);
+    setInviteSent(true);
+    await loadContact();
+  }
+
+  function portalStatus(): { label: string; color: string } {
+    if (!contact) return { label: "No Account", color: "text-[#444] bg-white/5" };
+    if (!contact.user_id) return { label: "No Account", color: "text-[#444] bg-white/5" };
+    const hasShoot = shoots.some(s => ["completed", "scheduled", "booked"].includes(s.status));
+    if (hasShoot) return { label: "Client", color: "text-[#4ade80] bg-[#4ade80]/10" };
+    return { label: "Registered", color: "text-[#60a5fa] bg-[#60a5fa]/10" };
+  }
+
   async function updateStage(stage: string) {
     if (!contact) return;
     const supabase = createClient();
@@ -240,11 +266,16 @@ export default function ContactProfilePage() {
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="text-[#555] text-sm hover:text-white transition-colors">← Back</button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="font-bold text-lg">{contact.name}</h1>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
               {contact.stage}
             </span>
+            {(() => { const ps = portalStatus(); return (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
+                {ps.label}
+              </span>
+            ); })()}
             {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
           </div>
         </div>
@@ -310,6 +341,31 @@ export default function ContactProfilePage() {
               <div>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Added</p>
                 <p className="text-xs text-[#555]">{new Date(contact.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+              </div>
+              <div className="border-t border-white/5 pt-3">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-2">Portal Access</p>
+                {contact.user_id ? (
+                  <div className="space-y-1">
+                    <div className={`text-[10px] px-2 py-1 font-semibold tracking-wide uppercase inline-block rounded-full ${portalStatus().color}`}>
+                      {portalStatus().label}
+                    </div>
+                    <p className="text-[10px] text-[#333]">Account linked to this contact</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-[#333]">No portal account yet</p>
+                    {contact.email && (
+                      <button
+                        onClick={sendInvite}
+                        disabled={inviting || inviteSent}
+                        className="w-full py-2 text-[10px] tracking-[2px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40"
+                      >
+                        {inviting ? "Sending..." : inviteSent ? "Invite Sent ✓" : "Send Invite Link"}
+                      </button>
+                    )}
+                    {!contact.email && <p className="text-[10px] text-[#333] italic">Add an email to send invite</p>}
+                  </div>
+                )}
               </div>
             </div>
           </div>
