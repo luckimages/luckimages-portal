@@ -1351,11 +1351,13 @@ export default function DashboardPage() {
                   )}
                 </form>
               ) : (
-                <div className="grid grid-cols-1">
+                <div className="grid grid-cols-2 divide-x divide-white/5">
                   <button onClick={() => setShowInviteInline(true)}
                     className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">
                     + Invite Client
                   </button>
+                  <a href="/admin/contacts?portal=registered"
+                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all text-center">View All →</a>
                 </div>
               )}
             </div>

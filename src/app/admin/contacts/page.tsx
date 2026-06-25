@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
@@ -35,12 +35,13 @@ const PORTAL_STATUS = (c: Contact): { label: string; color: string } => {
   return { label: "Registered", color: "text-[#60a5fa]" };
 };
 
-export default function ContactsPage() {
+function ContactsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [filterStage, setFilterStage] = useState("all");
-  const [filterPortal, setFilterPortal] = useState("all");
+  const [filterPortal, setFilterPortal] = useState(searchParams.get("portal") || "all");
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -305,5 +306,13 @@ export default function ContactsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ContactsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0c0c0c]" />}>
+      <ContactsPageInner />
+    </Suspense>
   );
 }
