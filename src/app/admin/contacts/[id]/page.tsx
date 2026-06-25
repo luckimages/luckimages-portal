@@ -126,13 +126,22 @@ export default function ContactProfilePage() {
 
   const loadContact = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: c }, { data: calls }, { data: emails }, { data: sh }, { data: allC }] = await Promise.all([
+    const [{ data: c }, { data: calls }, { data: emails }, { data: allC }] = await Promise.all([
       supabase.from("contacts").select("*").eq("id", id).single(),
       supabase.from("cold_calls").select("*").eq("contact_id", id).order("called_at", { ascending: false }),
       supabase.from("email_log").select("*").eq("contact_id", id).order("sent_at", { ascending: false }),
-      supabase.from("shoots").select("id, address, scheduled_at, status, package_name, services, price").eq("client_id", id).order("scheduled_at", { ascending: false }),
       supabase.from("contacts").select("id, name, brokerage, phone, email, stage").order("name"),
     ]);
+
+    // Query shoots by contact_id OR by client_id if they have a linked portal account
+    const shootFilter = c?.user_id
+      ? `contact_id.eq.${id},client_id.eq.${c.user_id}`
+      : `contact_id.eq.${id}`;
+    const { data: sh } = await supabase
+      .from("shoots")
+      .select("id, address, scheduled_at, status, package_name, services, price")
+      .or(shootFilter)
+      .order("scheduled_at", { ascending: false });
     if (!c) { router.replace("/admin/contacts"); return; }
     setContact(c);
     setForm({ name: c.name, email: c.email || "", phone: c.phone || "", brokerage: c.brokerage || "", stage: c.stage, notes: c.notes || "" });
@@ -276,6 +285,9 @@ export default function ContactProfilePage() {
                 {ps.label}
               </span>
             ); })()}
+            {shoots.length > 0 && ["lead", "interested", "follow-up"].includes(contact.stage) === false && (
+              <span className="text-[10px] tracking-[2px] uppercase text-[#4ade80] border border-[#4ade80]/30 px-2 py-0.5">Lead Converted</span>
+            )}
             {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
           </div>
         </div>

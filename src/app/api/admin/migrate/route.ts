@@ -13,6 +13,7 @@ export async function POST() {
     `ALTER TABLE shoots ADD COLUMN IF NOT EXISTS price numeric`,
     `ALTER TABLE shoots ADD COLUMN IF NOT EXISTS package_name text`,
     `ALTER TABLE contacts ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL`,
+    `ALTER TABLE shoots ADD COLUMN IF NOT EXISTS contact_id uuid REFERENCES contacts(id) ON DELETE SET NULL`,
     `CREATE TABLE IF NOT EXISTS contact_links (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       contact_id_a uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,

@@ -16,10 +16,18 @@ type Shoot = {
   client_id: string | null;
   client_name: string;
   client_email: string;
+  contact_id: string | null;
+  contact_name: string | null;
   status: string;
   photographer_ids: string[];
   price: number | null;
   package_name: string | null;
+};
+
+type Contact = {
+  id: string;
+  name: string;
+  brokerage: string | null;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,11 +61,27 @@ export default function MasterShootListPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [editContactId, setEditContactId] = useState<string | null>(null);
+  const [editContactName, setEditContactName] = useState("");
 
   const loadShoots = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/shoots?full=1");
-    if (res.ok) setShoots(await res.json());
+    const [shootsRes, supabase] = [await fetch("/api/admin/shoots?full=1"), createClient()];
+    if (shootsRes.ok) {
+      const raw = await shootsRes.json();
+      // Enrich with contact names
+      const contactIds = [...new Set(raw.map((s: Shoot) => s.contact_id).filter(Boolean))] as string[];
+      let contactMap: Record<string, string> = {};
+      if (contactIds.length > 0) {
+        const { data } = await supabase.from("contacts").select("id, name").in("id", contactIds);
+        for (const c of data || []) contactMap[c.id] = c.name;
+      }
+      setShoots(raw.map((s: Shoot) => ({ ...s, contact_name: s.contact_id ? contactMap[s.contact_id] || null : null })));
+    }
+    const { data: c } = await supabase.from("contacts").select("id, name, brokerage").order("name");
+    setContacts(c || []);
     setLoading(false);
   }, []);
 
@@ -103,6 +127,9 @@ export default function MasterShootListPage() {
       notes: shoot.notes || "",
       status: shoot.status,
     });
+    setEditContactId(shoot.contact_id || null);
+    setEditContactName(shoot.contact_name || "");
+    setContactSearch("");
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -117,6 +144,7 @@ export default function MasterShootListPage() {
         status: editForm.status,
         price: editForm.price ? Number(editForm.price) : null,
         package_name: editForm.package_name || null,
+        contact_id: editContactId,
       }),
     });
     // Update notes directly via supabase
@@ -286,7 +314,7 @@ export default function MasterShootListPage() {
                       <p className="font-medium truncate">{shoot.address}</p>
                       {shoot.notes && <p className="text-[#444] truncate mt-0.5">{shoot.notes}</p>}
                     </td>
-                    <td className="px-4 py-3 text-[#666] whitespace-nowrap">{shoot.client_name || shoot.client_email || "—"}</td>
+                    <td className="px-4 py-3 text-[#666] whitespace-nowrap">{shoot.contact_name || shoot.client_name || shoot.client_email || "—"}</td>
                     <td className="px-4 py-3 text-[#888]">{shoot.package_name || "—"}</td>
                     <td className="px-4 py-3 text-[#555] max-w-[160px]">
                       <p className="truncate">{shoot.services?.join(", ") || "—"}</p>
@@ -370,7 +398,7 @@ export default function MasterShootListPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-3 flex-wrap">
-                            {shoot.client_name && <span className="text-xs text-[#555]">{shoot.client_name}</span>}
+                            {(shoot.contact_name || shoot.client_name) && <span className="text-xs text-[#555]">{shoot.contact_name || shoot.client_name}</span>}
                             {shoot.package_name && <span className="text-xs text-[#444]">{shoot.package_name}</span>}
                             {!shoot.package_name && shoot.services?.length > 0 && (
                               <span className="text-xs text-[#444]">{shoot.services.join(", ")}</span>
@@ -455,6 +483,45 @@ export default function MasterShootListPage() {
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact / Client</p>
+                {editContactId ? (
+                  <div className="flex items-center justify-between bg-[#181818] border border-white/10 px-4 py-2.5">
+                    <span className="text-sm text-white">{editContactName}</span>
+                    <button type="button" onClick={() => { setEditContactId(null); setEditContactName(""); }}
+                      className="text-[#444] hover:text-white text-xs transition-colors">✕ Remove</button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      value={contactSearch}
+                      onChange={e => setContactSearch(e.target.value)}
+                      placeholder="Search contacts..."
+                      className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+                    />
+                    {contactSearch && (
+                      <div className="absolute top-full left-0 right-0 bg-[#181818] border border-white/10 border-t-0 max-h-40 overflow-y-auto z-10 divide-y divide-white/5">
+                        {contacts.filter(c =>
+                          c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                          (c.brokerage || "").toLowerCase().includes(contactSearch.toLowerCase())
+                        ).slice(0, 6).map(c => (
+                          <button key={c.id} type="button"
+                            onClick={() => { setEditContactId(c.id); setEditContactName(c.name); setContactSearch(""); }}
+                            className="w-full text-left px-4 py-2.5 text-xs hover:bg-white/5 transition-colors">
+                            <span className="font-medium">{c.name}</span>
+                            {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                          </button>
+                        ))}
+                        {contacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0 && (
+                          <p className="px-4 py-2.5 text-xs text-[#444]">No contacts found</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <p className="text-[10px] text-[#444] mt-1">Attaching a contact auto-converts them to Client stage</p>
               </div>
 
               <div>

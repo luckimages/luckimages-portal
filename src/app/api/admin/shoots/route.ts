@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, scheduled_at, services, notes, square_footage, client_id, photographer_ids, status: reqStatus, price, package_name } = await req.json();
+  const { address, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name } = await req.json();
   if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
 
   const db = service();
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
     notes: notes?.trim() || null,
     square_footage: square_footage || null,
     client_id: client_id || null,
+    contact_id: contact_id || null,
     photographer_ids: photographer_ids || [],
     status: insertStatus,
     price: price || null,
@@ -88,6 +89,11 @@ export async function POST(req: Request) {
   };
 
   const { data, error } = await db.from("shoots").insert(payload).select().single();
+
+  // Auto-promote contact to "client" stage
+  if (!error && contact_id) {
+    await db.from("contacts").update({ stage: "client" }).eq("id", contact_id).in("stage", ["lead", "interested", "follow-up", "booked", "registered"]);
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // If created as scheduled, fire Google Calendar event immediately
@@ -127,7 +133,7 @@ export async function PATCH(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { id, status, photographer_ids, price, package_name } = await req.json();
+  const { id, status, photographer_ids, price, package_name, contact_id } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
@@ -148,8 +154,14 @@ export async function PATCH(req: Request) {
   if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;
   if (price !== undefined) updatePayload.price = price;
   if (package_name !== undefined) updatePayload.package_name = package_name;
+  if (contact_id !== undefined) updatePayload.contact_id = contact_id;
 
   const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
+
+  // Auto-promote contact to "client" stage when attached
+  if (!error && contact_id) {
+    await supabase.from("contacts").update({ stage: "client" }).eq("id", contact_id).in("stage", ["lead", "interested", "follow-up", "booked", "registered"]);
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Notify newly assigned photographers
