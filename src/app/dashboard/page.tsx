@@ -1768,10 +1768,10 @@ export default function DashboardPage() {
               <div className="flex-1 overflow-y-auto min-h-0">
                 {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
                 {updates.slice(0, 12).map(u => {
-                  const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : "💬";
+                  const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : u.type === "alert" ? "⚠️" : "💬";
                   return (
-                    <div key={u.id} className="px-3 py-2 hover:bg-white/[0.02] border-b border-white/5">
-                      <p className="text-xs truncate">{icon} {u.message}</p>
+                    <div key={u.id} className={`px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${u.type === "alert" ? "bg-[#ef444408]" : ""}`}>
+                      <p className={`text-xs truncate ${u.type === "alert" ? "text-[#ef4444]" : ""}`}>{icon} {u.message}</p>
                       <p className="text-[10px] text-[#444]">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
                     </div>
                   );

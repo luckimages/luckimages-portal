@@ -29,10 +29,12 @@ export async function GET(req: Request) {
   // Auto-generated activity from other tables (last 120h, or all-time if ?history=1)
   const since = history ? new Date(0).toISOString() : new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString();
   const rowLimit = history ? 500 : 15;
-  const [{ data: calls }, { data: contacts }, { data: shoots }] = await Promise.all([
+  const [{ data: calls }, { data: contacts }, { data: shoots }, { data: lateShoots }] = await Promise.all([
     db.from("cold_calls").select("id, called_at, outcome, called_by, listing_address, contact_id").gte("called_at", since).order("called_at", { ascending: false }).limit(rowLimit),
     db.from("contacts").select("id, name, created_at, stage").gte("created_at", since).order("created_at", { ascending: false }).limit(rowLimit),
     db.from("shoots").select("id, address, scheduled_at, status, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(rowLimit),
+    // Late photographer check — shoots past their time with no check-in yet
+    db.from("shoots").select("id, address, scheduled_at").eq("status", "scheduled").lt("scheduled_at", new Date().toISOString()),
   ]);
 
   // Merge contact names into calls
@@ -43,6 +45,13 @@ export async function GET(req: Request) {
   const nameMap = Object.fromEntries((contactNames || []).map((c: {id: string; name: string}) => [c.id, c.name]));
 
   type AutoItem = { id: string; type: string; message: string; created_at: string; by?: string };
+  const nowIso = new Date().toISOString();
+  const lateAlerts: AutoItem[] = (lateShoots || []).map((s: {id: string; address: string; scheduled_at: string}) => ({
+    id: `late-${s.id}`,
+    type: "alert",
+    message: `Photographer not checked in — ${s.address} was scheduled for ${new Date(s.scheduled_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
+    created_at: nowIso,
+  }));
   const auto: AutoItem[] = [
     ...(calls || []).map((c: {id: string; called_at: string; outcome: string; called_by: string; listing_address: string | null; contact_id: string}) => ({
       id: `call-${c.id}`,
@@ -65,7 +74,10 @@ export async function GET(req: Request) {
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 15);
 
-  return NextResponse.json({ posts: posts || [], auto });
+  // Late alerts always float to top regardless of scheduled_at
+  const allAuto = [...lateAlerts, ...auto];
+
+  return NextResponse.json({ posts: posts || [], auto: allAuto });
 }
 
 export async function POST(req: Request) {

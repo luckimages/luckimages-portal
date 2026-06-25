@@ -93,8 +93,8 @@ export default function PhotographerPage() {
     document.body.appendChild(form); form.submit();
   }
 
-  const upcoming = shoots.filter(s => s.status !== "completed" && s.status !== "cancelled" && new Date(s.scheduled_at) >= new Date());
-  const past = shoots.filter(s => s.status === "completed" || new Date(s.scheduled_at) < new Date());
+  const upcoming = shoots.filter(s => s.status !== "delivered" && s.status !== "completed" && s.status !== "cancelled");
+  const past = shoots.filter(s => s.status === "delivered" || s.status === "completed" || s.status === "cancelled");
   const totalPending = payStubs.filter(p => !p.paid).reduce((s, p) => s + p.amount_cents, 0);
 
   // Bi-weekly pay periods anchored to Jun 2 2026
