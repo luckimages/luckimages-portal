@@ -1449,23 +1449,32 @@ export default function DashboardPage() {
       );
     }
     if (s === "Cold Calls") {
-      const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay()); weekStart.setHours(0,0,0,0);
-      const weekLogs = callLogs.filter(l => new Date(l.called_at) >= weekStart);
+      const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0,0,0,0);
+      const weekLogs = callLogs.filter(l => new Date(l.called_at) >= ws);
       const weekLeads = weekLogs.filter(l => ["interested","callback","booked"].includes(l.outcome));
+      // Conversions = contacts called this week who are now stage "client"
+      const weekCalledContactIds = new Set(weekLogs.map(l => l.contact_id).filter(Boolean));
+      const weekConversions = contacts.filter(c => weekCalledContactIds.has(c.id) && c.stage === "client").length;
+      const convRate = weekLeads.length > 0 ? Math.round((weekConversions / weekLeads.length) * 100) : 0;
       return (
         <section key={s}>
           <div className="flex items-center gap-4 mb-4">
             <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">Cold Calls</p>
           </div>
           <div className="bg-[#111] border border-white/10">
-            <div className="grid grid-cols-2 divide-x divide-white/5">
-              <div className="px-6 py-5">
+            <div className="grid grid-cols-3 divide-x divide-white/5">
+              <div className="px-5 py-5">
                 <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
               </div>
-              <div className="px-6 py-5">
-                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekLeads.length}</p>
+              <div className="px-5 py-5">
+                <p className="text-4xl font-bold tabular-nums text-[#60a5fa]">{weekLeads.length}</p>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
+              </div>
+              <div className="px-5 py-5">
+                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekConversions}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Conversions</p>
+                <p className="text-xs text-[#444] mt-0.5">{weekLeads.length > 0 ? `${convRate}% rate` : "—"}</p>
               </div>
             </div>
             <div className="border-t border-white/10 p-4">
