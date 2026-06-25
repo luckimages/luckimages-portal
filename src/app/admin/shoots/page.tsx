@@ -1,18 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
 
-const SERVICES = [
-  "HDR Photography",
-  "Aerial / Drone",
-  "Virtual Staging",
-  "Video Walkthrough",
-  "3D Tour / Matterport",
-  "Floor Plan",
-  "Twilight Photography",
-  "Headshots / Agent Photos",
-];
+const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
 type Shoot = {
   id: string;
@@ -22,101 +14,172 @@ type Shoot = {
   notes: string | null;
   square_footage: number | null;
   client_id: string | null;
-  client_name?: string;
-  client_email?: string;
-  photographer_ids: string[];
+  client_name: string;
+  client_email: string;
+  contact_id: string | null;
+  contact_name: string | null;
   status: string;
+  photographer_ids: string[];
+  price: number | null;
+  package_name: string | null;
 };
 
-type Photographer = { id: string; name: string; email: string };
-type Client = { id: string; name: string; email: string };
+type Contact = { id: string; name: string; brokerage: string | null };
+
+const STATUS_COLORS: Record<string, string> = {
+  completed: "text-[#4ade80] bg-[#4ade80]/10",
+  scheduled: "text-[#60a5fa] bg-[#60a5fa]/10",
+  pending: "text-[#fbbf24] bg-[#fbbf24]/10",
+  cancelled: "text-[#555] bg-white/5",
+};
+
+const PACKAGES = [
+  { label: "Photos Only", price: 175 },
+  { label: "Drone Only", price: 200 },
+  { label: "Photo + Drone", price: 325 },
+  { label: "Video", price: 250 },
+  { label: "Matterport", price: 225 },
+  { label: "Twilight", price: 250 },
+  { label: "Full Package", price: 750 },
+  { label: "Custom", price: 0 },
+];
+
+const SERVICE_BUCKETS = [
+  { label: "Listing Photos", match: (p: string) => /photo/i.test(p) },
+  { label: "Drone", match: (p: string) => /drone/i.test(p) },
+  { label: "Matterport", match: (p: string) => /matterport/i.test(p) },
+  { label: "Video", match: (p: string) => /video/i.test(p) },
+  { label: "Twilight", match: (p: string) => /twilight/i.test(p) },
+  { label: "Full Package", match: (p: string) => /full/i.test(p) },
+  { label: "Custom", match: (p: string) => /custom/i.test(p) },
+];
 
 export default function ShootsPage() {
   const router = useRouter();
   const [shoots, setShoots] = useState<Shoot[]>([]);
-  const [photographers, setPhotographers] = useState<Photographer[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "month">("cards");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  // Edit modal
+  const [editShoot, setEditShoot] = useState<Shoot | null>(null);
+  const [editForm, setEditForm] = useState({ price: "", package_name: "", notes: "", status: "" });
+  const [editContactId, setEditContactId] = useState<string | null>(null);
+  const [editContactName, setEditContactName] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // Form state
-  const [address, setAddress] = useState("");
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
-  const [sqft, setSqft] = useState("");
-  const [clientSearch, setClientSearch] = useState("");
-  const [clients, setClients] = useState<Client[]>([]);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [clientResults, setClientResults] = useState<Client[]>([]);
-  const [selectedPhotographers, setSelectedPhotographers] = useState<string[]>([]);
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/admin/shoots?full=1").then(r => r.json()),
-      fetch("/api/admin/photographers").then(r => r.json()),
-      fetch("/api/admin/realtors").then(r => r.json()),
-    ]).then(([shootData, photoData, clientData]) => {
-      setShoots(Array.isArray(shootData) ? shootData : []);
-      setPhotographers(Array.isArray(photoData) ? photoData : []);
-      // realtors API returns full_name; normalize to name
-      const normalized = (Array.isArray(clientData) ? clientData : []).map((c: {id: string; full_name?: string; email?: string}) => ({ id: c.id, name: c.full_name || c.email || "", email: c.email || "" }));
-      setClients(normalized);
-      setLoading(false);
-    });
-  }, []);
-
-  function toggleService(s: string) {
-    setSelectedServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
-  }
-
-  function togglePhotographer(id: string) {
-    setSelectedPhotographers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
-
-  function searchClients(q: string) {
-    setClientSearch(q);
-    if (!q.trim()) { setClientResults([]); return; }
-    const lower = q.toLowerCase();
-    setClientResults(clients.filter(c => c.name.toLowerCase().includes(lower) || c.email.toLowerCase().includes(lower)).slice(0, 5));
-  }
-
-  async function createShoot(e: React.FormEvent) {
-    e.preventDefault();
-    if (!address.trim()) return;
-    setSaving(true);
-    const res = await fetch("/api/admin/shoots", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        address,
-        scheduled_at: scheduledAt || null,
-        services: selectedServices,
-        notes: notes || null,
-        square_footage: sqft ? parseInt(sqft) : null,
-        client_id: selectedClient?.id || null,
-        photographer_ids: selectedPhotographers,
-      }),
-    });
-    if (res.ok) {
-      const { shoot } = await res.json();
-      const newShoot = { ...shoot, client_name: selectedClient?.name, client_email: selectedClient?.email };
-      setShoots(prev => [newShoot, ...prev]);
-      setAddress(""); setScheduledAt(""); setSelectedServices([]); setNotes(""); setSqft("");
-      setSelectedClient(null); setClientSearch(""); setSelectedPhotographers([]);
-      setShowForm(false);
-    }
-    setSaving(false);
-  }
-
   const [statusError, setStatusError] = useState<Record<string, string>>({});
 
-  async function updateStatus(id: string, status: string, photographer_ids?: string[]) {
+  const loadShoots = useCallback(async () => {
+    setLoading(true);
+    const supabase = createClient();
+    const res = await fetch("/api/admin/shoots?full=1");
+    if (res.ok) {
+      const raw = await res.json();
+      const contactIds = [...new Set(raw.map((s: Shoot) => s.contact_id).filter(Boolean))] as string[];
+      let contactMap: Record<string, string> = {};
+      if (contactIds.length > 0) {
+        const { data } = await supabase.from("contacts").select("id, name").in("id", contactIds);
+        for (const c of data || []) contactMap[c.id] = c.name;
+      }
+      setShoots(raw.map((s: Shoot) => ({ ...s, contact_name: s.contact_id ? contactMap[s.contact_id] || null : null })));
+    }
+    const { data: c } = await supabase.from("contacts").select("id, name, brokerage").order("name");
+    setContacts(c || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) router.replace("/dashboard");
+      else loadShoots();
+    });
+  }, [router, loadShoots]);
+
+  // Stats
+  const thisYear = new Date().getFullYear().toString();
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const completedShoots = shoots.filter(s => s.status === "completed");
+  const totalRevenue = completedShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+  const avgPrice = completedShoots.length > 0 ? Math.round(totalRevenue / completedShoots.length) : 0;
+  const thisMonthRevenue = shoots.filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+  const ytdShoots = completedShoots.filter(s => (s.scheduled_at || "").startsWith(thisYear));
+  const serviceCounts = SERVICE_BUCKETS.map(b => ({
+    label: b.label,
+    count: ytdShoots.filter(s => {
+      const pkg = s.package_name || s.services?.join(" ") || "";
+      return b.match(pkg);
+    }).length,
+  }));
+
+  // Filtering
+  const filtered = shoots.filter(s => {
+    const name = s.contact_name || s.client_name || s.client_email || "";
+    const matchSearch = !search ||
+      s.address.toLowerCase().includes(search.toLowerCase()) ||
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      (s.package_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (s.services || []).some(sv => sv.toLowerCase().includes(search.toLowerCase()));
+    const matchStatus = filterStatus === "all" || s.status === filterStatus;
+    const matchMonth = !filterMonth || (s.scheduled_at || "").startsWith(filterMonth);
+    return matchSearch && matchStatus && matchMonth;
+  }).sort((a, b) => new Date(b.scheduled_at || 0).getTime() - new Date(a.scheduled_at || 0).getTime());
+
+  const availableMonths = [...new Set(shoots.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse();
+
+  function formatDate(iso: string | null) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) +
+      " · " + new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+
+  function formatMonthHeading(ym: string) {
+    const [y, m] = ym.split("-");
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function openEdit(shoot: Shoot) {
+    setEditShoot(shoot);
+    setEditForm({ price: shoot.price != null ? String(shoot.price) : "", package_name: shoot.package_name || "", notes: shoot.notes || "", status: shoot.status });
+    setEditContactId(shoot.contact_id || null);
+    setEditContactName(shoot.contact_name || shoot.client_name || "");
+    setContactSearch("");
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editShoot) return;
+    setSaving(true);
+    const supabase = createClient();
+    await fetch("/api/admin/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editShoot.id,
+        status: editForm.status,
+        price: editForm.price ? Number(editForm.price) : null,
+        package_name: editForm.package_name || null,
+        contact_id: editContactId,
+        notes: editForm.notes || null,
+      }),
+    });
+    setSaving(false);
+    setEditShoot(null);
+    await loadShoots();
+  }
+
+  async function quickStatus(id: string, status: string) {
     setStatusError(e => ({ ...e, [id]: "" }));
     const res = await fetch("/api/admin/shoots", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status, photographer_ids }),
+      body: JSON.stringify({ id, status }),
     });
     if (!res.ok) {
       const d = await res.json();
@@ -126,238 +189,398 @@ export default function ShootsPage() {
     setShoots(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   }
 
-  const pending = shoots.filter(s => s.status === "pending");
-  const scheduled = shoots.filter(s => s.status === "scheduled");
-  const completed = shoots.filter(s => s.status === "completed");
-  const cancelled = shoots.filter(s => s.status === "cancelled");
+  async function syncSheet() {
+    setSyncing(true); setSyncMsg("");
+    const res = await fetch("/api/admin/sync-shoots-sheet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trigger: "manual" }) });
+    const data = await res.json();
+    setSyncMsg(data.ok ? `✓ Synced ${data.rows} rows at ${data.syncedAt}` : `✗ ${data.error}`);
+    setSyncing(false);
+  }
 
+  // Card component
   function ShootCard({ shoot }: { shoot: Shoot }) {
     const [expanded, setExpanded] = useState(false);
+    const clientDisplay = shoot.contact_name || shoot.client_name || shoot.client_email || null;
     const err = statusError[shoot.id];
     return (
-      <div className={`bg-[#111] border border-white/10 p-4 hover:border-white/20 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""}`}>
-        <div className="flex items-start justify-between gap-4">
+      <div className={`bg-[#111] border border-white/10 hover:border-white/20 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""}`}>
+        <div className="flex items-start justify-between gap-4 p-4">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{shoot.address}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               {shoot.scheduled_at && (
-                <span className="text-xs text-[#888]">
-                  {new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  {" · "}
-                  {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                </span>
+                <span className="text-xs text-[#888]">{formatDate(shoot.scheduled_at)}</span>
               )}
-              {shoot.client_name && <span className="text-xs text-[#666]">{shoot.client_name}</span>}
-              {shoot.client_email && !shoot.client_name && <span className="text-xs text-[#666]">{shoot.client_email}</span>}
+              {clientDisplay && <span className="text-xs text-[#666]">{clientDisplay}</span>}
+              {shoot.price != null && (
+                <span className="text-xs font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</span>
+              )}
             </div>
-            {shoot.services?.length > 0 && (
+            {(shoot.package_name || (shoot.services?.length > 0)) && (
               <div className="flex flex-wrap gap-1 mt-2">
-                {shoot.services.map(svc => (
+                {(shoot.package_name ? [shoot.package_name] : shoot.services).map(svc => (
                   <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{svc}</span>
                 ))}
               </div>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`text-[10px] tracking-[2px] uppercase px-2 py-1 ${
-              shoot.status === "pending" ? "text-[#fbbf24] bg-[#fbbf2415]" :
-              shoot.status === "scheduled" ? "text-[#4ade80] bg-[#4ade8015]" :
-              shoot.status === "completed" ? "text-[#888] bg-white/5" :
-              "text-red-400 bg-red-500/10"
-            }`}>{shoot.status}</span>
-            <button onClick={() => setExpanded(e => !e)} className="text-[#555] hover:text-white text-xs transition-colors px-2">{expanded ? "▲" : "▼"}</button>
+            <span className={`text-[10px] tracking-[2px] uppercase px-2 py-1 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status}</span>
+            <button onClick={() => openEdit(shoot)} className="text-[10px] uppercase tracking-[1px] text-[#444] hover:text-white transition-colors px-2">Edit</button>
+            <button onClick={() => setExpanded(e => !e)} className="text-[#555] hover:text-white text-xs transition-colors px-1">{expanded ? "▲" : "▼"}</button>
           </div>
         </div>
         {expanded && (
-          <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-            {shoot.notes && <p className="text-xs text-[#888]">{shoot.notes}</p>}
+          <div className="px-4 pb-4 pt-0 border-t border-white/5 space-y-3 mt-0">
+            {shoot.notes && <p className="text-xs text-[#888] mt-3">{shoot.notes}</p>}
             {shoot.square_footage && <p className="text-xs text-[#555]">{shoot.square_footage.toLocaleString()} sq ft</p>}
-            {shoot.photographer_ids?.length > 0 && (
-              <p className="text-xs text-[#555]">Photographers: {shoot.photographer_ids.length}</p>
-            )}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap mt-3">
               {shoot.status === "pending" && (
-                <button onClick={() => updateStatus(shoot.id, "scheduled")}
+                <button onClick={() => quickStatus(shoot.id, "scheduled")}
                   className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#4ade80]/10 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/20 transition-colors">
                   Confirm
                 </button>
               )}
               {(shoot.status === "pending" || shoot.status === "scheduled") && (
                 <>
-                  <button onClick={() => updateStatus(shoot.id, "completed")}
+                  <button onClick={() => quickStatus(shoot.id, "completed")}
                     className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white/5 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">
                     Mark Complete
                   </button>
-                  <button onClick={() => updateStatus(shoot.id, "cancelled")}
+                  <button onClick={() => quickStatus(shoot.id, "cancelled")}
                     className="text-xs tracking-[1px] uppercase px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
                     Cancel
                   </button>
                 </>
               )}
               {shoot.status === "completed" && (
-                <button onClick={() => updateStatus(shoot.id, "scheduled")}
+                <button onClick={() => quickStatus(shoot.id, "scheduled")}
                   className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#fbbf24]/10 border border-[#fbbf24]/20 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors">
                   ↩ Undo Complete
                 </button>
               )}
               {shoot.status === "cancelled" && (
-                <button onClick={() => updateStatus(shoot.id, "scheduled")}
+                <button onClick={() => quickStatus(shoot.id, "scheduled")}
                   className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white/5 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">
                   ↩ Reopen
                 </button>
               )}
             </div>
-            {err && <p className="text-xs text-red-400 mt-2">{err}</p>}
+            {err && <p className="text-xs text-red-400">{err}</p>}
           </div>
         )}
       </div>
     );
   }
 
+  const pending = filtered.filter(s => s.status === "pending");
+  const scheduled = filtered.filter(s => s.status === "scheduled");
+  const completed = filtered.filter(s => s.status === "completed");
+  const cancelled = filtered.filter(s => s.status === "cancelled");
+
+  const allMonths = [...new Set(filtered.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse();
+
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
-      <div className="border-b border-white/10 px-8 py-5 flex items-center gap-6">
+
+      {/* Header */}
+      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center gap-4 flex-wrap">
         <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
         <h1 className="text-sm font-bold tracking-[3px] uppercase">Shoots</h1>
         <div className="flex-1" />
-        <button onClick={() => setShowForm(f => !f)}
-          className="text-xs tracking-[2px] uppercase px-6 py-2.5 bg-white text-black font-semibold hover:bg-[#ddd] transition-colors">
-          + New Shoot
+        <button onClick={syncSheet} disabled={syncing}
+          className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
+          {syncing ? "Syncing..." : "↑ Sync to Google Sheet"}
         </button>
+        <div className="flex border border-white/10 overflow-hidden">
+          <button onClick={() => setViewMode("cards")}
+            className={`text-xs tracking-[1px] uppercase px-4 py-2 transition-colors ${viewMode === "cards" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}>
+            List
+          </button>
+          <button onClick={() => setViewMode("month")}
+            className={`text-xs tracking-[1px] uppercase px-4 py-2 transition-colors ${viewMode === "month" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}>
+            By Month
+          </button>
+        </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-8 py-8 space-y-10">
-        {/* New Shoot Form */}
-        {showForm && (
-          <section>
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-              New Shoot
-            </p>
-            <form onSubmit={createShoot} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Property address *" required
-                    className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                </div>
-                <input value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} type="datetime-local"
-                  className="bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 [color-scheme:dark]" />
-                <input value={sqft} onChange={e => setSqft(e.target.value)} type="number" placeholder="Square footage"
-                  className="bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
-              </div>
+      {syncMsg && (
+        <div className={`px-4 md:px-8 py-2 text-xs font-medium ${syncMsg.startsWith("✓") ? "bg-[#4ade80]/10 text-[#4ade80]" : "bg-red-900/20 text-red-400"}`}>
+          {syncMsg}
+        </div>
+      )}
 
-              {/* Services */}
+      {/* Stats bar */}
+      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center gap-6 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums">{shoots.length}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">total shoots</span>
+        </div>
+        <div className="w-px h-4 bg-white/10" />
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums text-[#4ade80]">{completedShoots.length}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">completed</span>
+        </div>
+        <div className="w-px h-4 bg-white/10" />
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums text-[#4ade80]">${totalRevenue.toLocaleString()}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">total revenue</span>
+        </div>
+        <div className="w-px h-4 bg-white/10" />
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">${thisMonthRevenue.toLocaleString()}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">this month</span>
+        </div>
+        <div className="w-px h-4 bg-white/10" />
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums">${avgPrice.toLocaleString()}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">avg / shoot</span>
+        </div>
+      </div>
+
+      {/* Services YTD */}
+      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center gap-1 flex-wrap">
+        <span className="text-[10px] tracking-[2px] uppercase text-[#444] mr-3">Services YTD</span>
+        {serviceCounts.map((b, i) => (
+          <span key={b.label} className="flex items-center gap-1">
+            {i > 0 && <span className="w-px h-3 bg-white/10 mx-1" />}
+            <span className="text-sm font-bold tabular-nums">{b.count}</span>
+            <span className="text-[10px] tracking-[1px] uppercase text-[#555]">{b.label}</span>
+          </span>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="px-4 md:px-8 py-4 flex items-center gap-3 flex-wrap border-b border-white/5">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search address, client, package..."
+          className="flex-1 min-w-[200px] bg-[#111] border border-white/10 text-white text-xs px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+          <option value="all">All statuses</option>
+          <option value="completed">Completed</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="pending">Pending</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
+          className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+          <option value="">All months</option>
+          {availableMonths.map(m => <option key={m} value={m}>{formatMonthHeading(m)}</option>)}
+        </select>
+        {(search || filterStatus !== "all" || filterMonth) && (
+          <button onClick={() => { setSearch(""); setFilterStatus("all"); setFilterMonth(""); }}
+            className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
+        )}
+        <span className="text-xs text-[#444] ml-auto">{filtered.length} shoots</span>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
+      ) : viewMode === "cards" ? (
+
+        /* ══ CARDS VIEW ══ */
+        <div className="max-w-4xl mx-auto px-4 md:px-8 py-8 space-y-10">
+          {pending.length > 0 && (
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Pending — {pending.length}
+              </p>
+              <div className="space-y-2">{pending.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
+            </section>
+          )}
+          {scheduled.length > 0 && (
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Scheduled — {scheduled.length}
+              </p>
+              <div className="space-y-2">{scheduled.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
+            </section>
+          )}
+          {pending.length === 0 && scheduled.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-xs text-[#444] tracking-[3px] uppercase">No active shoots</p>
+            </div>
+          )}
+          {completed.length > 0 && (
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Completed — {completed.length}
+              </p>
+              <div className="space-y-2">{completed.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
+            </section>
+          )}
+          {cancelled.length > 0 && (
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Cancelled — {cancelled.length}
+              </p>
+              <div className="space-y-2">{cancelled.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
+            </section>
+          )}
+        </div>
+
+      ) : (
+
+        /* ══ BY MONTH VIEW ══ */
+        <div className="px-4 md:px-8 py-6 space-y-8">
+          {allMonths.length === 0 && (
+            <p className="text-xs text-[#333] italic text-center py-12">No shoots found.</p>
+          )}
+          {allMonths.map(monthKey => {
+            const monthShoots = filtered
+              .filter(s => (s.scheduled_at || "").startsWith(monthKey))
+              .sort((a, b) => new Date(a.scheduled_at || 0).getTime() - new Date(b.scheduled_at || 0).getTime());
+            if (monthShoots.length === 0) return null;
+            const monthRevenue = monthShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+            const completedInMonth = monthShoots.filter(s => s.status === "completed").length;
+            return (
+              <div key={monthKey}>
+                <div className="flex items-baseline justify-between gap-4 mb-4">
+                  <div className="flex items-baseline gap-4">
+                    <h2 className="font-bold tracking-tight">{formatMonthHeading(monthKey)}</h2>
+                    <span className="text-xs text-[#555]">{monthShoots.length} shoot{monthShoots.length !== 1 ? "s" : ""}</span>
+                    <span className="text-xs text-[#555]">{completedInMonth} completed</span>
+                  </div>
+                  {monthRevenue > 0 && <span className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</span>}
+                </div>
+                <div className="space-y-0 border border-white/10">
+                  {monthShoots.map((shoot, i) => {
+                    const d = shoot.scheduled_at ? new Date(shoot.scheduled_at) : null;
+                    const clientDisplay = shoot.contact_name || shoot.client_name || null;
+                    return (
+                      <div key={shoot.id}
+                        className={`flex items-start gap-4 px-5 py-4 hover:bg-white/[0.02] cursor-pointer transition-colors ${i < monthShoots.length - 1 ? "border-b border-white/5" : ""}`}
+                        onClick={() => openEdit(shoot)}>
+                        <div className="shrink-0 w-10 text-center">
+                          {d ? (
+                            <>
+                              <p className="text-2xl font-black tabular-nums leading-none">{d.getDate()}</p>
+                              <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">{d.toLocaleDateString("en-US", { weekday: "short" })}</p>
+                            </>
+                          ) : (
+                            <p className="text-[#333] text-xs">TBD</p>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <p className="font-medium text-sm truncate">{shoot.address}</p>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold tracking-wide uppercase shrink-0 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status}</span>
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {clientDisplay && <span className="text-xs text-[#555]">{clientDisplay}</span>}
+                            {shoot.package_name && <span className="text-xs text-[#444]">{shoot.package_name}</span>}
+                            {!shoot.package_name && shoot.services?.length > 0 && (
+                              <span className="text-xs text-[#444]">{shoot.services.join(", ")}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {shoot.price != null
+                            ? <p className="font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</p>
+                            : <p className="text-[#333] text-xs">—</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editShoot && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" onClick={() => setEditShoot(null)}>
+          <div className="bg-[#111] border border-white/15 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-6 py-4 border-b border-white/10">
               <div>
-                <p className="text-xs text-[#555] tracking-[2px] uppercase mb-2">Services</p>
-                <div className="flex flex-wrap gap-2">
-                  {SERVICES.map(svc => (
-                    <button key={svc} type="button" onClick={() => toggleService(svc)}
-                      className={`text-xs px-3 py-1.5 border transition-colors ${selectedServices.includes(svc) ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                      {svc}
+                <p className="text-xs font-bold tracking-[3px] uppercase">Edit Shoot</p>
+                <p className="text-sm mt-1 text-[#888] truncate max-w-[280px]">{editShoot.address}</p>
+                <p className="text-xs text-[#444] mt-0.5">{editShoot.scheduled_at ? formatDate(editShoot.scheduled_at) : "—"}</p>
+              </div>
+              <button onClick={() => setEditShoot(null)} className="text-[#555] hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <form onSubmit={saveEdit} className="p-6 space-y-4">
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Package</p>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {PACKAGES.map(pkg => (
+                    <button key={pkg.label} type="button"
+                      onClick={() => setEditForm(f => ({ ...f, package_name: pkg.label === f.package_name ? "" : pkg.label, price: pkg.price && pkg.label !== f.package_name ? String(pkg.price) : f.price }))}
+                      className={`text-xs px-3 py-1.5 border transition-all ${editForm.package_name === pkg.label ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
+                      {pkg.label}{pkg.price ? ` · $${pkg.price}` : ""}
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Client search */}
-              <div className="relative">
-                <p className="text-xs text-[#555] tracking-[2px] uppercase mb-2">Assign to Client</p>
-                {selectedClient ? (
-                  <div className="flex items-center gap-3 bg-[#111] border border-white/20 px-4 py-3">
-                    <span className="text-sm flex-1">{selectedClient.name || selectedClient.email}</span>
-                    <button type="button" onClick={() => { setSelectedClient(null); setClientSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Price</p>
+                <div className="flex items-center bg-[#181818] border border-white/10">
+                  <span className="text-xs text-[#555] px-3">$</span>
+                  <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
+                    placeholder="0" className="flex-1 bg-transparent text-white text-sm px-2 py-2.5 outline-none" />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Status</p>
+                <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
+                  <option value="pending">Pending</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact / Client</p>
+                {editContactId ? (
+                  <div className="flex items-center justify-between bg-[#181818] border border-white/10 px-4 py-2.5">
+                    <span className="text-sm text-white">{editContactName}</span>
+                    <button type="button" onClick={() => { setEditContactId(null); setEditContactName(""); }}
+                      className="text-[#444] hover:text-white text-xs transition-colors">✕ Remove</button>
                   </div>
                 ) : (
-                  <>
-                    <input value={clientSearch} onChange={e => searchClients(e.target.value)} placeholder="Search by name or email..."
-                      className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                    {clientResults.length > 0 && (
-                      <div className="absolute z-10 w-full bg-[#1a1a1a] border border-white/20 mt-1">
-                        {clientResults.map(c => (
-                          <button key={c.id} type="button" onClick={() => { setSelectedClient(c); setClientSearch(""); setClientResults([]); }}
-                            className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors">
-                            <p className="text-sm">{c.name || c.email}</p>
-                            {c.name && <p className="text-xs text-[#555]">{c.email}</p>}
+                  <div className="relative">
+                    <input value={contactSearch} onChange={e => setContactSearch(e.target.value)} placeholder="Search contacts..."
+                      className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    {contactSearch && (
+                      <div className="absolute top-full left-0 right-0 bg-[#181818] border border-white/10 border-t-0 max-h-40 overflow-y-auto z-10 divide-y divide-white/5">
+                        {contacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase()) || (c.brokerage || "").toLowerCase().includes(contactSearch.toLowerCase())).slice(0, 6).map(c => (
+                          <button key={c.id} type="button"
+                            onClick={() => { setEditContactId(c.id); setEditContactName(c.name); setContactSearch(""); }}
+                            className="w-full text-left px-4 py-2.5 text-xs hover:bg-white/5 transition-colors">
+                            <span className="font-medium">{c.name}</span>
+                            {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
                           </button>
                         ))}
+                        {contacts.filter(c => c.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0 && (
+                          <p className="px-4 py-2.5 text-xs text-[#444]">No contacts found</p>
+                        )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
-
-              {/* Photographers */}
-              {photographers.length > 0 && (
-                <div>
-                  <p className="text-xs text-[#555] tracking-[2px] uppercase mb-2">Photographer(s)</p>
-                  <div className="flex flex-wrap gap-2">
-                    {photographers.map(p => (
-                      <button key={p.id} type="button" onClick={() => togglePhotographer(p.id)}
-                        className={`text-xs px-3 py-1.5 border transition-colors ${selectedPhotographers.includes(p.id) ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optional)"
-                rows={2}
-                className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333] resize-none" />
-
-              <div className="flex gap-3">
-                <button type="submit" disabled={saving}
-                  className="px-8 py-3 bg-white text-black text-xs tracking-[2px] uppercase font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-50">
-                  {saving ? "Creating..." : "Create Shoot"}
-                </button>
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="px-6 py-3 border border-white/10 text-[#888] text-xs tracking-[2px] uppercase hover:text-white hover:border-white/30 transition-colors">
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
+                <textarea value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} rows={3}
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setEditShoot(null)}
+                  className="flex-1 py-3 text-xs tracking-[1px] uppercase border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-all">
                   Cancel
+                </button>
+                <button type="submit" disabled={saving}
+                  className="flex-1 py-3 text-xs tracking-[1px] uppercase bg-white text-black font-bold hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                  {saving ? "Saving..." : "Save"}
                 </button>
               </div>
             </form>
-          </section>
-        )}
-
-        {loading ? <p className="text-xs text-[#555] italic">Loading...</p> : (
-          <>
-            {pending.length > 0 && (
-              <section>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                  Pending — {pending.length}
-                </p>
-                <div className="space-y-2">{pending.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-              </section>
-            )}
-
-            {scheduled.length > 0 && (
-              <section>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                  Scheduled — {scheduled.length}
-                </p>
-                <div className="space-y-2">{scheduled.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-              </section>
-            )}
-
-            {pending.length === 0 && scheduled.length === 0 && (
-              <div className="text-center py-16">
-                <p className="text-xs text-[#444] tracking-[3px] uppercase">No active shoots</p>
-                <button onClick={() => setShowForm(true)} className="mt-4 text-xs tracking-[2px] uppercase px-6 py-3 border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-colors">
-                  + New Shoot
-                </button>
-              </div>
-            )}
-
-            {completed.length > 0 && (
-              <section>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                  Completed — {completed.length}
-                </p>
-                <div className="space-y-2">{completed.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

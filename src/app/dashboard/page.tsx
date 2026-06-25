@@ -1315,7 +1315,7 @@ export default function DashboardPage() {
           <Card label="Unpaid Invoices" value={QB.unpaidCount.toString()} accent="#fbbf24" sub="Outstanding balance" />
         </div>
         <div className="mt-2 text-right">
-          <a href="/admin/shoots/master" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">View Monthly Breakdown →</a>
+          <a href="/admin/shoots" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">View Monthly Breakdown →</a>
         </div>
       </section>
     );
@@ -1338,7 +1338,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="border-t border-white/10">
-            <a href="/admin/shoots/master" className="block py-3 text-center text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.02] transition-all">
+            <a href="/admin/shoots" className="block py-3 text-center text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.02] transition-all">
               View All Invoice History →
             </a>
           </div>
@@ -1819,7 +1819,7 @@ export default function DashboardPage() {
                   className="px-8 py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
                   View Log ↓
                 </button>
-                <a href="/admin/shoots/master"
+                <a href="/admin/shoots"
                   className="px-8 py-3 border border-white/10 text-center text-xs tracking-[2px] uppercase text-[#888] hover:text-white hover:border-white/30 transition-colors whitespace-nowrap">
                   Master List →
                 </a>
