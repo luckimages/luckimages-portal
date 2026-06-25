@@ -446,41 +446,101 @@ export default function DashboardPage() {
   const [csServices, setCsServices] = useState<string[]>([]);
   const [csNotes, setCsNotes] = useState("");
   const [csSqft, setCsSqft] = useState("");
+  const [csPropertyType, setCsPropertyType] = useState("");
   const [csClientSearch, setCsClientSearch] = useState("");
-  const [csClientResults, setCsClientResults] = useState<{id:string;name:string;email:string}[]>([]);
-  const [csClient, setCsClient] = useState<{id:string;name:string;email:string}|null>(null);
+  const [csClientResults, setCsClientResults] = useState<{id:string;name:string;email:string;brokerage:string|null}[]>([]);
+  const [csClient, setCsClient] = useState<{id:string;name:string;email:string;brokerage:string|null}|null>(null);
   const [csPhotographers, setCsPhotographers] = useState<string[]>([]);
   const [csSaving, setCsSaving] = useState(false);
   const [csInviteLink, setCsInviteLink] = useState("");
+  const [csCreateNew, setCsCreateNew] = useState(false);
+  const [csNewName, setCsNewName] = useState("");
+  const [csNewPhone, setCsNewPhone] = useState("");
+  const [csNewEmail, setCsNewEmail] = useState("");
+  const [csNewBrokerage, setCsNewBrokerage] = useState("");
+  const [csNewSaving, setCsNewSaving] = useState(false);
 
-  const DASHBOARD_SERVICES = ["HDR Photography","Aerial / Drone","Virtual Staging","Video Walkthrough","3D Tour / Matterport","Floor Plan","Twilight Photography","Headshots / Agent Photos"];
+  const CS_PROPERTY_TYPES = ["Home","Condo","Townhouse","Multi-Family","Airbnb","Commercial","Lot","Land"];
+  const CS_SIZE_UNIT = ["Lot","Land"].includes(csPropertyType) ? "acres" : "sqft";
+
+  const CS_SERVICE_PRICES: Record<string, number> = {
+    "HDR Photography": 175,
+    "Aerial / Drone": 200,
+    "Virtual Staging": 150,
+    "Video Walkthrough": 250,
+    "3D Tour / Matterport": 225,
+    "Floor Plan": 125,
+    "Twilight Photography": 250,
+    "Headshots / Agent Photos": 150,
+  };
+  const CS_SERVICES = Object.keys(CS_SERVICE_PRICES);
+
+  // Auto-quote: sum of service prices + sqft surcharge on photography
+  const csAutoQuote = (() => {
+    if (csServices.length === 0) return 0;
+    let total = csServices.reduce((sum, s) => sum + (CS_SERVICE_PRICES[s] || 0), 0);
+    const sqft = parseInt(csSqft) || 0;
+    if (csServices.includes("HDR Photography") && sqft > 0 && CS_SIZE_UNIT === "sqft") {
+      if (sqft > 4500) total += 100;
+      else if (sqft > 3000) total += 50;
+      else if (sqft > 2000) total += 25;
+    }
+    return total;
+  })();
 
   function csToggleService(s: string) { setCsServices(p => p.includes(s) ? p.filter(x=>x!==s) : [...p,s]); }
   function csTogglePhotographer(id: string) { setCsPhotographers(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]); }
-  function csSearchClients(q: string) {
+  function csSearchContacts(q: string) {
     setCsClientSearch(q);
     if (!q.trim()) { setCsClientResults([]); return; }
     const lower = q.toLowerCase();
-    setCsClientResults(realtors.filter((r:{id:string;full_name:string;email:string}) =>
-      (r.full_name||"").toLowerCase().includes(lower) || (r.email||"").toLowerCase().includes(lower)
-    ).slice(0,5).map((r:{id:string;full_name:string;email:string}) => ({id:r.id,name:r.full_name||r.email,email:r.email})));
+    setCsClientResults(
+      contacts.filter(c =>
+        c.name.toLowerCase().includes(lower) ||
+        (c.email || "").toLowerCase().includes(lower) ||
+        (c.brokerage || "").toLowerCase().includes(lower)
+      ).slice(0, 6).map(c => ({ id: c.id, name: c.name, email: c.email || "", brokerage: c.brokerage }))
+    );
+  }
+
+  async function csSaveNewContact() {
+    if (!csNewName.trim()) return;
+    setCsNewSaving(true);
+    const supabase = createClient();
+    const { data } = await supabase.from("contacts").insert({
+      name: csNewName.trim(), phone: csNewPhone || null, email: csNewEmail || null,
+      brokerage: csNewBrokerage || null, stage: "lead", type: "lead",
+    }).select("id, name, email, brokerage").single();
+    if (data) {
+      setCsClient({ id: data.id, name: data.name, email: data.email || "", brokerage: data.brokerage });
+      setCsCreateNew(false);
+      setCsNewName(""); setCsNewPhone(""); setCsNewEmail(""); setCsNewBrokerage("");
+    }
+    setCsNewSaving(false);
+  }
+
+  function csReset() {
+    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsNotes(""); setCsSqft("");
+    setCsPropertyType(""); setCsClient(null); setCsClientSearch(""); setCsPhotographers([]);
+    setCsCreateNew(false); setCsNewName(""); setCsNewPhone(""); setCsNewEmail(""); setCsNewBrokerage("");
   }
 
   async function createShootFromDashboard() {
     if (!csAddress.trim()) return;
     setCsSaving(true); setCsInviteLink("");
+    const packageName = csServices.length === 1 ? csServices[0] : csServices.length > 1 ? csServices.join(" + ") : null;
     const res = await fetch("/api/admin/shoots", {
       method: "POST", headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
         address: csAddress, scheduled_at: csDateTime||null, services: csServices,
         notes: csNotes||null, square_footage: csSqft ? parseInt(csSqft) : null,
-        client_id: csClient?.id||null, photographer_ids: csPhotographers, status: "scheduled",
+        contact_id: csClient?.id||null, photographer_ids: csPhotographers, status: "scheduled",
+        price: csAutoQuote || null, package_name: packageName,
       }),
     });
     if (!res.ok) { setCsSaving(false); return; }
     const { shoot } = await res.json();
-    void shoot; // calendar event already fired in POST handler
-    // Generate client invite link if client selected
+    void shoot;
     if (csClient?.email) {
       const ir = await fetch("/api/admin/invite-client", {
         method: "POST", headers: {"Content-Type":"application/json"},
@@ -491,8 +551,7 @@ export default function DashboardPage() {
     }
     await refreshShoots();
     setCsSaving(false);
-    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsNotes(""); setCsSqft("");
-    setCsClient(null); setCsClientSearch(""); setCsPhotographers([]);
+    csReset();
     if (!csClient?.email) setCreateShootOpen(false);
   }
 
@@ -926,71 +985,124 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="p-6 space-y-5">
-                    {/* Address */}
-                    <div>
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Address *</p>
-                      <input value={csAddress} onChange={e => setCsAddress(e.target.value)} placeholder="123 Main St, Austin TX"
-                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                    </div>
 
-                    {/* Date + Sqft */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Date & Time</p>
-                        <input type="datetime-local" value={csDateTime} onChange={e => setCsDateTime(e.target.value)}
-                          className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 [color-scheme:dark]" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Square Footage</p>
-                        <input type="number" value={csSqft} onChange={e => setCsSqft(e.target.value)} placeholder="2,400"
-                          className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                      </div>
-                    </div>
-
-                    {/* Services */}
-                    <div>
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
-                      <div className="flex flex-wrap gap-2">
-                        {DASHBOARD_SERVICES.map(svc => (
-                          <button key={svc} type="button" onClick={() => csToggleService(svc)}
-                            className={`text-xs px-3 py-1.5 border transition-colors ${csServices.includes(svc) ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                            {svc}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Client */}
+                    {/* 1. Realtor / Contact */}
                     <div className="relative">
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Client / Realtor</p>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Realtor / Client</p>
                       {csClient ? (
                         <div className="flex items-center gap-3 bg-[#111] border border-white/20 px-4 py-3">
                           <div className="flex-1">
-                            <p className="text-sm">{csClient.name}</p>
-                            <p className="text-xs text-[#555]">{csClient.email}</p>
+                            <p className="text-sm font-medium">{csClient.name}</p>
+                            <p className="text-xs text-[#555]">{csClient.brokerage || csClient.email || "No brokerage"}</p>
                           </div>
-                          <button type="button" onClick={() => { setCsClient(null); setCsClientSearch(""); }} className="text-[#555] hover:text-white text-xs">✕</button>
+                          <button type="button" onClick={() => { setCsClient(null); setCsClientSearch(""); setCsCreateNew(false); }} className="text-[#555] hover:text-white text-xs">✕</button>
+                        </div>
+                      ) : csCreateNew ? (
+                        <div className="bg-[#111] border border-white/15 p-4 space-y-3">
+                          <p className="text-[10px] tracking-[2px] uppercase text-[#4ade80]">New Contact</p>
+                          <input required value={csNewName} onChange={e => setCsNewName(e.target.value)} placeholder="Name *"
+                            className="w-full bg-[#181818] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={csNewPhone} onChange={e => setCsNewPhone(e.target.value)} placeholder="Phone"
+                              className="bg-[#181818] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                            <input type="email" value={csNewEmail} onChange={e => setCsNewEmail(e.target.value)} placeholder="Email"
+                              className="bg-[#181818] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                          </div>
+                          <input value={csNewBrokerage} onChange={e => setCsNewBrokerage(e.target.value)} placeholder="Brokerage"
+                            className="w-full bg-[#181818] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => setCsCreateNew(false)} className="px-4 py-2 text-xs tracking-[1px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Cancel</button>
+                            <button type="button" onClick={csSaveNewContact} disabled={!csNewName.trim() || csNewSaving}
+                              className="flex-1 py-2 text-xs tracking-[1px] uppercase bg-white text-black font-bold hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                              {csNewSaving ? "Saving..." : "Create & Select"}
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <>
-                          <input value={csClientSearch} onChange={e => csSearchClients(e.target.value)} placeholder="Search by name or email..."
+                          <input value={csClientSearch} onChange={e => csSearchContacts(e.target.value)} placeholder="Search contacts by name, email, brokerage..."
                             className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
                           {csClientResults.length > 0 && (
                             <div className="absolute z-10 w-full bg-[#1a1a1a] border border-white/20 mt-1">
                               {csClientResults.map(c => (
                                 <button key={c.id} type="button" onClick={() => { setCsClient(c); setCsClientSearch(""); setCsClientResults([]); }}
-                                  className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors">
+                                  className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
                                   <p className="text-sm">{c.name}</p>
-                                  <p className="text-xs text-[#555]">{c.email}</p>
+                                  <p className="text-xs text-[#555]">{c.brokerage || c.email || "—"}</p>
                                 </button>
                               ))}
                             </div>
+                          )}
+                          {csClientSearch.length > 1 && csClientResults.length === 0 && (
+                            <button type="button" onClick={() => { setCsCreateNew(true); setCsNewName(csClientSearch); setCsClientSearch(""); }}
+                              className="w-full mt-1 py-2.5 text-xs tracking-[1px] uppercase text-[#4ade80] border border-[#4ade80]/30 hover:bg-[#4ade80]/5 transition-colors">
+                              + Create New Contact &quot;{csClientSearch}&quot;
+                            </button>
                           )}
                         </>
                       )}
                     </div>
 
-                    {/* Photographers */}
+                    {/* 2. Address */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Listing Address *</p>
+                      <input value={csAddress} onChange={e => setCsAddress(e.target.value)} placeholder="123 Main St, Austin TX"
+                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    </div>
+
+                    {/* 3. Property Type */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Type</p>
+                      <div className="flex flex-wrap gap-2">
+                        {CS_PROPERTY_TYPES.map(t => (
+                          <button key={t} type="button" onClick={() => { setCsPropertyType(t === csPropertyType ? "" : t); setCsSqft(""); }}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${csPropertyType === t ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 4. Size */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">
+                        Size {CS_SIZE_UNIT === "acres" ? "(Acres)" : "(Square Footage)"}
+                      </p>
+                      <input type="number" value={csSqft} onChange={e => setCsSqft(e.target.value)}
+                        placeholder={CS_SIZE_UNIT === "acres" ? "e.g. 2.5" : "e.g. 2400"}
+                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    </div>
+
+                    {/* 5. Services + auto-quote */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Services</p>
+                        {csAutoQuote > 0 && (
+                          <p className="text-xs font-bold text-[#4ade80]">Quoted: ${csAutoQuote.toLocaleString()}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {CS_SERVICES.map(svc => (
+                          <button key={svc} type="button" onClick={() => csToggleService(svc)}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${csServices.includes(svc) ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {svc}
+                            <span className="ml-1.5 text-[#555]">${CS_SERVICE_PRICES[svc]}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {csAutoQuote > 0 && (
+                        <p className="text-[10px] text-[#444] mt-2">Quote is a starting estimate — adjust in the shoot details after saving.</p>
+                      )}
+                    </div>
+
+                    {/* 6. Date & Time */}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Date & Time</p>
+                      <input type="datetime-local" value={csDateTime} onChange={e => setCsDateTime(e.target.value)}
+                        className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 [color-scheme:dark]" />
+                    </div>
+
+                    {/* 7. Photographers */}
                     {photographers.length > 0 && (
                       <div>
                         <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
@@ -1005,16 +1117,16 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Notes */}
+                    {/* 8. Notes */}
                     <div>
                       <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
-                      <textarea value={csNotes} onChange={e => setCsNotes(e.target.value)} rows={2} placeholder="Any special instructions..."
+                      <textarea value={csNotes} onChange={e => setCsNotes(e.target.value)} rows={2} placeholder="Gate codes, special instructions, parking..."
                         className="w-full bg-[#111] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 placeholder:text-[#333] resize-none" />
                     </div>
 
                     <button onClick={createShootFromDashboard} disabled={!csAddress.trim() || csSaving}
                       className="w-full py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors disabled:opacity-30">
-                      {csSaving ? "Creating..." : "Create Shoot + Add to Calendar"}
+                      {csSaving ? "Creating..." : csAutoQuote > 0 ? `Create Shoot — $${csAutoQuote.toLocaleString()} Quote` : "Create Shoot + Add to Calendar"}
                     </button>
                   </div>
                 )}
