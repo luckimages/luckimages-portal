@@ -23,9 +23,11 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/media?shoot_id=${shootId}`);
@@ -50,10 +52,10 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIdx, media.length]);
 
-  async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files?.length) return;
+  async function uploadFileList(files: File[]) {
+    if (!files.length) return;
     setUploading(true);
-    const files = Array.from(e.target.files);
+    setDragging(false);
     for (const file of files) {
       const fd = new FormData();
       fd.append("shoot_id", shootId);
@@ -64,6 +66,29 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
     setUploadOpen(false);
     if (fileRef.current) fileRef.current.value = "";
     await load();
+  }
+
+  async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files?.length) return;
+    await uploadFileList(Array.from(e.target.files));
+  }
+
+  function onDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current++;
+    if (dragCounter.current === 1) setDragging(true);
+  }
+  function onDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setDragging(false);
+  }
+  function onDragOver(e: React.DragEvent) { e.preventDefault(); }
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current = 0;
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    if (files.length) uploadFileList(files);
   }
 
   async function deleteMedia(id: string) {
@@ -97,7 +122,25 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
   }
 
   return (
-    <div>
+    <div className="relative" onDragEnter={canEdit ? onDragEnter : undefined} onDragLeave={canEdit ? onDragLeave : undefined} onDragOver={canEdit ? onDragOver : undefined} onDrop={canEdit ? onDrop : undefined}>
+
+      {/* Drag-over overlay */}
+      {dragging && (
+        <div className="absolute inset-0 z-20 border-2 border-dashed border-white/60 bg-black/70 flex items-center justify-center pointer-events-none">
+          <div className="text-center">
+            <p className="text-3xl mb-2">↑</p>
+            <p className="text-sm font-semibold tracking-[2px] uppercase">Drop to Upload</p>
+          </div>
+        </div>
+      )}
+
+      {/* Uploading overlay */}
+      {uploading && (
+        <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center">
+          <p className="text-xs tracking-[3px] uppercase text-white">Uploading...</p>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <p className="text-xs text-[#555]">{media.length} file{media.length !== 1 ? "s" : ""}</p>
@@ -120,15 +163,9 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
       {/* Upload zone */}
       {canEdit && uploadOpen && (
         <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-8 mb-4 cursor-pointer hover:bg-white/[0.02] transition-colors">
-          {uploading ? (
-            <p className="text-xs text-[#666] tracking-[2px] uppercase">Uploading...</p>
-          ) : (
-            <>
-              <span className="text-2xl mb-2">↑</span>
-              <span className="text-sm text-[#666] mb-1">Click to select files</span>
-              <span className="text-xs text-[#444]">JPG, PNG, MP4, DNG — any size</span>
-            </>
-          )}
+          <span className="text-2xl mb-2">↑</span>
+          <span className="text-sm text-[#666] mb-1">Click to select or drag files here</span>
+          <span className="text-xs text-[#444]">JPG, PNG, MP4, DNG — any size</span>
           <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" disabled={uploading} onChange={uploadFiles} />
         </label>
       )}
