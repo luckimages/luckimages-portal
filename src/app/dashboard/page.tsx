@@ -381,12 +381,17 @@ export default function DashboardPage() {
   }
 
   async function refreshShoots() {
-    const [pendingRes, allRes] = await Promise.all([
+    const supabase = createClient();
+    const [pendingRes, allRes, { data: cs }] = await Promise.all([
       fetch("/api/admin/shoots"),
       fetch("/api/admin/shoots?all=1"),
+      supabase.from("contacts").select("*").order("name", { ascending: true }),
     ]);
     if (pendingRes.ok) setPendingShoots(await pendingRes.json());
     if (allRes.ok) setAllShoots(await allRes.json());
+    if (cs) setContacts(cs);
+    // Invalidate shoot log cache so it reloads fresh next time it's expanded
+    setShootLogLoaded(false);
   }
 
   async function approveShoot(id: string) {
@@ -602,8 +607,16 @@ export default function DashboardPage() {
   const [realtors, setRealtors] = useState<Realtor[]>([]);
   const [realtorTab, setRealtorTab] = useState<"all" | "new">("all");
 
-  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[] };
+  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[]; price: number | null; package_name: string | null; contact_id: string | null };
   const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
+
+  // Shoot-derived live stats — update instantly when a shoot is created/completed
+  const _thisYear = new Date().getFullYear().toString();
+  const _thisMonthStr = new Date().toISOString().slice(0, 7);
+  const shootsThisYear = allShoots.filter(s => (s.scheduled_at || "").startsWith(_thisYear) && s.status !== "cancelled");
+  const completedThisYear = allShoots.filter(s => (s.scheduled_at || "").startsWith(_thisYear) && s.status === "completed");
+  const shootRevenueYTD = completedThisYear.reduce((sum, s) => sum + (s.price || 0), 0);
+  const avgShootPrice = completedThisYear.length > 0 ? Math.round(shootRevenueYTD / completedThisYear.length) : 0;
 
   // Shoot Log
   type TimeEntry = { id: string; user_id: string; user_name: string; started_at: string; stopped_at: string | null; duration_seconds: number };
@@ -660,12 +673,7 @@ export default function DashboardPage() {
   const [hideRevenue, setHideRevenue] = useState(true);
   const blur = hideRevenue ? "blur-sm select-none" : "";
 
-  const [coldCalls, setColdCalls] = useState(0);
-  const [leads, setLeads] = useState(0);
-  const [bookings, setBookings] = useState(0);
   const [capTotal, setCapTotal] = useState(50);
-  const capPct = capTotal > 0 ? Math.min(100, Math.round(((QB.ytdInvoices || 0) / capTotal) * 100)) : 0;
-  const convPct = leads > 0 ? Math.min(100, Math.round((bookings / leads) * 100)) : 0;
 
   const sectionLabel = "text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']";
 
@@ -1170,15 +1178,19 @@ export default function DashboardPage() {
       <section key={s}>
         <p className={sectionLabel}>Invoices</p>
         <div className="bg-[#111] border border-white/10 overflow-hidden">
-          <div className="grid grid-cols-2 divide-x divide-white/10">
+          <div className="grid grid-cols-3 divide-x divide-white/10">
             <div className="p-5">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Invoices YTD</p>
-              <p className="text-3xl font-bold" style={{ borderBottom: "2px solid #60a5fa", paddingBottom: "2px", display: "inline-block" }}>{QB.ytdInvoices}</p>
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Shoots YTD</p>
+              <p className="text-3xl font-bold tabular-nums" style={{ borderBottom: "2px solid #60a5fa", paddingBottom: "2px", display: "inline-block" }}>{shootsThisYear.length}</p>
             </div>
             <div className="p-5">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Avg per Invoice</p>
-              <p className={`text-3xl font-bold transition-all duration-200 ${blur}`} style={{ borderBottom: "2px solid #4ade80", paddingBottom: "2px", display: "inline-block" }}>
-                {avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"}
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Completed</p>
+              <p className="text-3xl font-bold tabular-nums" style={{ borderBottom: "2px solid #4ade80", paddingBottom: "2px", display: "inline-block" }}>{completedThisYear.length}</p>
+            </div>
+            <div className="p-5">
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Avg Price</p>
+              <p className={`text-3xl font-bold tabular-nums transition-all duration-200 ${blur}`} style={{ borderBottom: "2px solid #a78bfa", paddingBottom: "2px", display: "inline-block" }}>
+                {avgShootPrice > 0 ? `$${avgShootPrice.toLocaleString()}` : "—"}
               </p>
             </div>
           </div>
@@ -1190,59 +1202,65 @@ export default function DashboardPage() {
         </div>
       </section>
     );
-    if (s === "Marketing") return (
-      <section key={s}>
-        <p className={sectionLabel}>Marketing — This Month</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Card label="Cold Calls Made" accent="#fbbf24">
-            <EditableNumber value={coldCalls} onChange={setColdCalls} />
-            <p className="text-xs text-[#444] mt-2">Click to edit</p>
-          </Card>
-          <Card label="Leads Generated" accent="#60a5fa">
-            <EditableNumber value={leads} onChange={setLeads} />
-            <p className="text-xs text-[#444] mt-2">Click to edit</p>
-          </Card>
-          <Card label="Bookings from Marketing" accent="#4ade80">
-            <EditableNumber value={bookings} onChange={setBookings} />
-            <p className="text-xs text-[#444] mt-2">Click to edit</p>
-          </Card>
-        </div>
-      </section>
-    );
-    if (s === "Capacity") return (
-      <section key={s}>
-        <p className={sectionLabel}>Capacity</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#111] border border-white/10 p-6">
-            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Capacity Utilized</p>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-3xl font-bold">{QB.ytdInvoices || 0}</span>
-              <span className="text-[#555]">/</span>
-              <input
-                type="number"
-                value={capTotal}
-                onChange={e => setCapTotal(Number(e.target.value))}
-                className="text-3xl font-bold bg-transparent w-20 outline-none border-b border-transparent focus:border-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-            <p className="text-xs text-[#444] mb-3">Shoots completed / monthly capacity (click to edit)</p>
-            <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
-              <div className="h-full bg-white rounded-full transition-all" style={{ width: `${capPct}%` }} />
-            </div>
-            <p className="text-xs text-[#666] mt-2">{capPct}% utilized</p>
+    if (s === "Marketing") {
+      const mCallsThisMonth = callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).length;
+      const mCalledIds = new Set(callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).map(l => l.contact_id).filter(Boolean));
+      const mLeads = contacts.filter(c => mCalledIds.has(c.id) && c.stage !== "dead").length;
+      const mBookings = contacts.filter(c => mCalledIds.has(c.id) && (c.stage === "client" || c.stage === "booked")).length;
+      return (
+        <section key={s}>
+          <p className={sectionLabel}>Marketing — This Month</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Card label="Cold Calls Made" value={mCallsThisMonth.toString()} accent="#fbbf24" sub="From call log" />
+            <Card label="Leads Generated" value={mLeads.toString()} accent="#60a5fa" sub="Contacts called this month" />
+            <Card label="Bookings from Calls" value={mBookings.toString()} accent="#4ade80" sub="Called this month → client/booked" />
           </div>
-          <div className="bg-[#111] border border-white/10 p-6">
-            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Lead Conversion Rate</p>
-            <p className="text-3xl font-bold mb-4">{leads > 0 ? `${convPct}%` : "—"}</p>
-            <p className="text-xs text-[#444] mb-3">Bookings ÷ Leads</p>
-            <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${convPct}%`, background: "#60a5fa" }} />
+        </section>
+      );
+    }
+    if (s === "Capacity") {
+      const shootsThisMonth = allShoots.filter(sh => (sh.scheduled_at || "").startsWith(_thisMonthStr) && sh.status !== "cancelled").length;
+      const completedThisMonth = allShoots.filter(sh => (sh.scheduled_at || "").startsWith(_thisMonthStr) && sh.status === "completed").length;
+      const capMonthPct = capTotal > 0 ? Math.min(100, Math.round((shootsThisMonth / capTotal) * 100)) : 0;
+      const monthCallContactIds = new Set(callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).map(l => l.contact_id).filter(Boolean));
+      const monthConversions = contacts.filter(c => monthCallContactIds.has(c.id) && (c.stage === "client" || c.stage === "booked")).length;
+      const monthLeads = contacts.filter(c => monthCallContactIds.has(c.id)).length;
+      const monthConvPct = monthLeads > 0 ? Math.min(100, Math.round((monthConversions / monthLeads) * 100)) : 0;
+      return (
+        <section key={s}>
+          <p className={sectionLabel}>Capacity</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#111] border border-white/10 p-6">
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Shoots This Month</p>
+              <div className="flex items-baseline gap-2 mb-4">
+                <span className="text-3xl font-bold tabular-nums">{shootsThisMonth}</span>
+                <span className="text-[#555]">/</span>
+                <input
+                  type="number"
+                  value={capTotal}
+                  onChange={e => setCapTotal(Number(e.target.value))}
+                  className="text-3xl font-bold bg-transparent w-16 outline-none border-b border-transparent focus:border-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+              <p className="text-xs text-[#444] mb-3">{completedThisMonth} completed · capacity limit (click to edit)</p>
+              <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
+                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${capMonthPct}%` }} />
+              </div>
+              <p className="text-xs text-[#666] mt-2">{capMonthPct}% of monthly capacity</p>
             </div>
-            <p className="text-xs text-[#666] mt-2">{leads > 0 ? `${bookings} of ${leads} leads converted` : "Enter leads and bookings above"}</p>
+            <div className="bg-[#111] border border-white/10 p-6">
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Lead Conversion — This Month</p>
+              <p className="text-3xl font-bold tabular-nums mb-4">{monthLeads > 0 ? `${monthConvPct}%` : "—"}</p>
+              <p className="text-xs text-[#444] mb-3">{monthConversions} bookings from {monthLeads} leads called</p>
+              <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${monthConvPct}%`, background: "#60a5fa" }} />
+              </div>
+              <p className="text-xs text-[#666] mt-2">{monthLeads > 0 ? `${monthConversions} of ${monthLeads} leads converted` : "No calls logged this month"}</p>
+            </div>
           </div>
-        </div>
-      </section>
-    );
+        </section>
+      );
+    }
     if (s === "Realtors") {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const newRealtors = realtors.filter(r => new Date(r.created_at) >= sevenDaysAgo);
