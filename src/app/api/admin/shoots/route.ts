@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
   if (full) { /* no filter — return all */ }
   else if (!all) query.eq("status", "pending");
-  else query.in("status", ["pending", "scheduled"]);
+  else query.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
 
   const { data: shoots, error } = await query;
 
