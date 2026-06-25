@@ -290,48 +290,25 @@ export default function PhotographerPage() {
 
         {/* UPLOAD MEDIA */}
         {tab === "upload" && (
-          <div className="max-w-lg">
+          <div>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Upload Media</p>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs tracking-[2px] uppercase text-[#666]">Select Shoot</label>
-                <select value={selectedShoot} onChange={e => { setSelectedShoot(e.target.value); setUploadStatus(""); }} className={inputCls + " cursor-pointer"}>
-                  <option value="">Choose a shoot...</option>
-                  {shoots.map(s => (
-                    <option key={s.id} value={s.id}>{s.address} — {new Date(s.scheduled_at).toLocaleDateString()}</option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedShoot && (
-                <div>
-                  <label className="text-xs tracking-[2px] uppercase text-[#666] block mb-2">Photos / Videos</label>
-                  <label className="flex flex-col items-center justify-center bg-[#111] border border-white/10 border-dashed p-12 cursor-pointer hover:bg-white/[0.02] transition-colors">
-                    <span className="text-2xl mb-3">↑</span>
-                    <span className="text-sm text-[#666] mb-1">Click to select files</span>
-                    <span className="text-xs text-[#444]">JPG, PNG, MP4, DNG — any size</span>
-                    <input ref={fileRef} type="file" multiple accept="image/*,video/*" onChange={uploadFiles} className="hidden" disabled={uploading} />
-                  </label>
-                </div>
-              )}
-
-              {uploading && (
-                <div className="bg-[#111] border border-white/10 p-4 text-center">
-                  <p className="text-xs text-[#666] tracking-[2px] uppercase">Uploading...</p>
-                </div>
-              )}
-
-              {uploadStatus.startsWith("success") && (
-                <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-4 text-center">
-                  <p className="text-[#4ade80] text-xs tracking-[1px]">{uploadStatus.split(":")[1]} file(s) uploaded successfully</p>
-                </div>
-              )}
-              {uploadStatus.startsWith("error") && (
-                <div className="bg-red-400/5 border border-red-400/20 p-4 text-center">
-                  <p className="text-red-400 text-xs tracking-[1px]">{uploadStatus.split(":")[1]} file(s) failed to upload</p>
-                </div>
-              )}
+            <div className="flex flex-col gap-2 max-w-sm mb-8">
+              <label className="text-xs tracking-[2px] uppercase text-[#666]">Select Shoot</label>
+              <select value={selectedShoot} onChange={e => setSelectedShoot(e.target.value)} className={inputCls + " cursor-pointer"}>
+                <option value="">Choose a shoot...</option>
+                {shoots.map(s => (
+                  <option key={s.id} value={s.id}>{s.address} — {new Date(s.scheduled_at).toLocaleDateString()}</option>
+                ))}
+              </select>
             </div>
+
+            {selectedShoot ? (
+              <ShootGallery key={selectedShoot} shootId={selectedShoot} />
+            ) : (
+              <div className="bg-[#111] border border-white/10 p-10 text-center">
+                <p className="text-[#555] text-sm">Select a shoot above to view and upload media.</p>
+              </div>
+            )}
           </div>
         )}
 
