@@ -109,6 +109,7 @@ export default function ShootsPage() {
   const totalRevenue = completedShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
   const avgPrice = completedShoots.length > 0 ? Math.round(totalRevenue / completedShoots.length) : 0;
   const thisMonthRevenue = shoots.filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+  const thisMonthCount = shoots.filter(s => s.scheduled_at?.startsWith(thisMonth) && s.status !== "cancelled").length;
   const ytdShoots = completedShoots.filter(s => (s.scheduled_at || "").startsWith(thisYear));
   const serviceCounts = SERVICE_BUCKETS.map(b => ({
     label: b.label,
@@ -328,8 +329,13 @@ export default function ShootsPage() {
         </div>
         <div className="w-px h-4 bg-white/10" />
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">${thisMonthRevenue.toLocaleString()}</span>
+          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">{thisMonthCount}</span>
           <span className="text-xs tracking-[2px] uppercase text-[#555]">this month</span>
+        </div>
+        <div className="w-px h-4 bg-white/10" />
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">${thisMonthRevenue.toLocaleString()}</span>
+          <span className="text-xs tracking-[2px] uppercase text-[#555]">revenue this month</span>
         </div>
         <div className="w-px h-4 bg-white/10" />
         <div className="flex items-center gap-2">

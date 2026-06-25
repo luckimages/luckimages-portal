@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Clients" | "Marketing" | "Capacity" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Time Tracker";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Clients", "Marketing", "Capacity", "Contacts", "Time Tracker"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Capacity: true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
+  type Section = "Revenue" | "Clients" | "Marketing" | "Realtors" | "Schedule" | "Contacts" | "Command Center" | "Shoot Log" | "Time Tracker";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Shoot Log", "Revenue", "Clients", "Marketing", "Contacts", "Time Tracker"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Realtors: true, Contacts: true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1427,59 +1427,43 @@ export default function DashboardPage() {
       </section>
     );
     if (s === "Marketing") {
-      const mCallsThisMonth = callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).length;
-      const mCalledIds = new Set(callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).map(l => l.contact_id).filter(Boolean));
-      const mLeads = contacts.filter(c => mCalledIds.has(c.id) && c.stage !== "dead").length;
-      const mBookings = contacts.filter(c => mCalledIds.has(c.id) && (c.stage === "client" || c.stage === "booked")).length;
+      const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0,0,0,0);
+      const weekLogs = callLogs.filter(l => new Date(l.called_at) >= ws);
+      const weekLeads = weekLogs.filter(l => ["interested","callback","booked"].includes(l.outcome));
+      const weekCalledIds = new Set(weekLogs.map(l => l.contact_id).filter(Boolean));
+      const weekConversions = contacts.filter(c => weekCalledIds.has(c.id) && c.stage === "client").length;
+      const monthCallIds = new Set(callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).map(l => l.contact_id).filter(Boolean));
+      const monthLeads = contacts.filter(c => monthCallIds.has(c.id)).length;
+      const monthConversions = contacts.filter(c => monthCallIds.has(c.id) && (c.stage === "client" || c.stage === "booked")).length;
+      const convPct = monthLeads > 0 ? Math.round((monthConversions / monthLeads) * 100) : 0;
       return (
         <section key={s}>
-          <p className={sectionLabel}>Marketing — This Month</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Card label="Cold Calls Made" value={mCallsThisMonth.toString()} accent="#fbbf24" sub="From call log" />
-            <Card label="Leads Generated" value={mLeads.toString()} accent="#60a5fa" sub="Contacts called this month" />
-            <Card label="Bookings from Calls" value={mBookings.toString()} accent="#4ade80" sub="Called this month → client/booked" />
-          </div>
-        </section>
-      );
-    }
-    if (s === "Capacity") {
-      const shootsThisMonth = allShoots.filter(sh => (sh.scheduled_at || "").startsWith(_thisMonthStr) && sh.status !== "cancelled").length;
-      const completedThisMonth = allShoots.filter(sh => (sh.scheduled_at || "").startsWith(_thisMonthStr) && sh.status === "completed").length;
-      const capMonthPct = capTotal > 0 ? Math.min(100, Math.round((shootsThisMonth / capTotal) * 100)) : 0;
-      const monthCallContactIds = new Set(callLogs.filter(l => l.called_at.startsWith(_thisMonthStr)).map(l => l.contact_id).filter(Boolean));
-      const monthConversions = contacts.filter(c => monthCallContactIds.has(c.id) && (c.stage === "client" || c.stage === "booked")).length;
-      const monthLeads = contacts.filter(c => monthCallContactIds.has(c.id)).length;
-      const monthConvPct = monthLeads > 0 ? Math.min(100, Math.round((monthConversions / monthLeads) * 100)) : 0;
-      return (
-        <section key={s}>
-          <p className={sectionLabel}>Capacity</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#111] border border-white/10 p-6">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Shoots This Month</p>
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-3xl font-bold tabular-nums">{shootsThisMonth}</span>
-                <span className="text-[#555]">/</span>
-                <input
-                  type="number"
-                  value={capTotal}
-                  onChange={e => setCapTotal(Number(e.target.value))}
-                  className="text-3xl font-bold bg-transparent w-16 outline-none border-b border-transparent focus:border-white/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+          <p className={sectionLabel}>Marketing</p>
+          <div className="bg-[#111] border border-white/10">
+            <div className="grid grid-cols-3 divide-x divide-white/5">
+              <div className="px-5 py-5">
+                <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
               </div>
-              <p className="text-xs text-[#444] mb-3">{completedThisMonth} completed · capacity limit (click to edit)</p>
-              <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
-                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${capMonthPct}%` }} />
+              <div className="px-5 py-5">
+                <p className="text-4xl font-bold tabular-nums text-[#60a5fa]">{weekLeads.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
               </div>
-              <p className="text-xs text-[#666] mt-2">{capMonthPct}% of monthly capacity</p>
+              <div className="px-5 py-5">
+                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{monthLeads > 0 ? `${convPct}%` : "—"}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Lead Conversion</p>
+                <p className="text-xs text-[#444] mt-0.5">{monthConversions} of {monthLeads} leads · this month</p>
+              </div>
             </div>
-            <div className="bg-[#111] border border-white/10 p-6">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Lead Conversion — This Month</p>
-              <p className="text-3xl font-bold tabular-nums mb-4">{monthLeads > 0 ? `${monthConvPct}%` : "—"}</p>
-              <p className="text-xs text-[#444] mb-3">{monthConversions} bookings from {monthLeads} leads called</p>
-              <div className="h-1.5 bg-[#222] rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${monthConvPct}%`, background: "#60a5fa" }} />
-              </div>
-              <p className="text-xs text-[#666] mt-2">{monthLeads > 0 ? `${monthConversions} of ${monthLeads} leads converted` : "No calls logged this month"}</p>
+            <div className="border-t border-white/10 grid grid-cols-2 divide-x divide-white/5">
+              <a href="/admin/cold-calls"
+                className="py-3 text-center text-xs tracking-[3px] uppercase font-bold bg-white text-black hover:bg-[#ddd] transition-colors">
+                Start Calling →
+              </a>
+              <a href="/admin/marketing"
+                className="py-3 text-center text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">
+                View All Marketing →
+              </a>
             </div>
           </div>
         </section>
@@ -1798,45 +1782,6 @@ export default function DashboardPage() {
                   className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
                 <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
               </form>
-            </div>
-          </div>
-        </section>
-      );
-    }
-    if (s === "Cold Calls") {
-      const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0,0,0,0);
-      const weekLogs = callLogs.filter(l => new Date(l.called_at) >= ws);
-      const weekLeads = weekLogs.filter(l => ["interested","callback","booked"].includes(l.outcome));
-      // Conversions = contacts called this week who are now stage "client"
-      const weekCalledContactIds = new Set(weekLogs.map(l => l.contact_id).filter(Boolean));
-      const weekConversions = contacts.filter(c => weekCalledContactIds.has(c.id) && c.stage === "client").length;
-      const convRate = weekLeads.length > 0 ? Math.round((weekConversions / weekLeads.length) * 100) : 0;
-      return (
-        <section key={s}>
-          <div className="flex items-center gap-4 mb-4">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">Cold Calls</p>
-          </div>
-          <div className="bg-[#111] border border-white/10">
-            <div className="grid grid-cols-3 divide-x divide-white/5">
-              <div className="px-5 py-5">
-                <p className="text-4xl font-bold tabular-nums">{weekLogs.length}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Calls This Week</p>
-              </div>
-              <div className="px-5 py-5">
-                <p className="text-4xl font-bold tabular-nums text-[#60a5fa]">{weekLeads.length}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Leads This Week</p>
-              </div>
-              <div className="px-5 py-5">
-                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{weekConversions}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Conversions</p>
-                <p className="text-xs text-[#444] mt-0.5">{weekLeads.length > 0 ? `${convRate}% rate` : "—"}</p>
-              </div>
-            </div>
-            <div className="border-t border-white/10 p-4">
-              <a href="/admin/cold-calls"
-                className="block w-full py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors text-center">
-                Start Calling →
-              </a>
             </div>
           </div>
         </section>
