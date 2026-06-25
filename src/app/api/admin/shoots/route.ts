@@ -74,13 +74,24 @@ export async function POST(req: Request) {
 
   const db = service();
   const insertStatus = reqStatus === "scheduled" ? "scheduled" : "pending";
+
+  // If a contact_id is provided and that contact has a portal account, link client_id too
+  // so the shoot appears in their client portal (which queries by client_id)
+  let resolvedClientId = client_id || null;
+  let resolvedContactName = "";
+  if (contact_id && !resolvedClientId) {
+    const { data: contact } = await db.from("contacts").select("user_id, name").eq("id", contact_id).single();
+    if (contact?.user_id) resolvedClientId = contact.user_id;
+    resolvedContactName = contact?.name ?? "";
+  }
+
   const payload: Record<string, unknown> = {
     address: address.trim(),
     scheduled_at: scheduled_at || null,
     services: services || [],
     notes: notes?.trim() || null,
     square_footage: square_footage || null,
-    client_id: client_id || null,
+    client_id: resolvedClientId,
     contact_id: contact_id || null,
     photographer_ids: photographer_ids || [],
     status: insertStatus,
@@ -96,29 +107,31 @@ export async function POST(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // If created as scheduled, fire Google Calendar event immediately
+  // Google Calendar event
   if (insertStatus === "scheduled" && data.scheduled_at) {
     try {
-      let clientName = ""; let clientEmail = "";
-      if (client_id) {
-        const { data: profile } = await db.from("profiles").select("full_name").eq("id", client_id).single();
-        clientName = profile?.full_name ?? "";
-        const { data: users } = await db.auth.admin.listUsers({ perPage: 1000 });
-        const u = users?.users.find((u: {id: string}) => u.id === client_id);
-        clientEmail = (u as {email?: string})?.email ?? "";
-      }
       await createShootEvent({
         address: data.address, scheduledAt: data.scheduled_at,
         services: data.services ?? [], notes: data.notes ?? "",
-        clientEmail: clientEmail || undefined, clientName: clientName || undefined,
+        clientName: resolvedContactName || undefined,
       });
     } catch (e) { console.error("Calendar event failed:", e); }
   }
 
-  // Notify admins of new booking
+  // Push to assigned photographers
+  if (photographer_ids?.length) {
+    try {
+      const dateStr = scheduled_at ? new Date(scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
+      await Promise.all(photographer_ids.map((uid: string) =>
+        sendPushToUser(uid, "📷 Shoot Assigned", `${address.trim()}${dateStr ? " · " + dateStr : ""}`, { shootId: data.id })
+      ));
+    } catch (e) { console.error("Photographer push failed:", e); }
+  }
+
+  // Notify admins
   try {
     await sendPushToAdmins(
-      "📷 New Shoot Requested",
+      "📷 New Shoot Booked",
       `${address.trim()}${scheduled_at ? " · " + new Date(scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}`,
       { shootId: data.id }
     );

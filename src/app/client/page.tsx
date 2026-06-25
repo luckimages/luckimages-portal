@@ -52,8 +52,13 @@ export default function ClientPage() {
       const years = Math.floor(months / 12);
       const remMonths = months % 12;
       setMemberSince(years > 0 ? `${years}y ${remMonths}m` : `${remMonths} month${remMonths !== 1 ? "s" : ""}`);
+      // Find contact linked to this user (for shoots booked by admin with contact_id)
+      const { data: contact } = await supabase.from("contacts").select("id").eq("user_id", uid).single();
+      const contactId = contact?.id;
       const [{ data: shootData }, { data: invData }] = await Promise.all([
-        supabase.from("shoots").select("*").eq("client_id", uid).order("scheduled_at", { ascending: false }),
+        contactId
+          ? supabase.from("shoots").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).order("scheduled_at", { ascending: false })
+          : supabase.from("shoots").select("*").eq("client_id", uid).order("scheduled_at", { ascending: false }),
         supabase.from("invoices").select("*").eq("client_id", uid).order("created_at", { ascending: false }),
       ]);
       setShoots(shootData || []);
@@ -87,7 +92,11 @@ export default function ClientPage() {
     if (error) { setBookingStatus("Error: " + error.message); return; }
     setBookingStatus("success");
     setBooking({ address: "", date: "", time: "", services: [], notes: "", square_footage: "" });
-    const { data: shootData } = await supabase.from("shoots").select("*").eq("client_id", user!.id).order("scheduled_at", { ascending: false });
+    const { data: contact2 } = await supabase.from("contacts").select("id").eq("user_id", user!.id).single();
+    const cid2 = contact2?.id;
+    const { data: shootData } = cid2
+      ? await supabase.from("shoots").select("*").or(`client_id.eq.${user!.id},contact_id.eq.${cid2}`).order("scheduled_at", { ascending: false })
+      : await supabase.from("shoots").select("*").eq("client_id", user!.id).order("scheduled_at", { ascending: false });
     setShoots(shootData || []);
   }
 
