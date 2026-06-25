@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
+import ShootGallery from "@/components/ShootGallery";
 
 type Shoot = {
   id: string; address: string; scheduled_at: string;
@@ -229,35 +230,22 @@ export default function PhotographerPage() {
                             );
                           })}
                         </div>
-                        {/* For editing stage: inline upload → confirm delivery flow */}
+                        {/* For editing stage: gallery with upload + confirm delivery */}
                         {s.status === "editing" ? (
                           <div className="flex flex-col gap-3">
-                            {uploadingCardId === s.id ? (
-                              <div className="border border-white/10 border-dashed p-4">
-                                <label className="flex flex-col items-center gap-2 cursor-pointer">
-                                  <span className="text-xl">↑</span>
-                                  <span className="text-xs text-[#888]">{cardUploading ? "Uploading..." : "Click to select files"}</span>
-                                  <span className="text-[10px] text-[#444]">JPG, PNG, MP4, DNG</span>
-                                  <input ref={cardFileRef} type="file" multiple accept="image/*,video/*" className="hidden" disabled={cardUploading}
-                                    onChange={e => uploadCardFiles(e, s.id)} />
-                                </label>
-                                {(cardUploadCount[s.id] || 0) > 0 && (
-                                  <p className="text-center text-xs text-[#4ade80] mt-2">{cardUploadCount[s.id]} file(s) uploaded</p>
-                                )}
-                              </div>
-                            ) : null}
-                            <div className="flex gap-2">
-                              <button onClick={() => setUploadingCardId(uploadingCardId === s.id ? null : s.id)}
-                                className="flex-1 text-xs tracking-[2px] uppercase border border-white/20 text-white py-2.5 hover:bg-white/5 transition-colors">
-                                {uploadingCardId === s.id ? "Done Adding Files" : `Upload Media${(cardUploadCount[s.id] || 0) > 0 ? ` (${cardUploadCount[s.id]})` : ""}`}
-                              </button>
-                              {(cardUploadCount[s.id] || 0) > 0 && (
-                                <button onClick={() => advanceStatus(s)} disabled={advancingId === s.id}
-                                  className="flex-1 text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
-                                  {advancingId === s.id ? "Confirming..." : "Confirm Delivery ✓"}
-                                </button>
-                              )}
+                            <div className="border-t border-white/10 pt-4 mt-1">
+                              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">Media</p>
+                              <ShootGallery
+                                shootId={s.id}
+                                onMediaChange={count => setCardUploadCount(prev => ({ ...prev, [s.id]: count }))}
+                              />
                             </div>
+                            {(cardUploadCount[s.id] || 0) > 0 && (
+                              <button onClick={() => advanceStatus(s)} disabled={advancingId === s.id}
+                                className="w-full text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
+                                {advancingId === s.id ? "Confirming..." : "Confirm Delivery ✓"}
+                              </button>
+                            )}
                           </div>
                         ) : nextStage ? (
                           <button

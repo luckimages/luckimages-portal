@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
+import ShootGallery from "@/components/ShootGallery";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -455,6 +456,7 @@ export default function DashboardPage() {
   const [esSaving, setEsSaving] = useState(false);
   const [esSaved, setEsSaved] = useState(false);
   const [esEditing, setEsEditing] = useState(false);
+  const [esTab, setEsTab] = useState<"info" | "edit" | "media">("info");
   const [callsExpanded, setCallsExpanded] = useState(false);
 
   // Create shoot modal state
@@ -824,6 +826,7 @@ export default function DashboardPage() {
                           setAssignSaved(false);
                           setEsSaved(false);
                           setEsEditing(false);
+                          setEsTab("info");
                           setEsAddress(shoot.address || "");
                           setEsPropertyType(shoot.property_type || "");
                           setEsSqft(shoot.square_footage ? String(shoot.square_footage) : "");
@@ -868,29 +871,31 @@ export default function DashboardPage() {
 
           {/* View shoot detail popup (confirmed/scheduled) */}
           {viewShoot && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setViewShoot(null); setEsEditing(false); }}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setViewShoot(null); setEsEditing(false); setEsTab("info"); }}>
               <div className="absolute inset-0 bg-black/70" />
               <div className="relative bg-[#141414] border border-[#4ade80]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-white/10">
+                <div className="flex items-center justify-between px-6 pt-6 pb-0">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{viewShoot.status}</p>
+                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{viewShoot.status.replace("_"," ")}</p>
                     </div>
                     <p className="text-sm font-semibold">{viewShoot.address}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => setEsEditing(e => !e)}
-                      className={`transition-colors text-base leading-none ${esEditing ? "text-white" : "text-[#444] hover:text-white"}`}
-                      title={esEditing ? "Exit edit mode" : "Edit shoot"}>
-                      ✏️
+                  <button onClick={() => { setViewShoot(null); setEsEditing(false); setEsTab("info"); }} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+                </div>
+                {/* Tabs */}
+                <div className="flex border-b border-white/10 px-6 mt-4 gap-0">
+                  {(["info","edit","media"] as const).map(t => (
+                    <button key={t} onClick={() => { setEsTab(t); setEsEditing(t === "edit"); }}
+                      className={`text-[10px] tracking-[2px] uppercase px-4 py-2.5 border-b-2 transition-colors ${esTab === t ? "border-white text-white" : "border-transparent text-[#444] hover:text-[#888]"}`}>
+                      {t === "info" ? "Info" : t === "edit" ? "✏️ Edit" : "📁 Media"}
                     </button>
-                    <button onClick={() => { setViewShoot(null); setEsEditing(false); }} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
-                  </div>
+                  ))}
                 </div>
 
-                {esEditing ? (
+                {esTab === "edit" ? (
                   /* ── EDIT MODE ── */
                   <div className="p-6 space-y-5">
                     <div>
@@ -1024,6 +1029,12 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ) : (
+                  /* ── MEDIA TAB ── */
+                  esTab === "media" ? (
+                    <div className="p-6">
+                      <ShootGallery shootId={viewShoot.id} />
+                    </div>
+                  ) :
                   /* ── READ MODE ── */
                   <div className="p-6 space-y-5">
                     <div className="grid grid-cols-2 gap-5 text-sm">
@@ -1088,7 +1099,7 @@ export default function DashboardPage() {
                       </div>
                     )}
                     <div className="pt-2">
-                      <button onClick={() => { setViewShoot(null); setEsEditing(false); }} className="w-full py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
+                      <button onClick={() => { setViewShoot(null); setEsEditing(false); setEsTab("info"); }} className="w-full py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
                     </div>
                   </div>
                 )}

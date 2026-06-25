@@ -3,6 +3,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { applyWatermark } from "@/lib/watermark";
 
+const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
@@ -31,7 +33,8 @@ export async function POST(req: NextRequest) {
     .eq("id", shootId)
     .single();
 
-  if (!shoot?.photographer_ids?.includes(user.id)) {
+  const isAdmin = ADMIN_EMAILS.includes(user.email || "");
+  if (!isAdmin && !shoot?.photographer_ids?.includes(user.id)) {
     return NextResponse.json({ error: "Not your shoot" }, { status: 403 });
   }
 
