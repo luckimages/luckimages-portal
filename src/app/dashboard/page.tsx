@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Time Tracker";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Clients", "Services", "Marketing", "Capacity", "Contacts", "Time Tracker"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Services: true, Marketing: true, Capacity: true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
+  type Section = "Revenue" | "Clients" | "Marketing" | "Capacity" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Time Tracker";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Clients", "Marketing", "Capacity", "Contacts", "Time Tracker"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Capacity: true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1094,25 +1094,6 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </section>
-    );
-    if (s === "Services") return (
-      <section key={s}>
-        <p className={sectionLabel}>Services — YTD Bookings</p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { label: "Listing Photos", value: "—" },
-            { label: "Drone", value: "—" },
-            { label: "Matterport", value: "—" },
-            { label: "Video", value: "—" },
-            { label: "Headshots", value: "—" },
-          ].map(item => (
-            <div key={item.label} className="bg-[#111] border border-white/10 p-5">
-              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{item.label}</p>
-              <p className="text-2xl font-bold text-[#555]">{item.value}</p>
-            </div>
-          ))}
-        </div>
       </section>
     );
     if (s === "Marketing") return (

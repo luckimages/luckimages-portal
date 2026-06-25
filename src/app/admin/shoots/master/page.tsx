@@ -111,6 +111,23 @@ export default function MasterShootListPage() {
   const thisMonth = new Date().toISOString().slice(0, 7);
   const thisMonthRevenue = shoots.filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price).reduce((sum, s) => sum + (s.price || 0), 0);
 
+  // Services YTD — count completed shoots by package type
+  const thisYear = new Date().getFullYear().toString();
+  const ytdShoots = shoots.filter(s => s.status === "completed" && (s.scheduled_at || "").startsWith(thisYear));
+  const SERVICE_BUCKETS = [
+    { label: "Listing Photos", match: (p: string) => /photo/i.test(p) },
+    { label: "Drone", match: (p: string) => /drone/i.test(p) },
+    { label: "Matterport", match: (p: string) => /matterport/i.test(p) },
+    { label: "Video", match: (p: string) => /video/i.test(p) },
+    { label: "Twilight", match: (p: string) => /twilight/i.test(p) },
+    { label: "Full Package", match: (p: string) => /full/i.test(p) },
+    { label: "Custom", match: (p: string) => /custom/i.test(p) },
+  ];
+  const serviceCounts = SERVICE_BUCKETS.map(b => ({
+    label: b.label,
+    count: ytdShoots.filter(s => s.package_name && b.match(s.package_name)).length,
+  }));
+
   // Month list for calendar view
   const allMonths = [...new Set(shoots.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse();
 
@@ -248,6 +265,18 @@ export default function MasterShootListPage() {
           <span className="text-xl font-bold tabular-nums">${avgPrice.toLocaleString()}</span>
           <span className="text-xs tracking-[2px] uppercase text-[#555]">avg / shoot</span>
         </div>
+      </div>
+
+      {/* Services YTD */}
+      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center gap-1 flex-wrap">
+        <span className="text-[10px] tracking-[2px] uppercase text-[#444] mr-3">Services YTD</span>
+        {serviceCounts.map((b, i) => (
+          <span key={b.label} className="flex items-center gap-1">
+            {i > 0 && <span className="w-px h-3 bg-white/10 mx-1" />}
+            <span className="text-sm font-bold tabular-nums">{b.count}</span>
+            <span className="text-[10px] tracking-[1px] uppercase text-[#555]">{b.label}</span>
+          </span>
+        ))}
       </div>
 
       {/* Filters */}
