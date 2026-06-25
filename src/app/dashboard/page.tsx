@@ -459,7 +459,6 @@ export default function DashboardPage() {
   const [csClient, setCsClient] = useState<{id:string;name:string;email:string;brokerage:string|null}|null>(null);
   const [csPhotographers, setCsPhotographers] = useState<string[]>([]);
   const [csSaving, setCsSaving] = useState(false);
-  const [csInviteLink, setCsInviteLink] = useState("");
   const [csCreateNew, setCsCreateNew] = useState(false);
   const [csNewName, setCsNewName] = useState("");
   const [csNewPhone, setCsNewPhone] = useState("");
@@ -550,7 +549,7 @@ export default function DashboardPage() {
 
   async function createShootFromDashboard() {
     if (!csAddress.trim()) return;
-    setCsSaving(true); setCsInviteLink("");
+    setCsSaving(true);
     const allSelected = [...csServices, ...csAddons];
     const packageName = allSelected.length === 1 ? allSelected[0] : allSelected.length > 1 ? allSelected.join(" + ") : null;
     const res = await fetch("/api/admin/shoots", {
@@ -564,20 +563,10 @@ export default function DashboardPage() {
       }),
     });
     if (!res.ok) { setCsSaving(false); return; }
-    const { shoot } = await res.json();
-    void shoot;
-    if (csClient?.email) {
-      const ir = await fetch("/api/admin/invite-client", {
-        method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ email: csClient.email, name: csClient.name }),
-      });
-      const id = await ir.json();
-      if (id.link) setCsInviteLink(id.link);
-    }
     await refreshShoots();
     setCsSaving(false);
     csReset();
-    if (!csClient?.email) setCreateShootOpen(false);
+    setCreateShootOpen(false);
   }
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -992,26 +981,7 @@ export default function DashboardPage() {
                   <button onClick={() => setCreateShootOpen(false)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
                 </div>
 
-                {csInviteLink ? (
-                  // Success state — show invite link
-                  <div className="p-6 space-y-5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#4ade80]" />
-                      <p className="text-sm font-semibold">Shoot created + added to Google Calendar</p>
-                    </div>
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Client Invite Link</p>
-                      <p className="text-[10px] text-[#888] mb-3">Send this to your client — they click it to access their portal and see the shoot.</p>
-                      <div className="bg-[#111] border border-white/10 p-3 flex items-center gap-3">
-                        <p className="text-xs text-[#4ade80] font-mono break-all flex-1">{csInviteLink}</p>
-                        <button onClick={() => navigator.clipboard.writeText(csInviteLink)}
-                          className="text-xs tracking-[1px] uppercase px-3 py-1.5 border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-colors flex-shrink-0">Copy</button>
-                      </div>
-                    </div>
-                    <button onClick={() => { setCreateShootOpen(false); setCsInviteLink(""); }}
-                      className="w-full py-3 bg-white text-black text-xs tracking-[2px] uppercase font-semibold hover:bg-[#ddd] transition-colors">Done</button>
-                  </div>
-                ) : (
+                {(
                   <div className="p-6 space-y-5">
 
                     {/* 1. Realtor / Contact */}
