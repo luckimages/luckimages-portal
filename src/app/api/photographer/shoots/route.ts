@@ -24,7 +24,7 @@ export async function PATCH(req: Request) {
   // Verify this photographer is assigned to this shoot
   const { data: shoot } = await service
     .from("shoots")
-    .select("id, photographer_ids")
+    .select("id, address, scheduled_at, photographer_ids")
     .eq("id", id)
     .single();
 
@@ -34,6 +34,23 @@ export async function PATCH(req: Request) {
 
   const { error } = await service.from("shoots").update({ status }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Get photographer's display name
+  const { data: profile } = await service.from("profiles").select("full_name").eq("id", user.id).single();
+  const photographerName = profile?.full_name || user.email?.split("@")[0] || "Photographer";
+
+  const stageMessages: Record<string, string> = {
+    en_route:  `🚗 En route — ${shoot.address}`,
+    on_site:   `📍 Arrived on site — ${shoot.address}`,
+    wrapping:  `✅ Wrapping up — ${shoot.address}`,
+    editing:   `🖥️ Editing started — ${shoot.address}`,
+    delivered: `📦 Media delivered — ${shoot.address}`,
+  };
+
+  const message = stageMessages[status];
+  if (message) {
+    await service.from("company_updates").insert({ message, created_by: photographerName });
+  }
 
   return NextResponse.json({ ok: true });
 }
