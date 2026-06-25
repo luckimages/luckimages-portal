@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Time Tracker";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Contacts", "Time Tracker"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
+  type Section = "Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Time Tracker";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Clients", "Services", "Marketing", "Capacity", "Contacts", "Time Tracker"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Services: true, Marketing: true, Capacity: true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -601,7 +601,6 @@ export default function DashboardPage() {
   const [hideRevenue, setHideRevenue] = useState(true);
   const blur = hideRevenue ? "blur-sm select-none" : "";
 
-  const [referrals, setReferrals] = useState(0);
   const [coldCalls, setColdCalls] = useState(0);
   const [leads, setLeads] = useState(0);
   const [bookings, setBookings] = useState(0);
@@ -1058,14 +1057,43 @@ export default function DashboardPage() {
     if (s === "Clients") return (
       <section key={s}>
         <p className={sectionLabel}>Clients — YTD</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <Card label="Invoices YTD" value={QB.ytdInvoices.toString()} accent="#60a5fa" sub="Total invoices this year" />
           <Card label="Avg per Invoice" value={avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"} accent="#4ade80" sub="YTD average" valueClass={blur} />
-          <Card label="Referrals" accent="#a78bfa">
-            <EditableNumber value={referrals} onChange={setReferrals} />
-            <p className="text-xs text-[#444] mt-2">Click to edit</p>
-          </Card>
         </div>
+        {QB.recentInvoices.length === 0 ? (
+          <div className="bg-[#111] border border-white/10 p-6 text-center">
+            <p className="text-[#444] text-sm">No invoices yet — add them in QuickBooks and they&apos;ll appear here after the next sync.</p>
+          </div>
+        ) : (
+          <div className="bg-[#111] border border-white/10 overflow-hidden">
+            <p className="px-5 py-3 text-[10px] tracking-[2px] uppercase text-[#444] border-b border-white/5">Recent Invoices</p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
+                    <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {QB.recentInvoices.map(inv => (
+                  <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
+                    <td className="px-5 py-3">{inv.client}</td>
+                    <td className="px-5 py-3 text-[#888]">{inv.date}</td>
+                    <td className={`px-5 py-3 font-medium transition-all duration-200 ${blur}`}>{inv.amount}</td>
+                    <td className="px-5 py-3">
+                      <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
+                        {inv.paid ? "Paid" : "Unpaid"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     );
     if (s === "Services") return (
@@ -1138,43 +1166,6 @@ export default function DashboardPage() {
             <p className="text-xs text-[#666] mt-2">{leads > 0 ? `${bookings} of ${leads} leads converted` : "Enter leads and bookings above"}</p>
           </div>
         </div>
-      </section>
-    );
-    if (s === "Recent Invoices") return (
-      <section key={s}>
-        <p className={sectionLabel}>Recent Invoices</p>
-        {QB.recentInvoices.length === 0 ? (
-          <div className="bg-[#111] border border-white/10 p-8 text-center">
-            <p className="text-[#444] text-sm">No invoices yet — add them in QuickBooks and they&apos;ll appear here after the next sync.</p>
-          </div>
-        ) : (
-          <div className="bg-[#111] border border-white/10 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10">
-                  {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {QB.recentInvoices.map(inv => (
-                  <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
-                    <td className="px-5 py-3">{inv.client}</td>
-                    <td className="px-5 py-3 text-[#888]">{inv.date}</td>
-                    <td className={`px-5 py-3 font-medium transition-all duration-200 ${blur}`}>{inv.amount}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
-                        {inv.paid ? "Paid" : "Unpaid"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
     );
     if (s === "Realtors") {
