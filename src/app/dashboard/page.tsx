@@ -1044,33 +1044,15 @@ export default function DashboardPage() {
             )}
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" valueClass={blur} />
           <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
           <Card label="Net Income YTD" value={`$${QB.netIncome.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
           <Card label="Unpaid Invoices" value={QB.unpaidCount.toString()} accent="#fbbf24" sub="Outstanding balance" />
         </div>
-        {QB.monthly.length === 0 ? (
-          <div className="bg-[#111] border border-white/10 p-6 text-center">
-            <p className="text-[#444] text-sm">No invoice data yet — add invoices in QuickBooks and they&apos;ll appear here after the next sync.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-            {QB.monthly.map((m) => {
-              const maxRev = Math.max(...QB.monthly.map(x => x.rev), 1);
-              const pct = Math.round((m.rev / maxRev) * 100);
-              return (
-                <div key={m.month} className="bg-[#111] border border-white/10 p-5">
-                  <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">{m.month}</p>
-                  <p className={`text-xl font-bold mb-3 transition-all duration-200 ${blur}`}>${m.rev.toLocaleString()}</p>
-                  <div className="h-1 bg-[#222] rounded-full overflow-hidden">
-                    <div className="h-full bg-white/40 rounded-full" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="mt-2 text-right">
+          <a href="/admin/shoots/master" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">View Monthly Breakdown →</a>
+        </div>
       </section>
     );
     if (s === "Clients") return (
