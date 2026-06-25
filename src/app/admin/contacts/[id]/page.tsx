@@ -41,16 +41,23 @@ type EmailLog = {
 type Shoot = {
   id: string;
   address: string;
-  shoot_date: string;
+  scheduled_at: string | null;
   status: string;
-  package: string | null;
+  package_name: string | null;
+  services: string[];
   price: number | null;
 };
 
-type TimelineEvent =
-  | { kind: "call"; ts: string; data: CallLog }
-  | { kind: "email"; ts: string; data: EmailLog }
-  | { kind: "shoot"; ts: string; data: Shoot };
+type LinkedContact = {
+  id: string;
+  name: string;
+  brokerage: string | null;
+  phone: string | null;
+  email: string | null;
+  stage: string;
+  relationship: string;
+  link_id: string;
+};
 
 const STAGES = ["lead", "interested", "follow-up", "booked", "client", "dead"];
 const STAGE_COLORS: Record<string, string> = {
@@ -77,6 +84,15 @@ const CALL_LABELS: Record<string, string> = {
   booked: "Booked",
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  completed: "text-[#4ade80] bg-[#4ade80]/10",
+  scheduled: "text-[#60a5fa] bg-[#60a5fa]/10",
+  pending: "text-[#fbbf24] bg-[#fbbf24]/10",
+  cancelled: "text-[#555] bg-white/5",
+};
+
+const RELATIONSHIP_TYPES = ["Spouse", "Partner", "Colleague", "Team", "Referral", "Other"];
+
 export default function ContactProfilePage() {
   const router = useRouter();
   const params = useParams();
@@ -86,20 +102,31 @@ export default function ContactProfilePage() {
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [shoots, setShoots] = useState<Shoot[]>([]);
+  const [linkedContacts, setLinkedContacts] = useState<LinkedContact[]>([]);
+  const [allContacts, setAllContacts] = useState<Contact[]>([]);
+
   const [loading, setLoading] = useState(true);
+  const [historyTab, setHistoryTab] = useState<"leads" | "shoots">("leads");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
   const [noteInput, setNoteInput] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
+  // Related contacts
+  const [linkSearch, setLinkSearch] = useState("");
+  const [linkRelationship, setLinkRelationship] = useState("Spouse");
+  const [showLinkSearch, setShowLinkSearch] = useState(false);
+  const [linking, setLinking] = useState(false);
+
   const loadContact = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: c }, { data: calls }, { data: emails }, { data: sh }] = await Promise.all([
+    const [{ data: c }, { data: calls }, { data: emails }, { data: sh }, { data: allC }] = await Promise.all([
       supabase.from("contacts").select("*").eq("id", id).single(),
       supabase.from("cold_calls").select("*").eq("contact_id", id).order("called_at", { ascending: false }),
       supabase.from("email_log").select("*").eq("contact_id", id).order("sent_at", { ascending: false }),
-      supabase.from("shoots").select("*").eq("contact_id", id).order("shoot_date", { ascending: false }),
+      supabase.from("shoots").select("id, address, scheduled_at, status, package_name, services, price").eq("client_id", id).order("scheduled_at", { ascending: false }),
+      supabase.from("contacts").select("id, name, brokerage, phone, email, stage").order("name"),
     ]);
     if (!c) { router.replace("/admin/contacts"); return; }
     setContact(c);
@@ -108,6 +135,30 @@ export default function ContactProfilePage() {
     setCallLogs(calls || []);
     setEmailLogs(emails || []);
     setShoots(sh || []);
+    setAllContacts((allC || []).filter((ct: Contact) => ct.id !== id));
+
+    // Load linked contacts
+    const { data: links } = await supabase
+      .from("contact_links")
+      .select("id, contact_id_a, contact_id_b, relationship")
+      .or(`contact_id_a.eq.${id},contact_id_b.eq.${id}`);
+
+    if (links && links.length > 0) {
+      const otherIds = links.map((l: { contact_id_a: string; contact_id_b: string }) =>
+        l.contact_id_a === id ? l.contact_id_b : l.contact_id_a
+      );
+      const { data: linkedC } = await supabase.from("contacts").select("id, name, brokerage, phone, email, stage").in("id", otherIds);
+      const enriched = (linkedC || []).map((lc: Contact) => {
+        const link = links.find((l: { contact_id_a: string; contact_id_b: string; id: string; relationship: string }) =>
+          l.contact_id_a === lc.id || l.contact_id_b === lc.id
+        );
+        return { ...lc, relationship: link?.relationship || "Related", link_id: link?.id || "" };
+      });
+      setLinkedContacts(enriched);
+    } else {
+      setLinkedContacts([]);
+    }
+
     setLoading(false);
   }, [id, router]);
 
@@ -139,13 +190,6 @@ export default function ContactProfilePage() {
     setSavingNote(false);
   }
 
-  async function toggleHot() {
-    if (!contact) return;
-    const supabase = createClient();
-    await supabase.from("contacts").update({ is_hot: !contact.is_hot }).eq("id", contact.id);
-    setContact(c => c ? { ...c, is_hot: !c.is_hot } : c);
-  }
-
   async function updateStage(stage: string) {
     if (!contact) return;
     const supabase = createClient();
@@ -153,15 +197,36 @@ export default function ContactProfilePage() {
     setContact(c => c ? { ...c, stage } : c);
   }
 
-  // Build unified timeline
-  const timeline: TimelineEvent[] = [
-    ...callLogs.map(l => ({ kind: "call" as const, ts: l.called_at, data: l })),
-    ...emailLogs.map(l => ({ kind: "email" as const, ts: l.sent_at, data: l })),
-    ...shoots.map(s => ({ kind: "shoot" as const, ts: s.shoot_date, data: s })),
-  ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  async function linkContact(other: Contact) {
+    setLinking(true);
+    const supabase = createClient();
+    await supabase.from("contact_links").insert({
+      contact_id_a: id,
+      contact_id_b: other.id,
+      relationship: linkRelationship,
+    });
+    setLinking(false);
+    setShowLinkSearch(false);
+    setLinkSearch("");
+    await loadContact();
+  }
+
+  async function unlinkContact(linkId: string) {
+    const supabase = createClient();
+    await supabase.from("contact_links").delete().eq("id", linkId);
+    await loadContact();
+  }
 
   const callAgainCount = callLogs.filter(l => l.outcome === "call_again").length;
   const isInterested = callLogs.some(l => l.outcome === "interested");
+  const totalShootRevenue = shoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+
+  const filteredLinkSearch = allContacts.filter(c =>
+    linkSearch &&
+    (c.name.toLowerCase().includes(linkSearch.toLowerCase()) ||
+     (c.brokerage || "").toLowerCase().includes(linkSearch.toLowerCase())) &&
+    !linkedContacts.find(lc => lc.id === c.id)
+  );
 
   if (loading) {
     return <div className="min-h-screen bg-[#0c0c0c] text-[#555] flex items-center justify-center text-xs tracking-[3px] uppercase">Loading...</div>;
@@ -175,14 +240,12 @@ export default function ContactProfilePage() {
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="text-[#555] text-sm hover:text-white transition-colors">← Back</button>
-          <div className="flex items-center gap-2">
-            <button onClick={toggleHot} className="text-lg leading-none" title="Toggle hot lead">
-              {contact.is_hot ? "🔥" : <span className="text-[#333] hover:text-[#555] text-lg">🔥</span>}
-            </button>
-            <h1 className="font-bold">{contact.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-bold text-lg">{contact.name}</h1>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
               {contact.stage}
             </span>
+            {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -190,7 +253,7 @@ export default function ContactProfilePage() {
             onClick={() => router.push(`/admin/cold-calls?contact=${contact.id}`)}
             className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
           >
-            📞 Call
+            Call
           </button>
           <button
             onClick={() => setEditing(true)}
@@ -203,10 +266,10 @@ export default function ContactProfilePage() {
 
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
 
-        {/* ═══ LEFT: Contact info + notes ═══ */}
+        {/* ═══ LEFT column ═══ */}
         <div className="space-y-5">
 
-          {/* Info card */}
+          {/* Contact Info */}
           <div className="bg-[#111] border border-white/10 p-5 space-y-4">
             <p className="text-xs tracking-[3px] uppercase text-[#555]">Contact Info</p>
             <div className="space-y-3">
@@ -238,10 +301,10 @@ export default function ContactProfilePage() {
                   {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              {contact.total_revenue > 0 && (
+              {totalShootRevenue > 0 && (
                 <div>
                   <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Total Revenue</p>
-                  <p className="text-sm font-bold text-[#4ade80]">${contact.total_revenue.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-[#4ade80]">${totalShootRevenue.toLocaleString()}</p>
                 </div>
               )}
               <div>
@@ -251,17 +314,98 @@ export default function ContactProfilePage() {
             </div>
           </div>
 
+          {/* Related To */}
+          <div className="bg-[#111] border border-white/10 p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs tracking-[3px] uppercase text-[#555]">Related To</p>
+              <button
+                onClick={() => setShowLinkSearch(!showLinkSearch)}
+                className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors"
+              >
+                + Link
+              </button>
+            </div>
+
+            {linkedContacts.length === 0 && !showLinkSearch && (
+              <p className="text-xs text-[#333] italic">No linked contacts</p>
+            )}
+
+            {linkedContacts.map(lc => (
+              <div key={lc.id} className="bg-[#181818] border border-white/5 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <button
+                      onClick={() => router.push(`/admin/contacts/${lc.id}`)}
+                      className="text-sm font-medium hover:underline text-left truncate block"
+                    >
+                      {lc.name}
+                    </button>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] mt-0.5">{lc.relationship}</p>
+                    {lc.brokerage && <p className="text-xs text-[#444] mt-0.5">{lc.brokerage}</p>}
+                    {lc.phone && <a href={`tel:${lc.phone}`} className="text-xs text-[#4ade80] font-mono mt-0.5 block">{lc.phone}</a>}
+                  </div>
+                  <button
+                    onClick={() => unlinkContact(lc.link_id)}
+                    className="text-[#333] hover:text-red-400 text-xs shrink-0 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/5">
+                  <p className="text-[10px] text-[#333]">Shared portal — same shoots, invoices & media</p>
+                </div>
+              </div>
+            ))}
+
+            {showLinkSearch && (
+              <div className="space-y-2">
+                <select
+                  value={linkRelationship}
+                  onChange={e => setLinkRelationship(e.target.value)}
+                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none"
+                >
+                  {RELATIONSHIP_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <input
+                  autoFocus
+                  value={linkSearch}
+                  onChange={e => setLinkSearch(e.target.value)}
+                  placeholder="Search contacts to link..."
+                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+                />
+                {linkSearch && (
+                  <div className="bg-[#181818] border border-white/10 max-h-44 overflow-y-auto divide-y divide-white/5">
+                    {filteredLinkSearch.length === 0 && <p className="px-3 py-2.5 text-xs text-[#444]">No results</p>}
+                    {filteredLinkSearch.slice(0, 6).map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => linkContact(c)}
+                        disabled={linking}
+                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
+                      >
+                        <span className="font-medium">{c.name}</span>
+                        {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { setShowLinkSearch(false); setLinkSearch(""); }}
+                  className="text-xs text-[#444] hover:text-white transition-colors">Cancel</button>
+              </div>
+            )}
+          </div>
+
           {/* Stats */}
           <div className="bg-[#111] border border-white/10 p-5 space-y-3">
             <p className="text-xs tracking-[3px] uppercase text-[#555]">Stats</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
                 <p className="text-2xl font-bold tabular-nums">{callLogs.length}</p>
-                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Total Calls</p>
+                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Calls</p>
               </div>
               <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
                 <p className={`text-2xl font-bold tabular-nums ${isInterested ? "text-[#4ade80]" : ""}`}>
-                  {isInterested ? "🔥" : callAgainCount > 0 ? callAgainCount : "—"}
+                  {isInterested ? "+" : callAgainCount > 0 ? callAgainCount : "—"}
                 </p>
                 <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">
                   {isInterested ? "Interested" : callAgainCount > 0 ? "Retries" : "No Activity"}
@@ -269,10 +413,10 @@ export default function ContactProfilePage() {
               </div>
               <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
                 <p className="text-2xl font-bold tabular-nums">{emailLogs.length}</p>
-                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Emails Sent</p>
+                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Emails</p>
               </div>
               <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
-                <p className="text-2xl font-bold tabular-nums">{shoots.length}</p>
+                <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{shoots.length}</p>
                 <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Shoots</p>
               </div>
             </div>
@@ -284,8 +428,8 @@ export default function ContactProfilePage() {
             <textarea
               value={noteInput}
               onChange={e => setNoteInput(e.target.value)}
-              rows={5}
-              placeholder="Add notes about this contact..."
+              rows={4}
+              placeholder="Notes about this contact..."
               className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]"
             />
             <button
@@ -298,42 +442,46 @@ export default function ContactProfilePage() {
           </div>
         </div>
 
-        {/* ═══ RIGHT: Timeline ═══ */}
+        {/* ═══ RIGHT: History tabs ═══ */}
         <div className="md:col-span-2 space-y-4">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            Interaction History — {timeline.length} events
-          </p>
 
-          {timeline.length === 0 ? (
-            <div className="bg-[#111] border border-white/10 p-10 text-center">
-              <p className="text-[#333] text-sm">No interactions logged yet.</p>
-              <button
-                onClick={() => router.push(`/admin/cold-calls?contact=${contact.id}`)}
-                className="mt-4 text-xs tracking-[1px] uppercase border border-white/10 px-6 py-2.5 text-[#888] hover:text-white hover:border-white/30 transition-all"
-              >
-                Log First Call →
-              </button>
-            </div>
-          ) : (
-            <div className="relative space-y-0">
-              {/* Timeline line */}
-              <div className="absolute left-[15px] top-6 bottom-6 w-px bg-white/5" />
+          {/* Tab bar */}
+          <div className="flex border-b border-white/10">
+            <button
+              onClick={() => setHistoryTab("leads")}
+              className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "leads" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
+            >
+              Lead History
+              {callLogs.length > 0 && <span className="ml-2 text-[#444]">({callLogs.length + emailLogs.length})</span>}
+            </button>
+            <button
+              onClick={() => setHistoryTab("shoots")}
+              className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "shoots" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
+            >
+              Shoot History
+              {shoots.length > 0 && <span className="ml-2 text-[#444]">({shoots.length})</span>}
+            </button>
+          </div>
 
-              {timeline.map((event, i) => (
-                <div key={`${event.kind}-${i}`} className="flex gap-4 pb-3">
-                  {/* Icon dot */}
-                  <div className="relative shrink-0 mt-4">
-                    <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center text-base border ${
-                      event.kind === "call" ? "bg-[#111] border-white/10" :
-                      event.kind === "email" ? "bg-[#111] border-white/10" :
-                      "bg-[#111] border-white/10"
-                    }`}>
-                      {event.kind === "call" ? "📞" : event.kind === "email" ? "✉️" : "📸"}
-                    </div>
-                  </div>
-
-                  {/* Card */}
-                  <div className="flex-1 bg-[#111] border border-white/10 p-4 mt-2">
+          {/* ── Lead History ── */}
+          {historyTab === "leads" && (
+            <div className="space-y-3">
+              {callLogs.length === 0 && emailLogs.length === 0 ? (
+                <div className="bg-[#111] border border-white/10 p-10 text-center">
+                  <p className="text-[#333] text-sm mb-4">No lead activity yet.</p>
+                  <button
+                    onClick={() => router.push(`/admin/cold-calls?contact=${contact.id}`)}
+                    className="text-xs tracking-[1px] uppercase border border-white/10 px-6 py-2.5 text-[#888] hover:text-white hover:border-white/30 transition-all"
+                  >
+                    Log First Call →
+                  </button>
+                </div>
+              ) : (
+                [...callLogs.map(l => ({ kind: "call" as const, ts: l.called_at, data: l })),
+                 ...emailLogs.map(l => ({ kind: "email" as const, ts: l.sent_at, data: l }))]
+                  .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+                  .map((event, i) => (
+                  <div key={i} className="bg-[#111] border border-white/10 p-4">
                     {event.kind === "call" && (() => {
                       const call = event.data as CallLog;
                       return (
@@ -345,7 +493,7 @@ export default function ContactProfilePage() {
                               </span>
                               <span className="text-xs text-[#555]">Cold Call</span>
                             </div>
-                            <span className="text-[10px] text-[#333] shrink-0">
+                            <span className="text-[10px] text-[#333]">
                               {new Date(call.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
                             </span>
                           </div>
@@ -355,55 +503,87 @@ export default function ContactProfilePage() {
                         </>
                       );
                     })()}
-
                     {event.kind === "email" && (() => {
                       const email = event.data as EmailLog;
                       return (
                         <>
                           <div className="flex items-center justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#818cf8] bg-[#818cf8]/10 border border-[#818cf8]/20">
-                                Email Sent
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-[#333] shrink-0">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#818cf8] bg-[#818cf8]/10 border border-[#818cf8]/20">
+                              Email Sent
+                            </span>
+                            <span className="text-[10px] text-[#333]">
                               {new Date(email.sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
                             </span>
                           </div>
                           <p className="text-sm font-medium">{email.subject}</p>
-                          {email.body && (
-                            <p className="text-xs text-[#555] mt-1 line-clamp-2">{email.body}</p>
-                          )}
+                          {email.body && <p className="text-xs text-[#555] mt-1 line-clamp-2">{email.body}</p>}
                           <p className="text-[10px] text-[#333] mt-1.5">by {email.sent_by}</p>
                         </>
                       );
                     })()}
-
-                    {event.kind === "shoot" && (() => {
-                      const shoot = event.data as Shoot;
-                      return (
-                        <>
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#34d399] bg-[#34d399]/10 border border-[#34d399]/20">
-                                Shoot — {shoot.status}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-[#333] shrink-0">
-                              {new Date(shoot.shoot_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium">{shoot.address}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            {shoot.package && <span className="text-xs text-[#555]">{shoot.package}</span>}
-                            {shoot.price && <span className="text-xs font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</span>}
-                          </div>
-                        </>
-                      );
-                    })()}
                   </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ── Shoot History ── */}
+          {historyTab === "shoots" && (
+            <div className="space-y-3">
+              {linkedContacts.length > 0 && (
+                <div className="bg-[#fbbf24]/5 border border-[#fbbf24]/20 px-4 py-2.5 flex items-center gap-2">
+                  <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24]">Shared portal</span>
+                  <span className="text-xs text-[#888]">—</span>
+                  <span className="text-xs text-[#666]">
+                    {linkedContacts.map(lc => lc.name).join(", ")} see these same shoots
+                  </span>
                 </div>
-              ))}
+              )}
+
+              {shoots.length === 0 ? (
+                <div className="bg-[#111] border border-white/10 p-10 text-center">
+                  <p className="text-[#333] text-sm">No shoots yet.</p>
+                </div>
+              ) : (
+                shoots.map(shoot => (
+                  <div key={shoot.id} className="bg-[#111] border border-white/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="font-medium text-sm truncate">{shoot.address}</p>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase shrink-0 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>
+                            {shoot.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {shoot.scheduled_at && (
+                            <span className="text-xs text-[#555]">
+                              {new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                            </span>
+                          )}
+                          {shoot.package_name && <span className="text-xs text-[#444]">{shoot.package_name}</span>}
+                          {!shoot.package_name && shoot.services?.length > 0 && (
+                            <span className="text-xs text-[#444]">{shoot.services.join(", ")}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        {shoot.price != null
+                          ? <p className="font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</p>
+                          : <p className="text-[#333] text-xs">No price</p>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {shoots.length > 0 && totalShootRevenue > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border border-white/5 bg-[#0e0e0e]">
+                  <span className="text-xs tracking-[2px] uppercase text-[#555]">Total Revenue</span>
+                  <span className="font-bold text-[#4ade80]">${totalShootRevenue.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
