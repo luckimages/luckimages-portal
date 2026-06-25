@@ -525,6 +525,13 @@ export default function DashboardPage() {
   }
   function csTogglePhotographer(id: string) { setCsPhotographers(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]); }
 
+  function toDatetimeLocal(iso: string): string {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   const ES_SIZE_UNIT = ["Lot","Land"].includes(esPropertyType) ? "acres" : "sqft";
   const esActiveAddons = CS_ADDONS.filter(a => esServices.includes(a.requires));
   const esAutoQuote = (() => {
@@ -821,7 +828,7 @@ export default function DashboardPage() {
                           const addonLabels = CS_ADDONS.map(a => a.label);
                           setEsServices((shoot.services || []).filter((s: string) => !!CS_SERVICE_PRICES[s]));
                           setEsAddons((shoot.services || []).filter((s: string) => addonLabels.includes(s)));
-                          setEsDatetime(shoot.scheduled_at || "");
+                          setEsDatetime(shoot.scheduled_at ? toDatetimeLocal(shoot.scheduled_at) : "");
                           const notesStr = shoot.notes || "";
                           const accessMatch = notesStr.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
                           if (accessMatch) {
@@ -969,40 +976,47 @@ export default function DashboardPage() {
                       onClick={async () => {
                         if (!viewShoot) return;
                         setEsSaving(true);
-                        const allSvcs = [...esServices, ...esAddons];
-                        const pkgName = allSvcs.length === 1 ? allSvcs[0] : allSvcs.length > 1 ? allSvcs.join(" + ") : null;
-                        const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
-                        const res = await fetch("/api/admin/shoots", {
-                          method: "PATCH", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            id: viewShoot.id,
-                            status: viewShoot.status,
-                            address: esAddress,
-                            property_type: esPropertyType || null,
-                            square_footage: esSqft ? parseInt(esSqft) : null,
-                            services: allSvcs,
-                            price: esAutoQuote || viewShoot.price || null,
-                            package_name: pkgName,
-                            scheduled_at: esDatetime || null,
-                            photographer_ids: viewShootPhotographers,
-                            notes: combinedNotes,
-                          }),
-                        });
-                        if (res.ok) {
-                          setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? {
-                            ...s,
-                            address: esAddress, property_type: esPropertyType || null,
-                            square_footage: esSqft ? parseInt(esSqft) : null,
-                            services: allSvcs, price: esAutoQuote || viewShoot.price || null,
-                            package_name: pkgName, scheduled_at: esDatetime || s.scheduled_at,
-                            photographer_ids: viewShootPhotographers, notes: combinedNotes || "",
-                          } : s));
-                          setEsSaved(true);
-                        } else {
-                          const err = await res.json().catch(() => ({}));
-                          alert(`Failed to save: ${err.error || res.status}`);
+                        try {
+                          const allSvcs = [...esServices, ...esAddons];
+                          const pkgName = allSvcs.length === 1 ? allSvcs[0] : allSvcs.length > 1 ? allSvcs.join(" + ") : null;
+                          const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
+                          // Convert local datetime-local value back to ISO for storage
+                          const scheduledAtISO = esDatetime ? new Date(esDatetime).toISOString() : null;
+                          const res = await fetch("/api/admin/shoots", {
+                            method: "PATCH", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              id: viewShoot.id,
+                              status: viewShoot.status,
+                              address: esAddress,
+                              property_type: esPropertyType || null,
+                              square_footage: esSqft ? parseInt(esSqft) : null,
+                              services: allSvcs,
+                              price: esAutoQuote || viewShoot.price || null,
+                              package_name: pkgName,
+                              scheduled_at: scheduledAtISO,
+                              photographer_ids: viewShootPhotographers,
+                              notes: combinedNotes,
+                            }),
+                          });
+                          if (res.ok) {
+                            setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? {
+                              ...s,
+                              address: esAddress, property_type: esPropertyType || null,
+                              square_footage: esSqft ? parseInt(esSqft) : null,
+                              services: allSvcs, price: esAutoQuote || viewShoot.price || null,
+                              package_name: pkgName, scheduled_at: scheduledAtISO || s.scheduled_at,
+                              photographer_ids: viewShootPhotographers, notes: combinedNotes || "",
+                            } : s));
+                            setEsSaved(true);
+                          } else {
+                            const err = await res.json().catch(() => ({}));
+                            alert(`Failed to save: ${err.error || res.status}`);
+                          }
+                        } catch (e) {
+                          alert(`Save error: ${e instanceof Error ? e.message : "Unknown error"}`);
+                        } finally {
+                          setEsSaving(false);
                         }
-                        setEsSaving(false);
                       }}
                       disabled={esSaving}
                       className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
