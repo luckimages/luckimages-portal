@@ -1056,44 +1056,26 @@ export default function DashboardPage() {
     );
     if (s === "Clients") return (
       <section key={s}>
-        <p className={sectionLabel}>Clients — YTD</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <Card label="Invoices YTD" value={QB.ytdInvoices.toString()} accent="#60a5fa" sub="Total invoices this year" />
-          <Card label="Avg per Invoice" value={avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"} accent="#4ade80" sub="YTD average" valueClass={blur} />
+        <p className={sectionLabel}>Invoices</p>
+        <div className="bg-[#111] border border-white/10 overflow-hidden">
+          <div className="grid grid-cols-2 divide-x divide-white/10">
+            <div className="p-5">
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Invoices YTD</p>
+              <p className="text-3xl font-bold" style={{ borderBottom: "2px solid #60a5fa", paddingBottom: "2px", display: "inline-block" }}>{QB.ytdInvoices}</p>
+            </div>
+            <div className="p-5">
+              <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Avg per Invoice</p>
+              <p className={`text-3xl font-bold transition-all duration-200 ${blur}`} style={{ borderBottom: "2px solid #4ade80", paddingBottom: "2px", display: "inline-block" }}>
+                {avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"}
+              </p>
+            </div>
+          </div>
+          <div className="border-t border-white/10">
+            <a href="/admin/shoots/master" className="block py-3 text-center text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.02] transition-all">
+              View All Invoice History →
+            </a>
+          </div>
         </div>
-        {QB.recentInvoices.length === 0 ? (
-          <div className="bg-[#111] border border-white/10 p-6 text-center">
-            <p className="text-[#444] text-sm">No invoices yet — add them in QuickBooks and they&apos;ll appear here after the next sync.</p>
-          </div>
-        ) : (
-          <div className="bg-[#111] border border-white/10 overflow-hidden">
-            <p className="px-5 py-3 text-[10px] tracking-[2px] uppercase text-[#444] border-b border-white/5">Recent Invoices</p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10">
-                  {["Invoice", "Client", "Date", "Amount", "Status"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {QB.recentInvoices.map(inv => (
-                  <tr key={inv.num} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-3 text-[#888]">#{inv.num}</td>
-                    <td className="px-5 py-3">{inv.client}</td>
-                    <td className="px-5 py-3 text-[#888]">{inv.date}</td>
-                    <td className={`px-5 py-3 font-medium transition-all duration-200 ${blur}`}>{inv.amount}</td>
-                    <td className="px-5 py-3">
-                      <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>
-                        {inv.paid ? "Paid" : "Unpaid"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </section>
     );
     if (s === "Marketing") return (

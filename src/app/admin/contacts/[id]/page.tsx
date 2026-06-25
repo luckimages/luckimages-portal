@@ -526,7 +526,7 @@ export default function ContactProfilePage() {
               onClick={() => setHistoryTab("shoots")}
               className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "shoots" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
             >
-              Shoot History
+              Invoice History
               {shoots.length > 0 && <span className="ml-2 text-[#444]">({shoots.length})</span>}
             </button>
           </div>
@@ -595,7 +595,7 @@ export default function ContactProfilePage() {
             </div>
           )}
 
-          {/* ── Shoot History ── */}
+          {/* ── Invoice History ── */}
           {historyTab === "shoots" && (
             <div className="space-y-3">
               {linkedContacts.length > 0 && (
