@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       const html = await res.text();
 
       // Zillow embeds listing data in a __NEXT_DATA__ script tag
-      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">(.+?)<\/script>/s);
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]+?)<\/script>/);
       if (nextDataMatch) {
         try {
           const nextData = JSON.parse(nextDataMatch[1]);

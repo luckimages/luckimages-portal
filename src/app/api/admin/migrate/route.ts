@@ -32,7 +32,7 @@ export async function POST() {
 
   const errors: string[] = [];
   for (const sql of migrations) {
-    const { error } = await db.from("_migrations_placeholder" as never).select().limit(0).throwOnError().then(() => ({ error: null })).catch(async () => {
+    const { error } = await (db.from("_migrations_placeholder" as never).select().limit(0).throwOnError() as unknown as Promise<{error: null}>).then(() => ({ error: null })).catch(async () => {
       // Use raw REST workaround via storage API headers trick
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
         method: "POST",

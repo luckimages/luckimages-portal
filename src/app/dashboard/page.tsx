@@ -1670,7 +1670,7 @@ export default function DashboardPage() {
                               <p className="truncate">{shoot.services?.join(", ") || "—"}</p>
                             </td>
                             <td className="px-4 py-3 font-bold text-[#4ade80]">
-                              {(shoot as {price?: number}).price != null ? `$${(shoot as {price: number}).price.toLocaleString()}` : <span className="text-[#333] font-normal">—</span>}
+                              {(shoot as unknown as {price?: number}).price != null ? `$${(shoot as unknown as {price: number}).price.toLocaleString()}` : <span className="text-[#333] font-normal">—</span>}
                             </td>
                             <td className="px-4 py-3">
                               <span className={`tracking-[1px] uppercase ${statusColor(shoot.status)}`}>{shoot.status}</span>

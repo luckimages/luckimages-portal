@@ -149,7 +149,7 @@ export default function ContactProfilePage() {
     setCallLogs(calls || []);
     setEmailLogs(emails || []);
     setShoots(sh || []);
-    setAllContacts((allC || []).filter((ct: Contact) => ct.id !== id));
+    setAllContacts((allC || []).filter((ct: { id: string }) => ct.id !== id) as Contact[]);
 
     // Load linked contacts
     const { data: links } = await supabase
@@ -162,7 +162,7 @@ export default function ContactProfilePage() {
         l.contact_id_a === id ? l.contact_id_b : l.contact_id_a
       );
       const { data: linkedC } = await supabase.from("contacts").select("id, name, brokerage, phone, email, stage").in("id", otherIds);
-      const enriched = (linkedC || []).map((lc: Contact) => {
+      const enriched = (linkedC || []).map((lc: { id: string; name: string; brokerage: string | null; phone: string | null; email: string | null; stage: string }) => {
         const link = links.find((l: { contact_id_a: string; contact_id_b: string; id: string; relationship: string }) =>
           l.contact_id_a === lc.id || l.contact_id_b === lc.id
         );
