@@ -79,9 +79,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Monthly Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Portal Members" | "Invite Client" | "Time Tracker";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Monthly Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Contacts", "Portal Members", "Invite Client", "Time Tracker"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, "Monthly Revenue": true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Portal Members": true, "Invite Client": true, "Time Tracker": true };
+  type Section = "Revenue" | "Clients" | "Services" | "Marketing" | "Capacity" | "Recent Invoices" | "Realtors" | "Schedule" | "Contacts" | "Cold Calls" | "Command Center" | "Shoot Log" | "Portal Members" | "Invite Client" | "Time Tracker";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Cold Calls", "Shoot Log", "Revenue", "Clients", "Services", "Marketing", "Capacity", "Recent Invoices", "Contacts", "Portal Members", "Invite Client", "Time Tracker"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Services: true, Marketing: true, Capacity: true, "Recent Invoices": true, Realtors: true, Contacts: true, "Cold Calls": true, "Command Center": true, "Shoot Log": true, "Portal Members": true, "Invite Client": true, "Time Tracker": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1027,7 +1027,7 @@ export default function DashboardPage() {
     if (s === "Revenue") return (
       <section key={s}>
         <div className="flex items-center gap-3 mb-4">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">Revenue</p>
+          <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-[''] flex-1">Revenue — {new Date().getFullYear()}</p>
           <button onClick={() => setHideRevenue(h => !h)} className={`transition-colors flex-shrink-0 ${hideRevenue ? "text-[#fbbf24]" : "text-[#555] hover:text-white"}`} title={hideRevenue ? "Show revenue" : "Hide revenue"}>
             {hideRevenue ? (
               <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1043,19 +1043,14 @@ export default function DashboardPage() {
             )}
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" valueClass={blur} />
           <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
           <Card label="Net Income YTD" value={`$${QB.netIncome.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
           <Card label="Unpaid Invoices" value={QB.unpaidCount.toString()} accent="#fbbf24" sub="Outstanding balance" />
         </div>
-      </section>
-    );
-    if (s === "Monthly Revenue") return (
-      <section key={s}>
-        <p className={sectionLabel}>Monthly Revenue — {new Date().getFullYear()}</p>
         {QB.monthly.length === 0 ? (
-          <div className="bg-[#111] border border-white/10 p-8 text-center">
+          <div className="bg-[#111] border border-white/10 p-6 text-center">
             <p className="text-[#444] text-sm">No invoice data yet — add invoices in QuickBooks and they&apos;ll appear here after the next sync.</p>
           </div>
         ) : (
