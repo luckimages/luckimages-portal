@@ -454,6 +454,7 @@ export default function DashboardPage() {
   const [esNotes, setEsNotes] = useState("");
   const [esSaving, setEsSaving] = useState(false);
   const [esSaved, setEsSaved] = useState(false);
+  const [esEditing, setEsEditing] = useState(false);
   const [callsExpanded, setCallsExpanded] = useState(false);
 
   // Create shoot modal state
@@ -822,6 +823,7 @@ export default function DashboardPage() {
                           setViewShootPhotographers(shoot.photographer_ids || []);
                           setAssignSaved(false);
                           setEsSaved(false);
+                          setEsEditing(false);
                           setEsAddress(shoot.address || "");
                           setEsPropertyType(shoot.property_type || "");
                           setEsSqft(shoot.square_footage ? String(shoot.square_footage) : "");
@@ -866,165 +868,230 @@ export default function DashboardPage() {
 
           {/* View shoot detail popup (confirmed/scheduled) */}
           {viewShoot && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setViewShoot(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => { setViewShoot(null); setEsEditing(false); }}>
               <div className="absolute inset-0 bg-black/70" />
               <div className="relative bg-[#141414] border border-[#4ade80]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/10">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-                    <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">Edit Shoot</p>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
+                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{viewShoot.status}</p>
+                    </div>
+                    <p className="text-sm font-semibold">{viewShoot.address}</p>
                   </div>
-                  <button onClick={() => setViewShoot(null)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setEsEditing(e => !e)}
+                      className={`transition-colors text-base leading-none ${esEditing ? "text-white" : "text-[#444] hover:text-white"}`}
+                      title={esEditing ? "Exit edit mode" : "Edit shoot"}>
+                      ✏️
+                    </button>
+                    <button onClick={() => { setViewShoot(null); setEsEditing(false); }} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+                  </div>
                 </div>
-                <div className="p-6 space-y-5">
-                  {/* Realtor */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
-                    <p className="text-sm font-medium">{viewShoot.client_name || <span className="text-[#555] italic">No contact linked</span>}</p>
-                    {viewShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{viewShoot.client_email}</p>}
-                  </div>
-                  {/* Address */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Listing Address</p>
-                    <input value={esAddress} onChange={e => { setEsAddress(e.target.value); setEsSaved(false); }}
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
-                  </div>
-                  {/* Property Type */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Type</p>
-                    <div className="flex flex-wrap gap-2">
-                      {CS_PROPERTY_TYPES.map(t => (
-                        <button key={t} type="button" onClick={() => { setEsPropertyType(t === esPropertyType ? "" : t); setEsSqft(""); setEsSaved(false); }}
-                          className={`text-xs px-3 py-1.5 border transition-colors ${esPropertyType === t ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                          {t}
-                        </button>
-                      ))}
+
+                {esEditing ? (
+                  /* ── EDIT MODE ── */
+                  <div className="p-6 space-y-5">
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
+                      <p className="text-sm font-medium">{viewShoot.client_name || <span className="text-[#555] italic">No contact linked</span>}</p>
+                      {viewShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{viewShoot.client_email}</p>}
                     </div>
-                  </div>
-                  {/* Size */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Size ({ES_SIZE_UNIT})</p>
-                    <input type="number" value={esSqft} onChange={e => { setEsSqft(e.target.value); setEsSaved(false); }}
-                      placeholder={`Enter ${ES_SIZE_UNIT}`}
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
-                  </div>
-                  {/* Services */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {CS_SERVICES.map(svc => (
-                        <button key={svc} type="button" onClick={() => { esToggleService(svc); setEsSaved(false); }}
-                          className={`text-xs px-3 py-1.5 border transition-colors ${esServices.includes(svc) ? "border-[#4ade80]/60 text-[#4ade80] bg-[#4ade80]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                          {svc} <span className="ml-1.5 text-[#555]">${CS_SERVICE_PRICES[svc]}</span>
-                        </button>
-                      ))}
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Listing Address</p>
+                      <input value={esAddress} onChange={e => { setEsAddress(e.target.value); setEsSaved(false); }}
+                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
                     </div>
-                    {esActiveAddons.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/5">
-                        <p className="w-full text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Add-ons</p>
-                        {esActiveAddons.map(addon => (
-                          <button key={addon.label} type="button" onClick={() => { setEsAddons(p => p.includes(addon.label) ? p.filter(x => x !== addon.label) : [...p, addon.label]); setEsSaved(false); }}
-                            className={`text-xs px-3 py-1.5 border transition-colors ${esAddons.includes(addon.label) ? "border-[#fbbf24]/60 text-[#fbbf24] bg-[#fbbf24]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                            + {addon.label} <span className="ml-1.5 text-[#555]">${addon.price}</span>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Type</p>
+                      <div className="flex flex-wrap gap-2">
+                        {CS_PROPERTY_TYPES.map(t => (
+                          <button key={t} type="button" onClick={() => { setEsPropertyType(t === esPropertyType ? "" : t); setEsSqft(""); setEsSaved(false); }}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${esPropertyType === t ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {t}
                           </button>
                         ))}
                       </div>
-                    )}
-                    {esAutoQuote > 0 && (
-                      <p className="mt-2 text-sm text-white font-semibold">Quote: ${esAutoQuote.toLocaleString()}</p>
-                    )}
-                  </div>
-                  {/* Date & Time */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
-                    <input type="datetime-local" value={esDatetime} onChange={e => { setEsDatetime(e.target.value); setEsSaved(false); }}
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
-                  </div>
-                  {/* Photographers */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
-                    <div className="flex flex-wrap gap-2">
-                      {photographers.map(p => {
-                        const assigned = viewShootPhotographers.includes(p.id);
-                        return (
-                          <button key={p.id} type="button"
-                            onClick={() => { setEsSaved(false); setViewShootPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
-                            className={`text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
-                            {p.name}
+                    </div>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Size ({ES_SIZE_UNIT})</p>
+                      <input type="number" value={esSqft} onChange={e => { setEsSqft(e.target.value); setEsSaved(false); }}
+                        placeholder={`Enter ${ES_SIZE_UNIT}`}
+                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {CS_SERVICES.map(svc => (
+                          <button key={svc} type="button" onClick={() => { esToggleService(svc); setEsSaved(false); }}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${esServices.includes(svc) ? "border-[#4ade80]/60 text-[#4ade80] bg-[#4ade80]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            {svc} <span className="ml-1.5 text-[#555]">${CS_SERVICE_PRICES[svc]}</span>
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
+                      {esActiveAddons.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/5">
+                          <p className="w-full text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Add-ons</p>
+                          {esActiveAddons.map(addon => (
+                            <button key={addon.label} type="button" onClick={() => { setEsAddons(p => p.includes(addon.label) ? p.filter(x => x !== addon.label) : [...p, addon.label]); setEsSaved(false); }}
+                              className={`text-xs px-3 py-1.5 border transition-colors ${esAddons.includes(addon.label) ? "border-[#fbbf24]/60 text-[#fbbf24] bg-[#fbbf24]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                              + {addon.label} <span className="ml-1.5 text-[#555]">${addon.price}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {esAutoQuote > 0 && <p className="mt-2 text-sm text-white font-semibold">Quote: ${esAutoQuote.toLocaleString()}</p>}
+                    </div>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+                      <input type="datetime-local" value={esDatetime} onChange={e => { setEsDatetime(e.target.value); setEsSaved(false); }}
+                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {photographers.map(p => {
+                          const assigned = viewShootPhotographers.includes(p.id);
+                          return (
+                            <button key={p.id} type="button"
+                              onClick={() => { setEsSaved(false); setViewShootPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
+                              className={`text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                              {p.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Access</p>
+                      <input value={esAccess} onChange={e => { setEsAccess(e.target.value); setEsSaved(false); }}
+                        placeholder="Lockbox, Supra, gate code, etc."
+                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                      <textarea value={esNotes} onChange={e => { setEsNotes(e.target.value); setEsSaved(false); }} rows={3}
+                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30 resize-none" />
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={async () => {
+                          if (!viewShoot) return;
+                          setEsSaving(true);
+                          try {
+                            const allSvcs = [...esServices, ...esAddons];
+                            const pkgName = allSvcs.length === 1 ? allSvcs[0] : allSvcs.length > 1 ? allSvcs.join(" + ") : null;
+                            const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
+                            const scheduledAtISO = esDatetime ? new Date(esDatetime).toISOString() : null;
+                            const res = await fetch("/api/admin/shoots", {
+                              method: "PATCH", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                id: viewShoot.id, status: viewShoot.status,
+                                address: esAddress, property_type: esPropertyType || null,
+                                square_footage: esSqft ? parseInt(esSqft) : null,
+                                services: allSvcs, price: esAutoQuote || viewShoot.price || null,
+                                package_name: pkgName, scheduled_at: scheduledAtISO,
+                                photographer_ids: viewShootPhotographers, notes: combinedNotes,
+                              }),
+                            });
+                            if (res.ok) {
+                              setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? {
+                                ...s,
+                                address: esAddress, property_type: esPropertyType || null,
+                                square_footage: esSqft ? parseInt(esSqft) : null,
+                                services: allSvcs, price: esAutoQuote || viewShoot.price || null,
+                                package_name: pkgName, scheduled_at: scheduledAtISO || s.scheduled_at,
+                                photographer_ids: viewShootPhotographers, notes: combinedNotes || "",
+                              } : s));
+                              setEsSaved(true);
+                              setEsEditing(false);
+                            } else {
+                              const err = await res.json().catch(() => ({}));
+                              alert(`Failed to save: ${err.error || res.status}`);
+                            }
+                          } catch (e) {
+                            alert(`Save error: ${e instanceof Error ? e.message : "Unknown error"}`);
+                          } finally {
+                            setEsSaving(false);
+                          }
+                        }}
+                        disabled={esSaving}
+                        className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                        {esSaving ? "Saving..." : esSaved ? "Saved ✓" : "Save Changes"}
+                      </button>
+                      <button onClick={() => setEsEditing(false)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Cancel</button>
                     </div>
                   </div>
-                  {/* Property Access */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Access</p>
-                    <input value={esAccess} onChange={e => { setEsAccess(e.target.value); setEsSaved(false); }}
-                      placeholder="Lockbox, Supra, gate code, etc."
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                ) : (
+                  /* ── READ MODE ── */
+                  <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-2 gap-5 text-sm">
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+                        <p>{viewShoot.scheduled_at ? new Date(viewShoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + " · " + new Date(viewShoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "TBD"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
+                        <p className="font-medium">{viewShoot.client_name || <span className="text-[#555] italic">—</span>}</p>
+                        {viewShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{viewShoot.client_email}</p>}
+                      </div>
+                      {viewShoot.property_type && (
+                        <div>
+                          <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Type</p>
+                          <p>{viewShoot.property_type}</p>
+                        </div>
+                      )}
+                      {viewShoot.square_footage && (
+                        <div>
+                          <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Size</p>
+                          <p>{viewShoot.square_footage.toLocaleString()} {["Lot","Land"].includes(viewShoot.property_type || "") ? "acres" : "sq ft"}</p>
+                        </div>
+                      )}
+                      {viewShoot.price && (
+                        <div>
+                          <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Price</p>
+                          <p className="font-semibold text-[#4ade80]">${viewShoot.price.toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+                    {viewShoot.services?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {viewShoot.services.map((svc: string) => (
+                            <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{svc}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {viewShootPhotographers.length > 0 && (
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {photographers.filter(p => viewShootPhotographers.includes(p.id)).map(p => (
+                            <span key={p.id} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{p.name}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {esAccess && (
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Access</p>
+                        <p className="text-sm text-[#aaa]">{esAccess}</p>
+                      </div>
+                    )}
+                    {esNotes && (
+                      <div>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                        <p className="text-sm text-[#888]">{esNotes}</p>
+                      </div>
+                    )}
+                    <div className="pt-2">
+                      <button onClick={() => { setViewShoot(null); setEsEditing(false); }} className="w-full py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
+                    </div>
                   </div>
-                  {/* Notes */}
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
-                    <textarea value={esNotes} onChange={e => { setEsNotes(e.target.value); setEsSaved(false); }} rows={3}
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30 resize-none" />
-                  </div>
-                  {/* Actions */}
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={async () => {
-                        if (!viewShoot) return;
-                        setEsSaving(true);
-                        try {
-                          const allSvcs = [...esServices, ...esAddons];
-                          const pkgName = allSvcs.length === 1 ? allSvcs[0] : allSvcs.length > 1 ? allSvcs.join(" + ") : null;
-                          const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
-                          // Convert local datetime-local value back to ISO for storage
-                          const scheduledAtISO = esDatetime ? new Date(esDatetime).toISOString() : null;
-                          const res = await fetch("/api/admin/shoots", {
-                            method: "PATCH", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              id: viewShoot.id,
-                              status: viewShoot.status,
-                              address: esAddress,
-                              property_type: esPropertyType || null,
-                              square_footage: esSqft ? parseInt(esSqft) : null,
-                              services: allSvcs,
-                              price: esAutoQuote || viewShoot.price || null,
-                              package_name: pkgName,
-                              scheduled_at: scheduledAtISO,
-                              photographer_ids: viewShootPhotographers,
-                              notes: combinedNotes,
-                            }),
-                          });
-                          if (res.ok) {
-                            setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? {
-                              ...s,
-                              address: esAddress, property_type: esPropertyType || null,
-                              square_footage: esSqft ? parseInt(esSqft) : null,
-                              services: allSvcs, price: esAutoQuote || viewShoot.price || null,
-                              package_name: pkgName, scheduled_at: scheduledAtISO || s.scheduled_at,
-                              photographer_ids: viewShootPhotographers, notes: combinedNotes || "",
-                            } : s));
-                            setEsSaved(true);
-                          } else {
-                            const err = await res.json().catch(() => ({}));
-                            alert(`Failed to save: ${err.error || res.status}`);
-                          }
-                        } catch (e) {
-                          alert(`Save error: ${e instanceof Error ? e.message : "Unknown error"}`);
-                        } finally {
-                          setEsSaving(false);
-                        }
-                      }}
-                      disabled={esSaving}
-                      className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
-                      {esSaving ? "Saving..." : esSaved ? "Saved ✓" : "Save Changes"}
-                    </button>
-                    <button onClick={() => setViewShoot(null)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
