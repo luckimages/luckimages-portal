@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   const query = supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, status, photographer_ids, price, package_name")
+    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type")
     .order("scheduled_at", { ascending: false });
 
   if (full) { /* no filter — return all */ }
@@ -54,9 +54,17 @@ export async function GET(req: Request) {
     }
   }
 
+  // Also resolve contact names for contact_id-based shoots
+  const contactIds = [...new Set((shoots ?? []).map(s => s.contact_id).filter(Boolean))];
+  const contactNameMap: Record<string, string> = {};
+  if (contactIds.length > 0) {
+    const { data: contacts } = await supabase.from("contacts").select("id, name").in("id", contactIds);
+    for (const c of contacts ?? []) contactNameMap[c.id] = c.name;
+  }
+
   const result = (shoots ?? []).map(s => ({
     ...s,
-    client_name: nameMap[s.client_id] || emailMap[s.client_id] || s.client_id,
+    client_name: contactNameMap[s.contact_id] || nameMap[s.client_id] || emailMap[s.client_id] || "",
     client_email: emailMap[s.client_id] || "",
     photographer_ids: s.photographer_ids || [],
   }));
@@ -69,7 +77,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name } = await req.json();
+  const { address, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name, property_type } = await req.json();
   if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
 
   const db = service();
@@ -97,6 +105,7 @@ export async function POST(req: Request) {
     status: insertStatus,
     price: price || null,
     package_name: package_name || null,
+    property_type: property_type || null,
   };
 
   const { data, error } = await db.from("shoots").insert(payload).select().single();
@@ -146,7 +155,7 @@ export async function PATCH(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { id, status, photographer_ids, price, package_name, contact_id } = await req.json();
+  const { id, status, photographer_ids, price, package_name, contact_id, address, scheduled_at, services, notes, square_footage, property_type } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
@@ -168,6 +177,12 @@ export async function PATCH(req: Request) {
   if (price !== undefined) updatePayload.price = price;
   if (package_name !== undefined) updatePayload.package_name = package_name;
   if (contact_id !== undefined) updatePayload.contact_id = contact_id;
+  if (address !== undefined) updatePayload.address = address;
+  if (scheduled_at !== undefined) updatePayload.scheduled_at = scheduled_at;
+  if (services !== undefined) updatePayload.services = services;
+  if (notes !== undefined) updatePayload.notes = notes;
+  if (square_footage !== undefined) updatePayload.square_footage = square_footage;
+  if (property_type !== undefined) updatePayload.property_type = property_type;
 
   const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
 

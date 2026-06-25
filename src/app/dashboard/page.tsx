@@ -442,6 +442,18 @@ export default function DashboardPage() {
   const [viewShootPhotographers, setViewShootPhotographers] = useState<string[]>([]);
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [assignSaved, setAssignSaved] = useState(false);
+
+  // Edit shoot modal state
+  const [esAddress, setEsAddress] = useState("");
+  const [esPropertyType, setEsPropertyType] = useState("");
+  const [esSqft, setEsSqft] = useState("");
+  const [esServices, setEsServices] = useState<string[]>([]);
+  const [esAddons, setEsAddons] = useState<string[]>([]);
+  const [esDatetime, setEsDatetime] = useState("");
+  const [esAccess, setEsAccess] = useState("");
+  const [esNotes, setEsNotes] = useState("");
+  const [esSaving, setEsSaving] = useState(false);
+  const [esSaved, setEsSaved] = useState(false);
   const [callsExpanded, setCallsExpanded] = useState(false);
 
   // Create shoot modal state
@@ -512,6 +524,31 @@ export default function DashboardPage() {
     });
   }
   function csTogglePhotographer(id: string) { setCsPhotographers(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]); }
+
+  const ES_SIZE_UNIT = ["Lot","Land"].includes(esPropertyType) ? "acres" : "sqft";
+  const esActiveAddons = CS_ADDONS.filter(a => esServices.includes(a.requires));
+  const esAutoQuote = (() => {
+    if (esServices.length === 0) return 0;
+    let total = esServices.reduce((sum, s) => sum + (CS_SERVICE_PRICES[s] || 0), 0);
+    total += CS_ADDONS.filter(a => esAddons.includes(a.label)).reduce((sum, a) => sum + a.price, 0);
+    const sqft = parseInt(esSqft) || 0;
+    if (esServices.includes("HDR Photography") && sqft > 0 && ES_SIZE_UNIT === "sqft") {
+      if (sqft > 4500) total += 100;
+      else if (sqft > 3000) total += 50;
+      else if (sqft > 2000) total += 25;
+    }
+    return total;
+  })();
+  function esToggleService(s: string) {
+    setEsServices(p => {
+      const next = p.includes(s) ? p.filter(x => x !== s) : [...p, s];
+      if (p.includes(s)) {
+        const orphaned = CS_ADDONS.filter(a => a.requires === s).map(a => a.label);
+        if (orphaned.length) setEsAddons(prev => prev.filter(a => !orphaned.includes(a)));
+      }
+      return next;
+    });
+  }
   function csSearchContacts(q: string) {
     setCsClientSearch(q);
     if (!q.trim()) { setCsClientResults([]); return; }
@@ -620,7 +657,7 @@ export default function DashboardPage() {
   const [realtors, setRealtors] = useState<Realtor[]>([]);
   const [realtorTab, setRealtorTab] = useState<"all" | "new">("all");
 
-  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[]; price: number | null; package_name: string | null; contact_id: string | null };
+  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[]; price: number | null; package_name: string | null; contact_id: string | null; property_type: string | null };
   const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
 
   // Shoot-derived live stats — update instantly when a shoot is created/completed
@@ -773,7 +810,28 @@ export default function DashboardPage() {
                       onClick={() => {
                         const pending = pendingShoots.find(p => p.id === shoot.id);
                         if (pending) setSelectedShoot(pending);
-                        else { setViewShoot(shoot); setViewShootPhotographers(shoot.photographer_ids || []); setAssignSaved(false); }
+                        else {
+                          setViewShoot(shoot);
+                          setViewShootPhotographers(shoot.photographer_ids || []);
+                          setAssignSaved(false);
+                          setEsSaved(false);
+                          setEsAddress(shoot.address || "");
+                          setEsPropertyType(shoot.property_type || "");
+                          setEsSqft(shoot.square_footage ? String(shoot.square_footage) : "");
+                          const addonLabels = CS_ADDONS.map(a => a.label);
+                          setEsServices((shoot.services || []).filter((s: string) => !!CS_SERVICE_PRICES[s]));
+                          setEsAddons((shoot.services || []).filter((s: string) => addonLabels.includes(s)));
+                          setEsDatetime(shoot.scheduled_at || "");
+                          const notesStr = shoot.notes || "";
+                          const accessMatch = notesStr.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
+                          if (accessMatch) {
+                            setEsAccess(accessMatch[1] || "");
+                            setEsNotes((accessMatch[2] || "").replace(/^\n\n/, "").trim());
+                          } else {
+                            setEsAccess("");
+                            setEsNotes(notesStr);
+                          }
+                        }
                       }}
                       className={`text-xs p-2 rounded-sm leading-tight cursor-pointer transition-colors ${
                         shoot.status === "pending"
@@ -803,85 +861,155 @@ export default function DashboardPage() {
           {viewShoot && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setViewShoot(null)}>
               <div className="absolute inset-0 bg-black/70" />
-              <div className="relative bg-[#141414] border border-[#4ade80]/20 w-full max-w-lg p-6 space-y-5" onClick={e => e.stopPropagation()}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">Scheduled Shoot</p>
-                    </div>
-                    <p className="text-base font-semibold">{viewShoot.address}</p>
+              <div className="relative bg-[#141414] border border-[#4ade80]/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
+                    <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">Edit Shoot</p>
                   </div>
                   <button onClick={() => setViewShoot(null)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="p-6 space-y-5">
+                  {/* Realtor */}
                   <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
-                    <p>{viewShoot.scheduled_at ? new Date(viewShoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + " · " + new Date(viewShoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "TBD"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Client</p>
-                    <p className="font-medium">{viewShoot.client_name || "—"}</p>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
+                    <p className="text-sm font-medium">{viewShoot.client_name || <span className="text-[#555] italic">No contact linked</span>}</p>
                     {viewShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{viewShoot.client_email}</p>}
                   </div>
-                  {viewShoot.services?.length > 0 && (
-                    <div className="col-span-2">
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {viewShoot.services.map((svc: string) => (
-                          <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{svc}</span>
+                  {/* Address */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Listing Address</p>
+                    <input value={esAddress} onChange={e => { setEsAddress(e.target.value); setEsSaved(false); }}
+                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                  </div>
+                  {/* Property Type */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Property Type</p>
+                    <div className="flex flex-wrap gap-2">
+                      {CS_PROPERTY_TYPES.map(t => (
+                        <button key={t} type="button" onClick={() => { setEsPropertyType(t === esPropertyType ? "" : t); setEsSqft(""); setEsSaved(false); }}
+                          className={`text-xs px-3 py-1.5 border transition-colors ${esPropertyType === t ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Size */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Size ({ES_SIZE_UNIT})</p>
+                    <input type="number" value={esSqft} onChange={e => { setEsSqft(e.target.value); setEsSaved(false); }}
+                      placeholder={`Enter ${ES_SIZE_UNIT}`}
+                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                  </div>
+                  {/* Services */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {CS_SERVICES.map(svc => (
+                        <button key={svc} type="button" onClick={() => { esToggleService(svc); setEsSaved(false); }}
+                          className={`text-xs px-3 py-1.5 border transition-colors ${esServices.includes(svc) ? "border-[#4ade80]/60 text-[#4ade80] bg-[#4ade80]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                          {svc} <span className="ml-1.5 text-[#555]">${CS_SERVICE_PRICES[svc]}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {esActiveAddons.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-white/5">
+                        <p className="w-full text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Add-ons</p>
+                        {esActiveAddons.map(addon => (
+                          <button key={addon.label} type="button" onClick={() => { setEsAddons(p => p.includes(addon.label) ? p.filter(x => x !== addon.label) : [...p, addon.label]); setEsSaved(false); }}
+                            className={`text-xs px-3 py-1.5 border transition-colors ${esAddons.includes(addon.label) ? "border-[#fbbf24]/60 text-[#fbbf24] bg-[#fbbf24]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                            + {addon.label} <span className="ml-1.5 text-[#555]">${addon.price}</span>
+                          </button>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  {viewShoot.square_footage && (
-                    <div>
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
-                      <p>{viewShoot.square_footage?.toLocaleString()}</p>
-                    </div>
-                  )}
-                  {viewShoot.notes && (
-                    <div className="col-span-2">
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
-                      <p className="text-[#888] text-xs">{viewShoot.notes}</p>
-                    </div>
-                  )}
-                </div>
-                {/* Photographer assignment */}
-                <div>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Assigned Photographer(s)</p>
-                  {photographers.length === 0 ? (
-                    <p className="text-xs text-[#444] italic">No photographers in system yet.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    )}
+                    {esAutoQuote > 0 && (
+                      <p className="mt-2 text-sm text-white font-semibold">Quote: ${esAutoQuote.toLocaleString()}</p>
+                    )}
+                  </div>
+                  {/* Date & Time */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+                    <input type="datetime-local" value={esDatetime} onChange={e => { setEsDatetime(e.target.value); setEsSaved(false); }}
+                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                  </div>
+                  {/* Photographers */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+                    <div className="flex flex-wrap gap-2">
                       {photographers.map(p => {
                         const assigned = viewShootPhotographers.includes(p.id);
                         return (
                           <button key={p.id} type="button"
-                            onClick={() => { setAssignSaved(false); setViewShootPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
+                            onClick={() => { setEsSaved(false); setViewShootPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
                             className={`text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
                             {p.name}
                           </button>
                         );
                       })}
                     </div>
-                  )}
-                  <button
-                    onClick={async () => {
-                      if (!viewShoot) return;
-                      setSavingAssignment(true);
-                      await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: viewShoot.id, status: viewShoot.status, photographer_ids: viewShootPhotographers }) });
-                      setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? { ...s, photographer_ids: viewShootPhotographers } : s));
-                      setSavingAssignment(false); setAssignSaved(true);
-                    }}
-                    disabled={savingAssignment}
-                    className="w-full py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
-                    {savingAssignment ? "Saving..." : assignSaved ? "Saved ✓" : "Save Assignment"}
-                  </button>
-                </div>
-                <div className="flex gap-3">
-                  <a href="/admin/shoots" className="flex-1 text-center text-xs tracking-[2px] uppercase border border-white/10 text-[#888] px-4 py-2.5 hover:border-white/30 hover:text-white transition-colors">Manage Shoots →</a>
-                  <button onClick={() => setViewShoot(null)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
+                  </div>
+                  {/* Property Access */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Access</p>
+                    <input value={esAccess} onChange={e => { setEsAccess(e.target.value); setEsSaved(false); }}
+                      placeholder="Lockbox, Supra, gate code, etc."
+                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+                  </div>
+                  {/* Notes */}
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                    <textarea value={esNotes} onChange={e => { setEsNotes(e.target.value); setEsSaved(false); }} rows={3}
+                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30 resize-none" />
+                  </div>
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={async () => {
+                        if (!viewShoot) return;
+                        setEsSaving(true);
+                        const allSvcs = [...esServices, ...esAddons];
+                        const pkgName = allSvcs.length === 1 ? allSvcs[0] : allSvcs.length > 1 ? allSvcs.join(" + ") : null;
+                        const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
+                        const res = await fetch("/api/admin/shoots", {
+                          method: "PATCH", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            id: viewShoot.id,
+                            status: viewShoot.status,
+                            address: esAddress,
+                            property_type: esPropertyType || null,
+                            square_footage: esSqft ? parseInt(esSqft) : null,
+                            services: allSvcs,
+                            price: esAutoQuote || viewShoot.price || null,
+                            package_name: pkgName,
+                            scheduled_at: esDatetime || null,
+                            photographer_ids: viewShootPhotographers,
+                            notes: combinedNotes,
+                          }),
+                        });
+                        if (res.ok) {
+                          setAllShoots(prev => prev.map(s => s.id === viewShoot.id ? {
+                            ...s,
+                            address: esAddress, property_type: esPropertyType || null,
+                            square_footage: esSqft ? parseInt(esSqft) : null,
+                            services: allSvcs, price: esAutoQuote || viewShoot.price || null,
+                            package_name: pkgName, scheduled_at: esDatetime || s.scheduled_at,
+                            photographer_ids: viewShootPhotographers, notes: combinedNotes || "",
+                          } : s));
+                          setEsSaved(true);
+                        } else {
+                          const err = await res.json().catch(() => ({}));
+                          alert(`Failed to save: ${err.error || res.status}`);
+                        }
+                        setEsSaving(false);
+                      }}
+                      disabled={esSaving}
+                      className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                      {esSaving ? "Saving..." : esSaved ? "Saved ✓" : "Save Changes"}
+                    </button>
+                    <button onClick={() => setViewShoot(null)} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
+                  </div>
                 </div>
               </div>
             </div>
