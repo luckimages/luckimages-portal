@@ -562,7 +562,11 @@ export default function DashboardPage() {
         notes: [csAccess ? `ACCESS: ${csAccess}` : "", csNotes].filter(Boolean).join("\n\n") || null,
       }),
     });
-    if (!res.ok) { setCsSaving(false); return; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed to book shoot: ${err.error || res.status}`);
+      setCsSaving(false); return;
+    }
     await refreshShoots();
     setCsSaving(false);
     csReset();
