@@ -451,6 +451,7 @@ export default function DashboardPage() {
   const [csServices, setCsServices] = useState<string[]>([]);
   const [csNotes, setCsNotes] = useState("");
   const [csAccess, setCsAccess] = useState("");
+  const [csAddons, setCsAddons] = useState<string[]>([]);
   const [csSqft, setCsSqft] = useState("");
   const [csPropertyType, setCsPropertyType] = useState("");
   const [csClientSearch, setCsClientSearch] = useState("");
@@ -479,12 +480,18 @@ export default function DashboardPage() {
     "Twilight Photography": 250,
     "Headshots / Agent Photos": 150,
   };
+  // Add-ons: only shown when a parent service is selected
+  const CS_ADDONS: { label: string; price: number; requires: string }[] = [
+    { label: "Drone Reel", price: 100, requires: "Aerial / Drone" },
+  ];
   const CS_SERVICES = Object.keys(CS_SERVICE_PRICES);
+  const csActiveAddons = CS_ADDONS.filter(a => csServices.includes(a.requires));
 
-  // Auto-quote: sum of service prices + sqft surcharge on photography
+  // Auto-quote: sum of service prices + add-ons + sqft surcharge on photography
   const csAutoQuote = (() => {
     if (csServices.length === 0) return 0;
     let total = csServices.reduce((sum, s) => sum + (CS_SERVICE_PRICES[s] || 0), 0);
+    total += CS_ADDONS.filter(a => csAddons.includes(a.label)).reduce((sum, a) => sum + a.price, 0);
     const sqft = parseInt(csSqft) || 0;
     if (csServices.includes("HDR Photography") && sqft > 0 && CS_SIZE_UNIT === "sqft") {
       if (sqft > 4500) total += 100;
@@ -494,7 +501,17 @@ export default function DashboardPage() {
     return total;
   })();
 
-  function csToggleService(s: string) { setCsServices(p => p.includes(s) ? p.filter(x=>x!==s) : [...p,s]); }
+  function csToggleService(s: string) {
+    setCsServices(p => {
+      const next = p.includes(s) ? p.filter(x => x !== s) : [...p, s];
+      // Remove add-ons whose parent was just deselected
+      if (p.includes(s)) {
+        const orphaned = CS_ADDONS.filter(a => a.requires === s).map(a => a.label);
+        if (orphaned.length) setCsAddons(prev => prev.filter(a => !orphaned.includes(a)));
+      }
+      return next;
+    });
+  }
   function csTogglePhotographer(id: string) { setCsPhotographers(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]); }
   function csSearchContacts(q: string) {
     setCsClientSearch(q);
@@ -526,7 +543,7 @@ export default function DashboardPage() {
   }
 
   function csReset() {
-    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsNotes(""); setCsSqft(""); setCsAccess("");
+    setCsAddress(""); setCsDateTime(""); setCsServices([]); setCsAddons([]); setCsNotes(""); setCsSqft(""); setCsAccess("");
     setCsPropertyType(""); setCsClient(null); setCsClientSearch(""); setCsPhotographers([]);
     setCsCreateNew(false); setCsNewName(""); setCsNewPhone(""); setCsNewEmail(""); setCsNewBrokerage("");
   }
@@ -534,11 +551,12 @@ export default function DashboardPage() {
   async function createShootFromDashboard() {
     if (!csAddress.trim()) return;
     setCsSaving(true); setCsInviteLink("");
-    const packageName = csServices.length === 1 ? csServices[0] : csServices.length > 1 ? csServices.join(" + ") : null;
+    const allSelected = [...csServices, ...csAddons];
+    const packageName = allSelected.length === 1 ? allSelected[0] : allSelected.length > 1 ? allSelected.join(" + ") : null;
     const res = await fetch("/api/admin/shoots", {
       method: "POST", headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
-        address: csAddress, scheduled_at: csDateTime||null, services: csServices,
+        address: csAddress, scheduled_at: csDateTime||null, services: allSelected,
         square_footage: csSqft ? parseInt(csSqft) : null,
         contact_id: csClient?.id||null, photographer_ids: csPhotographers, status: "scheduled",
         price: csAutoQuote || null, package_name: packageName,
@@ -715,7 +733,7 @@ export default function DashboardPage() {
               Schedule
             </p>
             <div className="flex items-center gap-3 flex-shrink-0">
-              <button onClick={() => setCreateShootOpen(true)} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 hover:border-white/30 px-3 py-1">+ New Shoot</button>
+              <button onClick={() => setCreateShootOpen(true)} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 hover:border-white/30 px-3 py-1">+ Book Shoot</button>
               <button onClick={() => setCalWeekOffset(o => o - 1)} className="text-[#555] hover:text-white transition-colors px-2 py-1 text-sm">←</button>
               <span className="text-xs tracking-[2px] uppercase text-[#666]">{weekLabel}</span>
               <button onClick={() => setCalWeekOffset(o => o + 1)} className="text-[#555] hover:text-white transition-colors px-2 py-1 text-sm">→</button>
@@ -970,7 +988,7 @@ export default function DashboardPage() {
               <div className="absolute inset-0 bg-black/80" />
               <div className="relative bg-[#141414] border border-white/15 w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="sticky top-0 bg-[#141414] border-b border-white/10 px-6 py-4 flex items-center justify-between z-10">
-                  <p className="text-xs tracking-[3px] uppercase font-semibold">New Shoot</p>
+                  <p className="text-xs tracking-[3px] uppercase font-semibold">Book Shoot</p>
                   <button onClick={() => setCreateShootOpen(false)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
                 </div>
 
@@ -1100,8 +1118,23 @@ export default function DashboardPage() {
                           </button>
                         ))}
                       </div>
+                      {csActiveAddons.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/5">
+                          <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-2">Add-ons</p>
+                          <div className="flex flex-wrap gap-2">
+                            {csActiveAddons.map(addon => (
+                              <button key={addon.label} type="button"
+                                onClick={() => setCsAddons(p => p.includes(addon.label) ? p.filter(x => x !== addon.label) : [...p, addon.label])}
+                                className={`text-xs px-3 py-1.5 border transition-colors ${csAddons.includes(addon.label) ? "border-[#fbbf24]/60 text-[#fbbf24] bg-[#fbbf24]/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                                {addon.label}
+                                <span className="ml-1.5 text-[#555]">+${addon.price}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {csAutoQuote > 0 && (
-                        <p className="text-[10px] text-[#444] mt-2">Quote is a starting estimate — adjust in the shoot details after saving.</p>
+                        <p className="text-[10px] text-[#444] mt-2">Quote is a starting estimate — adjust in the shoot details after booking.</p>
                       )}
                     </div>
 
@@ -1144,7 +1177,7 @@ export default function DashboardPage() {
 
                     <button onClick={createShootFromDashboard} disabled={!csAddress.trim() || csSaving}
                       className="w-full py-4 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors disabled:opacity-30">
-                      {csSaving ? "Creating..." : csAutoQuote > 0 ? `Create Shoot — $${csAutoQuote.toLocaleString()} Quote` : "Create Shoot + Add to Calendar"}
+                      {csSaving ? "Booking..." : csAutoQuote > 0 ? `Book Shoot — $${csAutoQuote.toLocaleString()} Quote` : "Book Shoot + Add to Calendar"}
                     </button>
                   </div>
                 )}
