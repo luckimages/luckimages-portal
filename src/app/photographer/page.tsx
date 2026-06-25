@@ -28,6 +28,11 @@ export default function PhotographerPage() {
   const [uploadStatus, setUploadStatus] = useState("");
   const [advancingId, setAdvancingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Inline upload state per tracker card
+  const [uploadingCardId, setUploadingCardId] = useState<string | null>(null);
+  const [cardUploading, setCardUploading] = useState(false);
+  const [cardUploadCount, setCardUploadCount] = useState<Record<string, number>>({}); // shootId → uploaded count
+  const cardFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -43,6 +48,16 @@ export default function PhotographerPage() {
       ]);
       setShoots(shootData || []);
       setPayStubs(payData || []);
+      // Load media counts for editing-stage shoots
+      const editingShoots = (shootData || []).filter(s => s.status === "editing");
+      if (editingShoots.length > 0) {
+        const counts: Record<string, number> = {};
+        await Promise.all(editingShoots.map(async s => {
+          const { count } = await supabase.from("media").select("id", { count: "exact", head: true }).eq("shoot_id", s.id);
+          counts[s.id] = count || 0;
+        }));
+        setCardUploadCount(counts);
+      }
     });
   }, [router]);
 
@@ -85,6 +100,23 @@ export default function PhotographerPage() {
     });
     setShoots(prev => prev.map(s => s.id === shoot.id ? { ...s, status: nextStatus } : s));
     setAdvancingId(null);
+  }
+
+  async function uploadCardFiles(e: React.ChangeEvent<HTMLInputElement>, shootId: string) {
+    if (!e.target.files?.length) return;
+    setCardUploading(true);
+    const files = Array.from(e.target.files);
+    let ok = 0;
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("shoot_id", shootId);
+      fd.append("file", file);
+      const res = await fetch("/api/photographer/upload", { method: "POST", body: fd });
+      if (res.ok) ok++;
+    }
+    setCardUploading(false);
+    setCardUploadCount(prev => ({ ...prev, [shootId]: (prev[shootId] || 0) + ok }));
+    if (cardFileRef.current) cardFileRef.current.value = "";
   }
 
   function signOut() {
@@ -197,7 +229,37 @@ export default function PhotographerPage() {
                             );
                           })}
                         </div>
-                        {nextStage && (
+                        {/* For editing stage: inline upload → confirm delivery flow */}
+                        {s.status === "editing" ? (
+                          <div className="flex flex-col gap-3">
+                            {uploadingCardId === s.id ? (
+                              <div className="border border-white/10 border-dashed p-4">
+                                <label className="flex flex-col items-center gap-2 cursor-pointer">
+                                  <span className="text-xl">↑</span>
+                                  <span className="text-xs text-[#888]">{cardUploading ? "Uploading..." : "Click to select files"}</span>
+                                  <span className="text-[10px] text-[#444]">JPG, PNG, MP4, DNG</span>
+                                  <input ref={cardFileRef} type="file" multiple accept="image/*,video/*" className="hidden" disabled={cardUploading}
+                                    onChange={e => uploadCardFiles(e, s.id)} />
+                                </label>
+                                {(cardUploadCount[s.id] || 0) > 0 && (
+                                  <p className="text-center text-xs text-[#4ade80] mt-2">{cardUploadCount[s.id]} file(s) uploaded</p>
+                                )}
+                              </div>
+                            ) : null}
+                            <div className="flex gap-2">
+                              <button onClick={() => setUploadingCardId(uploadingCardId === s.id ? null : s.id)}
+                                className="flex-1 text-xs tracking-[2px] uppercase border border-white/20 text-white py-2.5 hover:bg-white/5 transition-colors">
+                                {uploadingCardId === s.id ? "Done Adding Files" : `Upload Media${(cardUploadCount[s.id] || 0) > 0 ? ` (${cardUploadCount[s.id]})` : ""}`}
+                              </button>
+                              {(cardUploadCount[s.id] || 0) > 0 && (
+                                <button onClick={() => advanceStatus(s)} disabled={advancingId === s.id}
+                                  className="flex-1 text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
+                                  {advancingId === s.id ? "Confirming..." : "Confirm Delivery ✓"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : nextStage ? (
                           <button
                             onClick={() => advanceStatus(s)}
                             disabled={advancingId === s.id}
@@ -205,12 +267,11 @@ export default function PhotographerPage() {
                           >
                             {advancingId === s.id ? "Updating..." : `Mark as ${nextStage.label} →`}
                           </button>
-                        )}
-                        {isLast && (
+                        ) : isLast ? (
                           <div className="text-center py-2">
                             <span className="text-xs tracking-[2px] uppercase text-[#4ade80]">✓ Delivered</span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })}
