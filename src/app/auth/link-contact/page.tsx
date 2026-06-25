@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-export default function LinkContactPage() {
+function LinkContactInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const contactId = searchParams.get("contact_id");
@@ -16,20 +17,11 @@ export default function LinkContactPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace("/login"); return; }
 
-      if (contactId) {
-        await fetch("/api/auth/link-contact", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactId, userId: user.id }),
-        });
-      } else {
-        // Try to link by email match
-        await fetch("/api/auth/link-contact", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: user.email, userId: user.id }),
-        });
-      }
+      await fetch("/api/auth/link-contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: contactId || null, email: user.email, userId: user.id }),
+      });
 
       setStatus("done");
       setTimeout(() => router.replace("/client"), 1200);
@@ -40,11 +32,7 @@ export default function LinkContactPage() {
   return (
     <div className="min-h-screen bg-[#0c0c0c] flex items-center justify-center">
       <div className="text-center space-y-3">
-        {status === "linking" && (
-          <>
-            <p className="text-xs tracking-[3px] uppercase text-[#555]">Setting up your account...</p>
-          </>
-        )}
+        {status === "linking" && <p className="text-xs tracking-[3px] uppercase text-[#555]">Setting up your account...</p>}
         {status === "done" && (
           <>
             <p className="text-xs tracking-[3px] uppercase text-[#4ade80]">Account linked</p>
@@ -52,14 +40,23 @@ export default function LinkContactPage() {
           </>
         )}
         {status === "error" && (
-          <>
-            <p className="text-xs tracking-[3px] uppercase text-red-400">Something went wrong</p>
-            <button onClick={() => router.replace("/client")} className="text-xs text-[#555] hover:text-white">
-              Continue to portal →
-            </button>
-          </>
+          <button onClick={() => router.replace("/client")} className="text-xs text-[#555] hover:text-white">
+            Continue to portal →
+          </button>
         )}
       </div>
     </div>
+  );
+}
+
+export default function LinkContactPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0c0c0c] flex items-center justify-center">
+        <p className="text-xs tracking-[3px] uppercase text-[#555]">Loading...</p>
+      </div>
+    }>
+      <LinkContactInner />
+    </Suspense>
   );
 }
