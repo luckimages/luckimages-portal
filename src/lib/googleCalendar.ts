@@ -31,13 +31,10 @@ export async function createShootEvent({
   const start = new Date(scheduledAt);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2hr block
 
-  // Event is created on ryan@luckimages.com — he's the organizer, not an attendee
+  // Internal only — no client invites until portal goes live
   const attendees: { email: string; displayName?: string }[] = [
     { email: "leif@luckimages.com", displayName: "Leif" },
   ];
-  if (clientEmail) {
-    attendees.push({ email: clientEmail, displayName: clientName || undefined });
-  }
 
   const serviceList = services?.length ? services.join(", ") : "Shoot";
   const description = [
@@ -52,7 +49,7 @@ export async function createShootEvent({
 
   const event = await calendar.events.insert({
     calendarId: "ryan@luckimages.com",
-    sendUpdates: "all", // sends email invites to attendees
+    sendUpdates: "none", // no email invites until portal goes live
     requestBody: {
       summary: `📸 ${serviceList} — ${address}`,
       location: address,
