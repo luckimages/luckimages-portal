@@ -51,7 +51,7 @@ function ContactsPageInner() {
   const loadContacts = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").select("id, name, email, phone, brokerage, stage, notes, is_hot, user_id, created_at").order("created_at", { ascending: false });
+    const { data } = await supabase.from("contacts").select("id, name, email, phone, brokerage, stage, notes, is_hot, user_id, created_at").order("name", { ascending: true });
     setContacts(data || []);
     setLoading(false);
   }, []);
