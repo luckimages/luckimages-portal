@@ -917,7 +917,7 @@ export default function DashboardPage() {
                       <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{viewShoot.status.replace(/_/g," ")}</p>
                     </div>
                     <p className="text-sm font-semibold">{viewShoot.address}</p>
-                    {!["pending", "cancelled"].includes(viewShoot.status) && (
+                    {!["pending", "cancelled", "delivered", "completed"].includes(viewShoot.status) && (
                       <ShootTracker status={viewShoot.status} />
                     )}
                   </div>
@@ -1920,21 +1920,20 @@ export default function DashboardPage() {
                     }}
                   />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <p className="font-semibold text-sm">{emp.name}</p>
-                    <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">Luck Images</span>
-                  </div>
-                  {emp.brokerage && (
-                    <p className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] mb-1">{emp.brokerage}</p>
-                  )}
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="font-bold text-base leading-tight mb-1">{emp.name}</p>
+                  <p className="text-[10px] tracking-[2px] uppercase mb-3">
+                    <span className="text-[#fbbf24]">{emp.brokerage || "Photographer"}</span>
+                    <span className="text-white/20 mx-1.5">·</span>
+                    <span className="text-[#60a5fa]">Luck Images</span>
+                  </p>
                   {emp.phone && (
-                    <a href={`tel:${emp.phone}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#4ade80] font-mono mb-0.5 hover:underline">
+                    <a href={`tel:${emp.phone}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#888] font-mono mb-1 hover:text-white transition-colors">
                       {emp.phone}
                     </a>
                   )}
                   {emp.email && (
-                    <a href={`mailto:${emp.email}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#666] hover:text-white transition-colors truncate">
+                    <a href={`mailto:${emp.email}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#555] hover:text-white transition-colors truncate">
                       {emp.email}
                     </a>
                   )}
