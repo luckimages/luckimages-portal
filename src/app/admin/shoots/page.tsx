@@ -102,6 +102,7 @@ export default function ShootsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterMonth, setFilterMonth] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "month">("cards");
+  const [statPeriod, setStatPeriod] = useState<"ytd" | "mtd">("ytd");
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
   });
@@ -147,19 +148,12 @@ export default function ShootsPage() {
   // Stats
   const thisYear = new Date().getFullYear().toString();
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const completedShoots = shoots.filter(s => s.status === "completed");
-  const totalRevenue = completedShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
-  const avgPrice = completedShoots.length > 0 ? Math.round(totalRevenue / completedShoots.length) : 0;
-  const thisMonthRevenue = shoots.filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price).reduce((sum, s) => sum + (s.price || 0), 0);
-  const thisMonthCount = shoots.filter(s => s.scheduled_at?.startsWith(thisMonth) && s.status !== "cancelled").length;
-  const ytdShoots = completedShoots.filter(s => (s.scheduled_at || "").startsWith(thisYear));
-  const serviceCounts = SERVICE_BUCKETS.map(b => ({
-    label: b.label,
-    count: ytdShoots.filter(s => {
-      const pkg = s.package_name || s.services?.join(" ") || "";
-      return b.match(pkg);
-    }).length,
-  }));
+  const ytdShoots = shoots.filter(s => (s.scheduled_at || "").startsWith(thisYear) && s.status !== "cancelled");
+  const mtdShoots = shoots.filter(s => (s.scheduled_at || "").startsWith(thisMonth) && s.status !== "cancelled");
+  const ytdRevenue = ytdShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+  const mtdRevenue = mtdShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+  const displayShoots = statPeriod === "ytd" ? ytdShoots.length : mtdShoots.length;
+  const displayRevenue = statPeriod === "ytd" ? ytdRevenue : mtdRevenue;
 
   // Filtering
   const filtered = shoots.filter(s => {
@@ -356,52 +350,28 @@ export default function ShootsPage() {
       <div className="max-w-4xl mx-auto px-4 md:px-8 pt-10 pb-6">
         <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Shoot Log</h1>
 
-        {/* Primary stats */}
-        <div className="flex items-end gap-8 flex-wrap mb-6">
+        {/* Stats + period toggle */}
+        <div className="flex items-end gap-10">
           <div>
-            <p className="text-2xl font-bold tabular-nums">{shoots.length}</p>
+            <p className="text-3xl font-bold tabular-nums">{displayShoots}</p>
             <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Shoots</p>
           </div>
-          <div className="w-px h-8 bg-white/10" />
+          <div className="w-px h-10 bg-white/10" />
           <div>
-            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{completedShoots.length}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Completed</p>
+            <p className="text-3xl font-bold tabular-nums text-[#4ade80]">${displayRevenue.toLocaleString()}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Income</p>
           </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">${totalRevenue.toLocaleString()}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Revenue</p>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{thisMonthCount}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">This Month</p>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">${thisMonthRevenue.toLocaleString()}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Revenue This Month</p>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums">${avgPrice.toLocaleString()}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Avg / Shoot</p>
+          <div className="ml-4 flex border border-white/10 overflow-hidden self-end mb-0.5">
+            <button
+              onClick={() => setStatPeriod("ytd")}
+              className={`text-[10px] tracking-[1px] uppercase px-3 py-1.5 transition-colors ${statPeriod === "ytd" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}
+            >YTD</button>
+            <button
+              onClick={() => setStatPeriod("mtd")}
+              className={`text-[10px] tracking-[1px] uppercase px-3 py-1.5 transition-colors ${statPeriod === "mtd" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}
+            >MTD</button>
           </div>
         </div>
-
-        {/* Services YTD */}
-        {serviceCounts.length > 0 && (
-          <div className="flex items-center gap-4 flex-wrap">
-            <span className="text-[10px] tracking-[2px] uppercase text-[#444]">Services YTD</span>
-            {serviceCounts.map((b, i) => (
-              <span key={b.label} className="flex items-center gap-1.5">
-                {i > 0 && <span className="w-px h-3 bg-white/10" />}
-                <span className="text-sm font-bold tabular-nums">{b.count}</span>
-                <span className="text-[10px] tracking-[1px] uppercase text-[#555]">{b.label}</span>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Filters */}
