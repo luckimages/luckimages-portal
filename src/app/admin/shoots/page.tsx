@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
+import ShootGallery from "@/components/ShootGallery";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -98,6 +99,7 @@ export default function ShootsPage() {
   const router = useRouter();
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [photographers, setPhotographers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -134,6 +136,8 @@ export default function ShootsPage() {
     }
     const { data: c } = await supabase.from("contacts").select("id, name, brokerage").order("name");
     setContacts(c || []);
+    const pgRes = await fetch("/api/admin/photographers");
+    if (pgRes.ok) setPhotographers(await pgRes.json());
     setLoading(false);
   }, []);
 
@@ -230,9 +234,12 @@ export default function ShootsPage() {
     const [expanded, setExpanded] = useState(false);
     const clientDisplay = shoot.contact_name || shoot.client_name || shoot.client_email || null;
     const err = statusError[shoot.id];
+    const shootPhotographers = photographers.filter(p => (shoot.photographer_ids || []).includes(p.id));
+    const inProgress = !["pending", "cancelled", "delivered", "completed"].includes(shoot.status);
     return (
-      <div className={`bg-[#111] border border-white/10 hover:border-white/20 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""}`}>
-        <div className="flex items-start justify-between gap-4 p-4">
+      <div className={`bg-[#111] border border-white/10 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""} ${expanded ? "border-white/20" : "hover:border-white/20"}`}>
+        {/* Header — click anywhere to expand */}
+        <div className="flex items-start justify-between gap-4 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{shoot.address}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -256,21 +263,81 @@ export default function ShootsPage() {
                 ))}
               </div>
             )}
-            {!["pending", "cancelled"].includes(shoot.status) && (
-              <ShootTracker status={shoot.status} />
-            )}
+            {inProgress && <ShootTracker status={shoot.status} />}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`text-[10px] tracking-[2px] uppercase px-2 py-1 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status}</span>
-            <button onClick={() => openEdit(shoot)} className="text-[10px] uppercase tracking-[1px] text-[#444] hover:text-white transition-colors px-2">Edit</button>
-            <button onClick={() => setExpanded(e => !e)} className="text-[#555] hover:text-white text-xs transition-colors px-1">{expanded ? "▲" : "▼"}</button>
+            <span className={`text-[10px] tracking-[2px] uppercase px-2 py-1 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status.replace(/_/g, " ")}</span>
+            <button onClick={e => { e.stopPropagation(); openEdit(shoot); }} className="text-[10px] uppercase tracking-[1px] text-[#444] hover:text-white transition-colors px-2">Edit</button>
+            <span className="text-[#555] text-xs px-1 select-none">{expanded ? "▲" : "▼"}</span>
           </div>
         </div>
+
+        {/* Expanded — full info + media */}
         {expanded && (
-          <div className="px-4 pb-4 pt-0 border-t border-white/5 space-y-3 mt-0">
-            {shoot.notes && <p className="text-xs text-[#888] mt-3">{shoot.notes}</p>}
-            {shoot.square_footage && <p className="text-xs text-[#555]">{shoot.square_footage.toLocaleString()} sq ft</p>}
-            <div className="flex gap-2 flex-wrap mt-3">
+          <div className="border-t border-white/5">
+            {/* Info grid */}
+            <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+                <p className="text-[#ccc]">{shoot.scheduled_at ? formatDate(shoot.scheduled_at) : "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
+                {clientDisplay ? (
+                  <span className="flex items-center gap-1.5 text-[#ccc]">
+                    <ContactAvatar contactId={shoot.contact_id} name={clientDisplay} size={20} />
+                    {clientDisplay}
+                  </span>
+                ) : <p className="text-[#444] italic">—</p>}
+              </div>
+              {shoot.price != null && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Price</p>
+                  <p className="text-[#4ade80] font-semibold">${shoot.price.toLocaleString()}</p>
+                </div>
+              )}
+              {shoot.square_footage && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
+                  <p className="text-[#ccc]">{shoot.square_footage.toLocaleString()} sq ft</p>
+                </div>
+              )}
+              {shoot.services?.length > 0 && (
+                <div className="col-span-2 md:col-span-3">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {shoot.services.map(svc => (
+                      <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{svc}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {shootPhotographers.length > 0 && (
+                <div className="col-span-2 md:col-span-3">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {shootPhotographers.map(p => (
+                      <span key={p.id} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{p.name}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {shoot.notes && (
+                <div className="col-span-2 md:col-span-3">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                  <p className="text-[#888] text-xs">{shoot.notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Media gallery */}
+            <div className="px-4 pb-4 border-t border-white/5 pt-4">
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">Media</p>
+              <ShootGallery shootId={shoot.id} services={shoot.services || []} />
+            </div>
+
+            {/* Action buttons */}
+            <div className="px-4 pb-4 flex gap-2 flex-wrap border-t border-white/5 pt-3">
               {shoot.status === "pending" && (
                 <button onClick={() => quickStatus(shoot.id, "scheduled")}
                   className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#4ade80]/10 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/20 transition-colors">
@@ -301,8 +368,8 @@ export default function ShootsPage() {
                   ↩ Reopen
                 </button>
               )}
+              {err && <p className="text-xs text-red-400 self-center">{err}</p>}
             </div>
-            {err && <p className="text-xs text-red-400">{err}</p>}
           </div>
         )}
       </div>
