@@ -111,6 +111,8 @@ export default function ContactProfilePage() {
   const [historyTab, setHistoryTab] = useState<"leads" | "shoots">("leads");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
 
   // Invite
@@ -194,6 +196,14 @@ export default function ContactProfilePage() {
     setEditing(false);
   }
 
+
+  async function deleteContact() {
+    if (!contact) return;
+    setDeleting(true);
+    const supabase = createClient();
+    await supabase.from("contacts").delete().eq("id", contact.id);
+    router.replace("/admin/contacts");
+  }
 
   async function sendInvite() {
     if (!contact?.email || inviting) return;
@@ -612,7 +622,43 @@ export default function ContactProfilePage() {
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
+              <div className="pt-3 border-t border-white/5 mt-1">
+                <button
+                  type="button"
+                  onClick={() => { setEditing(false); setConfirmDelete(true); }}
+                  className="w-full py-2.5 text-xs tracking-[1px] uppercase text-red-500/60 hover:text-red-400 hover:border-red-500/30 border border-transparent transition-all"
+                >
+                  Delete Contact
+                </button>
+              </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(false)}>
+          <div className="bg-[#111] border border-red-500/20 w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-bold tracking-[2px] uppercase mb-2">Delete Contact?</p>
+            <p className="text-xs text-[#666] mb-6">
+              This will permanently delete <span className="text-white font-medium">{contact.name}</span> and all their lead history. This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-3 text-xs tracking-[1px] uppercase border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteContact}
+                disabled={deleting}
+                className="flex-1 py-3 text-xs tracking-[1px] uppercase bg-red-600 text-white font-bold hover:bg-red-500 transition-colors disabled:opacity-40"
+              >
+                {deleting ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}
