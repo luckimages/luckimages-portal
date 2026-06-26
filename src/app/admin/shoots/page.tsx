@@ -318,7 +318,8 @@ export default function ShootsPage() {
 
   const pending = filtered.filter(s => s.status === "pending");
   const scheduled = filtered.filter(s => s.status === "scheduled");
-  const active = filtered.filter(s => ["en_route", "on_site", "wrapping", "editing", "delivered"].includes(s.status));
+  const active = filtered.filter(s => ["en_route", "on_site", "wrapping", "editing"].includes(s.status));
+  const delivered = filtered.filter(s => s.status === "delivered");
   const completed = filtered.filter(s => s.status === "completed");
   const cancelled = filtered.filter(s => s.status === "cancelled");
 
@@ -355,7 +356,7 @@ export default function ShootsPage() {
       )}
 
       {/* Stats bar */}
-      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center gap-6 flex-wrap">
+      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center justify-center gap-6 flex-wrap">
         <div className="flex items-center gap-2">
           <span className="text-xl font-bold tabular-nums">{shoots.length}</span>
           <span className="text-xs tracking-[2px] uppercase text-[#555]">total shoots</span>
@@ -388,7 +389,7 @@ export default function ShootsPage() {
       </div>
 
       {/* Services YTD */}
-      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center gap-1 flex-wrap">
+      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center justify-center gap-1 flex-wrap">
         <span className="text-[10px] tracking-[2px] uppercase text-[#444] mr-3">Services YTD</span>
         {serviceCounts.map((b, i) => (
           <span key={b.label} className="flex items-center gap-1">
@@ -458,7 +459,15 @@ export default function ShootsPage() {
               <div className="space-y-2">{active.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
             </section>
           )}
-          {pending.length === 0 && scheduled.length === 0 && active.length === 0 && (
+          {delivered.length > 0 && (
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Delivered — Awaiting Invoice — {delivered.length}
+              </p>
+              <div className="space-y-2">{delivered.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
+            </section>
+          )}
+          {pending.length === 0 && scheduled.length === 0 && active.length === 0 && delivered.length === 0 && (
             <div className="text-center py-16">
               <p className="text-xs text-[#444] tracking-[3px] uppercase">No active shoots</p>
             </div>
