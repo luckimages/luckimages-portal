@@ -65,6 +65,11 @@ const STATUS_COLORS: Record<string, string> = {
   scheduled: "text-[#60a5fa] bg-[#60a5fa]/10",
   pending: "text-[#fbbf24] bg-[#fbbf24]/10",
   cancelled: "text-[#555] bg-white/5",
+  en_route: "text-[#a78bfa] bg-[#a78bfa]/10",
+  on_site: "text-[#f472b6] bg-[#f472b6]/10",
+  wrapping: "text-[#fb923c] bg-[#fb923c]/10",
+  editing: "text-[#fb923c] bg-[#fb923c]/10",
+  delivered: "text-[#4ade80] bg-[#4ade80]/5",
 };
 
 const PACKAGES = [
@@ -313,6 +318,7 @@ export default function ShootsPage() {
 
   const pending = filtered.filter(s => s.status === "pending");
   const scheduled = filtered.filter(s => s.status === "scheduled");
+  const active = filtered.filter(s => ["en_route", "on_site", "wrapping", "editing", "delivered"].includes(s.status));
   const completed = filtered.filter(s => s.status === "completed");
   const cancelled = filtered.filter(s => s.status === "cancelled");
 
@@ -400,9 +406,14 @@ export default function ShootsPage() {
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
           <option value="all">All statuses</option>
-          <option value="completed">Completed</option>
-          <option value="scheduled">Scheduled</option>
           <option value="pending">Pending</option>
+          <option value="scheduled">Scheduled</option>
+          <option value="en_route">En Route</option>
+          <option value="on_site">On Site</option>
+          <option value="wrapping">Wrapped Up</option>
+          <option value="editing">Editing</option>
+          <option value="delivered">Delivered</option>
+          <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </select>
         <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
@@ -439,7 +450,15 @@ export default function ShootsPage() {
               <div className="space-y-2">{scheduled.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
             </section>
           )}
-          {pending.length === 0 && scheduled.length === 0 && (
+          {active.length > 0 && (
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                In Progress — {active.length}
+              </p>
+              <div className="space-y-2">{active.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
+            </section>
+          )}
+          {pending.length === 0 && scheduled.length === 0 && active.length === 0 && (
             <div className="text-center py-16">
               <p className="text-xs text-[#444] tracking-[3px] uppercase">No active shoots</p>
             </div>
