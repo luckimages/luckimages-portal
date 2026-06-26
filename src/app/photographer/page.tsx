@@ -84,7 +84,7 @@ export default function PhotographerPage() {
     { key: "scheduled", label: "Scheduled" },
     { key: "en_route",  label: "En Route" },
     { key: "on_site",   label: "On Site" },
-    { key: "wrapping",  label: "Wrapping Up" },
+    { key: "wrapping",  label: "Wrapped Up" },
     { key: "editing",   label: "Editing" },
     { key: "delivered", label: "Delivered" },
   ];
