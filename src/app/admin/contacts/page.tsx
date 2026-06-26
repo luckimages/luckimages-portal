@@ -136,7 +136,7 @@ function ContactsPageInner() {
 
       {/* Page title + stats */}
       <div className="max-w-4xl mx-auto px-4 pt-10 pb-6">
-        <h1 className="text-4xl font-bold tracking-tight mb-8">Contacts</h1>
+        <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Contacts</h1>
         <div className="flex items-center gap-8 flex-wrap">
           <div>
             <p className="text-2xl font-bold tabular-nums">{active.length}</p>
