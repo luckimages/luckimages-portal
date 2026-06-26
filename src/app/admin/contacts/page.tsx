@@ -133,7 +133,7 @@ function ContactsPageInner() {
       </div>
 
       {/* Stats */}
-      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center gap-6 flex-wrap">
+      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 py-3 flex items-center justify-center gap-6 flex-wrap">
         <div className="flex items-center gap-2">
           <span className="text-xl font-bold tabular-nums">{contacts.length}</span>
           <span className="text-xs tracking-[2px] uppercase text-[#555]">total</span>
@@ -155,68 +155,70 @@ function ContactsPageInner() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="px-4 md:px-8 py-4 flex items-center gap-3 flex-wrap border-b border-white/5">
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search name, email, phone, brokerage..."
-          className="flex-1 min-w-[200px] bg-[#111] border border-white/10 text-white text-xs px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
-        />
-        <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
-          className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
-          <option value="all">All stages</option>
-          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={filterPortal} onChange={e => setFilterPortal(e.target.value)}
-          className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
-          <option value="all">All portal status</option>
-          <option value="registered">Registered</option>
-          <option value="no_account">No Account</option>
-        </select>
-        {(search || filterStage !== "all" || filterPortal !== "all") && (
-          <button onClick={() => { setSearch(""); setFilterStage("all"); setFilterPortal("all"); }}
-            className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
-        )}
-        <span className="text-xs text-[#444] ml-auto">{filtered.length} contacts</span>
-      </div>
+      {/* Filters + Table — centered max-width */}
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="flex items-center gap-3 flex-wrap mb-4">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, email, phone, brokerage..."
+            className="flex-1 min-w-[180px] bg-[#111] border border-white/10 text-white text-xs px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+          />
+          <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
+            className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+            <option value="all">All stages</option>
+            {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={filterPortal} onChange={e => setFilterPortal(e.target.value)}
+            className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+            <option value="all">All portal status</option>
+            <option value="registered">Registered</option>
+            <option value="no_account">No Account</option>
+          </select>
+          {(search || filterStage !== "all" || filterPortal !== "all") && (
+            <button onClick={() => { setSearch(""); setFilterStage("all"); setFilterPortal("all"); }}
+              className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
+          )}
+          <span className="text-xs text-[#444]">{filtered.length} contacts</span>
+        </div>
 
-      {/* Table */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
-      ) : (
-        <div className="px-4 md:px-8 py-4">
+        {/* Table */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
+        ) : (
           <div className="border border-white/10 overflow-x-auto">
-            <table className="w-full text-xs min-w-[640px]">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-white/10 text-[#444] tracking-[1px] uppercase">
                   <th className="text-left px-4 py-3 font-normal">Name</th>
                   <th className="text-left px-4 py-3 font-normal">Phone</th>
                   <th className="text-left px-4 py-3 font-normal">Brokerage</th>
                   <th className="text-left px-4 py-3 font-normal">Stage</th>
-                  <th className="text-left px-4 py-3 font-normal">Portal</th>
                   <th className="text-left px-4 py-3 font-normal">Added</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-16 text-center text-[#333] italic">No contacts found</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-16 text-center text-[#333] italic">No contacts found</td></tr>
                 ) : filtered.map(contact => {
                   const ps = PORTAL_STATUS(contact);
                   return (
                     <tr
                       key={contact.id}
                       onClick={() => router.push(`/admin/contacts/${contact.id}`)}
-                      className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors group"
+                      className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {contact.is_hot && <span className="text-[#fbbf24] text-[10px]">●</span>}
                           <span className="font-medium">{contact.name}</span>
+                          {contact.user_id && (
+                            <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">{ps.label}</span>
+                          )}
                         </div>
-                        {contact.email && <p className="text-[#444] mt-0.5 truncate max-w-[200px]">{contact.email}</p>}
+                        {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
                       </td>
-                      <td className="px-4 py-3 text-[#666] font-mono">{contact.phone || "—"}</td>
+                      <td className="px-4 py-3 text-[#666] font-mono whitespace-nowrap">{contact.phone || "—"}</td>
                       <td className="px-4 py-3 text-[#666]">{contact.brokerage || "—"}</td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <select
@@ -228,10 +230,7 @@ function ContactsPageInner() {
                           {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] font-semibold tracking-wide uppercase ${ps.color}`}>{ps.label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-[#444]">
+                      <td className="px-4 py-3 text-[#444] whitespace-nowrap">
                         {new Date(contact.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </td>
                     </tr>
@@ -240,8 +239,8 @@ function ContactsPageInner() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* New Contact Modal */}
       {showAdd && (
