@@ -893,24 +893,6 @@ export default function DashboardPage() {
                           {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                         </p>
                       )}
-                      {(shoot.photographer_ids || []).length > 0 && (
-                        <div className="flex items-center gap-0.5 mt-1.5">
-                          {photographers.filter(p => (shoot.photographer_ids || []).includes(p.id)).map(p => {
-                            const pgContact = contacts.find(c => c.email === p.email);
-                            const avatarId = pgContact?.id || p.id;
-                            return (
-                              <img
-                                key={p.id}
-                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarId}`}
-                                alt={p.name}
-                                title={p.name}
-                                className="w-4 h-4 rounded-full object-cover border border-black/30"
-                                onError={e => { e.currentTarget.style.display = "none"; }}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
                       <p className="text-[9px] tracking-[1px] uppercase opacity-50 mt-1">
                         {shoot.status === "pending" ? "Proposed ↗" : "View ↗"}
                       </p>
