@@ -308,10 +308,10 @@ export default function ContactProfilePage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8 space-y-6">
 
-        {/* ═══ LEFT column ═══ */}
-        <div className="space-y-5">
+        {/* ═══ TOP ROW: Contact Info + Stats + Related To ═══ */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
           {/* Contact Info */}
           <div className="bg-[#111] border border-white/10 p-5 space-y-4">
@@ -491,28 +491,29 @@ export default function ContactProfilePage() {
             </div>
           </div>
 
-          {/* Notes */}
-          <div className="bg-[#111] border border-white/10 p-5 space-y-3">
-            <p className="text-xs tracking-[3px] uppercase text-[#555]">Notes</p>
-            <textarea
-              value={noteInput}
-              onChange={e => setNoteInput(e.target.value)}
-              rows={4}
-              placeholder="Notes about this contact..."
-              className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]"
-            />
-            <button
-              onClick={saveNote}
-              disabled={savingNote || noteInput === (contact.notes || "")}
-              className="w-full py-2 text-xs tracking-[1px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-30"
-            >
-              {savingNote ? "Saving..." : "Save Notes"}
-            </button>
-          </div>
+        </div>{/* end top row grid */}
+
+        {/* ═══ NOTES ═══ */}
+        <div className="bg-[#111] border border-white/10 p-5 space-y-3">
+          <p className="text-xs tracking-[3px] uppercase text-[#555]">Notes</p>
+          <textarea
+            value={noteInput}
+            onChange={e => setNoteInput(e.target.value)}
+            rows={3}
+            placeholder="Notes about this contact..."
+            className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]"
+          />
+          <button
+            onClick={saveNote}
+            disabled={savingNote || noteInput === (contact.notes || "")}
+            className="px-4 py-2 text-xs tracking-[1px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-30"
+          >
+            {savingNote ? "Saving..." : "Save Notes"}
+          </button>
         </div>
 
-        {/* ═══ RIGHT: History tabs ═══ */}
-        <div className="md:col-span-2 space-y-4">
+        {/* ═══ HISTORY TABS ═══ */}
+        <div className="space-y-4">
 
           {/* Tab bar */}
           <div className="flex border-b border-white/10">
@@ -527,7 +528,7 @@ export default function ContactProfilePage() {
               onClick={() => setHistoryTab("shoots")}
               className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "shoots" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
             >
-              Invoice History
+              Shoot History
               {shoots.length > 0 && <span className="ml-2 text-[#444]">({shoots.length})</span>}
             </button>
           </div>
