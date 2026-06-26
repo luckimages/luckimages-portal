@@ -1589,119 +1589,101 @@ export default function DashboardPage() {
     if (s === "Contacts") {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const newRealtors = realtors.filter(r => new Date(r.created_at) >= sevenDaysAgo);
+      const activeContacts = contacts.filter(c => c.stage !== "deleted");
       return (
         <section key={s}>
-          <p className={sectionLabel}>Contacts & Portal</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <p className={sectionLabel}>Contacts</p>
+          <div className="bg-[#111] border border-white/10 flex flex-col">
 
-            {/* ── Contacts ── */}
-            <div className="bg-[#111] border border-white/10 flex flex-col">
-              <div className="p-5 border-b border-white/10 flex items-end justify-between">
-                <div>
-                  <p className="text-4xl font-bold">{contacts.length}</p>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Total Contacts</p>
-                </div>
-                <div className="flex gap-4 text-right">
-                  <div>
-                    <p className="text-lg font-semibold text-[#fbbf24]">{contacts.filter(c => c.is_hot).length}</p>
-                    <p className="text-xs text-[#555]">Hot</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-[#4ade80]">{contacts.filter(c => c.stage === "client").length}</p>
-                    <p className="text-xs text-[#555]">Clients</p>
-                  </div>
-                </div>
+            {/* Stats row */}
+            <div className="grid grid-cols-4 divide-x divide-white/5 border-b border-white/10">
+              <div className="p-5">
+                <p className="text-3xl font-bold tabular-nums">{activeContacts.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Total</p>
               </div>
-              {showQuickAdd ? (
-                <form onSubmit={saveQuickContact} className="p-5 flex flex-col gap-3">
-                  <input required autoFocus value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Name *" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))}
-                      placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-                    <input value={quickAddForm.brokerage} onChange={e => setQuickAddForm(f => ({ ...f, brokerage: e.target.value }))}
-                      placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+              <div className="p-5">
+                <p className="text-3xl font-bold tabular-nums text-[#60a5fa]">{realtors.length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Registered</p>
+                {newRealtors.length > 0 && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />
+                    <span className="text-[10px] text-[#4ade80]">+{newRealtors.length} this week</span>
                   </div>
-                  <input type="email" value={quickAddForm.email} onChange={e => setQuickAddForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="Email" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                )}
+              </div>
+              <div className="p-5">
+                <p className="text-3xl font-bold tabular-nums text-[#4ade80]">{activeContacts.filter(c => c.stage === "client").length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Clients</p>
+              </div>
+              <div className="p-5">
+                <p className="text-3xl font-bold tabular-nums text-[#fbbf24]">{activeContacts.filter(c => c.is_hot).length}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Hot Leads</p>
+              </div>
+            </div>
+
+            {/* Quick add form or action buttons */}
+            {showQuickAdd ? (
+              <form onSubmit={saveQuickContact} className="p-5 flex flex-col gap-3">
+                <input required autoFocus value={quickAddForm.name} onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="Name *" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                <div className="grid grid-cols-2 gap-3">
+                  <input value={quickAddForm.phone} onChange={e => setQuickAddForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="Phone" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                  <input value={quickAddForm.brokerage} onChange={e => setQuickAddForm(f => ({ ...f, brokerage: e.target.value }))}
+                    placeholder="Brokerage" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                </div>
+                <input type="email" value={quickAddForm.email} onChange={e => setQuickAddForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="Email" className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowQuickAdd(false)}
+                    className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Cancel</button>
+                  <button type="submit" disabled={quickAddSaving}
+                    className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                    {quickAddSaving ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </form>
+            ) : showInviteInline ? (
+              <form onSubmit={generateClientInvite} className="p-5 flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#444]" />
+                  <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#444]" />
+                </div>
+                {inviteLink ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-mono text-[#555] break-all border border-white/5 bg-[#181818] px-3 py-2">{inviteLink}</p>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
+                        className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors">
+                        {inviteCopied ? "Copied!" : "Copy Link"}
+                      </button>
+                      <button type="button" onClick={() => { setShowInviteInline(false); setInviteLink(""); setInviteName(""); setInviteEmail(""); }}
+                        className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Done</button>
+                    </div>
+                  </div>
+                ) : (
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setShowQuickAdd(false)}
+                    <button type="button" onClick={() => setShowInviteInline(false)}
                       className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Cancel</button>
-                    <button type="submit" disabled={quickAddSaving}
+                    <button type="submit" disabled={inviteLoading}
                       className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
-                      {quickAddSaving ? "Saving..." : "Save"}
+                      {inviteLoading ? "Generating..." : "Generate Link"}
                     </button>
                   </div>
-                </form>
-              ) : (
-                <div className="grid grid-cols-2 divide-x divide-white/5">
-                  <button onClick={() => setShowQuickAdd(true)}
-                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">+ New Contact</button>
-                  <a href="/admin/contacts"
-                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all text-center">View All →</a>
-                </div>
-              )}
-            </div>
-
-            {/* ── Portal Members ── */}
-            <div className="bg-[#111] border border-white/10 flex flex-col">
-              <div className="p-5 border-b border-white/10 flex items-end justify-between">
-                <div>
-                  <p className="text-4xl font-bold text-[#60a5fa]">{realtors.length}</p>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">Portal Members</p>
-                </div>
-                <div className="text-right">
-                  {newRealtors.length > 0 && (
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />
-                      <p className="text-lg font-semibold text-[#4ade80]">{newRealtors.length}</p>
-                    </div>
-                  )}
-                  <p className="text-xs text-[#555]">{newRealtors.length > 0 ? "New this week" : "None new this week"}</p>
-                </div>
+                )}
+              </form>
+            ) : (
+              <div className="grid grid-cols-3 divide-x divide-white/5">
+                <button onClick={() => setShowQuickAdd(true)}
+                  className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">+ New Contact</button>
+                <button onClick={() => setShowInviteInline(true)}
+                  className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">+ Invite Client</button>
+                <a href="/admin/contacts"
+                  className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all text-center">View All →</a>
               </div>
-              {showInviteInline ? (
-                <form onSubmit={generateClientInvite} className="p-5 flex flex-col gap-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" placeholder="Client name" value={inviteName} onChange={e => setInviteName(e.target.value)}
-                      className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#444]" />
-                    <input type="email" required placeholder="their@email.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                      className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#444]" />
-                  </div>
-                  {inviteLink ? (
-                    <div className="flex flex-col gap-2">
-                      <p className="text-[10px] font-mono text-[#555] break-all border border-white/5 bg-[#181818] px-3 py-2">{inviteLink}</p>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => { navigator.clipboard.writeText(inviteLink); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
-                          className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors">
-                          {inviteCopied ? "Copied!" : "Copy Link"}
-                        </button>
-                        <button type="button" onClick={() => { setShowInviteInline(false); setInviteLink(""); setInviteName(""); setInviteEmail(""); }}
-                          className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Done</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => setShowInviteInline(false)}
-                        className="px-4 py-2.5 text-xs tracking-[2px] uppercase text-[#555] border border-white/10 hover:text-white transition-colors">Cancel</button>
-                      <button type="submit" disabled={inviteLoading}
-                        className="flex-1 py-2.5 text-xs tracking-[2px] uppercase bg-white text-black font-semibold hover:bg-[#ddd] transition-colors disabled:opacity-40">
-                        {inviteLoading ? "Generating..." : "Generate Link"}
-                      </button>
-                    </div>
-                  )}
-                </form>
-              ) : (
-                <div className="grid grid-cols-2 divide-x divide-white/5">
-                  <button onClick={() => setShowInviteInline(true)}
-                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all">
-                    + Invite Client
-                  </button>
-                  <a href="/admin/contacts?portal=registered"
-                    className="py-4 text-xs tracking-[2px] uppercase text-[#555] hover:text-white hover:bg-white/[0.03] transition-all text-center">View All →</a>
-                </div>
-              )}
-            </div>
+            )}
 
           </div>
         </section>
