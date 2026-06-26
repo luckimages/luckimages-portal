@@ -1834,106 +1834,29 @@ export default function DashboardPage() {
 
       return (
         <section key={s}>
-          <p className={sectionLabel}>Shoot Log</p>
-          {!shootLogExpanded ? (
-            <div className="bg-[#111] border border-white/10 flex items-center">
-              <div className="flex-1 grid grid-cols-3 divide-x divide-white/5">
-                <div className="px-8 py-6">
-                  <p className="text-4xl font-bold tabular-nums">{totalCount}</p>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Total Shoots</p>
-                </div>
-                <div className="px-8 py-6">
-                  <p className="text-4xl font-bold tabular-nums">{thisMonthCount}</p>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">This Month</p>
-                </div>
-                <div className="px-8 py-6">
-                  <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{completedCount}</p>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Completed</p>
-                </div>
+          <p className={sectionLabel}>Shoots</p>
+          <div className="bg-[#111] border border-white/10 flex items-center">
+            <div className="flex-1 grid grid-cols-3 divide-x divide-white/5">
+              <div className="px-8 py-6">
+                <p className="text-4xl font-bold tabular-nums">{totalCount}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Total Shoots</p>
               </div>
-              <div className="px-6 flex-shrink-0 flex flex-col gap-2">
-                <button onClick={() => { setShootLogExpanded(true); loadShootLog(); }}
-                  className="px-8 py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap">
-                  View Log ↓
-                </button>
-                <a href="/admin/shoots"
-                  className="px-8 py-3 border border-white/10 text-center text-xs tracking-[2px] uppercase text-[#888] hover:text-white hover:border-white/30 transition-colors whitespace-nowrap">
-                  Master List →
-                </a>
+              <div className="px-8 py-6">
+                <p className="text-4xl font-bold tabular-nums">{thisMonthCount}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">This Month</p>
+              </div>
+              <div className="px-8 py-6">
+                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{completedCount}</p>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Completed</p>
               </div>
             </div>
-          ) : (
-            <div className="bg-[#111] border border-white/10">
-              {/* Header */}
-              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(["all","scheduled","completed","pending","cancelled"] as const).map(f => (
-                    <button key={f} onClick={() => setShootLogFilter(f)}
-                      className={`text-xs tracking-[1px] uppercase px-3 py-1 transition-colors ${shootLogFilter === f ? "text-white border border-white/20" : "text-[#555] hover:text-white"}`}>
-                      {f}
-                    </button>
-                  ))}
-                  <select value={shootLogMonth} onChange={e => setShootLogMonth(e.target.value)}
-                    className="bg-[#181818] border border-white/10 text-xs text-[#888] px-3 py-1 outline-none ml-2">
-                    <option value="">All months</option>
-                    {months.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <button onClick={() => setShootLogExpanded(false)} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">Collapse ▲</button>
-              </div>
-
-              {!shootLogLoaded ? (
-                <p className="text-xs text-[#444] italic p-6">Loading...</p>
-              ) : filtered.length === 0 ? (
-                <p className="text-xs text-[#444] italic p-6">No shoots match this filter.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-white/5 text-[#444] tracking-[1px] uppercase">
-                        <th className="text-left px-4 py-2.5 font-normal">Date</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Address</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Client</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Services</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Price</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Status</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Ryan hrs</th>
-                        <th className="text-left px-4 py-2.5 font-normal">Leif hrs</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map(shoot => {
-                        const day = shoot.scheduled_at?.slice(0, 10) || "";
-                        const dh = dayHours[day];
-                        return (
-                          <tr key={shoot.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                            <td className="px-4 py-3 text-[#888] whitespace-nowrap">
-                              {shoot.scheduled_at ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                            </td>
-                            <td className="px-4 py-3 max-w-[200px]">
-                              <p className="truncate font-medium">{shoot.address}</p>
-                            </td>
-                            <td className="px-4 py-3 text-[#888] whitespace-nowrap">{shoot.client_name || "—"}</td>
-                            <td className="px-4 py-3 text-[#555] max-w-[160px]">
-                              <p className="truncate">{shoot.services?.join(", ") || "—"}</p>
-                            </td>
-                            <td className="px-4 py-3 font-bold text-[#4ade80]">
-                              {(shoot as unknown as {price?: number}).price != null ? `$${(shoot as unknown as {price: number}).price.toLocaleString()}` : <span className="text-[#333] font-normal">—</span>}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`tracking-[1px] uppercase ${statusColor(shoot.status)}`}>{shoot.status}</span>
-                            </td>
-                            <td className="px-4 py-3 font-mono text-[#4ade80]">{dh ? fmtH(dh.ryan) : "—"}</td>
-                            <td className="px-4 py-3 font-mono text-[#60a5fa]">{dh ? fmtH(dh.leif) : "—"}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            <div className="px-6 flex-shrink-0">
+              <a href="/admin/shoots"
+                className="px-8 py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap block text-center">
+                View All Shoots →
+              </a>
             </div>
-          )}
+          </div>
         </section>
       );
     }
