@@ -316,12 +316,6 @@ export default function ShootsPage() {
     );
   }
 
-  const pending = filtered.filter(s => s.status === "pending");
-  const scheduled = filtered.filter(s => s.status === "scheduled");
-  const active = filtered.filter(s => ["en_route", "on_site", "wrapping", "editing"].includes(s.status));
-  const delivered = filtered.filter(s => s.status === "delivered");
-  const completed = filtered.filter(s => s.status === "completed");
-  const cancelled = filtered.filter(s => s.status === "cancelled");
 
   const allMonths = [...new Set(filtered.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse();
 
@@ -433,60 +427,23 @@ export default function ShootsPage() {
         <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
       ) : viewMode === "cards" ? (
 
-        /* ══ CARDS VIEW ══ */
-        <div className="max-w-4xl mx-auto px-4 md:px-8 py-8 space-y-10">
-          {pending.length > 0 && (
-            <section>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                Pending — {pending.length}
-              </p>
-              <div className="space-y-2">{pending.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-            </section>
-          )}
-          {scheduled.length > 0 && (
-            <section>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                Scheduled — {scheduled.length}
-              </p>
-              <div className="space-y-2">{scheduled.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-            </section>
-          )}
-          {active.length > 0 && (
-            <section>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                In Progress — {active.length}
-              </p>
-              <div className="space-y-2">{active.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-            </section>
-          )}
-          {delivered.length > 0 && (
-            <section>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                Delivered — Awaiting Invoice — {delivered.length}
-              </p>
-              <div className="space-y-2">{delivered.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-            </section>
-          )}
-          {pending.length === 0 && scheduled.length === 0 && active.length === 0 && delivered.length === 0 && (
+        /* ══ LIST VIEW — chronological ══ */
+        <div className="max-w-4xl mx-auto px-4 md:px-8 py-8">
+          {filtered.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-xs text-[#444] tracking-[3px] uppercase">No active shoots</p>
+              <p className="text-xs text-[#444] tracking-[3px] uppercase">No shoots found</p>
             </div>
-          )}
-          {completed.length > 0 && (
-            <section>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                Completed — {completed.length}
-              </p>
-              <div className="space-y-2">{completed.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-            </section>
-          )}
-          {cancelled.length > 0 && (
-            <section>
-              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                Cancelled — {cancelled.length}
-              </p>
-              <div className="space-y-2">{cancelled.map(s => <ShootCard key={s.id} shoot={s} />)}</div>
-            </section>
+          ) : (
+            <div className="space-y-2">
+              {[...filtered]
+                .sort((a, b) => {
+                  if (!a.scheduled_at && !b.scheduled_at) return 0;
+                  if (!a.scheduled_at) return 1;
+                  if (!b.scheduled_at) return -1;
+                  return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
+                })
+                .map(s => <ShootCard key={s.id} shoot={s} />)}
+            </div>
           )}
         </div>
 
