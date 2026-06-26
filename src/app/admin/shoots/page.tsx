@@ -102,6 +102,9 @@ export default function ShootsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterMonth, setFilterMonth] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "month">("cards");
+  const [calMonth, setCalMonth] = useState(() => {
+    const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
+  });
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
 
@@ -447,75 +450,116 @@ export default function ShootsPage() {
           )}
         </div>
 
-      ) : (
+      ) : (() => {
+        /* ══ CALENDAR VIEW ══ */
+        const { year, month } = calMonth;
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        // Monday-based grid
+        const startOffset = (firstDay.getDay() + 6) % 7;
+        const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+        const cells = Array.from({ length: totalCells }, (_, i) => {
+          const dayNum = i - startOffset + 1;
+          return dayNum >= 1 && dayNum <= lastDay.getDate() ? dayNum : null;
+        });
+        const today = new Date();
+        const monthLabel = firstDay.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+        const monthShoots = shoots.filter(s => s.scheduled_at?.startsWith(monthStr));
+        const monthRevenue = monthShoots.reduce((sum, s) => sum + (s.price || 0), 0);
+        const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-        /* ══ BY MONTH VIEW ══ */
-        <div className="px-4 md:px-8 py-6 space-y-8">
-          {allMonths.length === 0 && (
-            <p className="text-xs text-[#333] italic text-center py-12">No shoots found.</p>
-          )}
-          {allMonths.map(monthKey => {
-            const monthShoots = filtered
-              .filter(s => (s.scheduled_at || "").startsWith(monthKey))
-              .sort((a, b) => new Date(a.scheduled_at || 0).getTime() - new Date(b.scheduled_at || 0).getTime());
-            if (monthShoots.length === 0) return null;
-            const monthRevenue = monthShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
-            const completedInMonth = monthShoots.filter(s => s.status === "completed").length;
-            return (
-              <div key={monthKey}>
-                <div className="flex items-baseline justify-between gap-4 mb-4">
-                  <div className="flex items-baseline gap-4">
-                    <h2 className="font-bold tracking-tight">{formatMonthHeading(monthKey)}</h2>
-                    <span className="text-xs text-[#555]">{monthShoots.length} shoot{monthShoots.length !== 1 ? "s" : ""}</span>
-                    <span className="text-xs text-[#555]">{completedInMonth} completed</span>
-                  </div>
-                  {monthRevenue > 0 && <span className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</span>}
-                </div>
-                <div className="space-y-0 border border-white/10">
-                  {monthShoots.map((shoot, i) => {
-                    const d = shoot.scheduled_at ? new Date(shoot.scheduled_at) : null;
-                    const clientDisplay = shoot.contact_name || shoot.client_name || null;
-                    return (
-                      <div key={shoot.id}
-                        className={`flex items-start gap-4 px-5 py-4 hover:bg-white/[0.02] cursor-pointer transition-colors ${i < monthShoots.length - 1 ? "border-b border-white/5" : ""}`}
-                        onClick={() => openEdit(shoot)}>
-                        <div className="shrink-0 w-10 text-center">
-                          {d ? (
-                            <>
-                              <p className="text-2xl font-black tabular-nums leading-none">{d.getDate()}</p>
-                              <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">{d.toLocaleDateString("en-US", { weekday: "short" })}</p>
-                            </>
-                          ) : (
-                            <p className="text-[#333] text-xs">TBD</p>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <p className="font-medium text-sm truncate">{shoot.address}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold tracking-wide uppercase shrink-0 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status}</span>
-                          </div>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            {clientDisplay && <span className="text-xs text-[#555]">{clientDisplay}</span>}
-                            {shoot.package_name && <span className="text-xs text-[#444]">{shoot.package_name}</span>}
-                            {!shoot.package_name && shoot.services?.length > 0 && (
-                              <span className="text-xs text-[#444]">{shoot.services.join(", ")}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          {shoot.price != null
-                            ? <p className="font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</p>
-                            : <p className="text-[#333] text-xs">—</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
+        function prevMonth() {
+          setCalMonth(({ year, month }) => month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 });
+        }
+        function nextMonth() {
+          setCalMonth(({ year, month }) => month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 });
+        }
+
+        return (
+          <div className="px-4 md:px-8 py-6">
+            {/* Calendar nav */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <button onClick={prevMonth} className="text-[#555] hover:text-white transition-colors text-lg px-1">‹</button>
+                <h2 className="text-sm font-bold tracking-[3px] uppercase">{monthLabel}</h2>
+                <button onClick={nextMonth} className="text-[#555] hover:text-white transition-colors text-lg px-1">›</button>
+                {(year !== today.getFullYear() || month !== today.getMonth()) && (
+                  <button onClick={() => setCalMonth({ year: today.getFullYear(), month: today.getMonth() })}
+                    className="text-xs tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Today</button>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-right">
+                <div>
+                  <p className="text-xs text-[#555]">{monthShoots.length} shoot{monthShoots.length !== 1 ? "s" : ""}</p>
+                  {monthRevenue > 0 && <p className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</p>}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+
+            {/* Day header */}
+            <div className="grid grid-cols-7 mb-1">
+              {DAY_NAMES.map(d => (
+                <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#444] py-2">{d}</div>
+              ))}
+            </div>
+
+            {/* Grid */}
+            <div className="grid grid-cols-7 gap-px bg-white/5">
+              {cells.map((dayNum, i) => {
+                if (dayNum === null) {
+                  return <div key={i} className="bg-[#0c0c0c] min-h-[110px]" />;
+                }
+                const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNum;
+                const dayEvents = shoots.filter(s => {
+                  if (!s.scheduled_at) return false;
+                  return new Date(s.scheduled_at).toISOString().split("T")[0] === dateStr;
+                });
+                return (
+                  <div key={i} className={`bg-[#0e0e0e] min-h-[110px] p-2 flex flex-col gap-1 ${isToday ? "ring-1 ring-inset ring-white/20" : ""}`}>
+                    <p className={`text-xs font-bold mb-1 ${isToday ? "text-white" : "text-[#444]"}`}>{dayNum}</p>
+                    {dayEvents.map(shoot => {
+                      const time = new Date(shoot.scheduled_at!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                      const clientDisplay = shoot.contact_name || shoot.client_name || null;
+                      return (
+                        <button key={shoot.id} onClick={() => openEdit(shoot)}
+                          className={`w-full text-left px-1.5 py-1 text-[10px] leading-tight rounded-sm border transition-colors hover:brightness-125 ${
+                            shoot.status === "pending"    ? "bg-[#fbbf24]/10 border-[#fbbf24]/20 text-[#fbbf24]" :
+                            shoot.status === "completed"  ? "bg-[#4ade80]/10 border-[#4ade80]/20 text-[#4ade80]" :
+                            shoot.status === "cancelled"  ? "bg-white/[0.03] border-white/5 text-[#444]" :
+                                                           "bg-[#4ade80]/5 border-[#4ade80]/15 text-[#aaa]"
+                          }`}>
+                          <p className="font-semibold truncate">{clientDisplay || shoot.address.split(",")[0]}</p>
+                          <p className="opacity-60 truncate mt-0.5">{time}</p>
+                          <p className={`text-[9px] tracking-[1px] uppercase opacity-50 mt-0.5 ${STATUS_COLORS[shoot.status]?.split(" ")[0] || ""}`}>
+                            {shoot.status.replace(/_/g, " ")}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* TBD shoots this month */}
+            {monthShoots.filter(s => !s.scheduled_at).length > 0 && (
+              <div className="mt-6">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-2">No date scheduled</p>
+                <div className="flex flex-wrap gap-2">
+                  {monthShoots.filter(s => !s.scheduled_at).map(s => (
+                    <button key={s.id} onClick={() => openEdit(s)}
+                      className="text-xs px-3 py-1.5 bg-[#fbbf24]/10 border border-[#fbbf24]/20 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors">
+                      {s.address.split(",")[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Edit Modal */}
       {editShoot && (
