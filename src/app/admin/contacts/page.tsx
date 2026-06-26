@@ -115,12 +115,9 @@ function ContactsPageInner() {
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
 
-      {/* Header */}
-      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
-          <h1 className="text-sm font-bold tracking-[3px] uppercase">Contacts</h1>
-        </div>
+      {/* Nav */}
+      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
+        <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/admin/cold-calls")}
@@ -137,31 +134,34 @@ function ContactsPageInner() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 py-3 flex items-center justify-center gap-6 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums">{active.length}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">total</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#60a5fa]">{registeredCount}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">registered</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#4ade80]">{contacts.filter(c => c.stage === "client").length}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">clients</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">{hotCount}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">hot leads</span>
+      {/* Page title + stats */}
+      <div className="max-w-4xl mx-auto px-4 pt-10 pb-6">
+        <h1 className="text-4xl font-bold tracking-tight mb-8">Contacts</h1>
+        <div className="flex items-center gap-8 flex-wrap">
+          <div>
+            <p className="text-2xl font-bold tabular-nums">{active.length}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#60a5fa]">{registeredCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Registered</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{active.filter(c => c.stage === "client").length}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Clients</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{hotCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Hot Leads</p>
+          </div>
         </div>
       </div>
 
-      {/* Filters + Table — centered max-width */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      {/* Filters + Table */}
+      <div className="max-w-4xl mx-auto px-4 pb-16">
         <div className="flex items-center gap-3 flex-wrap mb-4">
           <input
             value={search}
