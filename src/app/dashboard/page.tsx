@@ -81,9 +81,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Clients" | "Marketing" | "Realtors" | "Schedule" | "Contacts" | "Command Center" | "Shoot Log" | "Time Tracker";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Shoot Log", "Revenue", "Clients", "Marketing", "Contacts", "Time Tracker"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Realtors: true, Contacts: true, "Command Center": true, "Shoot Log": true, "Time Tracker": true };
+  type Section = "Revenue" | "Clients" | "Marketing" | "Realtors" | "Schedule" | "Contacts" | "Command Center" | "Shoot Log" | "Time Tracker" | "Employees";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Shoot Log", "Revenue", "Clients", "Marketing", "Contacts", "Employees", "Time Tracker"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Realtors: true, Contacts: true, "Command Center": true, "Shoot Log": true, "Time Tracker": true, Employees: true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -1881,6 +1881,51 @@ export default function DashboardPage() {
       );
     }
 
+
+    if (s === "Employees") {
+      const EMPLOYEE_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+      const employees = contacts.filter(c => EMPLOYEE_EMAILS.includes(c.email || ""));
+      return (
+        <section key={s}>
+          <p className={sectionLabel}>Team</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {employees.length === 0 && (
+              <div className="bg-[#111] border border-white/10 p-6 text-xs text-[#444] italic sm:col-span-2">
+                No employee contacts found — add Ryan and Leif as contacts with their work emails.
+              </div>
+            )}
+            {employees.map(emp => (
+              <div
+                key={emp.id}
+                onClick={() => window.location.href = `/admin/contacts/${emp.id}`}
+                className="bg-[#111] border border-white/10 p-5 flex items-start gap-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+              >
+                {/* Avatar initial */}
+                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold shrink-0">
+                  {emp.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <p className="font-semibold text-sm">{emp.name}</p>
+                    <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">Luck Images</span>
+                  </div>
+                  {emp.phone && (
+                    <a href={`tel:${emp.phone}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#4ade80] font-mono mb-0.5 hover:underline">
+                      {emp.phone}
+                    </a>
+                  )}
+                  {emp.email && (
+                    <a href={`mailto:${emp.email}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#666] hover:text-white transition-colors truncate">
+                      {emp.email}
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
 
     if (s === "Time Tracker") return (
       <section key={s}>
