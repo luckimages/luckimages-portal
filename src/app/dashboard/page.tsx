@@ -841,7 +841,7 @@ export default function DashboardPage() {
                 return shootDate === dayStr;
               });
               return (
-                <div key={i} className={`bg-[#111] border p-3 min-h-[360px] flex flex-col gap-2 ${isToday ? "border-white/30" : "border-white/10"}`}>
+                <div key={i} className={`bg-[#111] border p-3 min-h-[120px] flex flex-col gap-2 ${isToday ? "border-white/30" : "border-white/10"}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs tracking-[2px] uppercase text-[#555]">{DAY_NAMES[i]}</span>
                     <span className={`text-sm font-bold ${isToday ? "text-white" : "text-[#444]"}`}>{day.getDate()}</span>
