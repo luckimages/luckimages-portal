@@ -47,6 +47,7 @@ function ContactsPageInner() {
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -91,7 +92,10 @@ function ContactsPageInner() {
     setContacts(cs => cs.map(c => c.id === contact.id ? { ...c, stage } : c));
   }
 
-  const filtered = contacts.filter(c => {
+  const active = contacts.filter(c => c.stage !== "deleted");
+  const deletedContacts = contacts.filter(c => c.stage === "deleted");
+
+  const filtered = active.filter(c => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
       c.name.toLowerCase().includes(q) ||
@@ -105,8 +109,8 @@ function ContactsPageInner() {
     return matchSearch && matchStage && matchPortal;
   });
 
-  const registeredCount = contacts.filter(c => c.user_id).length;
-  const hotCount = contacts.filter(c => c.is_hot).length;
+  const registeredCount = active.filter(c => c.user_id).length;
+  const hotCount = active.filter(c => c.is_hot).length;
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
@@ -136,7 +140,7 @@ function ContactsPageInner() {
       {/* Stats */}
       <div className="border-b border-white/10 bg-[#0e0e0e] px-4 py-3 flex items-center justify-center gap-6 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums">{contacts.length}</span>
+          <span className="text-xl font-bold tabular-nums">{active.length}</span>
           <span className="text-xs tracking-[2px] uppercase text-[#555]">total</span>
         </div>
         <div className="w-px h-4 bg-white/10" />
@@ -239,6 +243,50 @@ function ContactsPageInner() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+
+        {/* Deleted contacts folder */}
+        {deletedContacts.length > 0 && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowDeleted(v => !v)}
+              className="flex items-center gap-2 text-xs tracking-[2px] uppercase text-[#444] hover:text-[#666] transition-colors mb-3"
+            >
+              <span className={`transition-transform ${showDeleted ? "rotate-90" : ""}`}>▶</span>
+              Deleted Contacts
+              <span className="text-[#333]">({deletedContacts.length})</span>
+            </button>
+
+            {showDeleted && (
+              <div className="border border-white/5 overflow-x-auto opacity-60">
+                <table className="w-full text-xs">
+                  <tbody>
+                    {deletedContacts.map(contact => (
+                      <tr
+                        key={contact.id}
+                        onClick={() => router.push(`/admin/contacts/${contact.id}`)}
+                        className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <span className="font-medium text-[#555]">{contact.name}</span>
+                          {contact.email && <p className="text-[#333] mt-0.5 text-[11px]">{contact.email}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-[#444] font-mono whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : "—"}</td>
+                        <td className="px-4 py-3 text-[#333]">{contact.brokerage || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase bg-red-950/50 text-red-600">dead</span>
+                        </td>
+                        <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                          {new Date(contact.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

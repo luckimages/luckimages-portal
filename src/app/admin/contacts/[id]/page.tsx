@@ -201,7 +201,7 @@ export default function ContactProfilePage() {
     if (!contact) return;
     setDeleting(true);
     const supabase = createClient();
-    await supabase.from("contacts").delete().eq("id", contact.id);
+    await supabase.from("contacts").update({ stage: "deleted" }).eq("id", contact.id);
     router.replace("/admin/contacts");
   }
 
