@@ -1884,7 +1884,9 @@ export default function DashboardPage() {
 
     if (s === "Employees") {
       const EMPLOYEE_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-      const employees = contacts.filter(c => EMPLOYEE_EMAILS.includes(c.email || ""));
+      const employees = EMPLOYEE_EMAILS
+        .map(email => contacts.find(c => c.email === email))
+        .filter(Boolean) as typeof contacts;
       return (
         <section key={s}>
           <p className={sectionLabel}>Team</p>
@@ -1901,7 +1903,7 @@ export default function DashboardPage() {
                 className="bg-[#111] border border-white/10 p-5 flex items-start gap-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
               >
                 {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-sm font-bold shrink-0">
+                <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-sm font-bold shrink-0">
                   <img
                     src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${emp.id}`}
                     alt={emp.name}
@@ -1919,10 +1921,13 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <p className="font-semibold text-sm">{emp.name}</p>
                     <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">Luck Images</span>
                   </div>
+                  {emp.brokerage && (
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] mb-1">{emp.brokerage}</p>
+                  )}
                   {emp.phone && (
                     <a href={`tel:${emp.phone}`} onClick={e => e.stopPropagation()} className="block text-xs text-[#4ade80] font-mono mb-0.5 hover:underline">
                       {emp.phone}
