@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 type Shoot = {
   id: string; address: string; scheduled_at: string;
@@ -26,6 +28,11 @@ export default function ClientPage() {
   const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
   const [hasPassword, setHasPassword] = useState(true);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,6 +53,11 @@ export default function ClientPage() {
       // If they have no password, their only identity will be via OTP/magic link
       setHasPassword(data.user.user_metadata?.has_password === true || (!lastSignIn.includes("otp") && hasEmailPassword));
       const uid = data.user.id;
+      const { data: contactRow } = await supabase.from("contacts").select("id").eq("user_id", uid).single();
+      if (contactRow?.id) {
+        setContactId(contactRow.id);
+        setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactRow.id}?t=${Date.now()}`);
+      }
       const created = new Date(data.user.created_at);
       const now = new Date();
       const months = (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth());
@@ -117,6 +129,20 @@ export default function ClientPage() {
       setNewPassword("");
       setConfirmPassword("");
     }
+  }
+
+  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files?.[0]) return;
+    setUploadingAvatar(true);
+    const fd = new FormData();
+    fd.append("file", e.target.files[0]);
+    const res = await fetch("/api/portal/upload-avatar", { method: "POST", body: fd });
+    if (res.ok && contactId) {
+      setAvatarError(false);
+      setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactId}?t=${Date.now()}`);
+    }
+    setUploadingAvatar(false);
+    if (avatarFileRef.current) avatarFileRef.current.value = "";
   }
 
   function signOut() {
@@ -192,9 +218,30 @@ export default function ClientPage() {
           </div>
         )}
 
-        <div className="mb-8">
-          <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
-          <h1 className="text-3xl font-black tracking-tight uppercase">{userName}</h1>
+        <div className="mb-8 flex items-center gap-5">
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold">
+              {!avatarError && avatarUrl ? (
+                <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+              ) : (
+                <span>{userName.charAt(0)}</span>
+              )}
+            </div>
+            {contactId && (
+              <button
+                onClick={() => avatarFileRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40"
+              >
+                <span className="text-[10px]">📷</span>
+              </button>
+            )}
+            <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+          </div>
+          <div>
+            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">{userName}</h1>
+          </div>
         </div>
 
         {/* TABS */}

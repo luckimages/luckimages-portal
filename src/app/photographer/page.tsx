@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import ShootGallery from "@/components/ShootGallery";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 type Shoot = {
   id: string; address: string; scheduled_at: string;
   services: string[]; status: string; notes: string;
@@ -25,6 +27,11 @@ export default function PhotographerPage() {
   const [payStubs, setPayStubs] = useState<PayStub[]>([]);
   const [tab, setTab] = useState<"schedule" | "upload" | "pay">("schedule");
   const [selectedShoot, setSelectedShoot] = useState<string>("");
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [advancingId, setAdvancingId] = useState<string | null>(null);
@@ -43,6 +50,11 @@ export default function PhotographerPage() {
       setUserId(uid);
       setUserEmail(data.user.email || "");
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
+      const { data: contactRow } = await supabase.from("contacts").select("id").eq("user_id", uid).single();
+      if (contactRow?.id) {
+        setContactId(contactRow.id);
+        setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactRow.id}?t=${Date.now()}`);
+      }
       const [{ data: shootData }, { data: payData }] = await Promise.all([
         supabase.from("shoots").select("*").contains("photographer_ids", [uid]).order("scheduled_at", { ascending: true }),
         supabase.from("pay_stubs").select("*, shoots(address, scheduled_at)").eq("photographer_id", uid).order("created_at", { ascending: false }),
@@ -119,6 +131,20 @@ export default function PhotographerPage() {
     if (cardFileRef.current) cardFileRef.current.value = "";
   }
 
+  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files?.[0]) return;
+    setUploadingAvatar(true);
+    const fd = new FormData();
+    fd.append("file", e.target.files[0]);
+    const res = await fetch("/api/portal/upload-avatar", { method: "POST", body: fd });
+    if (res.ok && contactId) {
+      setAvatarError(false);
+      setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactId}?t=${Date.now()}`);
+    }
+    setUploadingAvatar(false);
+    if (avatarFileRef.current) avatarFileRef.current.value = "";
+  }
+
   function signOut() {
     const form = document.createElement("form");
     form.method = "post"; form.action = "/api/auth/signout";
@@ -160,9 +186,30 @@ export default function PhotographerPage() {
 
       <div className="flex-1 px-4 md:px-8 py-8 md:py-10 max-w-5xl mx-auto w-full">
 
-        <div className="mb-8">
-          <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
-          <h1 className="text-3xl font-black tracking-tight uppercase">{userName}</h1>
+        <div className="mb-8 flex items-center gap-5">
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold">
+              {!avatarError && avatarUrl ? (
+                <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+              ) : (
+                <span>{userName.charAt(0)}</span>
+              )}
+            </div>
+            {contactId && (
+              <button
+                onClick={() => avatarFileRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40"
+              >
+                <span className="text-[10px]">📷</span>
+              </button>
+            )}
+            <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+          </div>
+          <div>
+            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">{userName}</h1>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 md:gap-3 mb-8">

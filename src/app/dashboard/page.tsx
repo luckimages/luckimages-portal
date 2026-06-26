@@ -1900,9 +1900,23 @@ export default function DashboardPage() {
                 onClick={() => window.location.href = `/admin/contacts/${emp.id}`}
                 className="bg-[#111] border border-white/10 p-5 flex items-start gap-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
               >
-                {/* Avatar initial */}
-                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm font-bold shrink-0">
-                  {emp.name.charAt(0).toUpperCase()}
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-sm font-bold shrink-0">
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${emp.id}`}
+                    alt={emp.name}
+                    className="w-full h-full object-cover"
+                    onError={e => {
+                      const el = e.currentTarget;
+                      el.style.display = "none";
+                      const parent = el.parentElement;
+                      if (parent) {
+                        const span = document.createElement("span");
+                        span.textContent = emp.name.charAt(0).toUpperCase();
+                        parent.appendChild(span);
+                      }
+                    }}
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">

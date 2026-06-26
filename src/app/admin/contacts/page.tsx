@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
+import ContactModal from "@/components/ContactModal";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const EMPLOYEE_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
@@ -50,6 +51,7 @@ function ContactsPageInner() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
   const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -243,7 +245,7 @@ function ContactsPageInner() {
                   return (
                     <tr
                       key={contact.id}
-                      onClick={() => router.push(`/admin/contacts/${contact.id}`)}
+                      onClick={() => setSelectedContactId(contact.id)}
                       className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
                     >
                       <td className="px-4 py-3">
@@ -299,7 +301,7 @@ function ContactsPageInner() {
                     {deletedContacts.map(contact => (
                       <tr
                         key={contact.id}
-                        onClick={() => router.push(`/admin/contacts/${contact.id}`)}
+                        onClick={() => setSelectedContactId(contact.id)}
                         className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
                       >
                         <td className="px-4 py-3">
@@ -323,6 +325,14 @@ function ContactsPageInner() {
           </div>
         )}
       </div>
+
+      {selectedContactId && (
+        <ContactModal
+          contactId={selectedContactId}
+          onClose={() => setSelectedContactId(null)}
+          onContactUpdated={loadContacts}
+        />
+      )}
 
       {/* New Contact Modal */}
       {showAdd && (
