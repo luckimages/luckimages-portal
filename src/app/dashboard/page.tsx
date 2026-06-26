@@ -749,6 +749,40 @@ export default function DashboardPage() {
     setQuickAddForm({ name: "", email: "", phone: "", brokerage: "", stage: "lead" });
   }
 
+  function ShootTracker({ status }: { status: string }) {
+    const TRACKER_STAGES = [
+      { key: "scheduled", label: "Scheduled" },
+      { key: "en_route",  label: "En Route" },
+      { key: "on_site",   label: "On Site" },
+      { key: "wrapping",  label: "Wrapped Up" },
+      { key: "delivered", label: "Delivered" },
+    ];
+    const ORDER = ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing", "delivered", "completed"];
+    const cur = ORDER.indexOf(status);
+    return (
+      <div className="flex items-start gap-0 mt-3">
+        {TRACKER_STAGES.map((stage, i) => {
+          const idx = ORDER.indexOf(stage.key);
+          // editing is between wrapping and delivered — treat it as wrapping done
+          const effectiveIdx = status === "editing" ? ORDER.indexOf("editing") : cur;
+          const isDone = effectiveIdx > idx || status === "completed";
+          const isActive = !isDone && (effectiveIdx === idx || (stage.key === "wrapping" && status === "editing"));
+          return (
+            <div key={stage.key} className="flex items-center">
+              <div className="flex flex-col items-center gap-1">
+                <div className={`w-2 h-2 rounded-full transition-colors ${isDone ? "bg-[#4ade80]" : isActive ? "bg-white" : "bg-white/15"}`} />
+                <span className={`text-[8px] tracking-[1px] uppercase whitespace-nowrap ${isActive ? "text-white" : isDone ? "text-[#4ade80]/70" : "text-[#333]"}`}>{stage.label}</span>
+              </div>
+              {i < TRACKER_STAGES.length - 1 && (
+                <div className={`w-10 h-px mb-3.5 ${isDone ? "bg-[#4ade80]/30" : "bg-white/10"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderSection(s: Section) {
     if (!visible[s]) return null;
     if (s === "Schedule") {
@@ -879,9 +913,12 @@ export default function DashboardPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
-                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{viewShoot.status.replace("_"," ")}</p>
+                      <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{viewShoot.status.replace(/_/g," ")}</p>
                     </div>
                     <p className="text-sm font-semibold">{viewShoot.address}</p>
+                    {!["pending", "cancelled"].includes(viewShoot.status) && (
+                      <ShootTracker status={viewShoot.status} />
+                    )}
                   </div>
                   <button onClick={() => { setViewShoot(null); setEsEditing(false); setEsTab("info"); }} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
                 </div>

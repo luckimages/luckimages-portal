@@ -26,6 +26,40 @@ type Shoot = {
 
 type Contact = { id: string; name: string; brokerage: string | null };
 
+const TRACKER_STAGES = [
+  { key: "scheduled", label: "Scheduled" },
+  { key: "en_route",  label: "En Route" },
+  { key: "on_site",   label: "On Site" },
+  { key: "wrapping",  label: "Wrapped Up" },
+  { key: "delivered", label: "Delivered" },
+];
+const TRACKER_ORDER = ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing", "delivered", "completed"];
+
+function ShootTracker({ status }: { status: string }) {
+  const cur = TRACKER_ORDER.indexOf(status);
+  return (
+    <div className="flex items-start gap-0 mt-2">
+      {TRACKER_STAGES.map((stage, i) => {
+        const idx = TRACKER_ORDER.indexOf(stage.key);
+        const effectiveIdx = status === "editing" ? TRACKER_ORDER.indexOf("editing") : cur;
+        const isDone = effectiveIdx > idx || status === "completed";
+        const isActive = !isDone && (effectiveIdx === idx || (stage.key === "wrapping" && status === "editing"));
+        return (
+          <div key={stage.key} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${isDone ? "bg-[#4ade80]" : isActive ? "bg-white" : "bg-white/15"}`} />
+              <span className={`text-[8px] tracking-[1px] uppercase whitespace-nowrap ${isActive ? "text-white" : isDone ? "text-[#4ade80]/70" : "text-[#333]"}`}>{stage.label}</span>
+            </div>
+            {i < TRACKER_STAGES.length - 1 && (
+              <div className={`w-8 h-px mb-3.5 ${isDone ? "bg-[#4ade80]/30" : "bg-white/10"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const STATUS_COLORS: Record<string, string> = {
   completed: "text-[#4ade80] bg-[#4ade80]/10",
   scheduled: "text-[#60a5fa] bg-[#60a5fa]/10",
@@ -223,6 +257,9 @@ export default function ShootsPage() {
                   <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{svc}</span>
                 ))}
               </div>
+            )}
+            {!["pending", "cancelled"].includes(shoot.status) && (
+              <ShootTracker status={shoot.status} />
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
