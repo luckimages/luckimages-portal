@@ -85,7 +85,6 @@ export default function PhotographerPage() {
     { key: "en_route",  label: "En Route" },
     { key: "on_site",   label: "On Site" },
     { key: "wrapping",  label: "Wrapped Up" },
-    { key: "editing",   label: "Editing" },
     { key: "delivered", label: "Delivered" },
   ];
 
@@ -230,18 +229,31 @@ export default function PhotographerPage() {
                             );
                           })}
                         </div>
-                        {/* For editing stage: gallery with upload + confirm delivery */}
-                        {s.status === "editing" ? (
+                        {/* Wrapped Up / Editing: gallery with upload + confirm delivery */}
+                        {(s.status === "wrapping" || s.status === "editing") ? (
                           <div className="flex flex-col gap-3">
                             <div className="border-t border-white/10 pt-4 mt-1">
-                              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">Media</p>
+                              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Processing Media</p>
+                              <p className="text-[10px] text-[#444] mb-3">Upload your files below, then confirm delivery when ready.</p>
                               <ShootGallery
                                 shootId={s.id}
                                 onMediaChange={count => setCardUploadCount(prev => ({ ...prev, [s.id]: count }))}
                               />
                             </div>
                             {(cardUploadCount[s.id] || 0) > 0 && (
-                              <button onClick={() => advanceStatus(s)} disabled={advancingId === s.id}
+                              <button
+                                onClick={async () => {
+                                  // Advance to delivered (skip editing if currently at wrapping)
+                                  setAdvancingId(s.id);
+                                  await fetch("/api/photographer/shoots", {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ id: s.id, status: "delivered" }),
+                                  });
+                                  setShoots(prev => prev.map(sh => sh.id === s.id ? { ...sh, status: "delivered" } : sh));
+                                  setAdvancingId(null);
+                                }}
+                                disabled={advancingId === s.id}
                                 className="w-full text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
                                 {advancingId === s.id ? "Confirming..." : "Confirm Delivery ✓"}
                               </button>

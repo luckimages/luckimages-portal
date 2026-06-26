@@ -229,11 +229,11 @@ export default function ClientPage() {
                 <div className="flex flex-col gap-4">
                   {upcomingShoots.map(s => {
                     const STAGES = [
-                      { key: "pending",    label: "Pending Confirmation" },
+                      { key: "pending",    label: "Confirmed" },
                       { key: "en_route",   label: "En Route" },
                       { key: "on_site",    label: "On Site" },
-                      { key: "wrapping",   label: "Wrapped Up" },
-                      { key: "editing",    label: "Editing" },
+                      { key: "wrapping",   label: "Processing Media" },
+                      { key: "editing",    label: "Processing Media" },
                       { key: "delivered",  label: "Delivered" },
                     ];
                     const currentIdx = STAGES.findIndex(st => st.key === s.status);
