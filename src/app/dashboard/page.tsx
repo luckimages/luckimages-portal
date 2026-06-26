@@ -279,7 +279,7 @@ export default function DashboardPage() {
       if (realtorRes.ok) setRealtors(await realtorRes.json());
 
       // Load all upcoming shoots for calendar
-      const allShootsRes = await fetch("/api/admin/shoots?all=1");
+      const allShootsRes = await fetch("/api/admin/shoots?full=1");
       if (allShootsRes.ok) setAllShoots(await allShootsRes.json());
 
       // Load command center data
@@ -385,7 +385,7 @@ export default function DashboardPage() {
     const supabase = createClient();
     const [pendingRes, allRes, { data: cs }] = await Promise.all([
       fetch("/api/admin/shoots"),
-      fetch("/api/admin/shoots?all=1"),
+      fetch("/api/admin/shoots?full=1"),
       supabase.from("contacts").select("*").order("name", { ascending: true }),
     ]);
     if (pendingRes.ok) setPendingShoots(await pendingRes.json());
