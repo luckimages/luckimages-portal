@@ -893,6 +893,24 @@ export default function DashboardPage() {
                           {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                         </p>
                       )}
+                      {(shoot.photographer_ids || []).length > 0 && (
+                        <div className="flex items-center gap-0.5 mt-1.5">
+                          {photographers.filter(p => (shoot.photographer_ids || []).includes(p.id)).map(p => {
+                            const pgContact = contacts.find(c => c.email === p.email);
+                            const avatarId = pgContact?.id || p.id;
+                            return (
+                              <img
+                                key={p.id}
+                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarId}`}
+                                alt={p.name}
+                                title={p.name}
+                                className="w-4 h-4 rounded-full object-cover border border-black/30"
+                                onError={e => { e.currentTarget.style.display = "none"; }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                       <p className="text-[9px] tracking-[1px] uppercase opacity-50 mt-1">
                         {shoot.status === "pending" ? "Proposed ↗" : "View ↗"}
                       </p>
@@ -996,10 +1014,18 @@ export default function DashboardPage() {
                       <div className="flex flex-wrap gap-2">
                         {photographers.map(p => {
                           const assigned = viewShootPhotographers.includes(p.id);
+                          const pgContact = contacts.find(c => c.email === p.email);
+                          const avatarId = pgContact?.id || p.id;
                           return (
                             <button key={p.id} type="button"
                               onClick={() => { setEsSaved(false); setViewShootPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
-                              className={`text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                              className={`flex items-center gap-2 text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarId}`}
+                                alt={p.name}
+                                className="w-5 h-5 rounded-full object-cover bg-white/5 shrink-0"
+                                onError={e => { e.currentTarget.style.display = "none"; }}
+                              />
                               {p.name}
                             </button>
                           );
@@ -1082,8 +1108,32 @@ export default function DashboardPage() {
                       </div>
                       <div>
                         <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
-                        <p className="font-medium">{viewShoot.client_name || <span className="text-[#555] italic">—</span>}</p>
-                        {viewShoot.client_email && <p className="text-xs text-[#555] mt-0.5">{viewShoot.client_email}</p>}
+                        {viewShoot.client_name ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            {viewShoot.contact_id && (
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${viewShoot.contact_id}`}
+                                alt={viewShoot.client_name}
+                                className="w-8 h-8 rounded-full object-cover shrink-0 bg-white/5"
+                                onError={e => {
+                                  const el = e.currentTarget;
+                                  el.style.display = "none";
+                                  const sib = el.nextElementSibling as HTMLElement | null;
+                                  if (sib) sib.style.display = "flex";
+                                }}
+                              />
+                            )}
+                            {viewShoot.contact_id && (
+                              <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 items-center justify-center text-xs font-bold shrink-0" style={{ display: "none" }}>
+                                {viewShoot.client_name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-sm">{viewShoot.client_name}</p>
+                              {viewShoot.client_email && <p className="text-xs text-[#555]">{viewShoot.client_email}</p>}
+                            </div>
+                          </div>
+                        ) : <p className="text-[#555] italic text-sm">—</p>}
                       </div>
                       {viewShoot.property_type && (
                         <div>
@@ -1117,10 +1167,29 @@ export default function DashboardPage() {
                     {viewShootPhotographers.length > 0 && (
                       <div>
                         <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {photographers.filter(p => viewShootPhotographers.includes(p.id)).map(p => (
-                            <span key={p.id} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{p.name}</span>
-                          ))}
+                        <div className="flex flex-wrap gap-3">
+                          {photographers.filter(p => viewShootPhotographers.includes(p.id)).map(p => {
+                            const pgContact = contacts.find(c => c.email === p.email);
+                            return (
+                              <div key={p.id} className="flex items-center gap-2">
+                                <img
+                                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${pgContact?.id || p.id}`}
+                                  alt={p.name}
+                                  className="w-7 h-7 rounded-full object-cover bg-white/5"
+                                  onError={e => {
+                                    const el = e.currentTarget;
+                                    el.style.display = "none";
+                                    const sib = el.nextElementSibling as HTMLElement | null;
+                                    if (sib) sib.style.display = "flex";
+                                  }}
+                                />
+                                <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 items-center justify-center text-xs font-bold shrink-0" style={{ display: "none" }}>
+                                  {p.name.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-xs text-[#888]">{p.name}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
