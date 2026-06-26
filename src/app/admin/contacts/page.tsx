@@ -183,21 +183,14 @@ function ContactsPageInner() {
 
           <div className="w-px h-8 bg-white/10 mx-2" />
 
-          {/* Total (non-clickable) */}
-          <div className="px-5 py-3">
+          {/* Total — clears all filters */}
+          <button
+            onClick={clearAllFilters}
+            className={`px-5 py-3 text-left transition-all border ${hasAnyFilter ? "border-white/20 hover:border-white/40" : "border-transparent cursor-default"}`}
+          >
             <p className="text-2xl font-bold tabular-nums">{active.length}</p>
             <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total</p>
-          </div>
-
-          {/* Clear filter */}
-          {hasAnyFilter && (
-            <button
-              onClick={clearAllFilters}
-              className="ml-2 text-[10px] tracking-[1px] uppercase text-[#444] hover:text-[#888] transition-colors"
-            >
-              Clear ✕
-            </button>
-          )}
+          </button>
         </div>
       </div>
 
