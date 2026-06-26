@@ -8,7 +8,6 @@ import ContactModal from "@/components/ContactModal";
 import ContactAvatar from "@/components/ContactAvatar";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-const EMPLOYEE_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
 type Contact = {
   id: string;
@@ -16,6 +15,7 @@ type Contact = {
   email: string | null;
   phone: string | null;
   brokerage: string | null;
+  type: string;
   stage: string;
   notes: string | null;
   is_hot: boolean;
@@ -23,20 +23,23 @@ type Contact = {
   created_at: string;
 };
 
-const STAGES = ["lead", "interested", "follow-up", "booked", "client", "dead"];
+// Pipeline stages — only applies to leads. "dead" triggers soft-delete.
+const LEAD_STAGES = ["new", "contacted", "interested", "follow-up", "invited", "dead"];
 
-const STAGE_COLORS: Record<string, string> = {
-  lead: "bg-zinc-800 text-zinc-400",
+const LEAD_STAGE_COLORS: Record<string, string> = {
+  new: "bg-zinc-800 text-zinc-400",
+  contacted: "bg-zinc-800 text-zinc-300",
   interested: "bg-blue-950 text-blue-400",
   "follow-up": "bg-yellow-950 text-yellow-400",
-  booked: "bg-green-950 text-green-400",
-  client: "bg-emerald-950 text-emerald-400",
+  invited: "bg-purple-950 text-purple-400",
   dead: "bg-red-950/50 text-red-600",
 };
 
-const PORTAL_STATUS = (c: Contact): { label: string; color: string } => {
-  if (!c.user_id) return { label: "No Account", color: "text-[#333]" };
-  return { label: "Registered", color: "text-[#60a5fa]" };
+const TYPE_COLORS: Record<string, { color: string; badge: string; label: string }> = {
+  lead:     { color: "#fbbf24", badge: "text-[#fbbf24] bg-[#fbbf24]/10",  label: "Lead" },
+  realtor:  { color: "#4ade80", badge: "text-[#4ade80] bg-[#4ade80]/10",  label: "Realtor" },
+  employee: { color: "#60a5fa", badge: "text-[#60a5fa] bg-[#60a5fa]/10",  label: "Employee" },
+  admin:    { color: "#a78bfa", badge: "text-[#a78bfa] bg-[#a78bfa]/10",  label: "Admin" },
 };
 
 function ContactsPageInner() {
@@ -45,19 +48,19 @@ function ContactsPageInner() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [filterStage, setFilterStage] = useState("all");
-  const [filterPortal, setFilterPortal] = useState(searchParams.get("portal") || "all");
-  const [statFilter, setStatFilter] = useState<"registered" | "unregistered" | "employee" | null>(null);
+  const [filterType, setFilterType] = useState("all");
+  const [statFilter, setStatFilter] = useState<"lead" | "realtor" | "employee" | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "new", notes: "" });
   const [showDeleted, setShowDeleted] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").select("id, name, email, phone, brokerage, stage, notes, is_hot, user_id, created_at").order("name", { ascending: true });
+    const { data } = await supabase.from("contacts").select("id, name, email, phone, brokerage, type, stage, notes, is_hot, user_id, created_at").order("name", { ascending: true });
     setContacts(data || []);
     setLoading(false);
   }, []);
@@ -85,7 +88,7 @@ function ContactsPageInner() {
     }).select().single();
     setSaving(false);
     setShowAdd(false);
-    setForm({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
+    setForm({ name: "", email: "", phone: "", brokerage: "", stage: "new", notes: "" });
     if (data) router.push(`/admin/contacts/${data.id}`);
     else loadContacts();
   }
@@ -93,25 +96,30 @@ function ContactsPageInner() {
   async function updateStage(e: React.MouseEvent, contact: Contact, stage: string) {
     e.stopPropagation();
     const supabase = createClient();
-    await supabase.from("contacts").update({ stage }).eq("id", contact.id);
-    setContacts(cs => cs.map(c => c.id === contact.id ? { ...c, stage } : c));
+    if (stage === "dead") {
+      await supabase.from("contacts").update({ stage: "deleted" }).eq("id", contact.id);
+      setContacts(cs => cs.map(c => c.id === contact.id ? { ...c, stage: "deleted" } : c));
+    } else {
+      await supabase.from("contacts").update({ stage }).eq("id", contact.id);
+      setContacts(cs => cs.map(c => c.id === contact.id ? { ...c, stage } : c));
+    }
   }
 
   const active = contacts.filter(c => c.stage !== "deleted");
   const deletedContacts = contacts.filter(c => c.stage === "deleted");
 
-  const registeredCount = active.filter(c => c.user_id).length;
-  const unregisteredCount = active.filter(c => !c.user_id).length;
-  const employeeCount = active.filter(c => EMPLOYEE_EMAILS.includes(c.email || "")).length;
+  const leadCount = active.filter(c => c.type === "lead").length;
+  const realtorCount = active.filter(c => c.type === "realtor").length;
+  const employeeCount = active.filter(c => c.type === "employee").length;
 
   function clearAllFilters() {
     setStatFilter(null);
     setSearch("");
     setFilterStage("all");
-    setFilterPortal("all");
+    setFilterType("all");
   }
 
-  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterPortal !== "all";
+  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all";
 
   const filtered = active.filter(c => {
     const q = search.toLowerCase();
@@ -121,14 +129,9 @@ function ContactsPageInner() {
       (c.brokerage || "").toLowerCase().includes(q) ||
       (c.phone || "").includes(q);
     const matchStage = filterStage === "all" || c.stage === filterStage;
-    const matchPortal = filterPortal === "all" ||
-      (filterPortal === "registered" && c.user_id) ||
-      (filterPortal === "no_account" && !c.user_id);
-    const matchStat = !statFilter ||
-      (statFilter === "registered" && c.user_id) ||
-      (statFilter === "unregistered" && !c.user_id) ||
-      (statFilter === "employee" && EMPLOYEE_EMAILS.includes(c.email || ""));
-    return matchSearch && matchStage && matchPortal && matchStat;
+    const matchType = filterType === "all" || c.type === filterType;
+    const matchStat = !statFilter || c.type === statFilter;
+    return matchSearch && matchStage && matchType && matchStat;
   });
 
   return (
@@ -157,30 +160,30 @@ function ContactsPageInner() {
       <div className="max-w-4xl mx-auto px-4 pt-10 pb-6">
         <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Contacts</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Registered */}
+          {/* Leads */}
           <button
-            onClick={() => setStatFilter(f => f === "registered" ? null : "registered")}
-            className={`px-5 py-3 text-left transition-all border ${statFilter === "registered" ? "border-[#60a5fa]/40 bg-[#60a5fa]/5" : "border-white/5 hover:border-white/15"}`}
+            onClick={() => setStatFilter(f => f === "lead" ? null : "lead")}
+            className={`px-5 py-3 text-left transition-all border ${statFilter === "lead" ? "border-[#fbbf24]/40 bg-[#fbbf24]/5" : "border-white/5 hover:border-white/15"}`}
           >
-            <p className="text-2xl font-bold tabular-nums text-[#60a5fa]">{registeredCount}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Registered</p>
+            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{leadCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Leads</p>
           </button>
 
-          {/* Unregistered */}
+          {/* Realtors */}
           <button
-            onClick={() => setStatFilter(f => f === "unregistered" ? null : "unregistered")}
-            className={`px-5 py-3 text-left transition-all border ${statFilter === "unregistered" ? "border-white/30 bg-white/5" : "border-white/5 hover:border-white/15"}`}
+            onClick={() => setStatFilter(f => f === "realtor" ? null : "realtor")}
+            className={`px-5 py-3 text-left transition-all border ${statFilter === "realtor" ? "border-[#4ade80]/40 bg-[#4ade80]/5" : "border-white/5 hover:border-white/15"}`}
           >
-            <p className="text-2xl font-bold tabular-nums text-[#aaa]">{unregisteredCount}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Unregistered</p>
+            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{realtorCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Realtors</p>
           </button>
 
           {/* Employees */}
           <button
             onClick={() => setStatFilter(f => f === "employee" ? null : "employee")}
-            className={`px-5 py-3 text-left transition-all border ${statFilter === "employee" ? "border-[#fbbf24]/40 bg-[#fbbf24]/5" : "border-white/5 hover:border-white/15"}`}
+            className={`px-5 py-3 text-left transition-all border ${statFilter === "employee" ? "border-[#60a5fa]/40 bg-[#60a5fa]/5" : "border-white/5 hover:border-white/15"}`}
           >
-            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{employeeCount}</p>
+            <p className="text-2xl font-bold tabular-nums text-[#60a5fa]">{employeeCount}</p>
             <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Employees</p>
           </button>
 
@@ -206,16 +209,17 @@ function ContactsPageInner() {
             placeholder="Search name, email, phone, brokerage..."
             className="flex-1 min-w-[180px] bg-[#111] border border-white/10 text-white text-xs px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
           />
+          <select value={filterType} onChange={e => setFilterType(e.target.value)}
+            className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+            <option value="all">All types</option>
+            <option value="lead">Leads</option>
+            <option value="realtor">Realtors</option>
+            <option value="employee">Employees</option>
+          </select>
           <select value={filterStage} onChange={e => setFilterStage(e.target.value)}
             className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
-            <option value="all">All stages</option>
-            {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={filterPortal} onChange={e => setFilterPortal(e.target.value)}
-            className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
-            <option value="all">All portal status</option>
-            <option value="registered">Registered</option>
-            <option value="no_account">No Account</option>
+            <option value="all">All lead stages</option>
+            {LEAD_STAGES.filter(s => s !== "dead").map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           {hasAnyFilter && (
             <button onClick={clearAllFilters} className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
@@ -234,7 +238,7 @@ function ContactsPageInner() {
                   <th className="text-left px-4 py-3 font-normal">Name</th>
                   <th className="text-left px-4 py-3 font-normal">Phone</th>
                   <th className="text-left px-4 py-3 font-normal">Brokerage</th>
-                  <th className="text-left px-4 py-3 font-normal">Stage</th>
+                  <th className="text-left px-4 py-3 font-normal">Status</th>
                   <th className="text-left px-4 py-3 font-normal">Added</th>
                 </tr>
               </thead>
@@ -242,7 +246,7 @@ function ContactsPageInner() {
                 {filtered.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-16 text-center text-[#333] italic">No contacts found</td></tr>
                 ) : filtered.map(contact => {
-                  const ps = PORTAL_STATUS(contact);
+                  const tc = TYPE_COLORS[contact.type] || TYPE_COLORS.lead;
                   return (
                     <tr
                       key={contact.id}
@@ -255,10 +259,8 @@ function ContactsPageInner() {
                           <div>
                             <div className="flex items-center gap-2">
                               {contact.is_hot && <span className="text-[#fbbf24] text-[10px]">●</span>}
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tc.color }} />
                               <span className="font-medium">{contact.name}</span>
-                              {contact.user_id && (
-                                <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">{ps.label}</span>
-                              )}
                             </div>
                             {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
                           </div>
@@ -267,14 +269,20 @@ function ContactsPageInner() {
                       <td className="px-4 py-3 text-[#666] font-mono whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : "—"}</td>
                       <td className="px-4 py-3 text-[#666]">{contact.brokerage || "—"}</td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                        <select
-                          value={contact.stage}
-                          onChange={e => updateStage(e as unknown as React.MouseEvent, contact, e.target.value)}
-                          onClick={e => e.stopPropagation()}
-                          className={`text-[10px] px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-800 text-zinc-400"}`}
-                        >
-                          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        {contact.type === "lead" ? (
+                          <select
+                            value={contact.stage}
+                            onChange={e => updateStage(e as unknown as React.MouseEvent, contact, e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            className={`text-[10px] px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none font-semibold tracking-wide uppercase ${LEAD_STAGE_COLORS[contact.stage] || "bg-zinc-800 text-zinc-400"}`}
+                          >
+                            {LEAD_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${tc.badge}`}>
+                            {tc.label}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-[#444] whitespace-nowrap">
                         {new Date(contact.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -379,7 +387,7 @@ function ContactsPageInner() {
               />
               <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
                 className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30">
-                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                {LEAD_STAGES.filter(s => s !== "dead").map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <textarea
                 value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}

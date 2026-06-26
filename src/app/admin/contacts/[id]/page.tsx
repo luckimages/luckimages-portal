@@ -13,8 +13,8 @@ type Contact = {
   email: string | null;
   phone: string | null;
   brokerage: string | null;
-  type: string;
-  stage: string;
+  type: string; // lead | realtor | employee | admin
+  stage: string; // pipeline stage — only relevant for type=lead
   notes: string | null;
   total_invoices: number;
   total_revenue: number;
@@ -61,14 +61,21 @@ type LinkedContact = {
   link_id: string;
 };
 
-const STAGES = ["lead", "interested", "follow-up", "booked", "client", "dead"];
+const LEAD_STAGES = ["new", "contacted", "interested", "follow-up", "invited", "dead"];
 const STAGE_COLORS: Record<string, string> = {
-  lead: "bg-zinc-700 text-zinc-300",
-  interested: "bg-blue-900 text-blue-300",
-  "follow-up": "bg-yellow-900 text-yellow-300",
-  booked: "bg-green-900 text-green-300",
-  client: "bg-emerald-900 text-emerald-300",
-  dead: "bg-red-950 text-red-400",
+  new: "bg-zinc-800 text-zinc-400",
+  contacted: "bg-zinc-800 text-zinc-300",
+  interested: "bg-blue-950 text-blue-400",
+  "follow-up": "bg-yellow-950 text-yellow-400",
+  invited: "bg-purple-950 text-purple-400",
+  dead: "bg-red-950/50 text-red-600",
+};
+
+const TYPE_COLORS: Record<string, { color: string; badge: string; label: string }> = {
+  lead:     { color: "#fbbf24", badge: "text-[#fbbf24] bg-[#fbbf24]/10",  label: "Lead" },
+  realtor:  { color: "#4ade80", badge: "text-[#4ade80] bg-[#4ade80]/10",  label: "Realtor" },
+  employee: { color: "#60a5fa", badge: "text-[#60a5fa] bg-[#60a5fa]/10",  label: "Employee" },
+  admin:    { color: "#a78bfa", badge: "text-[#a78bfa] bg-[#a78bfa]/10",  label: "Admin" },
 };
 
 const CALL_COLORS: Record<string, string> = {
@@ -230,8 +237,10 @@ export default function ContactProfilePage() {
   async function updateStage(stage: string) {
     if (!contact) return;
     const supabase = createClient();
-    await supabase.from("contacts").update({ stage }).eq("id", contact.id);
-    setContact(c => c ? { ...c, stage } : c);
+    const newStage = stage === "dead" ? "deleted" : stage;
+    await supabase.from("contacts").update({ stage: newStage }).eq("id", contact.id);
+    setContact(c => c ? { ...c, stage: newStage } : c);
+    if (newStage === "deleted") router.push("/admin/contacts");
   }
 
   async function linkContact(other: Contact) {
@@ -309,14 +318,16 @@ export default function ContactProfilePage() {
             </>
           ) : (
             <>
-              <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
-                {contact.stage}
-              </span>
-              {(() => { const ps = portalStatus(); return (
-                <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
-                  {ps.label}
+              {(() => { const tc = TYPE_COLORS[contact.type] || TYPE_COLORS.lead; return (
+                <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${tc.badge}`}>
+                  {tc.label}
                 </span>
               ); })()}
+              {contact.type === "lead" && (
+                <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-800 text-zinc-400"}`}>
+                  {contact.stage}
+                </span>
+              )}
               {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
             </>
           )}
@@ -348,16 +359,18 @@ export default function ContactProfilePage() {
                 <p className="text-sm break-all">{contact.email}</p>
               </div>
             )}
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Stage</p>
-              <select
-                value={contact.stage}
-                onChange={e => updateStage(e.target.value)}
-                className={`text-xs px-3 py-1.5 rounded-full border-0 cursor-pointer focus:outline-none ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}
-              >
-                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+            {contact.type === "lead" && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Lead Stage</p>
+                <select
+                  value={contact.stage}
+                  onChange={e => updateStage(e.target.value)}
+                  className={`text-xs px-3 py-1.5 rounded-full border-0 cursor-pointer focus:outline-none ${STAGE_COLORS[contact.stage] || "bg-zinc-800 text-zinc-400"}`}
+                >
+                  {LEAD_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Added</p>
               <p className="text-sm text-[#666]">{new Date(contact.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
@@ -620,10 +633,12 @@ export default function ContactProfilePage() {
               <input value={form.brokerage} onChange={e => setForm(f => ({ ...f, brokerage: e.target.value }))}
                 placeholder="Brokerage"
                 className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
-              <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
-                className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
-                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              {contact.type === "lead" && (
+                <select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))}
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
+                  {LEAD_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Notes"
                 rows={3}
