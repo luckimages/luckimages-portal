@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import ShootGallery from "@/components/ShootGallery";
+import { normalizePhone } from "@/lib/format";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -577,7 +578,7 @@ export default function DashboardPage() {
     setCsNewSaving(true);
     const supabase = createClient();
     const { data } = await supabase.from("contacts").insert({
-      name: csNewName.trim(), phone: csNewPhone || null, email: csNewEmail || null,
+      name: csNewName.trim(), phone: normalizePhone(csNewPhone), email: csNewEmail || null,
       brokerage: csNewBrokerage || null, stage: "lead", type: "lead",
     }).select("id, name, email, brokerage").single();
     if (data) {
@@ -742,7 +743,7 @@ export default function DashboardPage() {
     if (!quickAddForm.name.trim()) return;
     setQuickAddSaving(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").insert({ ...quickAddForm, type: "lead" }).select().single();
+    const { data } = await supabase.from("contacts").insert({ ...quickAddForm, phone: normalizePhone(quickAddForm.phone), type: "lead" }).select().single();
     if (data) setContacts(cs => [...cs, data].sort((a, b) => a.name.localeCompare(b.name)));
     setQuickAddSaving(false);
     setShowQuickAdd(false);

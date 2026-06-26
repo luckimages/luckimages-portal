@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { formatPhone, normalizePhone } from "@/lib/format";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -189,7 +190,7 @@ export default function ContactProfilePage() {
     if (!contact) return;
     setSaving(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").update({ ...form, updated_at: new Date().toISOString() }).eq("id", contact.id).select().single();
+    const { data } = await supabase.from("contacts").update({ ...form, phone: normalizePhone(form.phone), updated_at: new Date().toISOString() }).eq("id", contact.id).select().single();
     if (data) setContact(data);
     setSaving(false);
     setEditing(false);
@@ -325,7 +326,7 @@ export default function ContactProfilePage() {
               {contact.phone && (
                 <div>
                   <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Phone</p>
-                  <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] font-mono">{contact.phone}</a>
+                  <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] font-mono">{formatPhone(contact.phone)}</a>
                 </div>
               )}
               {contact.email && (
@@ -410,7 +411,7 @@ export default function ContactProfilePage() {
                     </button>
                     <p className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] mt-0.5">{lc.relationship}</p>
                     {lc.brokerage && <p className="text-xs text-[#444] mt-0.5">{lc.brokerage}</p>}
-                    {lc.phone && <a href={`tel:${lc.phone}`} className="text-xs text-[#4ade80] font-mono mt-0.5 block">{lc.phone}</a>}
+                    {lc.phone && <a href={`tel:${lc.phone}`} className="text-xs text-[#4ade80] font-mono mt-0.5 block">{formatPhone(lc.phone)}</a>}
                   </div>
                   <button
                     onClick={() => unlinkContact(lc.link_id)}

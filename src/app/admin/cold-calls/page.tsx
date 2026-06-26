@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { normalizePhone } from "@/lib/format";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -221,7 +222,7 @@ function ColdCallsPage() {
     const supabase = createClient();
     const { data } = await supabase.from("contacts").insert({
       name: contactForm.name,
-      phone: contactForm.phone || null,
+      phone: normalizePhone(contactForm.phone),
       email: contactForm.email || null,
       brokerage: contactForm.brokerage || null,
       stage: "lead",

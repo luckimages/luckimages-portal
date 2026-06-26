@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { formatPhone, normalizePhone } from "@/lib/format";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -70,7 +71,7 @@ function ContactsPageInner() {
     const { data } = await supabase.from("contacts").insert({
       name: form.name.trim(),
       email: form.email || null,
-      phone: form.phone || null,
+      phone: normalizePhone(form.phone),
       brokerage: form.brokerage || null,
       stage: form.stage,
       notes: form.notes || null,
@@ -218,7 +219,7 @@ function ContactsPageInner() {
                         </div>
                         {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
                       </td>
-                      <td className="px-4 py-3 text-[#666] font-mono whitespace-nowrap">{contact.phone || "—"}</td>
+                      <td className="px-4 py-3 text-[#666] font-mono whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : "—"}</td>
                       <td className="px-4 py-3 text-[#666]">{contact.brokerage || "—"}</td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <select
