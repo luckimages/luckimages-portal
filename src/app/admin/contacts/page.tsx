@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+const EMPLOYEE_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
 type Contact = {
   id: string;
@@ -43,6 +44,7 @@ function ContactsPageInner() {
   const [search, setSearch] = useState("");
   const [filterStage, setFilterStage] = useState("all");
   const [filterPortal, setFilterPortal] = useState(searchParams.get("portal") || "all");
+  const [statFilter, setStatFilter] = useState<"registered" | "unregistered" | "employee" | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,6 +97,19 @@ function ContactsPageInner() {
   const active = contacts.filter(c => c.stage !== "deleted");
   const deletedContacts = contacts.filter(c => c.stage === "deleted");
 
+  const registeredCount = active.filter(c => c.user_id).length;
+  const unregisteredCount = active.filter(c => !c.user_id).length;
+  const employeeCount = active.filter(c => EMPLOYEE_EMAILS.includes(c.email || "")).length;
+
+  function clearAllFilters() {
+    setStatFilter(null);
+    setSearch("");
+    setFilterStage("all");
+    setFilterPortal("all");
+  }
+
+  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterPortal !== "all";
+
   const filtered = active.filter(c => {
     const q = search.toLowerCase();
     const matchSearch = !search ||
@@ -106,11 +121,12 @@ function ContactsPageInner() {
     const matchPortal = filterPortal === "all" ||
       (filterPortal === "registered" && c.user_id) ||
       (filterPortal === "no_account" && !c.user_id);
-    return matchSearch && matchStage && matchPortal;
+    const matchStat = !statFilter ||
+      (statFilter === "registered" && c.user_id) ||
+      (statFilter === "unregistered" && !c.user_id) ||
+      (statFilter === "employee" && EMPLOYEE_EMAILS.includes(c.email || ""));
+    return matchSearch && matchStage && matchPortal && matchStat;
   });
-
-  const registeredCount = active.filter(c => c.user_id).length;
-  const hotCount = active.filter(c => c.is_hot).length;
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
@@ -137,26 +153,51 @@ function ContactsPageInner() {
       {/* Page title + stats */}
       <div className="max-w-4xl mx-auto px-4 pt-10 pb-6">
         <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Contacts</h1>
-        <div className="flex items-center gap-8 flex-wrap">
-          <div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Registered */}
+          <button
+            onClick={() => setStatFilter(f => f === "registered" ? null : "registered")}
+            className={`px-5 py-3 text-left transition-all border ${statFilter === "registered" ? "border-[#60a5fa]/40 bg-[#60a5fa]/5" : "border-white/5 hover:border-white/15"}`}
+          >
+            <p className="text-2xl font-bold tabular-nums text-[#60a5fa]">{registeredCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Registered</p>
+          </button>
+
+          {/* Unregistered */}
+          <button
+            onClick={() => setStatFilter(f => f === "unregistered" ? null : "unregistered")}
+            className={`px-5 py-3 text-left transition-all border ${statFilter === "unregistered" ? "border-white/30 bg-white/5" : "border-white/5 hover:border-white/15"}`}
+          >
+            <p className="text-2xl font-bold tabular-nums text-[#aaa]">{unregisteredCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Unregistered</p>
+          </button>
+
+          {/* Employees */}
+          <button
+            onClick={() => setStatFilter(f => f === "employee" ? null : "employee")}
+            className={`px-5 py-3 text-left transition-all border ${statFilter === "employee" ? "border-[#fbbf24]/40 bg-[#fbbf24]/5" : "border-white/5 hover:border-white/15"}`}
+          >
+            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{employeeCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Employees</p>
+          </button>
+
+          <div className="w-px h-8 bg-white/10 mx-2" />
+
+          {/* Total (non-clickable) */}
+          <div className="px-5 py-3">
             <p className="text-2xl font-bold tabular-nums">{active.length}</p>
             <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total</p>
           </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[#60a5fa]">{registeredCount}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Registered</p>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{active.filter(c => c.stage === "client").length}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Clients</p>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{hotCount}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Hot Leads</p>
-          </div>
+
+          {/* Clear filter */}
+          {hasAnyFilter && (
+            <button
+              onClick={clearAllFilters}
+              className="ml-2 text-[10px] tracking-[1px] uppercase text-[#444] hover:text-[#888] transition-colors"
+            >
+              Clear ✕
+            </button>
+          )}
         </div>
       </div>
 
@@ -180,9 +221,8 @@ function ContactsPageInner() {
             <option value="registered">Registered</option>
             <option value="no_account">No Account</option>
           </select>
-          {(search || filterStage !== "all" || filterPortal !== "all") && (
-            <button onClick={() => { setSearch(""); setFilterStage("all"); setFilterPortal("all"); }}
-              className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
+          {hasAnyFilter && (
+            <button onClick={clearAllFilters} className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
           )}
           <span className="text-xs text-[#444]">{filtered.length} contacts</span>
         </div>
