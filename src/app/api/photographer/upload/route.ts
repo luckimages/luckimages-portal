@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
-import { applyWatermark } from "@/lib/watermark";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  // Auth check
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing shoot_id or file" }, { status: 400 });
   }
 
-  // Verify photographer is assigned to this shoot
+  // Verify access
   const { data: shoot } = await service
     .from("shoots")
     .select("photographer_ids")
@@ -39,38 +37,25 @@ export async function POST(req: NextRequest) {
   }
 
   const arrayBuffer = await file.arrayBuffer();
-  const originalBuffer = Buffer.from(arrayBuffer);
+  const buffer = Buffer.from(arrayBuffer);
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
 
-  // Upload original (private — served only after payment)
-  const originalPath = `${shootId}/original/${timestamp}_${safeName}`;
-  await service.storage.from("shoot-media").upload(originalPath, originalBuffer, {
-    contentType: file.type,
-    upsert: false,
-  });
+  const filePath = `${shootId}/${timestamp}_${safeName}`;
 
-  // Apply watermark and upload watermarked version
-  let watermarkedBuffer: Buffer;
-  try {
-    watermarkedBuffer = await applyWatermark(originalBuffer);
-  } catch {
-    // If watermark fails (e.g. non-image file), fall back to original
-    watermarkedBuffer = originalBuffer;
+  const { error: storageError } = await service.storage
+    .from("shoot-media")
+    .upload(filePath, buffer, { contentType: file.type, upsert: false });
+
+  if (storageError) {
+    return NextResponse.json({ error: storageError.message }, { status: 500 });
   }
 
-  const watermarkedPath = `${shootId}/watermarked/${timestamp}_${safeName}`;
-  await service.storage.from("shoot-media").upload(watermarkedPath, watermarkedBuffer, {
-    contentType: "image/jpeg",
-    upsert: false,
-  });
-
-  // Insert media record pointing to watermarked path; store original path too
   const { data: media, error: dbError } = await service.from("media").insert({
     shoot_id: shootId,
     uploaded_by: user.id,
-    file_path: watermarkedPath,
-    original_path: originalPath,
+    file_path: filePath,
+    original_path: filePath,
     file_name: file.name,
     file_type: file.type,
   }).select().single();

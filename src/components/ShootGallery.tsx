@@ -23,6 +23,7 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -55,15 +56,23 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
   async function uploadFileList(files: File[]) {
     if (!files.length) return;
     setUploading(true);
+    setUploadError("");
     setDragging(false);
+    let failed = 0;
     for (const file of files) {
       const fd = new FormData();
       fd.append("shoot_id", shootId);
       fd.append("file", file);
-      await fetch("/api/photographer/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/photographer/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        console.error("Upload failed:", d.error || res.status);
+        failed++;
+      }
     }
     setUploading(false);
-    setUploadOpen(false);
+    if (failed > 0) setUploadError(`${failed} file(s) failed to upload. Check console for details.`);
+    else setUploadOpen(false);
     if (fileRef.current) fileRef.current.value = "";
     await load();
   }
@@ -168,6 +177,12 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
           <span className="text-xs text-[#444]">JPG, PNG, MP4, DNG — any size</span>
           <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" disabled={uploading} onChange={uploadFiles} />
         </label>
+      )}
+      {uploadError && (
+        <div className="mb-4 bg-red-400/5 border border-red-400/20 px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-red-400 text-xs">{uploadError}</p>
+          <button onClick={() => setUploadError("")} className="text-red-400/60 hover:text-red-400 text-sm leading-none">✕</button>
+        </div>
       )}
 
       {/* Grid */}
