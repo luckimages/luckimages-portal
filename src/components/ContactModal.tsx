@@ -222,8 +222,12 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
     if (avatarFileRef.current) avatarFileRef.current.value = "";
   }
 
+  const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+
   function portalStatus(): { label: string; color: string } {
-    if (!contact?.user_id) return { label: "No Account", color: "text-[#444] bg-white/5" };
+    if (!contact) return { label: "No Account", color: "text-[#444] bg-white/5" };
+    if (contact.email && ADMIN_EMAILS.includes(contact.email)) return { label: "Admin", color: "text-[#a78bfa] bg-[#a78bfa]/10" };
+    if (!contact.user_id) return { label: "No Account", color: "text-[#444] bg-white/5" };
     const hasShoot = shoots.some(s => ["completed", "scheduled", "booked"].includes(s.status));
     if (hasShoot) return { label: "Client", color: "text-[#4ade80] bg-[#4ade80]/10" };
     return { label: "Registered", color: "text-[#60a5fa] bg-[#60a5fa]/10" };
@@ -289,14 +293,29 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold tracking-tight">{contact.name}</h2>
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
-                      {contact.stage}
-                    </span>
-                    {(() => { const ps = portalStatus(); return (
-                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
-                        {ps.label}
-                      </span>
-                    ); })()}
+                    {contact.email && ADMIN_EMAILS.includes(contact.email) ? (
+                      <>
+                        {contact.brokerage && (
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#fbbf24] bg-[#fbbf24]/10">
+                            {contact.brokerage}
+                          </span>
+                        )}
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#a78bfa] bg-[#a78bfa]/10">
+                          Admin
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
+                          {contact.stage}
+                        </span>
+                        {(() => { const ps = portalStatus(); return (
+                          <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
+                            {ps.label}
+                          </span>
+                        ); })()}
+                      </>
+                    )}
                     {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot</span>}
                   </div>
                 </div>

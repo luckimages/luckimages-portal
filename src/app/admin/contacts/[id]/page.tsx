@@ -220,6 +220,7 @@ export default function ContactProfilePage() {
 
   function portalStatus(): { label: string; color: string } {
     if (!contact) return { label: "No Account", color: "text-[#444] bg-white/5" };
+    if (contact.email && ADMIN_EMAILS.includes(contact.email)) return { label: "Admin", color: "text-[#a78bfa] bg-[#a78bfa]/10" };
     if (!contact.user_id) return { label: "No Account", color: "text-[#444] bg-white/5" };
     const hasShoot = shoots.some(s => ["completed", "scheduled", "booked"].includes(s.status));
     if (hasShoot) return { label: "Client", color: "text-[#4ade80] bg-[#4ade80]/10" };
@@ -295,15 +296,30 @@ export default function ContactProfilePage() {
       <div className="text-center pt-10 pb-6 px-4">
         <h1 className="text-3xl font-bold tracking-tight">{contact.name}</h1>
         <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
-          <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
-            {contact.stage}
-          </span>
-          {(() => { const ps = portalStatus(); return (
-            <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
-              {ps.label}
-            </span>
-          ); })()}
-          {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
+          {contact.email && ADMIN_EMAILS.includes(contact.email) ? (
+            <>
+              {contact.brokerage && (
+                <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase text-[#fbbf24] bg-[#fbbf24]/10">
+                  {contact.brokerage}
+                </span>
+              )}
+              <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase text-[#a78bfa] bg-[#a78bfa]/10">
+                Admin
+              </span>
+            </>
+          ) : (
+            <>
+              <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
+                {contact.stage}
+              </span>
+              {(() => { const ps = portalStatus(); return (
+                <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
+                  {ps.label}
+                </span>
+              ); })()}
+              {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
+            </>
+          )}
         </div>
       </div>
 
