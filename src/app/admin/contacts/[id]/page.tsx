@@ -112,8 +112,6 @@ export default function ContactProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
-  const [noteInput, setNoteInput] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
 
   // Invite
   const [inviting, setInviting] = useState(false);
@@ -146,7 +144,7 @@ export default function ContactProfilePage() {
     if (!c) { router.replace("/admin/contacts"); return; }
     setContact(c);
     setForm({ name: c.name, email: c.email || "", phone: c.phone || "", brokerage: c.brokerage || "", stage: c.stage, notes: c.notes || "" });
-    setNoteInput(c.notes || "");
+
     setCallLogs(calls || []);
     setEmailLogs(emails || []);
     setShoots(sh || []);
@@ -196,14 +194,6 @@ export default function ContactProfilePage() {
     setEditing(false);
   }
 
-  async function saveNote() {
-    if (!contact) return;
-    setSavingNote(true);
-    const supabase = createClient();
-    await supabase.from("contacts").update({ notes: noteInput }).eq("id", contact.id);
-    setContact(c => c ? { ...c, notes: noteInput } : c);
-    setSavingNote(false);
-  }
 
   async function sendInvite() {
     if (!contact?.email || inviting) return;
@@ -272,32 +262,15 @@ export default function ContactProfilePage() {
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
 
-      {/* Header */}
-      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="text-[#555] text-sm hover:text-white transition-colors">← Back</button>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="font-bold text-lg">{contact.name}</h1>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
-              {contact.stage}
-            </span>
-            {(() => { const ps = portalStatus(); return (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
-                {ps.label}
-              </span>
-            ); })()}
-            {shoots.length > 0 && ["lead", "interested", "follow-up"].includes(contact.stage) === false && (
-              <span className="text-[10px] tracking-[2px] uppercase text-[#4ade80] border border-[#4ade80]/30 px-2 py-0.5">Lead Converted</span>
-            )}
-            {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
-          </div>
-        </div>
+      {/* Nav bar */}
+      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
+        <button onClick={() => router.back()} className="text-[#555] text-sm hover:text-white transition-colors">← Back</button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => router.push(`/admin/cold-calls?contact=${contact.id}`)}
             className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
           >
-            Call
+            Log Call
           </button>
           <button
             onClick={() => setEditing(true)}
@@ -308,208 +281,147 @@ export default function ContactProfilePage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-8 space-y-6">
+      {/* Name hero */}
+      <div className="text-center pt-10 pb-6 px-4">
+        <h1 className="text-3xl font-bold tracking-tight">{contact.name}</h1>
+        <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+          <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}>
+            {contact.stage}
+          </span>
+          {(() => { const ps = portalStatus(); return (
+            <span className={`text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase ${ps.color}`}>
+              {ps.label}
+            </span>
+          ); })()}
+          {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
+        </div>
+      </div>
 
-        {/* ═══ TOP ROW: Contact Info + Stats + Related To ═══ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="max-w-2xl mx-auto px-4 md:px-6 pb-16 space-y-6">
 
-          {/* Contact Info */}
-          <div className="bg-[#111] border border-white/10 p-5 space-y-4">
-            <p className="text-xs tracking-[3px] uppercase text-[#555]">Contact Info</p>
-            <div className="space-y-3">
-              {contact.brokerage && (
-                <div>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Brokerage</p>
-                  <p className="text-sm">{contact.brokerage}</p>
-                </div>
-              )}
-              {contact.phone && (
-                <div>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Phone</p>
-                  <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] font-mono">{formatPhone(contact.phone)}</a>
-                </div>
-              )}
-              {contact.email && (
-                <div>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Email</p>
-                  <p className="text-sm break-all">{contact.email}</p>
-                </div>
-              )}
+        {/* ═══ MAIN INFO CARD ═══ */}
+        <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
+
+          {/* Contact details */}
+          <div className="p-6 grid grid-cols-2 gap-x-8 gap-y-5">
+            {contact.brokerage && (
+              <div className="col-span-2">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Brokerage</p>
+                <p className="text-sm font-medium">{contact.brokerage}</p>
+              </div>
+            )}
+            {contact.phone && (
               <div>
-                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Stage</p>
-                <select
-                  value={contact.stage}
-                  onChange={e => updateStage(e.target.value)}
-                  className={`text-xs px-3 py-1.5 rounded-full border-0 cursor-pointer focus:outline-none ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}
-                >
-                  {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Phone</p>
+                <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] font-mono">{formatPhone(contact.phone)}</a>
               </div>
-              {totalShootRevenue > 0 && (
-                <div>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Total Revenue</p>
-                  <p className="text-sm font-bold text-[#4ade80]">${totalShootRevenue.toLocaleString()}</p>
-                </div>
-              )}
+            )}
+            {contact.email && (
               <div>
-                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-0.5">Added</p>
-                <p className="text-xs text-[#555]">{new Date(contact.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Email</p>
+                <p className="text-sm break-all">{contact.email}</p>
               </div>
-              <div className="border-t border-white/5 pt-3">
-                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-2">Portal Access</p>
-                {contact.user_id ? (
-                  <div className="space-y-1">
-                    <div className={`text-[10px] px-2 py-1 font-semibold tracking-wide uppercase inline-block rounded-full ${portalStatus().color}`}>
-                      {portalStatus().label}
-                    </div>
-                    <p className="text-[10px] text-[#333]">Account linked to this contact</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-xs text-[#333]">No portal account yet</p>
-                    {contact.email && (
-                      <button
-                        onClick={sendInvite}
-                        disabled={inviting || inviteSent}
-                        className="w-full py-2 text-[10px] tracking-[2px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40"
-                      >
-                        {inviting ? "Sending..." : inviteSent ? "Invite Sent ✓" : "Send Invite Link"}
-                      </button>
-                    )}
-                    {!contact.email && <p className="text-[10px] text-[#333] italic">Add an email to send invite</p>}
-                  </div>
-                )}
-              </div>
+            )}
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Stage</p>
+              <select
+                value={contact.stage}
+                onChange={e => updateStage(e.target.value)}
+                className={`text-xs px-3 py-1.5 rounded-full border-0 cursor-pointer focus:outline-none ${STAGE_COLORS[contact.stage] || "bg-zinc-700 text-zinc-300"}`}
+              >
+                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Added</p>
+              <p className="text-sm text-[#666]">{new Date(contact.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
             </div>
           </div>
 
-          {/* Related To */}
-          <div className="bg-[#111] border border-white/10 p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs tracking-[3px] uppercase text-[#555]">Related To</p>
-              <button
-                onClick={() => setShowLinkSearch(!showLinkSearch)}
-                className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors"
-              >
-                + Link
+          {/* Stats row */}
+          <div className="grid grid-cols-4 divide-x divide-white/5">
+            <div className="p-4 text-center">
+              <p className="text-xl font-bold tabular-nums">{callLogs.length}</p>
+              <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Calls</p>
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-xl font-bold tabular-nums">{emailLogs.length}</p>
+              <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Emails</p>
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-xl font-bold tabular-nums text-[#4ade80]">{shoots.length}</p>
+              <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Shoots</p>
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-xl font-bold tabular-nums text-[#4ade80]">
+                {totalShootRevenue > 0 ? `$${totalShootRevenue.toLocaleString()}` : "—"}
+              </p>
+              <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Revenue</p>
+            </div>
+          </div>
+
+          {/* Related contacts */}
+          {(linkedContacts.length > 0 || showLinkSearch) && (
+            <div className="p-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444]">Related To</p>
+                <button onClick={() => setShowLinkSearch(!showLinkSearch)} className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">+ Link</button>
+              </div>
+              {linkedContacts.map(lc => (
+                <div key={lc.id} className="flex items-center justify-between gap-3 bg-[#181818] border border-white/5 px-4 py-3">
+                  <div className="min-w-0">
+                    <button onClick={() => router.push(`/admin/contacts/${lc.id}`)} className="text-sm font-medium hover:underline text-left">{lc.name}</button>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] mt-0.5">{lc.relationship}{lc.brokerage ? ` · ${lc.brokerage}` : ""}</p>
+                  </div>
+                  <button onClick={() => unlinkContact(lc.link_id)} className="text-[#333] hover:text-red-400 text-xs shrink-0 transition-colors">✕</button>
+                </div>
+              ))}
+              {showLinkSearch && (
+                <div className="space-y-2">
+                  <select value={linkRelationship} onChange={e => setLinkRelationship(e.target.value)} className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none">
+                    {RELATIONSHIP_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <input autoFocus value={linkSearch} onChange={e => setLinkSearch(e.target.value)} placeholder="Search contacts to link..." className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                  {linkSearch && (
+                    <div className="bg-[#181818] border border-white/10 max-h-44 overflow-y-auto divide-y divide-white/5">
+                      {filteredLinkSearch.length === 0 && <p className="px-3 py-2.5 text-xs text-[#444]">No results</p>}
+                      {filteredLinkSearch.slice(0, 6).map(c => (
+                        <button key={c.id} onClick={() => linkContact(c)} disabled={linking} className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors disabled:opacity-50">
+                          <span className="font-medium">{c.name}</span>
+                          {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button onClick={() => { setShowLinkSearch(false); setLinkSearch(""); }} className="text-xs text-[#444] hover:text-white transition-colors">Cancel</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Link button when no linked contacts yet */}
+          {linkedContacts.length === 0 && !showLinkSearch && (
+            <div className="px-6 py-3">
+              <button onClick={() => setShowLinkSearch(true)} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">+ Link Related Contact</button>
+            </div>
+          )}
+
+          {/* Notes (read-only — edit via Edit button) */}
+          {contact.notes && (
+            <div className="px-6 py-5">
+              <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-2">Notes</p>
+              <p className="text-sm text-[#888] leading-relaxed whitespace-pre-wrap">{contact.notes}</p>
+            </div>
+          )}
+
+          {/* Portal invite */}
+          {!contact.user_id && contact.email && (
+            <div className="px-6 py-4">
+              <button onClick={sendInvite} disabled={inviting || inviteSent} className="w-full py-2.5 text-xs tracking-[1px] uppercase border border-white/10 text-[#666] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
+                {inviting ? "Sending..." : inviteSent ? "Invite Sent ✓" : "Send Portal Invite"}
               </button>
             </div>
-
-            {linkedContacts.length === 0 && !showLinkSearch && (
-              <p className="text-xs text-[#333] italic">No linked contacts</p>
-            )}
-
-            {linkedContacts.map(lc => (
-              <div key={lc.id} className="bg-[#181818] border border-white/5 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <button
-                      onClick={() => router.push(`/admin/contacts/${lc.id}`)}
-                      className="text-sm font-medium hover:underline text-left truncate block"
-                    >
-                      {lc.name}
-                    </button>
-                    <p className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] mt-0.5">{lc.relationship}</p>
-                    {lc.brokerage && <p className="text-xs text-[#444] mt-0.5">{lc.brokerage}</p>}
-                    {lc.phone && <a href={`tel:${lc.phone}`} className="text-xs text-[#4ade80] font-mono mt-0.5 block">{formatPhone(lc.phone)}</a>}
-                  </div>
-                  <button
-                    onClick={() => unlinkContact(lc.link_id)}
-                    className="text-[#333] hover:text-red-400 text-xs shrink-0 transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="mt-2 pt-2 border-t border-white/5">
-                  <p className="text-[10px] text-[#333]">Shared portal — same shoots, invoices & media</p>
-                </div>
-              </div>
-            ))}
-
-            {showLinkSearch && (
-              <div className="space-y-2">
-                <select
-                  value={linkRelationship}
-                  onChange={e => setLinkRelationship(e.target.value)}
-                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none"
-                >
-                  {RELATIONSHIP_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-                <input
-                  autoFocus
-                  value={linkSearch}
-                  onChange={e => setLinkSearch(e.target.value)}
-                  placeholder="Search contacts to link..."
-                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
-                />
-                {linkSearch && (
-                  <div className="bg-[#181818] border border-white/10 max-h-44 overflow-y-auto divide-y divide-white/5">
-                    {filteredLinkSearch.length === 0 && <p className="px-3 py-2.5 text-xs text-[#444]">No results</p>}
-                    {filteredLinkSearch.slice(0, 6).map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => linkContact(c)}
-                        disabled={linking}
-                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors disabled:opacity-50"
-                      >
-                        <span className="font-medium">{c.name}</span>
-                        {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => { setShowLinkSearch(false); setLinkSearch(""); }}
-                  className="text-xs text-[#444] hover:text-white transition-colors">Cancel</button>
-              </div>
-            )}
-          </div>
-
-          {/* Stats */}
-          <div className="bg-[#111] border border-white/10 p-5 space-y-3">
-            <p className="text-xs tracking-[3px] uppercase text-[#555]">Stats</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
-                <p className="text-2xl font-bold tabular-nums">{callLogs.length}</p>
-                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Calls</p>
-              </div>
-              <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
-                <p className={`text-2xl font-bold tabular-nums ${isInterested ? "text-[#4ade80]" : ""}`}>
-                  {isInterested ? "+" : callAgainCount > 0 ? callAgainCount : "—"}
-                </p>
-                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">
-                  {isInterested ? "Interested" : callAgainCount > 0 ? "Retries" : "No Activity"}
-                </p>
-              </div>
-              <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
-                <p className="text-2xl font-bold tabular-nums">{emailLogs.length}</p>
-                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Emails</p>
-              </div>
-              <div className="bg-[#0e0e0e] border border-white/5 p-3 text-center">
-                <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{shoots.length}</p>
-                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-0.5">Shoots</p>
-              </div>
-            </div>
-          </div>
-
-        </div>{/* end top row grid */}
-
-        {/* ═══ NOTES ═══ */}
-        <div className="bg-[#111] border border-white/10 p-5 space-y-3">
-          <p className="text-xs tracking-[3px] uppercase text-[#555]">Notes</p>
-          <textarea
-            value={noteInput}
-            onChange={e => setNoteInput(e.target.value)}
-            rows={3}
-            placeholder="Notes about this contact..."
-            className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]"
-          />
-          <button
-            onClick={saveNote}
-            disabled={savingNote || noteInput === (contact.notes || "")}
-            className="px-4 py-2 text-xs tracking-[1px] uppercase border border-white/10 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-30"
-          >
-            {savingNote ? "Saving..." : "Save Notes"}
-          </button>
+          )}
         </div>
 
         {/* ═══ HISTORY TABS ═══ */}
@@ -686,6 +598,10 @@ export default function ContactProfilePage() {
                 className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
                 {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Notes"
+                rows={3}
+                className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setEditing(false)}
                   className="flex-1 py-3 text-xs tracking-[1px] uppercase border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-all">
