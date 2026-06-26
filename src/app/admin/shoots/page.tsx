@@ -102,7 +102,6 @@ export default function ShootsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterMonth, setFilterMonth] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "month">("cards");
-  const [statPeriod, setStatPeriod] = useState<"ytd" | "mtd">("ytd");
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
   });
@@ -145,15 +144,6 @@ export default function ShootsPage() {
     });
   }, [router, loadShoots]);
 
-  // Stats
-  const thisYear = new Date().getFullYear().toString();
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const ytdShoots = shoots.filter(s => (s.scheduled_at || "").startsWith(thisYear) && s.status !== "cancelled");
-  const mtdShoots = shoots.filter(s => (s.scheduled_at || "").startsWith(thisMonth) && s.status !== "cancelled");
-  const ytdRevenue = ytdShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
-  const mtdRevenue = mtdShoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
-  const displayShoots = statPeriod === "ytd" ? ytdShoots.length : mtdShoots.length;
-  const displayRevenue = statPeriod === "ytd" ? ytdRevenue : mtdRevenue;
 
   // Filtering
   const filtered = shoots.filter(s => {
@@ -347,31 +337,9 @@ export default function ShootsPage() {
       )}
 
       {/* Page title + stats */}
-      <div className="max-w-4xl mx-auto px-4 md:px-8 pt-10 pb-6">
-        <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Shoot Log</h1>
+      <div className="max-w-4xl mx-auto px-4 md:px-8 pt-10 pb-4">
+        <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-6">Shoot Log</h1>
 
-        {/* Stats + period toggle */}
-        <div className="flex items-end gap-10">
-          <div>
-            <p className="text-3xl font-bold tabular-nums">{displayShoots}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Shoots</p>
-          </div>
-          <div className="w-px h-10 bg-white/10" />
-          <div>
-            <p className="text-3xl font-bold tabular-nums text-[#4ade80]">${displayRevenue.toLocaleString()}</p>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Income</p>
-          </div>
-          <div className="ml-4 flex border border-white/10 overflow-hidden self-end mb-0.5">
-            <button
-              onClick={() => setStatPeriod("ytd")}
-              className={`text-[10px] tracking-[1px] uppercase px-3 py-1.5 transition-colors ${statPeriod === "ytd" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}
-            >YTD</button>
-            <button
-              onClick={() => setStatPeriod("mtd")}
-              className={`text-[10px] tracking-[1px] uppercase px-3 py-1.5 transition-colors ${statPeriod === "mtd" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}
-            >MTD</button>
-          </div>
-        </div>
       </div>
 
       {/* Filters */}
