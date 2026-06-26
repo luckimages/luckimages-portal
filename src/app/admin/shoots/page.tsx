@@ -325,24 +325,24 @@ export default function ShootsPage() {
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
 
-      {/* Header */}
-      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center gap-4 flex-wrap">
+      {/* Nav */}
+      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
         <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
-        <h1 className="text-sm font-bold tracking-[3px] uppercase">Shoots</h1>
-        <div className="flex-1" />
-        <button onClick={syncSheet} disabled={syncing}
-          className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
-          {syncing ? "Syncing..." : "↑ Sync to Google Sheet"}
-        </button>
-        <div className="flex border border-white/10 overflow-hidden">
-          <button onClick={() => setViewMode("cards")}
-            className={`text-xs tracking-[1px] uppercase px-4 py-2 transition-colors ${viewMode === "cards" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}>
-            List
+        <div className="flex items-center gap-3">
+          <button onClick={syncSheet} disabled={syncing}
+            className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
+            {syncing ? "Syncing..." : "↑ Sync Sheet"}
           </button>
-          <button onClick={() => setViewMode("month")}
-            className={`text-xs tracking-[1px] uppercase px-4 py-2 transition-colors ${viewMode === "month" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}>
-            By Month
-          </button>
+          <div className="flex border border-white/10 overflow-hidden">
+            <button onClick={() => setViewMode("cards")}
+              className={`text-xs tracking-[1px] uppercase px-4 py-2 transition-colors ${viewMode === "cards" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}>
+              List
+            </button>
+            <button onClick={() => setViewMode("month")}
+              className={`text-xs tracking-[1px] uppercase px-4 py-2 transition-colors ${viewMode === "month" ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"}`}>
+              By Month
+            </button>
+          </div>
         </div>
       </div>
 
@@ -352,53 +352,60 @@ export default function ShootsPage() {
         </div>
       )}
 
-      {/* Stats bar */}
-      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center justify-center gap-6 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums">{shoots.length}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">total shoots</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#4ade80]">{completedShoots.length}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">completed</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#4ade80]">${totalRevenue.toLocaleString()}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">total revenue</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">{thisMonthCount}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">this month</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums text-[#fbbf24]">${thisMonthRevenue.toLocaleString()}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">revenue this month</span>
-        </div>
-        <div className="w-px h-4 bg-white/10" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tabular-nums">${avgPrice.toLocaleString()}</span>
-          <span className="text-xs tracking-[2px] uppercase text-[#555]">avg / shoot</span>
-        </div>
-      </div>
+      {/* Page title + stats */}
+      <div className="max-w-4xl mx-auto px-4 md:px-8 pt-10 pb-6">
+        <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Shoot Log</h1>
 
-      {/* Services YTD */}
-      <div className="border-b border-white/10 bg-[#0e0e0e] px-4 md:px-8 py-3 flex items-center justify-center gap-1 flex-wrap">
-        <span className="text-[10px] tracking-[2px] uppercase text-[#444] mr-3">Services YTD</span>
-        {serviceCounts.map((b, i) => (
-          <span key={b.label} className="flex items-center gap-1">
-            {i > 0 && <span className="w-px h-3 bg-white/10 mx-1" />}
-            <span className="text-sm font-bold tabular-nums">{b.count}</span>
-            <span className="text-[10px] tracking-[1px] uppercase text-[#555]">{b.label}</span>
-          </span>
-        ))}
+        {/* Primary stats */}
+        <div className="flex items-end gap-8 flex-wrap mb-6">
+          <div>
+            <p className="text-2xl font-bold tabular-nums">{shoots.length}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Shoots</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">{completedShoots.length}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Completed</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#4ade80]">${totalRevenue.toLocaleString()}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Total Revenue</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">{thisMonthCount}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">This Month</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-[#fbbf24]">${thisMonthRevenue.toLocaleString()}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Revenue This Month</p>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div>
+            <p className="text-2xl font-bold tabular-nums">${avgPrice.toLocaleString()}</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Avg / Shoot</p>
+          </div>
+        </div>
+
+        {/* Services YTD */}
+        {serviceCounts.length > 0 && (
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-[10px] tracking-[2px] uppercase text-[#444]">Services YTD</span>
+            {serviceCounts.map((b, i) => (
+              <span key={b.label} className="flex items-center gap-1.5">
+                {i > 0 && <span className="w-px h-3 bg-white/10" />}
+                <span className="text-sm font-bold tabular-nums">{b.count}</span>
+                <span className="text-[10px] tracking-[1px] uppercase text-[#555]">{b.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Filters */}
-      <div className="px-4 md:px-8 py-4 flex items-center gap-3 flex-wrap border-b border-white/5">
+      <div className="max-w-4xl mx-auto px-4 md:px-8 pb-4 flex items-center gap-3 flex-wrap">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search address, client, package..."
           className="flex-1 min-w-[200px] bg-[#111] border border-white/10 text-white text-xs px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
