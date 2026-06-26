@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 import ContactModal from "@/components/ContactModal";
+import ContactAvatar from "@/components/ContactAvatar";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const EMPLOYEE_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
@@ -249,14 +250,19 @@ function ContactsPageInner() {
                       className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
                     >
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {contact.is_hot && <span className="text-[#fbbf24] text-[10px]">●</span>}
-                          <span className="font-medium">{contact.name}</span>
-                          {contact.user_id && (
-                            <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">{ps.label}</span>
-                          )}
+                        <div className="flex items-center gap-2.5">
+                          <ContactAvatar contactId={contact.id} name={contact.name} size={28} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              {contact.is_hot && <span className="text-[#fbbf24] text-[10px]">●</span>}
+                              <span className="font-medium">{contact.name}</span>
+                              {contact.user_id && (
+                                <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] bg-[#60a5fa]/10 px-1.5 py-0.5 rounded-sm">{ps.label}</span>
+                              )}
+                            </div>
+                            {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
+                          </div>
                         </div>
-                        {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
                       </td>
                       <td className="px-4 py-3 text-[#666] font-mono whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : "—"}</td>
                       <td className="px-4 py-3 text-[#666]">{contact.brokerage || "—"}</td>
@@ -305,8 +311,13 @@ function ContactsPageInner() {
                         className="border-b border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
                       >
                         <td className="px-4 py-3">
-                          <span className="font-medium text-[#555]">{contact.name}</span>
-                          {contact.email && <p className="text-[#333] mt-0.5 text-[11px]">{contact.email}</p>}
+                          <div className="flex items-center gap-2.5">
+                            <ContactAvatar contactId={contact.id} name={contact.name} size={24} />
+                            <div>
+                              <span className="font-medium text-[#555]">{contact.name}</span>
+                              {contact.email && <p className="text-[#333] mt-0.5 text-[11px]">{contact.email}</p>}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-[#444] font-mono whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : "—"}</td>
                         <td className="px-4 py-3 text-[#333]">{contact.brokerage || "—"}</td>

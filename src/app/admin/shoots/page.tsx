@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import ContactAvatar from "@/components/ContactAvatar";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -238,7 +239,12 @@ export default function ShootsPage() {
               {shoot.scheduled_at && (
                 <span className="text-xs text-[#888]">{formatDate(shoot.scheduled_at)}</span>
               )}
-              {clientDisplay && <span className="text-xs text-[#666]">{clientDisplay}</span>}
+              {clientDisplay && (
+                <span className="flex items-center gap-1.5 text-xs text-[#666]">
+                  <ContactAvatar contactId={shoot.contact_id} name={clientDisplay} size={18} />
+                  {clientDisplay}
+                </span>
+              )}
               {shoot.price != null && (
                 <span className="text-xs font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</span>
               )}
