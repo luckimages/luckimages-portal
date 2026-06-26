@@ -56,12 +56,22 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Parse service_type from path: {shootId}/{service-slug}/{file} or {shootId}/{file}
+  function parseServiceType(filePath: string, sid: string): string {
+    const prefix = sid + "/";
+    const rest = filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath;
+    const parts = rest.split("/");
+    // If there's a sub-folder before the filename, that's the service slug
+    return parts.length > 1 ? parts[0] : "";
+  }
+
   const withUrls = await Promise.all((items || []).map(async (m) => {
     const [{ data: preview }, { data: download }] = await Promise.all([
       db.storage.from("shoot-media").createSignedUrl(m.file_path, 7200),
       db.storage.from("shoot-media").createSignedUrl(m.original_path || m.file_path, 7200),
     ]);
-    return { ...m, preview_url: preview?.signedUrl || null, download_url: download?.signedUrl || null };
+    const service_type = parseServiceType(m.file_path, shootId);
+    return { ...m, service_type, preview_url: preview?.signedUrl || null, download_url: download?.signedUrl || null };
   }));
 
   return NextResponse.json({ media: withUrls, canEdit });

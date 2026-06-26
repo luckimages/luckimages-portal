@@ -237,6 +237,7 @@ export default function PhotographerPage() {
                               <p className="text-[10px] text-[#444] mb-3">Upload your files below, then confirm delivery when ready.</p>
                               <ShootGallery
                                 shootId={s.id}
+                                services={s.services || []}
                                 onMediaChange={count => setCardUploadCount(prev => ({ ...prev, [s.id]: count }))}
                               />
                             </div>
@@ -315,7 +316,7 @@ export default function PhotographerPage() {
             </div>
 
             {selectedShoot ? (
-              <ShootGallery key={selectedShoot} shootId={selectedShoot} />
+              <ShootGallery key={selectedShoot} shootId={selectedShoot} services={shoots.find(s => s.id === selectedShoot)?.services || []} />
             ) : (
               <div className="bg-[#111] border border-white/10 p-10 text-center">
                 <p className="text-[#555] text-sm">Select a shoot above to view and upload media.</p>

@@ -19,10 +19,16 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const shootId = formData.get("shoot_id") as string;
   const file = formData.get("file") as File;
+  const serviceType = (formData.get("service_type") as string | null) || "";
 
   if (!shootId || !file) {
     return NextResponse.json({ error: "Missing shoot_id or file" }, { status: 400 });
   }
+
+  // Slugify service name for path segment: "HDR Photography" → "hdr-photography"
+  const serviceSlug = serviceType
+    ? serviceType.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    : "";
 
   // Verify access
   const { data: shoot } = await service
@@ -41,7 +47,9 @@ export async function POST(req: NextRequest) {
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
 
-  const filePath = `${shootId}/${timestamp}_${safeName}`;
+  const filePath = serviceSlug
+    ? `${shootId}/${serviceSlug}/${timestamp}_${safeName}`
+    : `${shootId}/${timestamp}_${safeName}`;
 
   const { error: storageError } = await service.storage
     .from("shoot-media")

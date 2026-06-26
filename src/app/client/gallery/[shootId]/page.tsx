@@ -34,7 +34,7 @@ export default function GalleryPage() {
             <h1 className="text-2xl font-black tracking-tight uppercase">{shoot.address}</h1>
           </div>
         )}
-        <ShootGallery shootId={shootId} />
+        <ShootGallery shootId={shootId} services={shoot?.services || []} />
       </div>
     </main>
   );

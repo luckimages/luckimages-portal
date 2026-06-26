@@ -1069,7 +1069,7 @@ export default function DashboardPage() {
                   /* ── MEDIA TAB ── */
                   esTab === "media" ? (
                     <div className="p-6">
-                      <ShootGallery shootId={viewShoot.id} />
+                      <ShootGallery shootId={viewShoot.id} services={viewShoot.services || []} />
                     </div>
                   ) :
                   /* ── READ MODE ── */

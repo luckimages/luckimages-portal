@@ -6,6 +6,8 @@ type MediaItem = {
   id: string;
   file_name: string;
   file_type: string;
+  file_path: string;
+  service_type: string;
   preview_url: string | null;
   download_url: string | null;
   created_at: string;
@@ -13,22 +15,36 @@ type MediaItem = {
 
 type Props = {
   shootId: string;
+  services?: string[];
   onMediaChange?: (count: number) => void;
 };
 
-export default function ShootGallery({ shootId, onMediaChange }: Props) {
+// Convert "HDR Photography" → "hdr-photography" (matches upload slug)
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+// Convert slug back to a display-friendly name using the known services list
+function displayName(slug: string, services: string[]) {
+  const match = services.find(s => slugify(s) === slug);
+  return match || slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+export default function ShootGallery({ shootId, services = [], onMediaChange }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [lightboxItems, setLightboxItems] = useState<MediaItem[]>([]);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const dragCounter = useRef(0);
+
+  // Per-section upload state: keyed by service slug (or "" for ungrouped)
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const [draggingSection, setDraggingSection] = useState<string | null>(null);
+  const dragCounters = useRef<Record<string, number>>({});
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/media?shoot_id=${shootId}`);
@@ -46,58 +62,34 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
     function onKey(e: KeyboardEvent) {
       if (lightboxIdx === null) return;
       if (e.key === "Escape") setLightboxIdx(null);
-      if (e.key === "ArrowRight") setLightboxIdx(i => i !== null && i < media.length - 1 ? i + 1 : i);
+      if (e.key === "ArrowRight") setLightboxIdx(i => i !== null && i < lightboxItems.length - 1 ? i + 1 : i);
       if (e.key === "ArrowLeft") setLightboxIdx(i => i !== null && i > 0 ? i - 1 : i);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxIdx, media.length]);
+  }, [lightboxIdx, lightboxItems.length]);
 
-  async function uploadFileList(files: File[]) {
+  async function uploadFileList(files: File[], serviceSlug: string) {
     if (!files.length) return;
-    setUploading(true);
+    setUploading(serviceSlug);
     setUploadError("");
-    setDragging(false);
+    setDraggingSection(null);
+    dragCounters.current[serviceSlug] = 0;
     let failed = 0;
+    // Find the original service name from slug
+    const serviceType = services.find(s => slugify(s) === serviceSlug) || serviceSlug;
     for (const file of files) {
       const fd = new FormData();
       fd.append("shoot_id", shootId);
       fd.append("file", file);
+      if (serviceSlug) fd.append("service_type", serviceType);
       const res = await fetch("/api/photographer/upload", { method: "POST", body: fd });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        console.error("Upload failed:", d.error || res.status);
-        failed++;
-      }
+      if (!res.ok) failed++;
     }
-    setUploading(false);
-    if (failed > 0) setUploadError(`${failed} file(s) failed to upload. Check console for details.`);
-    else setUploadOpen(false);
-    if (fileRef.current) fileRef.current.value = "";
+    setUploading(null);
+    if (failed > 0) setUploadError(`${failed} file(s) failed to upload.`);
+    if (fileRefs.current[serviceSlug]) fileRefs.current[serviceSlug]!.value = "";
     await load();
-  }
-
-  async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files?.length) return;
-    await uploadFileList(Array.from(e.target.files));
-  }
-
-  function onDragEnter(e: React.DragEvent) {
-    e.preventDefault();
-    dragCounter.current++;
-    if (dragCounter.current === 1) setDragging(true);
-  }
-  function onDragLeave(e: React.DragEvent) {
-    e.preventDefault();
-    dragCounter.current--;
-    if (dragCounter.current === 0) setDragging(false);
-  }
-  function onDragOver(e: React.DragEvent) { e.preventDefault(); }
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    dragCounter.current = 0;
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
-    if (files.length) uploadFileList(files);
   }
 
   async function deleteMedia(id: string) {
@@ -110,8 +102,8 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
     onMediaChange?.(media.length - 1);
   }
 
-  async function downloadAll() {
-    for (const m of media) {
+  async function downloadAll(items: MediaItem[]) {
+    for (const m of items) {
       if (!m.download_url) continue;
       const a = document.createElement("a");
       a.href = m.download_url;
@@ -126,58 +118,152 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
 
   const isImage = (m: MediaItem) => m.file_type?.startsWith("image/");
 
+  // Build sections: one per service (by slug), plus "Other" for untagged
+  const serviceSections: { slug: string; label: string; items: MediaItem[] }[] = [];
+
+  if (services.length > 0) {
+    for (const svc of services) {
+      const slug = slugify(svc);
+      const items = media.filter(m => m.service_type === slug);
+      serviceSections.push({ slug, label: svc, items });
+    }
+    // Untagged = not matching any known service slug
+    const knownSlugs = services.map(slugify);
+    const other = media.filter(m => !knownSlugs.includes(m.service_type));
+    if (other.length > 0) serviceSections.push({ slug: "", label: "Other", items: other });
+  } else {
+    // No services provided — show everything in one ungrouped section
+    serviceSections.push({ slug: "", label: "", items: media });
+  }
+
   if (loading) {
     return <div className="py-8 text-center text-xs text-[#444] tracking-[2px] uppercase">Loading media...</div>;
   }
 
-  return (
-    <div className="relative" onDragEnter={canEdit ? onDragEnter : undefined} onDragLeave={canEdit ? onDragLeave : undefined} onDragOver={canEdit ? onDragOver : undefined} onDrop={canEdit ? onDrop : undefined}>
+  function SectionGrid({ section }: { section: typeof serviceSections[0] }) {
+    const slug = section.slug;
+    const isDragging = draggingSection === slug;
+    const isUploading = uploading === slug;
 
-      {/* Drag-over overlay */}
-      {dragging && (
-        <div className="absolute inset-0 z-20 border-2 border-dashed border-white/60 bg-black/70 flex items-center justify-center pointer-events-none">
-          <div className="text-center">
-            <p className="text-3xl mb-2">↑</p>
-            <p className="text-sm font-semibold tracking-[2px] uppercase">Drop to Upload</p>
+    function onDragEnter(e: React.DragEvent) {
+      if (!canEdit) return;
+      e.preventDefault();
+      dragCounters.current[slug] = (dragCounters.current[slug] || 0) + 1;
+      if (dragCounters.current[slug] === 1) setDraggingSection(slug);
+    }
+    function onDragLeave(e: React.DragEvent) {
+      if (!canEdit) return;
+      e.preventDefault();
+      dragCounters.current[slug] = (dragCounters.current[slug] || 0) - 1;
+      if (dragCounters.current[slug] <= 0) setDraggingSection(null);
+    }
+    function onDragOver(e: React.DragEvent) { e.preventDefault(); }
+    function onDrop(e: React.DragEvent) {
+      if (!canEdit) return;
+      e.preventDefault();
+      dragCounters.current[slug] = 0;
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+      if (files.length) uploadFileList(files, slug);
+    }
+
+    return (
+      <div
+        className="relative"
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        {/* Drag overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-20 border-2 border-dashed border-white/60 bg-black/70 flex items-center justify-center pointer-events-none">
+            <div className="text-center">
+              <p className="text-2xl mb-1">↑</p>
+              <p className="text-xs font-semibold tracking-[2px] uppercase">Drop to Upload{section.label ? ` — ${section.label}` : ""}</p>
+            </div>
+          </div>
+        )}
+        {/* Upload overlay */}
+        {isUploading && (
+          <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center">
+            <p className="text-xs tracking-[3px] uppercase text-white">Uploading...</p>
+          </div>
+        )}
+
+        {/* Section toolbar */}
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <p className="text-xs text-[#555]">{section.items.length} file{section.items.length !== 1 ? "s" : ""}</p>
+          <div className="flex gap-2">
+            {section.items.length > 0 && (
+              <button onClick={() => downloadAll(section.items)}
+                className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
+                ↓ Download All
+              </button>
+            )}
+            {canEdit && (
+              <label className="text-xs tracking-[2px] uppercase bg-white text-black px-3 py-1.5 hover:bg-white/90 transition-colors font-semibold cursor-pointer">
+                + Add Files
+                <input
+                  ref={el => { fileRefs.current[slug] = el; }}
+                  type="file" multiple accept="image/*,video/*" className="hidden"
+                  disabled={!!uploading}
+                  onChange={e => { if (e.target.files?.length) uploadFileList(Array.from(e.target.files), slug); }}
+                />
+              </label>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Uploading overlay */}
-      {uploading && (
-        <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center">
-          <p className="text-xs tracking-[3px] uppercase text-white">Uploading...</p>
-        </div>
-      )}
-
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <p className="text-xs text-[#555]">{media.length} file{media.length !== 1 ? "s" : ""}</p>
-        <div className="flex gap-2">
-          {media.length > 0 && (
-            <button onClick={downloadAll}
-              className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
-              ↓ Download All
-            </button>
-          )}
-          {canEdit && (
-            <button onClick={() => setUploadOpen(o => !o)}
-              className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 hover:bg-white/90 transition-colors font-semibold">
-              {uploadOpen ? "Cancel" : "+ Add Files"}
-            </button>
-          )}
-        </div>
+        {/* Grid or empty state */}
+        {section.items.length === 0 ? (
+          canEdit ? (
+            <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-6 cursor-pointer hover:bg-white/[0.02] transition-colors">
+              <span className="text-xl mb-1">↑</span>
+              <span className="text-xs text-[#555]">Click to select or drag files here</span>
+              <input
+                ref={el => { fileRefs.current[slug] = el; }}
+                type="file" multiple accept="image/*,video/*" className="hidden"
+                disabled={!!uploading}
+                onChange={e => { if (e.target.files?.length) uploadFileList(Array.from(e.target.files), slug); }}
+              />
+            </label>
+          ) : (
+            <div className="bg-[#0c0c0c] border border-white/5 p-6 text-center">
+              <p className="text-xs text-[#333]">No media yet</p>
+            </div>
+          )
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {section.items.map((m, idx) => (
+              <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(idx); }}>
+                  {isImage(m) && m.preview_url ? (
+                    <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                      <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
+                      <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
+                    </div>
+                  )}
+                </button>
+                {/* Hover: download only (no delete X) */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none group-hover:pointer-events-auto">
+                  <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                    className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
+                    ↓
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+    );
+  }
 
-      {/* Upload zone */}
-      {canEdit && uploadOpen && (
-        <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-8 mb-4 cursor-pointer hover:bg-white/[0.02] transition-colors">
-          <span className="text-2xl mb-2">↑</span>
-          <span className="text-sm text-[#666] mb-1">Click to select or drag files here</span>
-          <span className="text-xs text-[#444]">JPG, PNG, MP4, DNG — any size</span>
-          <input ref={fileRef} type="file" multiple accept="image/*,video/*" className="hidden" disabled={uploading} onChange={uploadFiles} />
-        </label>
-      )}
+  return (
+    <div>
+      {/* Global error bar */}
       {uploadError && (
         <div className="mb-4 bg-red-400/5 border border-red-400/20 px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-red-400 text-xs">{uploadError}</p>
@@ -185,45 +271,23 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
         </div>
       )}
 
-      {/* Grid */}
-      {media.length === 0 ? (
-        <div className="bg-[#111] border border-white/10 p-10 text-center">
-          <p className="text-[#555] text-sm">No media uploaded yet.</p>
-          {canEdit && <p className="text-xs text-[#333] mt-2">Use + Add Files above to upload.</p>}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {media.map((m, idx) => (
-            <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
-              {/* Thumbnail */}
-              <button className="w-full h-full" onClick={() => setLightboxIdx(idx)}>
-                {isImage(m) && m.preview_url ? (
-                  <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                    <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
-                    <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
-                  </div>
-                )}
-              </button>
-
-              {/* Hover actions */}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2 pointer-events-none group-hover:pointer-events-auto">
-                <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                  className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
-                  ↓
-                </a>
-                {canEdit && (
-                  <button onClick={() => setConfirmDelete(m.id)}
-                    className="text-[10px] tracking-[1px] uppercase text-[#ef4444] border border-[#ef4444]/30 px-2 py-1 hover:bg-[#ef4444]/10 transition-colors">
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Total file count */}
+      {services.length > 0 && (
+        <p className="text-xs text-[#444] mb-4">{media.length} total file{media.length !== 1 ? "s" : ""}</p>
       )}
+
+      {/* Sections */}
+      {serviceSections.map((section, i) => (
+        <div key={section.slug || "__all__"} className={i > 0 ? "mt-6" : ""}>
+          {section.label && (
+            <div className="flex items-center gap-3 mb-3">
+              <p className="text-[10px] tracking-[3px] uppercase text-[#666] font-semibold">{section.label}</p>
+              <div className="flex-1 h-px bg-white/5" />
+            </div>
+          )}
+          <SectionGrid section={section} />
+        </div>
+      ))}
 
       {/* Lightbox */}
       {lightboxIdx !== null && (
@@ -234,14 +298,14 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
             <button className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-3xl z-10 px-2"
               onClick={e => { e.stopPropagation(); setLightboxIdx(i => i !== null ? i - 1 : i); }}>‹</button>
           )}
-          {lightboxIdx < media.length - 1 && (
+          {lightboxIdx < lightboxItems.length - 1 && (
             <button className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-3xl z-10 px-2"
               onClick={e => { e.stopPropagation(); setLightboxIdx(i => i !== null ? i + 1 : i); }}>›</button>
           )}
 
           <div className="max-w-5xl max-h-[85vh] w-full px-16" onClick={e => e.stopPropagation()}>
             {(() => {
-              const m = media[lightboxIdx];
+              const m = lightboxItems[lightboxIdx];
               return (
                 <div className="flex flex-col items-center gap-4">
                   {isImage(m) && m.preview_url ? (
@@ -255,7 +319,7 @@ export default function ShootGallery({ shootId, onMediaChange }: Props) {
                     </div>
                   )}
                   <div className="flex items-center gap-4">
-                    <p className="text-xs text-[#555]">{m.file_name} · {lightboxIdx + 1} of {media.length}</p>
+                    <p className="text-xs text-[#555]">{m.file_name} · {lightboxIdx + 1} of {lightboxItems.length}</p>
                     <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
                       className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
                       ↓ Download
