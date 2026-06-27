@@ -705,7 +705,6 @@ export default function DashboardPage() {
   const [qbSqft, setQbSqft] = useState("");
   const [qbPrimary, setQbPrimary] = useState<string | null>(null);
   const [qbAddons, setQbAddons] = useState<Set<string>>(new Set());
-  const [qbCopied, setQbCopied] = useState(false);
   const [qbContactSearch, setQbContactSearch] = useState("");
   const [qbContact, setQbContact] = useState<Contact | null>(null);
   const [qbShowDropdown, setQbShowDropdown] = useState(false);
@@ -2070,17 +2069,6 @@ export default function DashboardPage() {
       const addonItems = QB_ADDONS.filter(a => qbAddons.has(a.id)).map(a => ({ name: a.name, price: qbGetPrice(a.tiers, sqftNum) }));
       const total = primaryPrice + addonItems.reduce((sum, a) => sum + a.price, 0);
 
-      function copyQuote() {
-        const lines = [
-          primarySvc ? `${primarySvc.name}: $${primaryPrice}` : null,
-          ...addonItems.map(a => `${a.name} (add-on): $${a.price}`),
-          `\nTotal: $${total.toLocaleString()}`,
-        ].filter(Boolean).join("\n");
-        navigator.clipboard.writeText(lines);
-        setQbCopied(true);
-        setTimeout(() => setQbCopied(false), 2000);
-      }
-
       async function saveQuote() {
         if (!primarySvc) return;
         setQbSaving(true);
@@ -2243,9 +2231,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0 flex-wrap">
                   <p className="text-3xl font-bold">${total.toLocaleString()}</p>
-                  <button onClick={copyQuote}
-                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-all">
-                    {qbCopied ? "Copied ✓" : "Copy"}
+                  <button disabled title="Email sending coming soon"
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#444] cursor-not-allowed">
+                    Send Quote
                   </button>
                   <button onClick={saveQuote} disabled={qbSaving}
                     className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">

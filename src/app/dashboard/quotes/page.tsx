@@ -66,7 +66,6 @@ export default function QuotesPage() {
   const [qbCreating, setQbCreating] = useState(false);
   const [qbSaving, setQbSaving] = useState(false);
   const [qbSaved, setQbSaved] = useState(false);
-  const [qbCopied, setQbCopied] = useState(false);
 
   const loadQuotes = useCallback(async () => {
     setLoadingQuotes(true);
@@ -116,20 +115,6 @@ export default function QuotesPage() {
     setQbSaved(true);
     setTimeout(() => setQbSaved(false), 3000);
     loadQuotes();
-  }
-
-  function copyQuote() {
-    const lines = [
-      qbContact ? `Client: ${qbContact.name}` : null,
-      qbAddress ? `Address: ${qbAddress}` : null,
-      qbSqft ? `Sq Ft: ${qbSqft}` : null,
-      primarySvc ? `${primarySvc.name}: $${primaryPrice}` : null,
-      ...addonItems.map(a => `${a.name} (add-on): $${a.price}`),
-      `\nTotal: $${total.toLocaleString()}`,
-    ].filter(Boolean).join("\n");
-    navigator.clipboard.writeText(lines);
-    setQbCopied(true);
-    setTimeout(() => setQbCopied(false), 2000);
   }
 
   return (
@@ -265,14 +250,13 @@ export default function QuotesPage() {
               <div className="flex items-center justify-between">
                 <p className="text-3xl font-bold">${total.toLocaleString()}</p>
                 <div className="flex gap-2">
-                  <button onClick={copyQuote} className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-all">
-                    {qbCopied ? "Copied ✓" : "Copy"}
+                  <button disabled title="Email sending coming soon"
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#444] cursor-not-allowed">
+                    Send Quote
                   </button>
-                  {qbContact && (
-                    <button onClick={saveQuote} disabled={qbSaving} className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                      {qbSaved ? "Saved ✓" : qbSaving ? "Saving..." : "Save"}
-                    </button>
-                  )}
+                  <button onClick={saveQuote} disabled={qbSaving} className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                    {qbSaved ? "Saved ✓" : qbSaving ? "Saving..." : "Save"}
+                  </button>
                 </div>
               </div>
             </div>
