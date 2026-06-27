@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import ShootGallery from "@/components/ShootGallery";
 import { normalizePhone } from "@/lib/format";
-import InsightsPage from "./InsightsPage";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -79,7 +78,6 @@ function EditableNumber({ value, onChange }: { value: number; onChange: (v: numb
 }
 
 export default function DashboardPage() {
-  const [dashPage, setDashPage] = useState<"dashboard" | "insights">("dashboard");
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
@@ -116,7 +114,6 @@ export default function DashboardPage() {
     { value: "booked", label: "Booked!", color: "bg-green-900 text-green-300" },
   ];
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [insightsShoots, setInsightsShoots] = useState<{ id: string; address: string; scheduled_at: string | null; status: string; price: number | null; contact_id: string | null; services: string[] }[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [contactSearch, setContactSearch] = useState("");
   const [activeCallContact, setActiveCallContact] = useState<Contact | null>(null);
@@ -227,15 +224,13 @@ export default function DashboardPage() {
         });
       }
 
-      // Load contacts + call logs + all shoots
-      const [{ data: cs }, { data: cls }, { data: allSh }] = await Promise.all([
+      // Load contacts + call logs
+      const [{ data: cs }, { data: cls }] = await Promise.all([
         supabase.from("contacts").select("*").order("name", { ascending: true }),
         supabase.from("cold_calls").select("*").order("called_at", { ascending: false }).limit(200),
-        supabase.from("shoots").select("id, address, scheduled_at, status, price, contact_id, services").order("scheduled_at", { ascending: false }),
       ]);
       setContacts(cs || []);
       setCallLogs(cls || []);
-      setInsightsShoots(allSh || []);
       const today = new Date().toISOString().split("T")[0];
       setTodayCalls((cls || []).filter((l: CallLog) => l.called_at.startsWith(today)).length);
 
@@ -2425,6 +2420,7 @@ export default function DashboardPage() {
           <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">Contacts</a>
           <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">📞 Calls</a>
           <a href="/choose-portal" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Portals</a>
+          <a href="/dashboard/beta" className="text-xs tracking-[2px] uppercase text-[#a78bfa] hover:text-white transition-colors hidden sm:inline">Beta</a>
           <form action="/api/auth/signout" method="post" className="inline">
             <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
           </form>
@@ -2432,28 +2428,6 @@ export default function DashboardPage() {
       </header>
 
       <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-10 md:space-y-12">
-
-        {/* PAGE TABS */}
-        <div className="flex gap-1 border-b border-white/10">
-          {(["dashboard", "insights"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setDashPage(p)}
-              className={`text-xs tracking-[3px] uppercase px-4 py-2.5 border-b-2 transition-all -mb-px ${
-                dashPage === p
-                  ? "border-white text-white"
-                  : "border-transparent text-[#555] hover:text-[#999]"
-              }`}
-            >
-              {p === "dashboard" ? "KPI Dashboard" : "Beta Testing"}
-            </button>
-          ))}
-        </div>
-
-        {dashPage === "insights" ? (
-          <InsightsPage shoots={insightsShoots} contacts={contacts} />
-        ) : (
-        <>
 
         {/* TITLE */}
         <div className="flex flex-col gap-3">
@@ -2545,12 +2519,7 @@ export default function DashboardPage() {
         </div>
 
 
-        <div>
-          {order.map(renderSection)}
-        </div>
-
-        </>
-        )}
+        {order.map(renderSection)}
 
       </div>
     </main>
