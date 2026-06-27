@@ -9,13 +9,15 @@ type Contact = { id: string; name: string; email: string | null; type: string; c
 
 type QuoteRecord = {
   id: string;
-  contact_id: string;
+  contact_id: string | null;
   address: string | null;
   sqft: string | null;
   primary_service: string;
   primary_price: number;
   addons: { name: string; price: number }[];
   total: number;
+  sent: boolean;
+  sent_at: string | null;
   created_at: string;
   contacts: { name: string; email: string | null } | null;
 };
@@ -64,8 +66,9 @@ export default function QuotesPage() {
   const [qbNewName, setQbNewName] = useState("");
   const [qbNewEmail, setQbNewEmail] = useState("");
   const [qbCreating, setQbCreating] = useState(false);
-  const [qbSaving, setQbSaving] = useState(false);
+  const [qbSaving, setQbSaving] = useState<"save" | "send" | null>(null);
   const [qbSaved, setQbSaved] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const loadQuotes = useCallback(async () => {
     setLoadingQuotes(true);
@@ -103,18 +106,20 @@ export default function QuotesPage() {
     setQbCreating(false);
   }
 
-  async function saveQuote() {
+  async function submitQuote(asSent: boolean) {
     if (!primarySvc) return;
-    setQbSaving(true);
-    await fetch("/api/admin/quotes", {
+    setQbSaving(asSent ? "send" : "save");
+    const res = await fetch("/api/admin/quotes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contact_id: qbContact.id, address: qbAddress || null, sqft: qbSqft || null, primary_service: primarySvc.name, primary_price: primaryPrice, addons: addonItems, total }),
+      body: JSON.stringify({ contact_id: qbContact?.id ?? null, address: qbAddress || null, sqft: qbSqft || null, primary_service: primarySvc.name, primary_price: primaryPrice, addons: addonItems, total, sent: asSent }),
     });
-    setQbSaving(false);
-    setQbSaved(true);
-    setTimeout(() => setQbSaved(false), 3000);
-    loadQuotes();
+    setQbSaving(null);
+    if (res.ok) {
+      setQbSaved(true);
+      setTimeout(() => setQbSaved(false), 3000);
+      loadQuotes();
+    }
   }
 
   return (
@@ -247,15 +252,17 @@ export default function QuotesPage() {
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <p className="text-3xl font-bold">${total.toLocaleString()}</p>
                 <div className="flex gap-2">
-                  <button disabled title="Email sending coming soon"
-                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#444] cursor-not-allowed">
-                    Send Quote
+                  <button onClick={() => submitQuote(false)} disabled={!!qbSaving}
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/20 text-white hover:bg-white/5 transition-all disabled:opacity-40">
+                    {qbSaving === "save" ? "Saving..." : qbSaved ? "Saved ✓" : "Save"}
                   </button>
-                  <button onClick={saveQuote} disabled={qbSaving} className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                    {qbSaved ? "Saved ✓" : qbSaving ? "Saving..." : "Save"}
+                  <button onClick={() => submitQuote(true)} disabled={!!qbSaving || !qbContact}
+                    title={!qbContact ? "Tag a client to send" : "Send HTML quote email (coming soon)"}
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    {qbSaving === "send" ? "Sending..." : "Send Quote"}
                   </button>
                 </div>
               </div>
@@ -280,33 +287,79 @@ export default function QuotesPage() {
             </div>
           ) : (
             <div className="divide-y divide-white/5">
-              {quotes.map(q => (
-                <div key={q.id} className="px-6 md:px-8 py-5 hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {q.contacts?.name && (
-                        <span className="text-sm font-semibold text-white">{q.contacts.name}</span>
-                      )}
-                      {q.address && (
-                        <span className="text-xs text-[#555]">{q.address}</span>
-                      )}
-                    </div>
-                    <span className="text-lg font-bold text-[#4ade80] shrink-0">${q.total?.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <span className="text-xs text-[#666]">{q.primary_service} — ${q.primary_price}</span>
-                    {q.sqft && <span className="text-xs text-[#444]">{q.sqft} sq ft</span>}
-                    {q.addons?.length > 0 && (
-                      <span className="text-xs text-[#444]">+ {q.addons.map(a => a.name).join(", ")}</span>
+              {quotes.map(q => {
+                const expanded = expandedId === q.id;
+                const dt = new Date(q.created_at);
+                return (
+                  <div key={q.id} className="border-b border-white/5 last:border-0">
+                    {/* Row header — always visible */}
+                    <button
+                      onClick={() => setExpandedId(expanded ? null : q.id)}
+                      className="w-full px-6 md:px-8 py-4 flex items-center gap-4 hover:bg-white/[0.02] transition-colors text-left"
+                    >
+                      {/* Expand chevron */}
+                      <span className="text-[#444] text-xs shrink-0">{expanded ? "▾" : "▸"}</span>
+
+                      {/* Client + address */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-white">
+                            {q.contacts?.name ?? <span className="text-[#444] font-normal">No client</span>}
+                          </span>
+                          {q.address && <span className="text-xs text-[#555] truncate">{q.address}</span>}
+                        </div>
+                        <p className="text-[10px] text-[#444] mt-0.5">
+                          {dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                          {" · "}
+                          {dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        </p>
+                      </div>
+
+                      {/* Sent status */}
+                      <span className={`text-[10px] tracking-[1.5px] uppercase px-2 py-1 shrink-0 ${q.sent ? "bg-[#4ade80]/10 text-[#4ade80]" : "bg-white/5 text-[#555]"}`}>
+                        {q.sent ? "Sent" : "Not Sent"}
+                      </span>
+
+                      {/* Total */}
+                      <span className="text-base font-bold text-white shrink-0">${q.total?.toLocaleString()}</span>
+                    </button>
+
+                    {/* Expanded detail */}
+                    {expanded && (
+                      <div className="px-8 md:px-12 pb-6 pt-1 flex flex-col gap-3 bg-white/[0.015]">
+                        {/* Line items */}
+                        <div className="flex flex-col gap-1.5 border-l-2 border-white/10 pl-4">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white">{q.primary_service}</span>
+                            <span className="text-[#888]">${q.primary_price}</span>
+                          </div>
+                          {(q.addons ?? []).map((a, i) => (
+                            <div key={i} className="flex justify-between text-xs">
+                              <span className="text-[#666]">{a.name}</span>
+                              <span className="text-[#666]">${a.price}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between text-xs border-t border-white/10 pt-1.5 mt-0.5">
+                            <span className="text-white font-semibold">Total</span>
+                            <span className="text-white font-semibold">${q.total?.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="flex flex-col gap-1 text-[10px] text-[#444]">
+                          {q.sqft && <span>Square footage: {q.sqft} sq ft</span>}
+                          {q.contacts?.email && <span>Client email: {q.contacts.email}</span>}
+                          <span>Created: {dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} at {dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span>
+                          {q.sent && q.sent_at && (
+                            <span>Sent: {new Date(q.sent_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} at {new Date(q.sent_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span>
+                          )}
+                          {!q.sent && <span className="text-[#555]">Not yet sent to client</span>}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <p className="text-[10px] text-[#333] mt-2">
-                    {new Date(q.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-                    {" · "}
-                    {new Date(q.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

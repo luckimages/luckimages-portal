@@ -40,6 +40,8 @@ export async function POST() {
       created_at timestamptz DEFAULT now()
     )`,
     `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS address text`,
+    `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS sent boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS sent_at timestamptz`,
   ];
 
   const errors: string[] = [];
