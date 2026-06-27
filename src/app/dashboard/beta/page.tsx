@@ -25,6 +25,17 @@ type Contact = {
   stage?: string;
 };
 
+type QBSnapshot = {
+  rev_month: number;
+  rev_ytd: number;
+  net_income: number;
+  expenses_ytd: number;
+  ytd_invoices: number;
+  unpaid_count: number;
+  monthly_breakdown: Record<string, number>;
+  synced_at: string | null;
+};
+
 type WebLead = {
   id: string;
   name: string;
@@ -43,6 +54,7 @@ export default function BetaPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [snapshot, setSnapshot] = useState<QBSnapshot | null>(null);
   const [leads, setLeads] = useState<WebLead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
@@ -71,6 +83,9 @@ export default function BetaPage() {
     fetch("/api/admin/web-leads")
       .then(r => r.ok ? r.json() : [])
       .then(d => { setLeads(d); setLeadsLoading(false); });
+
+    supabase.from("kpi_snapshots").select("*").eq("id", 1).single()
+      .then(({ data }) => { if (data) setSnapshot(data); });
   }, []);
 
   async function convertToContact(lead: WebLead) {
@@ -240,7 +255,7 @@ export default function BetaPage() {
               <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
             </div>
           ) : (
-            <InsightsPage shoots={shoots} contacts={contacts} />
+            <InsightsPage shoots={shoots} contacts={contacts} snapshot={snapshot} />
           )}
         </section>
 

@@ -49,7 +49,18 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
   );
 }
 
-export default function InsightsPage({ shoots, contacts }: { shoots: Shoot[]; contacts: Contact[] }) {
+type QBSnapshot = {
+  rev_month: number;
+  rev_ytd: number;
+  net_income: number;
+  expenses_ytd: number;
+  ytd_invoices: number;
+  unpaid_count: number;
+  monthly_breakdown: Record<string, number>;
+  synced_at: string | null;
+};
+
+export default function InsightsPage({ shoots, contacts, snapshot }: { shoots: Shoot[]; contacts: Contact[]; snapshot?: QBSnapshot | null }) {
 
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
@@ -58,18 +69,21 @@ export default function InsightsPage({ shoots, contacts }: { shoots: Shoot[]; co
   const lastMonthKey = monthKey(lastMonthDate);
   const sameMonthLastYearKey = `${now.getFullYear() - 1}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  // Revenue helpers
+  // Revenue — use QB snapshot when available, fall back to shoots
+  const breakdown = snapshot?.monthly_breakdown ?? {};
+  const revThisMonth = snapshot ? (breakdown[thisMonthKey] ?? 0) : 0;
+  const revLastMonth = snapshot ? (breakdown[lastMonthKey] ?? 0) : 0;
+  const revSameMonthLY = snapshot ? (breakdown[sameMonthLastYearKey] ?? 0) : 0;
+  const revYTD = snapshot?.rev_ytd ?? 0;
+  const netIncome = snapshot?.net_income ?? 0;
+  const expensesYTD = snapshot?.expenses_ytd ?? 0;
+  const avgPerInvoice = snapshot && snapshot.ytd_invoices > 0
+    ? Math.round(revYTD / snapshot.ytd_invoices)
+    : 0;
+
   const completedShoots = shoots.filter((s) =>
     ["delivered", "completed"].includes(s.status) && s.price
   );
-  function revForMonth(key: string) {
-    return completedShoots
-      .filter((s) => s.scheduled_at && monthKey(new Date(s.scheduled_at)) === key)
-      .reduce((sum, s) => sum + (s.price ?? 0), 0);
-  }
-  const revThisMonth = revForMonth(thisMonthKey);
-  const revLastMonth = revForMonth(lastMonthKey);
-  const revSameMonthLY = revForMonth(sameMonthLastYearKey);
 
   function delta(current: number, prior: number) {
     if (!prior) return null;
@@ -189,8 +203,18 @@ export default function InsightsPage({ shoots, contacts }: { shoots: Shoot[]; co
 
       {/* Revenue with Deltas */}
       <section>
-        <SectionLabel>Revenue Intelligence</SectionLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="flex items-center justify-between mb-6">
+          <SectionLabel>Revenue Intelligence</SectionLabel>
+          {snapshot?.synced_at && (
+            <p className="text-[10px] text-[#333] mb-6 shrink-0">
+              QB synced {new Date(snapshot.synced_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {new Date(snapshot.synced_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+            </p>
+          )}
+        </div>
+        {!snapshot && (
+          <p className="text-xs text-[#555] mb-4">No QuickBooks data synced yet — showing $0 until QB sync runs.</p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#4ade80" }}>
             <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Revenue This Month</p>
             <p className="text-3xl font-bold mb-3">{fmtMoney(revThisMonth)}</p>
@@ -200,20 +224,31 @@ export default function InsightsPage({ shoots, contacts }: { shoots: Shoot[]; co
             </div>
           </div>
           <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#60a5fa" }}>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Revenue YTD</p>
+            <p className="text-3xl font-bold mb-3">{fmtMoney(revYTD)}</p>
+            <p className="text-xs text-[#555]">{snapshot?.ytd_invoices ?? 0} invoices · avg {fmtMoney(avgPerInvoice)}/invoice</p>
+          </div>
+          <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#a78bfa" }}>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Net Income YTD</p>
+            <p className="text-3xl font-bold mb-3">{fmtMoney(netIncome)}</p>
+            <p className="text-xs text-[#555]">Expenses: {fmtMoney(expensesYTD)}</p>
+          </div>
+          <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#fbbf24" }}>
             <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Shoots This Month</p>
             <p className="text-3xl font-bold mb-3">{shootsThisMonth.length}</p>
             <p className={`text-xs ${deltaColor(shootCountDelta)}`}>
               {deltaLabel(shootCountDelta, "last month")}
             </p>
           </div>
-          <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#a78bfa" }}>
-            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Avg Revenue / Shoot</p>
-            <p className="text-3xl font-bold mb-3">
-              {completedShoots.length
-                ? fmtMoney(Math.round(completedShoots.reduce((s, sh) => s + (sh.price ?? 0), 0) / completedShoots.length))
-                : "—"}
-            </p>
-            <p className="text-xs text-[#555]">Across all completed shoots</p>
+          <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#f87171" }}>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Unpaid Invoices</p>
+            <p className="text-3xl font-bold mb-3">{snapshot?.unpaid_count ?? 0}</p>
+            <p className="text-xs text-[#555]">Awaiting payment in QB</p>
+          </div>
+          <div className="bg-[#111] border border-white/10 border-b-2 p-6" style={{ borderBottomColor: "#34d399" }}>
+            <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Avg Rev / Invoice</p>
+            <p className="text-3xl font-bold mb-3">{avgPerInvoice ? fmtMoney(avgPerInvoice) : "—"}</p>
+            <p className="text-xs text-[#555]">Based on YTD QB invoices</p>
           </div>
         </div>
       </section>
