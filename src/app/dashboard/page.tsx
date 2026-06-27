@@ -704,7 +704,10 @@ export default function DashboardPage() {
   const [qbPhotos, setQbPhotos] = useState(false);
   const [qbPhotosSqft, setQbPhotosSqft] = useState("");
   const [qbDrone, setQbDrone] = useState(false);
-  const [qbDroneCount, setQbDroneCount] = useState(20);
+  const [qbDroneMode, setQbDroneMode] = useState<"addon" | "standalone">("standalone");
+  const [qbDroneAddonCount, setQbDroneAddonCount] = useState(5);
+  const [qbDroneStandaloneCount, setQbDroneStandaloneCount] = useState(10);
+  const [qbDroneVideo, setQbDroneVideo] = useState(false);
   const [qbVideo, setQbVideo] = useState<"" | "bronze" | "silver" | "gold">("");
   const [qbMatterport, setQbMatterport] = useState(false);
   const [qbMatterportSqft, setQbMatterportSqft] = useState("");
@@ -2054,8 +2057,10 @@ export default function DashboardPage() {
       })();
       const dronePrice = (() => {
         if (!qbDrone) return 0;
-        return 200 + Math.max(0, Math.ceil((qbDroneCount - 20) / 5)) * 50;
+        if (qbDroneMode === "addon") return qbDroneAddonCount === 5 ? 100 : 150;
+        return 200 + Math.max(0, Math.ceil((qbDroneStandaloneCount - 10) / 5)) * 50;
       })();
+      const droneVideoPrice = qbDrone && qbDroneMode === "standalone" && qbDroneVideo ? 150 : 0;
       const videoPrice = qbVideo === "bronze" ? 200 : qbVideo === "silver" ? 300 : 0;
       const matterportSqft = parseInt(qbMatterportSqft) || 0;
       const matterportBase = (() => {
@@ -2077,11 +2082,12 @@ export default function DashboardPage() {
         return 500 + Math.max(0, qbTeamSize - 5) * 50;
       })();
 
-      const total = photosPrice + dronePrice + videoPrice + matterportBase + stagingPrice + twilightPrice + floorplanPrice + headshotPrice;
+      const total = photosPrice + dronePrice + droneVideoPrice + videoPrice + matterportBase + stagingPrice + twilightPrice + floorplanPrice + headshotPrice;
 
       const lineItems: { label: string; price: number }[] = [
         qbPhotos && { label: `Listing Photos (${qbPhotosSqft || "?"}sf)`, price: photosPrice },
-        qbDrone && { label: `Drone Photos (${qbDroneCount} photos)`, price: dronePrice },
+        qbDrone && { label: `Drone Photos (${qbDroneMode === "addon" ? `${qbDroneAddonCount} photos add-on` : `${qbDroneStandaloneCount} photos standalone`})`, price: dronePrice },
+        droneVideoPrice > 0 && { label: "Drone Video (add-on)", price: droneVideoPrice },
         qbVideo && { label: `Video — ${qbVideo === "bronze" ? "Bronze" : "Silver"}`, price: videoPrice },
         qbMatterport && { label: `Matterport (${qbMatterportSqft || "?"}sf${qbMatterportAddon ? " add-on" : ""})`, price: matterportBase },
         qbStaging && { label: `Virtual Staging (${qbStagingPack === "per" ? `${qbStagingCount} photo${qbStagingCount > 1 ? "s" : ""}` : qbStagingPack === "5pack" ? "5-pack" : "10-pack"})`, price: stagingPrice },
@@ -2137,21 +2143,51 @@ export default function DashboardPage() {
                 <button onClick={() => setQbDrone(v => !v)} className={tog(qbDrone)}>
                   <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbDrone ? "left-4" : "left-0.5"}`} />
                 </button>
-                <span className={label}>Drone Photos</span>
-                {qbDrone && <span className="ml-auto text-sm font-bold text-white">${dronePrice}</span>}
+                <span className={label}>Drone</span>
+                {qbDrone && <span className="ml-auto text-sm font-bold text-white">${dronePrice + droneVideoPrice}</span>}
               </div>
               {qbDrone && (
-                <div className="ml-11 flex items-center gap-3">
-                  <span className="text-xs text-[#555]">Photos:</span>
-                  <div className="flex gap-1.5">
-                    {[20, 25, 30, 35, 40].map(n => (
-                      <button key={n} onClick={() => setQbDroneCount(n)}
-                        className={`text-[10px] px-2.5 py-1 border transition-colors ${qbDroneCount === n ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
-                        {n}
+                <div className="ml-11 space-y-3">
+                  {/* Add-on vs Standalone */}
+                  <div className="flex gap-2">
+                    {([["standalone","Standalone"],["addon","Add-on to Photos"]] as const).map(([val,lbl]) => (
+                      <button key={val} onClick={() => { setQbDroneMode(val); setQbDroneVideo(false); }}
+                        className={`text-[10px] px-3 py-1.5 border transition-colors ${qbDroneMode === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                        {lbl}
                       </button>
                     ))}
                   </div>
-                  <span className="text-[10px] text-[#444]">+$50 per 5</span>
+                  {/* Add-on counts */}
+                  {qbDroneMode === "addon" && (
+                    <div className="flex items-center gap-2">
+                      {([["5 photos",5,"$100"],["10 photos",10,"$150"]] as [string,number,string][]).map(([lbl,n,price]) => (
+                        <button key={n} onClick={() => setQbDroneAddonCount(n)}
+                          className={`text-[10px] px-3 py-1.5 border transition-colors text-left ${qbDroneAddonCount === n ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                          <p>{lbl}</p>
+                          <p className="text-[#4ade80] mt-0.5">{price}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Standalone counts */}
+                  {qbDroneMode === "standalone" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {[10,15,20,25,30].map(n => (
+                          <button key={n} onClick={() => setQbDroneStandaloneCount(n)}
+                            className={`text-[10px] px-2.5 py-1 border transition-colors ${qbDroneStandaloneCount === n ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                            {n} photos
+                          </button>
+                        ))}
+                        <span className="text-[10px] text-[#444]">+$50 per 5</span>
+                      </div>
+                      {/* Drone video add-on */}
+                      <button onClick={() => setQbDroneVideo(v => !v)}
+                        className={`text-[10px] px-3 py-1.5 border transition-colors ${qbDroneVideo ? "border-[#4ade80]/40 text-[#4ade80] bg-[#4ade80]/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                        + Drone Video add-on — $150
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
