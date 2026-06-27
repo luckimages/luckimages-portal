@@ -106,7 +106,7 @@ export default function DashboardPage() {
   const [visible, setVisible] = useState<Record<Section, boolean>>(DEFAULT_VISIBLE);
 
   // Contacts + Cold Calls state
-  type Contact = { id: string; name: string; email: string | null; phone: string | null; brokerage: string | null; stage: string; is_hot: boolean; total_invoices: number; total_revenue: number; };
+  type Contact = { id: string; name: string; email: string | null; phone: string | null; brokerage: string | null; stage: string; is_hot: boolean; total_invoices: number; total_revenue: number; type: string; created_at: string; };
   type CallLog = { id: string; contact_id: string; outcome: string; called_at: string; notes: string | null; listing_address: string | null; called_by: string; };
   const CALL_OUTCOMES = [
     { value: "no_answer", label: "No Answer", color: "bg-zinc-700 text-zinc-300" },
@@ -116,6 +116,7 @@ export default function DashboardPage() {
     { value: "booked", label: "Booked!", color: "bg-green-900 text-green-300" },
   ];
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [insightsShoots, setInsightsShoots] = useState<{ id: string; address: string; scheduled_at: string | null; status: string; price: number | null; contact_id: string | null; services: string[] }[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [contactSearch, setContactSearch] = useState("");
   const [activeCallContact, setActiveCallContact] = useState<Contact | null>(null);
@@ -226,13 +227,15 @@ export default function DashboardPage() {
         });
       }
 
-      // Load contacts + call logs
-      const [{ data: cs }, { data: cls }] = await Promise.all([
+      // Load contacts + call logs + all shoots
+      const [{ data: cs }, { data: cls }, { data: allSh }] = await Promise.all([
         supabase.from("contacts").select("*").order("name", { ascending: true }),
         supabase.from("cold_calls").select("*").order("called_at", { ascending: false }).limit(200),
+        supabase.from("shoots").select("id, address, scheduled_at, status, price, contact_id, services").order("scheduled_at", { ascending: false }),
       ]);
       setContacts(cs || []);
       setCallLogs(cls || []);
+      setInsightsShoots(allSh || []);
       const today = new Date().toISOString().split("T")[0];
       setTodayCalls((cls || []).filter((l: CallLog) => l.called_at.startsWith(today)).length);
 
@@ -2447,7 +2450,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {dashPage === "insights" && <InsightsPage />}
+        {dashPage === "insights" && <InsightsPage shoots={insightsShoots} contacts={contacts} />}
 
         {/* TITLE */}
         <div className={`flex flex-col gap-3 ${dashPage === "insights" ? "hidden" : ""}`}>

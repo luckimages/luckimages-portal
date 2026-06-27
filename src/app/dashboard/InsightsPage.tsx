@@ -1,10 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
-
-const supabase = createClient();
-
 type Shoot = {
   id: string;
   address: string;
@@ -21,11 +16,7 @@ type Contact = {
   email: string | null;
   type: string;
   created_at: string;
-};
-
-type InsightsData = {
-  shoots: Shoot[];
-  contacts: Contact[];
+  stage?: string;
 };
 
 function fmtMoney(n: number) {
@@ -58,37 +49,7 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
   );
 }
 
-export default function InsightsPage() {
-  const [data, setData] = useState<InsightsData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      const [{ data: shoots }, { data: contacts }] = await Promise.all([
-        supabase
-          .from("shoots")
-          .select("id, address, scheduled_at, status, price, contact_id, services")
-          .order("scheduled_at", { ascending: false }),
-        supabase
-          .from("contacts")
-          .select("id, name, email, type, created_at")
-          .neq("stage", "deleted"),
-      ]);
-      setData({ shoots: shoots ?? [], contacts: contacts ?? [] });
-      setLoading(false);
-    }
-    load();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
-      </div>
-    );
-  }
-
-  const { shoots, contacts } = data!;
+export default function InsightsPage({ shoots, contacts }: { shoots: Shoot[]; contacts: Contact[] }) {
 
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
