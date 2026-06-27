@@ -2434,7 +2434,7 @@ export default function DashboardPage() {
       <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-10 md:space-y-12">
 
         {/* PAGE TABS */}
-        <div className="flex gap-1 border-b border-white/10 -mb-6">
+        <div className="flex gap-1 border-b border-white/10">
           {(["dashboard", "insights"] as const).map((p) => (
             <button
               key={p}
