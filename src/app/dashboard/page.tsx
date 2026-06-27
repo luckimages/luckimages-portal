@@ -2417,8 +2417,6 @@ export default function DashboardPage() {
       <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
         <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
-          <a href="/admin/contacts" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">Contacts</a>
-          <a href="/admin/cold-calls" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">📞 Calls</a>
           <a href="/choose-portal" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Portals</a>
           <a href="/dashboard/beta" className="text-xs tracking-[2px] uppercase text-[#a78bfa] hover:text-white transition-colors hidden sm:inline">Beta</a>
           <form action="/api/auth/signout" method="post" className="inline">
