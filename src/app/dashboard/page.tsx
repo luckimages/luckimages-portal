@@ -2434,7 +2434,7 @@ export default function DashboardPage() {
       <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-10 md:space-y-12">
 
         {/* PAGE TABS */}
-        <div className="flex gap-1 border-b border-white/10 pb-0">
+        <div className="flex gap-1 border-b border-white/10 -mb-6">
           {(["dashboard", "insights"] as const).map((p) => (
             <button
               key={p}
@@ -2445,15 +2445,18 @@ export default function DashboardPage() {
                   : "border-transparent text-[#555] hover:text-[#999]"
               }`}
             >
-              {p === "dashboard" ? "KPI Dashboard" : "Insights"}
+              {p === "dashboard" ? "KPI Dashboard" : "Beta Testing"}
             </button>
           ))}
         </div>
 
-        {dashPage === "insights" && <InsightsPage shoots={insightsShoots} contacts={contacts} />}
+        {dashPage === "insights" ? (
+          <InsightsPage shoots={insightsShoots} contacts={contacts} />
+        ) : (
+        <>
 
         {/* TITLE */}
-        <div className={`flex flex-col gap-3 ${dashPage === "insights" ? "hidden" : ""}`}>
+        <div className="flex flex-col gap-3">
           <p className="text-xs tracking-[4px] uppercase text-[#666]">Welcome back</p>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h1 className="text-3xl md:text-4xl font-black tracking-tight uppercase">{userName || "Dashboard"}</h1>
@@ -2542,10 +2545,12 @@ export default function DashboardPage() {
         </div>
 
 
-        <div className={dashPage === "insights" ? "hidden" : ""}>
+        <div>
           {order.map(renderSection)}
         </div>
 
+        </>
+        )}
 
       </div>
     </main>
