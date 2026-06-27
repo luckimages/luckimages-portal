@@ -15,11 +15,9 @@ const STANDALONE = [
   },
   {
     name: "Drone Photos",
-    description: "FAA-certified aerial photography for every listing.",
+    description: "FAA-certified aerial photography — standalone shoot.",
     tiers: [
-      { label: "5 photos (add-on)", price: "$100" },
-      { label: "10 photos (add-on)", price: "$150" },
-      { label: "10 photos (standalone)", price: "$200" },
+      { label: "10 photos", price: "$200" },
       { label: "Each additional 5 photos", price: "+$50" },
     ],
   },
@@ -27,11 +25,6 @@ const STANDALONE = [
     name: "Video Walkthrough",
     description: "Cinematic interior walkthroughs that bring listings to life.",
     tiers: [{ label: "Walkthrough", price: "$399" }],
-  },
-  {
-    name: "Drone Video",
-    description: "Aerial cinematic footage — available as a standalone add-on.",
-    tiers: [{ label: "Add-on to standalone drone shoot", price: "$150" }],
   },
   {
     name: "Matterport 3D Tour",
@@ -44,11 +37,8 @@ const STANDALONE = [
   },
   {
     name: "Twilight",
-    description: "Dramatic golden hour photography at its finest.",
-    tiers: [
-      { label: "Add-on to listing photos", price: "$150" },
-      { label: "Standalone session", price: "$299" },
-    ],
+    description: "Dramatic golden hour photography — standalone session.",
+    tiers: [{ label: "Standalone session", price: "$299" }],
   },
   {
     name: "Virtual Staging",
@@ -75,12 +65,41 @@ const STANDALONE = [
 ];
 
 const ADDONS = [
-  { name: "Twilight", price: "$150", description: "Added to any listing photo session" },
-  { name: "Drone Photos (5)", price: "$100", description: "Added to any listing shoot" },
-  { name: "Drone Photos (10)", price: "$150", description: "Added to any listing shoot" },
-  { name: "Drone Video", price: "$150", description: "Added to standalone drone photo shoot" },
-  { name: "Matterport Tour", price: "From $249", description: "Added to any shoot" },
-  { name: "Floor Plan", price: "$149", description: "Added to any shoot" },
+  {
+    name: "Drone Photos",
+    description: "Aerial stills added to any listing shoot.",
+    tiers: [
+      { label: "5 photos", price: "$100" },
+      { label: "10 photos", price: "$150" },
+    ],
+  },
+  {
+    name: "Drone Video",
+    description: "Aerial video added to a standalone drone shoot.",
+    tiers: [{ label: "Drone video", price: "$150" }],
+  },
+  {
+    name: "Twilight",
+    description: "Golden hour exterior shots added to any listing session.",
+    tiers: [{ label: "Twilight add-on", price: "$150" }],
+  },
+  {
+    name: "Matterport 3D Tour",
+    description: "Virtual tour added to any shoot.",
+    tiers: [
+      { label: "Up to 2,000 sq ft", price: "$249" },
+      { label: "2,000 – 4,000 sq ft", price: "$319" },
+      { label: "4,000+ sq ft", price: "$399" },
+    ],
+  },
+  {
+    name: "Floor Plan",
+    description: "Floor plan diagram added to any shoot.",
+    tiers: [
+      { label: "Up to 3,000 sq ft", price: "$149" },
+      { label: "3,000+ sq ft", price: "$199" },
+    ],
+  },
 ];
 
 export default function PricingPage() {
@@ -97,11 +116,12 @@ export default function PricingPage() {
         </p>
       </div>
 
-      {/* À La Carte */}
+      {/* Standalone Services */}
       <section className="px-6 pb-20 max-w-5xl mx-auto w-full">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-          À La Carte
+        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+          Services
         </p>
+        <p className="text-xs text-[#444] mb-8">Standalone shoot pricing</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
           {STANDALONE.map((s) => (
             <div key={s.name} className="bg-[#0c0c0c] p-8">
@@ -122,17 +142,23 @@ export default function PricingPage() {
 
       {/* Add-Ons */}
       <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
           Add-Ons
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <p className="text-xs text-[#444] mb-8">Bolt these onto any existing shoot</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
           {ADDONS.map((a) => (
-            <div key={a.name} className="border border-white/10 p-6">
-              <div className="flex items-start justify-between mb-2">
-                <p className="text-sm font-semibold tracking-[1px] uppercase">{a.name}</p>
-                <p className="text-sm font-black ml-4 shrink-0">{a.price}</p>
+            <div key={a.name} className="bg-[#0c0c0c] p-8">
+              <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{a.name}</h3>
+              <p className="text-xs text-[#555] mb-5">{a.description}</p>
+              <div className="flex flex-col gap-2">
+                {a.tiers.map((t) => (
+                  <div key={t.label} className="flex items-center justify-between">
+                    <span className="text-xs text-[#666]">{t.label}</span>
+                    <span className="text-sm font-semibold">{t.price}</span>
+                  </div>
+                ))}
               </div>
-              <p className="text-xs text-[#555]">{a.description}</p>
             </div>
           ))}
         </div>
