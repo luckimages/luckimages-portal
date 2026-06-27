@@ -288,10 +288,8 @@ export default function QuotePage() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {PRIMARY_SERVICES.map((s) => {
-              const price =
-                s.unit === "flat" || !sqftNum
-                  ? s.tiers[0].price
-                  : getPrice(s.tiers, sqftNum);
+              const needsSqft = s.unit === "sqft";
+              const price = needsSqft && !sqftNum ? undefined : (s.unit === "flat" ? s.tiers[0].price : getPrice(s.tiers, sqftNum));
               const isCustomPrice = price === null;
               const selected = primaryId === s.id;
               return (
@@ -307,7 +305,7 @@ export default function QuotePage() {
                 >
                   <span className="text-sm">{s.name}</span>
                   <span className={`text-sm font-bold ml-4 shrink-0 ${selected ? "text-white" : "text-[#666]"}`}>
-                    {isCustomPrice ? "Custom" : `$${price}`}
+                    {price === undefined ? <span className="text-[#444] font-normal text-xs">enter sq ft</span> : isCustomPrice ? "Custom" : `$${price}`}
                   </span>
                 </button>
               );
@@ -322,10 +320,8 @@ export default function QuotePage() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {ADDON_SERVICES.map((a) => {
-              const price =
-                a.unit === "flat" || !sqftNum
-                  ? a.tiers[0].price
-                  : getPrice(a.tiers, sqftNum) ?? a.tiers[a.tiers.length - 1].price;
+              const needsSqft = a.unit === "sqft";
+              const price = needsSqft && !sqftNum ? undefined : (a.unit === "flat" ? a.tiers[0].price : getPrice(a.tiers, sqftNum) ?? a.tiers[a.tiers.length - 1].price);
               const selected = addonIds.has(a.id);
               return (
                 <button
@@ -343,7 +339,7 @@ export default function QuotePage() {
                     {a.note && <span className="text-[10px] text-[#555]">{a.note}</span>}
                   </div>
                   <span className={`text-sm font-bold ml-4 shrink-0 ${selected ? "text-white" : "text-[#666]"}`}>
-                    ${price}
+                    {price === undefined ? <span className="text-[#444] font-normal text-xs">enter sq ft</span> : `$${price}`}
                   </span>
                 </button>
               );
