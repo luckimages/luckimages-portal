@@ -705,6 +705,15 @@ export default function DashboardPage() {
   const [qbPrimary, setQbPrimary] = useState<string | null>(null);
   const [qbAddons, setQbAddons] = useState<Set<string>>(new Set());
   const [qbCopied, setQbCopied] = useState(false);
+  const [qbContactSearch, setQbContactSearch] = useState("");
+  const [qbContact, setQbContact] = useState<Contact | null>(null);
+  const [qbShowDropdown, setQbShowDropdown] = useState(false);
+  const [qbSaving, setQbSaving] = useState(false);
+  const [qbSaved, setQbSaved] = useState(false);
+  const [qbNewName, setQbNewName] = useState("");
+  const [qbNewEmail, setQbNewEmail] = useState("");
+  const [qbCreating, setQbCreating] = useState(false);
+  const [qbShowNewForm, setQbShowNewForm] = useState(false);
 
   const [qbSyncing, setQbSyncing] = useState(false);
 
@@ -2067,10 +2076,96 @@ export default function DashboardPage() {
         setTimeout(() => setQbCopied(false), 2000);
       }
 
+      async function saveQuote() {
+        if (!qbContact || !primarySvc) return;
+        setQbSaving(true);
+        await fetch("/api/admin/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contact_id: qbContact.id,
+            sqft: qbSqft || null,
+            primary_service: primarySvc.name,
+            primary_price: primaryPrice,
+            addons: addonItems,
+            total,
+          }),
+        });
+        setQbSaving(false);
+        setQbSaved(true);
+        setTimeout(() => setQbSaved(false), 3000);
+      }
+
+      async function createContactAndTag() {
+        if (!qbNewName.trim()) return;
+        setQbCreating(true);
+        const { data: newContact } = await createClient().from("contacts").insert({ name: qbNewName.trim(), email: qbNewEmail.trim() || null, type: "lead", stage: "new" }).select().single();
+        if (newContact) {
+          setContacts(cs => [newContact, ...cs]);
+          setQbContact(newContact);
+          setQbContactSearch(newContact.name);
+          setQbShowNewForm(false);
+          setQbNewName("");
+          setQbNewEmail("");
+        }
+        setQbCreating(false);
+      }
+
+      const filteredQbContacts = contacts.filter(c =>
+        qbContactSearch.length > 0 && c.name.toLowerCase().includes(qbContactSearch.toLowerCase())
+      ).slice(0, 6);
+
       return (
         <section key={s}>
           <p className={sectionLabel}>Quote Builder</p>
           <div className="bg-[#111] border border-white/10 p-6 space-y-8">
+
+            {/* Contact tagger */}
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Customer</p>
+              {qbContact ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/15 px-3 py-2">
+                    <span className="text-sm text-white">{qbContact.name}</span>
+                    {qbContact.email && <span className="text-xs text-[#555]">{qbContact.email}</span>}
+                  </div>
+                  <button onClick={() => { setQbContact(null); setQbContactSearch(""); }} className="text-xs text-[#555] hover:text-white transition-colors">✕ clear</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    value={qbContactSearch}
+                    onChange={e => { setQbContactSearch(e.target.value); setQbShowDropdown(true); }}
+                    onFocus={() => setQbShowDropdown(true)}
+                    placeholder="Search existing contact..."
+                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 w-72 transition-colors"
+                  />
+                  {qbShowDropdown && filteredQbContacts.length > 0 && (
+                    <div className="absolute z-20 top-full left-0 w-72 bg-[#1a1a1a] border border-white/15 divide-y divide-white/5 shadow-xl">
+                      {filteredQbContacts.map(c => (
+                        <button key={c.id} onClick={() => { setQbContact(c); setQbContactSearch(c.name); setQbShowDropdown(false); }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-white/5 transition-colors">
+                          <span className="text-sm text-white">{c.name}</span>
+                          <span className="text-xs text-[#555]">{c.email}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-2">
+                    {!qbShowNewForm ? (
+                      <button onClick={() => setQbShowNewForm(true)} className="text-xs text-[#555] hover:text-white transition-colors">+ New contact</button>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input value={qbNewName} onChange={e => setQbNewName(e.target.value)} placeholder="Name" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 w-36 transition-colors" />
+                        <input value={qbNewEmail} onChange={e => setQbNewEmail(e.target.value)} placeholder="Email (optional)" className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 w-44 transition-colors" />
+                        <button onClick={createContactAndTag} disabled={qbCreating || !qbNewName.trim()} className="text-xs px-3 py-2 bg-white text-black disabled:opacity-40 transition-all">{qbCreating ? "Creating..." : "Create"}</button>
+                        <button onClick={() => setQbShowNewForm(false)} className="text-xs text-[#555] hover:text-white transition-colors">cancel</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Sqft input */}
             <div className="flex flex-col gap-2">
@@ -2121,17 +2216,23 @@ export default function DashboardPage() {
 
             {/* Total */}
             {primarySvc && (
-              <div className="border-t border-white/10 pt-6 flex items-end justify-between gap-4">
+              <div className="border-t border-white/10 pt-6 flex items-end justify-between gap-4 flex-wrap">
                 <div className="space-y-1">
                   <p className="text-[10px] text-[#555]">{primarySvc.name} — ${primaryPrice}</p>
                   {addonItems.map(a => <p key={a.name} className="text-[10px] text-[#555]">{a.name} — ${a.price}</p>)}
                 </div>
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-3 shrink-0 flex-wrap">
                   <p className="text-3xl font-bold">${total.toLocaleString()}</p>
                   <button onClick={copyQuote}
                     className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-all">
                     {qbCopied ? "Copied ✓" : "Copy"}
                   </button>
+                  {qbContact && (
+                    <button onClick={saveQuote} disabled={qbSaving}
+                      className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                      {qbSaved ? "Saved ✓" : qbSaving ? "Saving..." : "Save to Profile"}
+                    </button>
+                  )}
                 </div>
               </div>
             )}

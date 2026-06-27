@@ -111,11 +111,12 @@ export default function ContactProfilePage() {
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [shoots, setShoots] = useState<Shoot[]>([]);
+  const [quotes, setQuotes] = useState<{ id: string; primary_service: string; primary_price: number; addons: { name: string; price: number }[]; total: number; sqft: string | null; created_at: string }[]>([]);
   const [linkedContacts, setLinkedContacts] = useState<LinkedContact[]>([]);
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [historyTab, setHistoryTab] = useState<"leads" | "shoots">("leads");
+  const [historyTab, setHistoryTab] = useState<"leads" | "shoots" | "quotes">("leads");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -157,6 +158,9 @@ export default function ContactProfilePage() {
     setCallLogs(calls || []);
     setEmailLogs(emails || []);
     setShoots(sh || []);
+
+    const quotesRes = await fetch(`/api/admin/quotes?contact_id=${id}`);
+    if (quotesRes.ok) setQuotes(await quotesRes.json());
     setAllContacts((allC || []).filter((ct: { id: string }) => ct.id !== id) as Contact[]);
 
     // Load linked contacts
@@ -482,6 +486,13 @@ export default function ContactProfilePage() {
               Shoot History
               {shoots.length > 0 && <span className="ml-2 text-[#444]">({shoots.length})</span>}
             </button>
+            <button
+              onClick={() => setHistoryTab("quotes")}
+              className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "quotes" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
+            >
+              Quotes
+              {quotes.length > 0 && <span className="ml-2 text-[#444]">({quotes.length})</span>}
+            </button>
           </div>
 
           {/* ── Lead History ── */}
@@ -607,6 +618,35 @@ export default function ContactProfilePage() {
               )}
             </div>
           )}
+
+          {/* ── Quotes ── */}
+          {historyTab === "quotes" && (
+            <div className="space-y-3">
+              {quotes.length === 0 ? (
+                <div className="bg-[#111] border border-white/10 p-10 text-center">
+                  <p className="text-[#333] text-sm">No quotes yet.</p>
+                  <p className="text-[#333] text-xs mt-2">Build a quote from the KPI Dashboard and save it to this profile.</p>
+                </div>
+              ) : (
+                quotes.map(q => (
+                  <div key={q.id} className="bg-[#111] border border-white/10 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold">{q.primary_service}</p>
+                        {q.sqft && <p className="text-xs text-[#555]">{q.sqft} sq ft</p>}
+                        {q.addons?.length > 0 && (
+                          <p className="text-xs text-[#555]">+ {q.addons.map((a: { name: string }) => a.name).join(", ")}</p>
+                        )}
+                        <p className="text-[10px] text-[#444]">{new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                      </div>
+                      <p className="text-lg font-bold text-[#4ade80] shrink-0">${q.total?.toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 

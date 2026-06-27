@@ -28,6 +28,16 @@ export async function POST() {
       platform text,
       updated_at timestamptz DEFAULT now()
     )`,
+    `CREATE TABLE IF NOT EXISTS quotes (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      contact_id uuid REFERENCES contacts(id) ON DELETE CASCADE,
+      sqft text,
+      primary_service text,
+      primary_price numeric,
+      addons jsonb DEFAULT '[]',
+      total numeric,
+      created_at timestamptz DEFAULT now()
+    )`,
   ];
 
   const errors: string[] = [];
