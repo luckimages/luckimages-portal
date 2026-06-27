@@ -81,9 +81,9 @@ export default function DashboardPage() {
   const [QB, setQB] = useState<KPI>(DEFAULT_KPI);
   const avgPerShoot = QB.ytdInvoices > 0 ? Math.round(QB.revYTD / QB.ytdInvoices) : 0;
 
-  type Section = "Revenue" | "Clients" | "Marketing" | "Realtors" | "Schedule" | "Contacts" | "Command Center" | "Shoot Log" | "Time Tracker" | "Employees";
-  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Shoot Log", "Revenue", "Clients", "Marketing", "Contacts", "Employees", "Time Tracker"];
-  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Realtors: true, Contacts: true, "Command Center": true, "Shoot Log": true, "Time Tracker": true, Employees: true };
+  type Section = "Revenue" | "Clients" | "Marketing" | "Realtors" | "Schedule" | "Contacts" | "Command Center" | "Shoot Log" | "Time Tracker" | "Employees" | "Quote Builder";
+  const DEFAULT_ORDER: Section[] = ["Schedule", "Command Center", "Shoot Log", "Revenue", "Clients", "Marketing", "Contacts", "Employees", "Time Tracker", "Quote Builder"];
+  const DEFAULT_VISIBLE: Record<Section, boolean> = { Schedule: true, Revenue: true, Clients: true, Marketing: true, Realtors: true, Contacts: true, "Command Center": true, "Shoot Log": true, "Time Tracker": true, Employees: true, "Quote Builder": true };
 
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -486,14 +486,14 @@ export default function DashboardPage() {
   const CS_SIZE_UNIT = ["Lot","Land"].includes(csPropertyType) ? "acres" : "sqft";
 
   const CS_SERVICE_PRICES: Record<string, number> = {
-    "HDR Photography": 175,
+    "HDR Photography": 200,
     "Aerial / Drone": 200,
-    "Virtual Staging": 150,
-    "Video Walkthrough": 250,
-    "3D Tour / Matterport": 225,
-    "Floor Plan": 125,
-    "Twilight Photography": 250,
-    "Headshots / Agent Photos": 150,
+    "Virtual Staging": 100,
+    "Video Walkthrough": 200,
+    "3D Tour / Matterport": 200,
+    "Floor Plan": 50,
+    "Twilight Photography": 400,
+    "Headshots / Agent Photos": 200,
   };
   // Add-ons: only shown when a parent service is selected
   const CS_ADDONS: { label: string; price: number; requires: string }[] = [
@@ -509,9 +509,9 @@ export default function DashboardPage() {
     total += CS_ADDONS.filter(a => csAddons.includes(a.label)).reduce((sum, a) => sum + a.price, 0);
     const sqft = parseInt(csSqft) || 0;
     if (csServices.includes("HDR Photography") && sqft > 0 && CS_SIZE_UNIT === "sqft") {
-      if (sqft > 4500) total += 100;
-      else if (sqft > 3000) total += 50;
-      else if (sqft > 2000) total += 25;
+      if (sqft > 3500) total += 200;
+      else if (sqft > 2500) total += 100;
+      else if (sqft > 2000) total += 50;
     }
     return total;
   })();
@@ -699,6 +699,26 @@ export default function DashboardPage() {
     setShootLogLoaded(true);
   }
   const [calWeekOffset, setCalWeekOffset] = useState(0);
+
+  // Quote Builder state
+  const [qbPhotos, setQbPhotos] = useState(false);
+  const [qbPhotosSqft, setQbPhotosSqft] = useState("");
+  const [qbDrone, setQbDrone] = useState(false);
+  const [qbDroneCount, setQbDroneCount] = useState(20);
+  const [qbVideo, setQbVideo] = useState<"" | "bronze" | "silver" | "gold">("");
+  const [qbMatterport, setQbMatterport] = useState(false);
+  const [qbMatterportSqft, setQbMatterportSqft] = useState("");
+  const [qbMatterportAddon, setQbMatterportAddon] = useState(false);
+  const [qbStaging, setQbStaging] = useState(false);
+  const [qbStagingPack, setQbStagingPack] = useState<"per" | "5pack" | "10pack">("5pack");
+  const [qbStagingCount, setQbStagingCount] = useState(1);
+  const [qbTwilight, setQbTwilight] = useState<"" | "addon" | "2ndtrip" | "standalone">("");
+  const [qbFloorplan, setQbFloorplan] = useState(false);
+  const [qbFloorplanSize, setQbFloorplanSize] = useState<"small" | "large">("small");
+  const [qbHeadshots, setQbHeadshots] = useState(false);
+  const [qbHeadshotType, setQbHeadshotType] = useState<"solo" | "team">("solo");
+  const [qbTeamSize, setQbTeamSize] = useState(5);
+  const [qbCopied, setQbCopied] = useState(false);
 
   const [qbSyncing, setQbSyncing] = useState(false);
 
@@ -2020,6 +2040,307 @@ export default function DashboardPage() {
         </div>
       </section>
     );
+
+    if (s === "Quote Builder") {
+      // Calculate line items
+      const photosSqft = parseInt(qbPhotosSqft) || 0;
+      const photosPrice = (() => {
+        if (!qbPhotos) return 0;
+        if (photosSqft <= 1500) return 200;
+        if (photosSqft <= 2000) return 250;
+        if (photosSqft <= 2500) return 300;
+        if (photosSqft <= 3000) return 350;
+        return 400;
+      })();
+      const dronePrice = (() => {
+        if (!qbDrone) return 0;
+        return 200 + Math.max(0, Math.ceil((qbDroneCount - 20) / 5)) * 50;
+      })();
+      const videoPrice = qbVideo === "bronze" ? 200 : qbVideo === "silver" ? 300 : 0;
+      const matterportSqft = parseInt(qbMatterportSqft) || 0;
+      const matterportBase = (() => {
+        if (!qbMatterport) return 0;
+        let p = matterportSqft <= 2000 ? 200 : matterportSqft <= 3000 ? 300 : matterportSqft <= 4000 ? 400 : 500;
+        return qbMatterportAddon ? Math.round(p * 0.5) : p;
+      })();
+      const stagingPrice = (() => {
+        if (!qbStaging) return 0;
+        if (qbStagingPack === "10pack") return 150;
+        if (qbStagingPack === "5pack") return 100;
+        return qbStagingCount * 25;
+      })();
+      const twilightPrice = qbTwilight === "addon" ? 150 : qbTwilight === "2ndtrip" ? 200 : qbTwilight === "standalone" ? 400 : 0;
+      const floorplanPrice = !qbFloorplan ? 0 : qbFloorplanSize === "large" ? 75 : 50;
+      const headshotPrice = (() => {
+        if (!qbHeadshots) return 0;
+        if (qbHeadshotType === "solo") return 200;
+        return 500 + Math.max(0, qbTeamSize - 5) * 50;
+      })();
+
+      const total = photosPrice + dronePrice + videoPrice + matterportBase + stagingPrice + twilightPrice + floorplanPrice + headshotPrice;
+
+      const lineItems: { label: string; price: number }[] = [
+        qbPhotos && { label: `Listing Photos (${qbPhotosSqft || "?"}sf)`, price: photosPrice },
+        qbDrone && { label: `Drone Photos (${qbDroneCount} photos)`, price: dronePrice },
+        qbVideo && { label: `Video — ${qbVideo === "bronze" ? "Bronze" : "Silver"}`, price: videoPrice },
+        qbMatterport && { label: `Matterport (${qbMatterportSqft || "?"}sf${qbMatterportAddon ? " add-on" : ""})`, price: matterportBase },
+        qbStaging && { label: `Virtual Staging (${qbStagingPack === "per" ? `${qbStagingCount} photo${qbStagingCount > 1 ? "s" : ""}` : qbStagingPack === "5pack" ? "5-pack" : "10-pack"})`, price: stagingPrice },
+        qbTwilight && { label: `Twilight (${qbTwilight === "addon" ? "add-on" : qbTwilight === "2ndtrip" ? "2nd trip" : "standalone"})`, price: twilightPrice },
+        qbFloorplan && { label: `Floor Plan (${qbFloorplanSize === "large" ? "2500sf+" : "under 2500sf"})`, price: floorplanPrice },
+        qbHeadshots && { label: `Headshots (${qbHeadshotType === "solo" ? "solo" : `team of ${qbTeamSize}`})`, price: headshotPrice },
+      ].filter(Boolean) as { label: string; price: number }[];
+
+      function copyQuote() {
+        const lines = lineItems.map(l => `${l.label}: $${l.price}`).join("\n");
+        navigator.clipboard.writeText(`${lines}\n\nTotal: $${total.toLocaleString()}`);
+        setQbCopied(true);
+        setTimeout(() => setQbCopied(false), 2000);
+      }
+
+      const row = "flex items-center justify-between py-3 border-b border-white/5";
+      const label = "text-xs tracking-[1px] uppercase text-[#666]";
+      const tog = (on: boolean) => `w-8 h-4 rounded-full transition-colors relative shrink-0 ${on ? "bg-white" : "bg-white/10"}`;
+
+      return (
+        <section key={s}>
+          <p className={sectionLabel}>Quote Builder</p>
+          <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
+
+            {/* Listing Photos */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbPhotos(v => !v)} className={tog(qbPhotos)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbPhotos ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Listing Photos</span>
+                {qbPhotos && <span className="ml-auto text-sm font-bold text-white">${photosPrice}</span>}
+              </div>
+              {qbPhotos && (
+                <div className="ml-11 space-y-2">
+                  <input value={qbPhotosSqft} onChange={e => setQbPhotosSqft(e.target.value)} placeholder="Square footage"
+                    className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 w-40" />
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[["≤1500sf","1500"],["2000sf","2000"],["2500sf","2500"],["3000sf","3000"],["3500sf+","3500"]].map(([lbl,val]) => (
+                      <button key={val} onClick={() => setQbPhotosSqft(val)}
+                        className={`text-[10px] px-2 py-1 border transition-colors ${qbPhotosSqft === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Drone */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbDrone(v => !v)} className={tog(qbDrone)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbDrone ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Drone Photos</span>
+                {qbDrone && <span className="ml-auto text-sm font-bold text-white">${dronePrice}</span>}
+              </div>
+              {qbDrone && (
+                <div className="ml-11 flex items-center gap-3">
+                  <span className="text-xs text-[#555]">Photos:</span>
+                  <div className="flex gap-1.5">
+                    {[20, 25, 30, 35, 40].map(n => (
+                      <button key={n} onClick={() => setQbDroneCount(n)}
+                        className={`text-[10px] px-2.5 py-1 border transition-colors ${qbDroneCount === n ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-[#444]">+$50 per 5</span>
+                </div>
+              )}
+            </div>
+
+            {/* Video */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbVideo(v => v ? "" : "bronze")} className={tog(!!qbVideo)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbVideo ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Video</span>
+                {qbVideo && qbVideo !== "gold" && <span className="ml-auto text-sm font-bold text-white">${videoPrice}</span>}
+                {qbVideo === "gold" && <span className="ml-auto text-xs text-[#fbbf24]">Custom Quote</span>}
+              </div>
+              {qbVideo && (
+                <div className="ml-11 flex gap-2">
+                  {([["bronze","Bronze · 1min Reel","$200"],["silver","Silver · w/ Drone","$300"],["gold","Gold · Lifestyle","Custom"]] as const).map(([val,lbl,price]) => (
+                    <button key={val} onClick={() => setQbVideo(val)}
+                      className={`text-[10px] px-3 py-1.5 border transition-colors text-left ${qbVideo === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                      <p>{lbl}</p>
+                      <p className="text-[#4ade80] mt-0.5">{price}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Matterport */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbMatterport(v => !v)} className={tog(qbMatterport)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbMatterport ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>3D Tour / Matterport</span>
+                {qbMatterport && <span className="ml-auto text-sm font-bold text-white">${matterportBase}</span>}
+              </div>
+              {qbMatterport && (
+                <div className="ml-11 space-y-2">
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[["≤2000sf","2000"],["3000sf","3000"],["4000sf","4000"],["5000sf+","5000"]].map(([lbl,val]) => (
+                      <button key={val} onClick={() => setQbMatterportSqft(val)}
+                        className={`text-[10px] px-2 py-1 border transition-colors ${qbMatterportSqft === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setQbMatterportAddon(v => !v)}
+                    className={`text-[10px] px-3 py-1 border transition-colors ${qbMatterportAddon ? "border-[#4ade80]/40 text-[#4ade80] bg-[#4ade80]/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                    Add-on with Photos (50% off)
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Virtual Staging */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbStaging(v => !v)} className={tog(qbStaging)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbStaging ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Virtual Staging</span>
+                {qbStaging && <span className="ml-auto text-sm font-bold text-white">${stagingPrice}</span>}
+              </div>
+              {qbStaging && (
+                <div className="ml-11 flex items-center gap-2 flex-wrap">
+                  {([["per","Per Photo $25"],["5pack","5 Photos $100"],["10pack","10 Photos $150"]] as const).map(([val,lbl]) => (
+                    <button key={val} onClick={() => setQbStagingPack(val)}
+                      className={`text-[10px] px-3 py-1.5 border transition-colors ${qbStagingPack === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                      {lbl}
+                    </button>
+                  ))}
+                  {qbStagingPack === "per" && (
+                    <input type="number" value={qbStagingCount} onChange={e => setQbStagingCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 bg-[#181818] border border-white/10 text-white text-xs px-2 py-1.5 outline-none focus:border-white/30" />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Twilight */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbTwilight(v => v ? "" : "addon")} className={tog(!!qbTwilight)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbTwilight ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Twilight Shoot</span>
+                {qbTwilight && <span className="ml-auto text-sm font-bold text-white">${twilightPrice}</span>}
+              </div>
+              {qbTwilight && (
+                <div className="ml-11 flex gap-2 flex-wrap">
+                  {([["addon","Add-on 2 Photos","$150"],["2ndtrip","2nd Trip","$200"],["standalone","Stand Alone","$400"]] as const).map(([val,lbl,price]) => (
+                    <button key={val} onClick={() => setQbTwilight(val)}
+                      className={`text-[10px] px-3 py-1.5 border transition-colors text-left ${qbTwilight === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                      <p>{lbl}</p>
+                      <p className="text-[#4ade80] mt-0.5">{price}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Floor Plan */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbFloorplan(v => !v)} className={tog(qbFloorplan)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbFloorplan ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Floor Plan</span>
+                {qbFloorplan && <span className="ml-auto text-sm font-bold text-white">${floorplanPrice}</span>}
+              </div>
+              {qbFloorplan && (
+                <div className="ml-11 flex gap-2">
+                  {([["small","Under 2500sf","$50"],["large","2500sf+","$75"]] as const).map(([val,lbl,price]) => (
+                    <button key={val} onClick={() => setQbFloorplanSize(val)}
+                      className={`text-[10px] px-3 py-1.5 border transition-colors text-left ${qbFloorplanSize === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                      <p>{lbl}</p>
+                      <p className="text-[#4ade80] mt-0.5">{price}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Headshots */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbHeadshots(v => !v)} className={tog(qbHeadshots)}>
+                  <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-black transition-all ${qbHeadshots ? "left-4" : "left-0.5"}`} />
+                </button>
+                <span className={label}>Headshots</span>
+                {qbHeadshots && <span className="ml-auto text-sm font-bold text-white">${headshotPrice}</span>}
+              </div>
+              {qbHeadshots && (
+                <div className="ml-11 space-y-2">
+                  <div className="flex gap-2">
+                    {([["solo","Solo · 2 Photos","$200"],["team","Team","$500 base"]] as const).map(([val,lbl,price]) => (
+                      <button key={val} onClick={() => setQbHeadshotType(val)}
+                        className={`text-[10px] px-3 py-1.5 border transition-colors text-left ${qbHeadshotType === val ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                        <p>{lbl}</p>
+                        <p className="text-[#4ade80] mt-0.5">{price}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {qbHeadshotType === "team" && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-[#555]">People:</span>
+                      <div className="flex gap-1.5">
+                        {[5,6,7,8,10].map(n => (
+                          <button key={n} onClick={() => setQbTeamSize(n)}
+                            className={`text-[10px] px-2.5 py-1 border transition-colors ${qbTeamSize === n ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:border-white/20 hover:text-white"}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-[#444]">+$50 per person over 5</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Total + actions */}
+            <div className="p-4 flex items-center justify-between">
+              <div>
+                {lineItems.length === 0 ? (
+                  <p className="text-xs text-[#444] italic">Toggle services above to build a quote</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {lineItems.map(l => (
+                      <p key={l.label} className="text-[11px] text-[#666]">{l.label} <span className="text-[#888]">${l.price}</span></p>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                {total > 0 && <p className="text-2xl font-bold">${total.toLocaleString()}</p>}
+                {total > 0 && (
+                  <button onClick={copyQuote}
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-all">
+                    {qbCopied ? "Copied ✓" : "Copy Quote"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </section>
+      );
+    }
 
     return null;
   }
