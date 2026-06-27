@@ -1,48 +1,53 @@
 import Link from "next/link";
 import HomeNav from "@/components/HomeNav";
 
-const SERVICES_PRICING = [
+const STANDALONE = [
   {
     name: "Listing Photos",
     description: "Sharp, well-lit photography that moves properties faster.",
     tiers: [
       { label: "Up to 2,000 sq ft", price: "$225" },
-      { label: "2,000 – 3,500 sq ft", price: "$299" },
-      { label: "3,500 – 5,000 sq ft", price: "$375" },
+      { label: "2,000 – 3,000 sq ft", price: "$275" },
+      { label: "3,000 – 4,000 sq ft", price: "$325" },
+      { label: "4,000 – 5,000 sq ft", price: "$375" },
       { label: "5,000+ sq ft", price: "Custom" },
     ],
   },
   {
-    name: "Video",
-    description: "Cinematic walkthroughs that bring listings to life.",
+    name: "Drone Photos",
+    description: "FAA-certified aerial photography for every listing.",
     tiers: [
-      { label: "Walkthrough", price: "$399" },
-      { label: "Walkthrough + Aerial", price: "$599" },
+      { label: "5 photos (add-on)", price: "$100" },
+      { label: "10 photos (add-on)", price: "$150" },
+      { label: "10 photos (standalone)", price: "$200" },
+      { label: "Each additional 5 photos", price: "+$50" },
+    ],
+  },
+  {
+    name: "Video Walkthrough",
+    description: "Cinematic interior walkthroughs that bring listings to life.",
+    tiers: [{ label: "Walkthrough", price: "$399" }],
+  },
+  {
+    name: "Drone Video",
+    description: "Aerial cinematic footage — available as a standalone add-on.",
+    tiers: [{ label: "Add-on to standalone drone shoot", price: "$150" }],
+  },
+  {
+    name: "Matterport 3D Tour",
+    description: "Immersive virtual tours for any device.",
+    tiers: [
+      { label: "Up to 2,000 sq ft", price: "$249" },
+      { label: "2,000 – 4,000 sq ft", price: "$319" },
+      { label: "4,000+ sq ft", price: "$399" },
     ],
   },
   {
     name: "Twilight",
     description: "Dramatic golden hour photography at its finest.",
     tiers: [
-      { label: "Add-on to listing photos", price: "$199" },
+      { label: "Add-on to listing photos", price: "$150" },
       { label: "Standalone session", price: "$299" },
-    ],
-  },
-  {
-    name: "Drone",
-    description: "FAA-certified aerial photography and video.",
-    tiers: [
-      { label: "Aerial photos", price: "$225" },
-      { label: "Photos + Video", price: "$375" },
-    ],
-  },
-  {
-    name: "Matterport",
-    description: "Immersive 3D virtual tours for any device.",
-    tiers: [
-      { label: "Up to 2,000 sq ft", price: "$249" },
-      { label: "2,000 – 4,000 sq ft", price: "$319" },
-      { label: "4,000+ sq ft", price: "$399" },
     ],
   },
   {
@@ -55,7 +60,7 @@ const SERVICES_PRICING = [
     ],
   },
   {
-    name: "Floorplans",
+    name: "Floor Plan",
     description: "Clean, accurate floorplan diagrams delivered fast.",
     tiers: [
       { label: "Up to 3,000 sq ft", price: "$149" },
@@ -63,38 +68,19 @@ const SERVICES_PRICING = [
     ],
   },
   {
-    name: "Brochures",
-    description: "Print-ready and digital property brochures.",
-    tiers: [
-      { label: "Digital PDF", price: "$99" },
-      { label: "Print-ready", price: "$149" },
-    ],
+    name: "Headshots",
+    description: "Professional agent headshots on-location.",
+    tiers: [{ label: "Individual session", price: "$150" }],
   },
 ];
 
-const BUNDLES = [
-  {
-    name: "Essential",
-    price: "$349",
-    savings: "Save $75",
-    includes: ["Listing Photos", "Floorplans"],
-    description: "Everything you need for a clean, professional listing.",
-  },
-  {
-    name: "Standard",
-    price: "$549",
-    savings: "Save $100",
-    includes: ["Listing Photos", "Drone Photos", "Floorplans"],
-    description: "Ground + aerial coverage with a professional floor plan.",
-    featured: true,
-  },
-  {
-    name: "Premium",
-    price: "$1,199",
-    savings: "Save $250+",
-    includes: ["Listing Photos", "Drone Photos + Video", "Video Walkthrough", "Matterport", "Floorplans"],
-    description: "The full Luck Images experience. Nothing left on the table.",
-  },
+const ADDONS = [
+  { name: "Twilight", price: "$150", description: "Added to any listing photo session" },
+  { name: "Drone Photos (5)", price: "$100", description: "Added to any listing shoot" },
+  { name: "Drone Photos (10)", price: "$150", description: "Added to any listing shoot" },
+  { name: "Drone Video", price: "$150", description: "Added to standalone drone photo shoot" },
+  { name: "Matterport Tour", price: "From $249", description: "Added to any shoot" },
+  { name: "Floor Plan", price: "$149", description: "Added to any shoot" },
 ];
 
 export default function PricingPage() {
@@ -111,43 +97,13 @@ export default function PricingPage() {
         </p>
       </div>
 
-      {/* Bundles */}
+      {/* À La Carte */}
       <section className="px-6 pb-20 max-w-5xl mx-auto w-full">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-          Packages
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {BUNDLES.map((b) => (
-            <div key={b.name} className={`flex flex-col p-8 border ${b.featured ? "border-white/40 bg-white/[0.03]" : "border-white/10"}`}>
-              {b.featured && (
-                <span className="text-[10px] tracking-[3px] uppercase text-white/40 mb-4">Most Popular</span>
-              )}
-              <p className="text-xs tracking-[3px] uppercase text-[#666] mb-2">{b.name}</p>
-              <p className="text-4xl font-black mb-1">{b.price}</p>
-              <p className="text-xs text-[#4ade80] tracking-[1px] mb-4">{b.savings}</p>
-              <p className="text-sm text-[#666] mb-6 leading-relaxed">{b.description}</p>
-              <ul className="flex flex-col gap-2 mb-8 flex-1">
-                {b.includes.map((item) => (
-                  <li key={item} className="text-xs tracking-[1px] text-white/60 flex items-center gap-2">
-                    <span className="text-white/30">—</span> {item}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/login" className={`text-xs tracking-[3px] uppercase px-6 py-3 text-center transition-all ${b.featured ? "bg-white text-black hover:bg-white/90" : "border border-white/25 hover:border-white hover:bg-white/5"}`}>
-                Book Now
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* À la carte */}
-      <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
         <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
           À La Carte
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
-          {SERVICES_PRICING.map((s) => (
+          {STANDALONE.map((s) => (
             <div key={s.name} className="bg-[#0c0c0c] p-8">
               <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{s.name}</h3>
               <p className="text-xs text-[#555] mb-5">{s.description}</p>
@@ -164,17 +120,47 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* Add-Ons */}
+      <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
+        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+          Add-Ons
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {ADDONS.map((a) => (
+            <div key={a.name} className="border border-white/10 p-6">
+              <div className="flex items-start justify-between mb-2">
+                <p className="text-sm font-semibold tracking-[1px] uppercase">{a.name}</p>
+                <p className="text-sm font-black ml-4 shrink-0">{a.price}</p>
+              </div>
+              <p className="text-xs text-[#555]">{a.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* CTA */}
-      <section className="px-6 pb-24 text-center">
-        <p className="text-[#666] text-sm mb-6">Not sure what you need? Let's talk.</p>
-        <a href="mailto:ryan@luckimages.com" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">
-          Contact Us
-        </a>
+      <section className="px-6 pb-32 text-center">
+        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6">Not sure what you need?</p>
+        <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-4">Get a Quote</h2>
+        <p className="text-[#666] text-sm mb-10 max-w-sm mx-auto leading-relaxed">
+          Tell us about your listing and we&apos;ll put together the perfect package.
+        </p>
+        <Link
+          href="/login"
+          className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 hover:bg-white/90 transition-all inline-block"
+        >
+          Quote Now
+        </Link>
       </section>
 
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">
         <span className="text-xs tracking-[3px] uppercase text-[#444]">© 2026 Luck Images</span>
-        <a href="mailto:ryan@luckimages.com" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">ryan@luckimages.com</a>
+        <a
+          href="mailto:ryan@luckimages.com"
+          className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors"
+        >
+          ryan@luckimages.com
+        </a>
       </footer>
     </main>
   );
