@@ -6,61 +6,70 @@ const STANDALONE = [
     name: "Listing Photos",
     description: "Sharp, well-lit photography that moves properties faster.",
     tiers: [
-      { label: "Up to 2,000 sq ft", price: "$225" },
-      { label: "2,000 – 3,000 sq ft", price: "$275" },
-      { label: "3,000 – 4,000 sq ft", price: "$325" },
-      { label: "4,000 – 5,000 sq ft", price: "$375" },
-      { label: "5,000+ sq ft", price: "Custom" },
+      { label: "Up to 1,500 sq ft", price: "$200" },
+      { label: "Up to 2,000 sq ft", price: "$250" },
+      { label: "Up to 2,500 sq ft", price: "$300" },
+      { label: "Up to 3,000 sq ft", price: "$350" },
+      { label: "3,500+ sq ft", price: "$400" },
     ],
   },
   {
     name: "Drone Photos",
     description: "FAA-certified aerial photography — standalone shoot.",
     tiers: [
-      { label: "10 photos", price: "$200" },
+      { label: "20 photos", price: "$200" },
       { label: "Each additional 5 photos", price: "+$50" },
     ],
   },
   {
     name: "Video Walkthrough",
     description: "Cinematic interior walkthroughs that bring listings to life.",
-    tiers: [{ label: "Walkthrough", price: "$399" }],
+    tiers: [
+      { label: "Bronze", price: "$200" },
+      { label: "Silver (includes drone)", price: "$300" },
+      { label: "Gold", price: "Custom" },
+    ],
   },
   {
     name: "Matterport 3D Tour",
     description: "Immersive virtual tours for any device.",
     tiers: [
-      { label: "Up to 2,000 sq ft", price: "$249" },
-      { label: "2,000 – 4,000 sq ft", price: "$319" },
-      { label: "4,000+ sq ft", price: "$399" },
+      { label: "Up to 2,000 sq ft", price: "$200" },
+      { label: "Up to 3,000 sq ft", price: "$300" },
+      { label: "Up to 4,000 sq ft", price: "$400" },
+      { label: "5,000+ sq ft", price: "$500" },
     ],
   },
   {
     name: "Twilight",
     description: "Dramatic golden hour photography — standalone session.",
-    tiers: [{ label: "Standalone session", price: "$299" }],
+    tiers: [{ label: "Standalone session (2 photos)", price: "$400" }],
   },
   {
     name: "Virtual Staging",
     description: "Digitally furnished rooms — fast and affordable.",
     tiers: [
-      { label: "Per room", price: "$65" },
-      { label: "5 rooms", price: "$275" },
-      { label: "10 rooms", price: "$499" },
+      { label: "Per photo", price: "$25" },
+      { label: "5 photos", price: "$100" },
+      { label: "10 photos", price: "$150" },
     ],
   },
   {
     name: "Floor Plan",
     description: "Clean, accurate floorplan diagrams delivered fast.",
     tiers: [
-      { label: "Up to 3,000 sq ft", price: "$149" },
-      { label: "3,000+ sq ft", price: "$199" },
+      { label: "Under 2,500 sq ft", price: "$50" },
+      { label: "2,500+ sq ft", price: "$75" },
     ],
   },
   {
     name: "Headshots",
     description: "Professional agent headshots on-location.",
-    tiers: [{ label: "Individual session", price: "$150" }],
+    tiers: [
+      { label: "Solo", price: "$200" },
+      { label: "Team of 5", price: "$500" },
+      { label: "Each additional person", price: "+$50" },
+    ],
   },
 ];
 
@@ -74,30 +83,29 @@ const ADDONS = [
     ],
   },
   {
-    name: "Drone Video",
-    description: "Aerial video added to a standalone drone shoot.",
-    tiers: [{ label: "Drone video", price: "$150" }],
-  },
-  {
     name: "Twilight",
     description: "Golden hour exterior shots added to any listing session.",
-    tiers: [{ label: "Twilight add-on", price: "$150" }],
+    tiers: [
+      { label: "2 photos add-on", price: "$150" },
+      { label: "2nd trip", price: "$200" },
+    ],
   },
   {
     name: "Matterport 3D Tour",
     description: "Virtual tour added to any shoot.",
     tiers: [
-      { label: "Up to 2,000 sq ft", price: "$249" },
-      { label: "2,000 – 4,000 sq ft", price: "$319" },
-      { label: "4,000+ sq ft", price: "$399" },
+      { label: "Up to 2,000 sq ft", price: "$100" },
+      { label: "Up to 3,000 sq ft", price: "$150" },
+      { label: "Up to 4,000 sq ft", price: "$200" },
+      { label: "5,000+ sq ft", price: "$250" },
     ],
   },
   {
     name: "Floor Plan",
     description: "Floor plan diagram added to any shoot.",
     tiers: [
-      { label: "Up to 3,000 sq ft", price: "$149" },
-      { label: "3,000+ sq ft", price: "$199" },
+      { label: "Under 2,500 sq ft", price: "$50" },
+      { label: "2,500+ sq ft", price: "$75" },
     ],
   },
 ];

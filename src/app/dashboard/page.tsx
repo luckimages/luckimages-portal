@@ -2039,22 +2039,23 @@ export default function DashboardPage() {
 
     if (s === "Quote Builder") {
       const QB_PRIMARY = [
-        { id: "listing_photos", name: "Listing Photos", tiers: [{ max: 2000, price: 225 }, { max: 3000, price: 275 }, { max: 4000, price: 325 }, { max: 5000, price: 375 }] },
-        { id: "drone_photos", name: "Drone Photos", tiers: [{ price: 200 }] },
-        { id: "video", name: "Video Walkthrough", tiers: [{ price: 399 }] },
-        { id: "matterport", name: "Matterport 3D Tour", tiers: [{ max: 2000, price: 249 }, { max: 4000, price: 319 }, { price: 399 }] },
-        { id: "twilight", name: "Twilight (Standalone)", tiers: [{ price: 299 }] },
-        { id: "virtual_staging", name: "Virtual Staging", tiers: [{ price: 65 }] },
-        { id: "floor_plan", name: "Floor Plan", tiers: [{ max: 3000, price: 149 }, { price: 199 }] },
-        { id: "headshots", name: "Headshots", tiers: [{ price: 150 }] },
+        { id: "listing_photos",     name: "Listing Photos",            tiers: [{ max: 1500, price: 200 }, { max: 2000, price: 250 }, { max: 2500, price: 300 }, { max: 3000, price: 350 }, { price: 400 }] },
+        { id: "drone_photos",       name: "Drone Photos (Standalone)", tiers: [{ price: 200 }] },
+        { id: "video_bronze",       name: "Video — Bronze",            tiers: [{ price: 200 }] },
+        { id: "video_silver",       name: "Video — Silver (w/ Drone)", tiers: [{ price: 300 }] },
+        { id: "matterport",         name: "Matterport 3D Tour",        tiers: [{ max: 2000, price: 200 }, { max: 3000, price: 300 }, { max: 4000, price: 400 }, { price: 500 }] },
+        { id: "twilight_standalone",name: "Twilight (Standalone)",     tiers: [{ price: 400 }] },
+        { id: "virtual_staging",    name: "Virtual Staging",           tiers: [{ price: 25 }] },
+        { id: "floor_plan",         name: "Floor Plan",                tiers: [{ max: 2499, price: 50 }, { price: 75 }] },
+        { id: "headshots_solo",     name: "Headshots — Solo",          tiers: [{ price: 200 }] },
       ];
       const QB_ADDONS = [
-        { id: "drone_5", name: "Drone Photos (5)", tiers: [{ price: 100 }] },
-        { id: "drone_10", name: "Drone Photos (10)", tiers: [{ price: 150 }] },
-        { id: "drone_video", name: "Drone Video", tiers: [{ price: 150 }] },
-        { id: "twilight_addon", name: "Twilight Add-On", tiers: [{ price: 150 }] },
-        { id: "matterport_addon", name: "Matterport 3D Tour", tiers: [{ max: 2000, price: 249 }, { max: 4000, price: 319 }, { price: 399 }] },
-        { id: "floor_plan_addon", name: "Floor Plan", tiers: [{ max: 3000, price: 149 }, { price: 199 }] },
+        { id: "drone_5",          name: "Drone Photos (5)",           tiers: [{ price: 100 }] },
+        { id: "drone_10",         name: "Drone Photos (10)",          tiers: [{ price: 150 }] },
+        { id: "twilight_addon",   name: "Twilight Add-On (2 photos)", tiers: [{ price: 150 }] },
+        { id: "twilight_2nd",     name: "Twilight — 2nd Trip",        tiers: [{ price: 200 }] },
+        { id: "matterport_addon", name: "Matterport (Add-On)",        tiers: [{ max: 2000, price: 100 }, { max: 3000, price: 150 }, { max: 4000, price: 200 }, { price: 250 }] },
+        { id: "floor_plan_addon", name: "Floor Plan",                 tiers: [{ max: 2499, price: 50 }, { price: 75 }] },
       ];
       function qbGetPrice(tiers: { max?: number; price: number }[], sqft: number) {
         for (const t of tiers) { if (!t.max || sqft <= t.max) return t.price; }
