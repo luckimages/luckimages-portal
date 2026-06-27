@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+function db() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
 
 export async function POST(request: NextRequest) {
   const { name, email, sqft, service, addons, total } = await request.json();
@@ -43,6 +48,17 @@ export async function POST(request: NextRequest) {
     console.error("Resend error:", await res.text());
     return NextResponse.json({ error: "Failed to send" }, { status: 500 });
   }
+
+  // Log to web_leads table
+  await db().from("web_leads").insert({
+    name,
+    email: email || null,
+    sqft: sqft || null,
+    primary_service: service?.name || null,
+    primary_price: service?.price || null,
+    addons: addons ?? [],
+    total: total || null,
+  });
 
   return NextResponse.json({ ok: true });
 }
