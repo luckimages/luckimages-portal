@@ -31,6 +31,7 @@ export async function POST() {
     `CREATE TABLE IF NOT EXISTS quotes (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       contact_id uuid REFERENCES contacts(id) ON DELETE CASCADE,
+      address text,
       sqft text,
       primary_service text,
       primary_price numeric,
@@ -38,6 +39,7 @@ export async function POST() {
       total numeric,
       created_at timestamptz DEFAULT now()
     )`,
+    `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS address text`,
   ];
 
   const errors: string[] = [];

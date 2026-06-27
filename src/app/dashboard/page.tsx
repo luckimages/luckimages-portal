@@ -701,6 +701,7 @@ export default function DashboardPage() {
   const [calWeekOffset, setCalWeekOffset] = useState(0);
 
   // Quote Builder state
+  const [qbAddress, setQbAddress] = useState("");
   const [qbSqft, setQbSqft] = useState("");
   const [qbPrimary, setQbPrimary] = useState<string | null>(null);
   const [qbAddons, setQbAddons] = useState<Set<string>>(new Set());
@@ -2084,6 +2085,7 @@ export default function DashboardPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contact_id: qbContact.id,
+            address: qbAddress || null,
             sqft: qbSqft || null,
             primary_service: primarySvc.name,
             primary_price: primaryPrice,
@@ -2117,7 +2119,10 @@ export default function DashboardPage() {
 
       return (
         <section key={s}>
-          <p className={sectionLabel}>Quote Builder</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className={sectionLabel} style={{ marginBottom: 0 }}>Quote Builder</p>
+            <a href="/dashboard/quotes" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">View All →</a>
+          </div>
           <div className="bg-[#111] border border-white/10 p-6 space-y-8">
 
             {/* Contact tagger */}
@@ -2167,15 +2172,26 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Sqft input */}
-            <div className="flex flex-col gap-2">
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Square Footage / Acreage</p>
-              <input
-                value={qbSqft}
-                onChange={e => setQbSqft(e.target.value)}
-                placeholder="e.g. 2400 or 1.5 acres"
-                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 w-56 transition-colors"
-              />
+            {/* Address + Sqft */}
+            <div className="flex gap-4 flex-wrap">
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Property Address</p>
+                <input
+                  value={qbAddress}
+                  onChange={e => setQbAddress(e.target.value)}
+                  placeholder="123 Main St, City, TX"
+                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 w-80 transition-colors"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Square Footage / Acreage</p>
+                <input
+                  value={qbSqft}
+                  onChange={e => setQbSqft(e.target.value)}
+                  placeholder="e.g. 2400"
+                  className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 w-40 transition-colors"
+                />
+              </div>
             </div>
 
             {/* Primary service */}
