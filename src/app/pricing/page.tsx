@@ -172,7 +172,7 @@ export default function PricingPage() {
           Tell us about your listing and we&apos;ll put together the perfect package.
         </p>
         <Link
-          href="/login"
+          href="/quote"
           className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 hover:bg-white/90 transition-all inline-block"
         >
           Quote Now
