@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { contact_id, address, sqft, primary_service, primary_price, addons, total } = await req.json();
-  if (!contact_id || !primary_service) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  if (!primary_service) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   const { data, error } = await db()
     .from("quotes")
     .insert({ contact_id, address, sqft, primary_service, primary_price, addons, total })

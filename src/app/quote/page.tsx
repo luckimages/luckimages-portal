@@ -88,6 +88,7 @@ const ADDON_SERVICES: {
   unit: "sqft" | "flat";
   tiers: Tier[];
   note?: string;
+  listingOnly?: boolean;
 }[] = [
   {
     id: "drone_5",
@@ -106,12 +107,14 @@ const ADDON_SERVICES: {
     name: "Twilight Add-On (2 photos)",
     unit: "flat",
     tiers: [{ price: 150 }],
+    listingOnly: true,
   },
   {
     id: "twilight_2nd",
     name: "Twilight — 2nd Trip",
     unit: "flat",
     tiers: [{ price: 200 }],
+    listingOnly: true,
   },
   {
     id: "matterport_addon",
@@ -132,6 +135,14 @@ const ADDON_SERVICES: {
       { maxSqft: 2499, price: 50 },
       { price: 75 },
     ],
+    listingOnly: true,
+  },
+  {
+    id: "virtual_staging",
+    name: "Virtual Staging (per photo)",
+    unit: "flat",
+    tiers: [{ price: 25 }],
+    listingOnly: true,
   },
 ];
 
@@ -319,7 +330,7 @@ export default function QuotePage() {
             Add-Ons
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {ADDON_SERVICES.map((a) => {
+            {ADDON_SERVICES.filter(a => !a.listingOnly || primaryId === "listing_photos").map((a) => {
               const needsSqft = a.unit === "sqft";
               const price = needsSqft && !sqftNum ? undefined : (a.unit === "flat" ? a.tiers[0].price : getPrice(a.tiers, sqftNum) ?? a.tiers[a.tiers.length - 1].price);
               const selected = addonIds.has(a.id);

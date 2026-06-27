@@ -2050,13 +2050,16 @@ export default function DashboardPage() {
         { id: "headshots_solo",     name: "Headshots — Solo",          tiers: [{ price: 200 }] },
       ];
       const QB_ADDONS = [
-        { id: "drone_5",          name: "Drone Photos (5)",           tiers: [{ price: 100 }] },
-        { id: "drone_10",         name: "Drone Photos (10)",          tiers: [{ price: 150 }] },
-        { id: "twilight_addon",   name: "Twilight Add-On (2 photos)", tiers: [{ price: 150 }] },
-        { id: "twilight_2nd",     name: "Twilight — 2nd Trip",        tiers: [{ price: 200 }] },
-        { id: "matterport_addon", name: "Matterport (Add-On)",        tiers: [{ max: 2000, price: 100 }, { max: 3000, price: 150 }, { max: 4000, price: 200 }, { price: 250 }] },
-        { id: "floor_plan_addon", name: "Floor Plan",                 tiers: [{ max: 2499, price: 50 }, { price: 75 }] },
+        { id: "drone_5",          name: "Drone Photos (5)",           tiers: [{ price: 100 }],                                                                                      listingOnly: false },
+        { id: "drone_10",         name: "Drone Photos (10)",          tiers: [{ price: 150 }],                                                                                      listingOnly: false },
+        { id: "twilight_addon",   name: "Twilight Add-On (2 photos)", tiers: [{ price: 150 }],                                                                                      listingOnly: true  },
+        { id: "twilight_2nd",     name: "Twilight — 2nd Trip",        tiers: [{ price: 200 }],                                                                                      listingOnly: true  },
+        { id: "matterport_addon", name: "Matterport (Add-On)",        tiers: [{ max: 2000, price: 100 }, { max: 3000, price: 150 }, { max: 4000, price: 200 }, { price: 250 }],    listingOnly: false },
+        { id: "floor_plan_addon", name: "Floor Plan",                 tiers: [{ max: 2499, price: 50 }, { price: 75 }],                                                            listingOnly: true  },
+        { id: "virtual_staging",  name: "Virtual Staging (per photo)",tiers: [{ price: 25 }],                                                                                       listingOnly: true  },
       ];
+      const isListingPhotos = qbPrimary === "listing_photos";
+      const visibleAddons = QB_ADDONS.filter(a => !a.listingOnly || isListingPhotos);
       function qbGetPrice(tiers: { max?: number; price: number }[], sqft: number) {
         for (const t of tiers) { if (!t.max || sqft <= t.max) return t.price; }
         return tiers[tiers.length - 1].price;
@@ -2079,7 +2082,7 @@ export default function DashboardPage() {
       }
 
       async function saveQuote() {
-        if (!qbContact || !primarySvc) return;
+        if (!primarySvc) return;
         setQbSaving(true);
         await fetch("/api/admin/quotes", {
           method: "POST",
@@ -2217,7 +2220,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-3">
               <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {QB_ADDONS.map(addon => {
+                {visibleAddons.map(addon => {
                   const price = qbGetPrice(addon.tiers, sqftNum);
                   const sel = qbAddons.has(addon.id);
                   return (
@@ -2244,11 +2247,12 @@ export default function DashboardPage() {
                     className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-all">
                     {qbCopied ? "Copied ✓" : "Copy"}
                   </button>
-                  {qbContact && (
-                    <button onClick={saveQuote} disabled={qbSaving}
-                      className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                      {qbSaved ? "Saved ✓" : qbSaving ? "Saving..." : "Save to Profile"}
-                    </button>
+                  <button onClick={saveQuote} disabled={qbSaving}
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                    {qbSaved ? "Saved ✓" : qbSaving ? "Saving..." : "Save Quote"}
+                  </button>
+                  {qbSaved && (
+                    <a href="/dashboard/quotes" className="text-xs text-[#4ade80] hover:text-white transition-colors">View in history →</a>
                   )}
                 </div>
               </div>

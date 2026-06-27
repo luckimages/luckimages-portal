@@ -33,12 +33,13 @@ const QB_PRIMARY = [
 ];
 
 const QB_ADDONS = [
-  { id: "drone_5",          name: "Drone Photos (5)",           tiers: [{ price: 100 }] },
-  { id: "drone_10",         name: "Drone Photos (10)",          tiers: [{ price: 150 }] },
-  { id: "twilight_addon",   name: "Twilight Add-On (2 photos)", tiers: [{ price: 150 }] },
-  { id: "twilight_2nd",     name: "Twilight — 2nd Trip",        tiers: [{ price: 200 }] },
-  { id: "matterport_addon", name: "Matterport (Add-On)",        tiers: [{ max: 2000, price: 100 }, { max: 3000, price: 150 }, { max: 4000, price: 200 }, { price: 250 }] },
-  { id: "floor_plan_addon", name: "Floor Plan",                 tiers: [{ max: 2499, price: 50 }, { price: 75 }] },
+  { id: "drone_5",          name: "Drone Photos (5)",            tiers: [{ price: 100 }],                                                                                   listingOnly: false },
+  { id: "drone_10",         name: "Drone Photos (10)",           tiers: [{ price: 150 }],                                                                                   listingOnly: false },
+  { id: "twilight_addon",   name: "Twilight Add-On (2 photos)",  tiers: [{ price: 150 }],                                                                                   listingOnly: true  },
+  { id: "twilight_2nd",     name: "Twilight — 2nd Trip",         tiers: [{ price: 200 }],                                                                                   listingOnly: true  },
+  { id: "matterport_addon", name: "Matterport (Add-On)",         tiers: [{ max: 2000, price: 100 }, { max: 3000, price: 150 }, { max: 4000, price: 200 }, { price: 250 }], listingOnly: false },
+  { id: "floor_plan_addon", name: "Floor Plan",                  tiers: [{ max: 2499, price: 50 }, { price: 75 }],                                                         listingOnly: true  },
+  { id: "virtual_staging",  name: "Virtual Staging (per photo)", tiers: [{ price: 25 }],                                                                                    listingOnly: true  },
 ];
 
 function getPrice(tiers: { max?: number; price: number }[], sqft: number) {
@@ -86,6 +87,8 @@ export default function QuotesPage() {
   const sqftNum = parseFloat(qbSqft) || 0;
   const primarySvc = QB_PRIMARY.find(p => p.id === qbPrimary);
   const primaryPrice = primarySvc ? getPrice(primarySvc.tiers, sqftNum) : 0;
+  const isListingPhotos = qbPrimary === "listing_photos";
+  const visibleAddons = QB_ADDONS.filter(a => !a.listingOnly || isListingPhotos);
   const addonItems = QB_ADDONS.filter(a => qbAddons.has(a.id)).map(a => ({ name: a.name, price: getPrice(a.tiers, sqftNum) }));
   const total = primaryPrice + addonItems.reduce((s, a) => s + a.price, 0);
 
@@ -102,7 +105,7 @@ export default function QuotesPage() {
   }
 
   async function saveQuote() {
-    if (!qbContact || !primarySvc) return;
+    if (!primarySvc) return;
     setQbSaving(true);
     await fetch("/api/admin/quotes", {
       method: "POST",
@@ -232,7 +235,7 @@ export default function QuotesPage() {
           <div className="flex flex-col gap-3">
             <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
             <div className="flex flex-col gap-2">
-              {QB_ADDONS.map(addon => {
+              {visibleAddons.map(addon => {
                 const price = getPrice(addon.tiers, sqftNum);
                 const sel = qbAddons.has(addon.id);
                 return (
