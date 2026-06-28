@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   const query = supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type")
+    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at")
     .order("scheduled_at", { ascending: false });
 
   if (full) { /* no filter — return all */ }
@@ -160,7 +160,7 @@ export async function PATCH(req: Request) {
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, client_id, status")
+    .select("id, address, scheduled_at, services, notes, client_id, status, checked_in_at")
     .eq("id", id)
     .single();
 
@@ -173,6 +173,12 @@ export async function PATCH(req: Request) {
   }
 
   const updatePayload: Record<string, unknown> = { status };
+
+  // Set checked_in_at the first time a photographer moves to an active status
+  if (["en_route", "on_site", "wrapping"].includes(status) && shoot && !["en_route", "on_site", "wrapping"].includes(shoot.status)) {
+    updatePayload.checked_in_at = new Date().toISOString();
+  }
+
   if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;
   if (price !== undefined) updatePayload.price = price;
   if (package_name !== undefined) updatePayload.package_name = package_name;

@@ -6,6 +6,7 @@ type Shoot = {
   id: string;
   address: string;
   scheduled_at: string | null;
+  checked_in_at: string | null;
   status: string;
   client_name: string;
   client_email: string;
@@ -35,11 +36,41 @@ function stageKey(shoot: Shoot): string {
   return "pending";
 }
 
+// "no-show"     → scheduled but no check-in 5+ min after shoot time → RED
+// "late"        → checked in late (>5 min past scheduled_at) → YELLOW, persists
+// "on-time"     → checked in within 5 min → GREEN, persists
+// "editing-due" → in editing past 4pm the day after shoot → RED
+// null          → no special state (pending/scheduled before time)
+type AlertStatus = "no-show" | "late" | "on-time" | "editing-due" | null;
+
+function getAlertStatus(shoot: Shoot): AlertStatus {
+  const now = Date.now();
+  const scheduledMs = shoot.scheduled_at ? new Date(shoot.scheduled_at).getTime() : null;
+
+  // Editing overdue: not delivered by 4pm day after shoot
+  if (shoot.status === "editing" && scheduledMs) {
+    const dayAfter = new Date(scheduledMs);
+    dayAfter.setDate(dayAfter.getDate() + 1);
+    dayAfter.setHours(16, 0, 0, 0);
+    if (now > dayAfter.getTime()) return "editing-due";
+  }
+
+  // Check-in states
+  if (shoot.checked_in_at && scheduledMs) {
+    const lateMs = new Date(shoot.checked_in_at).getTime() - scheduledMs;
+    return lateMs > 5 * 60 * 1000 ? "late" : "on-time";
+  }
+
+  // No check-in yet — are they 5+ min overdue?
+  if (!shoot.checked_in_at && shoot.status === "scheduled" && scheduledMs) {
+    if (now > scheduledMs + 5 * 60 * 1000) return "no-show";
+  }
+
+  return null;
+}
+
 function isBehindSchedule(shoot: Shoot): boolean {
-  if (!shoot.scheduled_at) return false;
-  const earlyStages = ["pending", "scheduled"];
-  if (!earlyStages.includes(shoot.status)) return false;
-  return new Date(shoot.scheduled_at) < new Date();
+  return getAlertStatus(shoot) === "no-show";
 }
 
 function minutesBehind(shoot: Shoot): number {
@@ -54,19 +85,29 @@ function fmtScheduled(iso: string | null): string {
     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+const ALERT_STYLES: Record<string, { border: string; bg: string; dot: string; text: string; label: string }> = {
+  "no-show":     { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "No check-in" },
+  "late":        { border: "border-yellow-400/40", bg: "bg-yellow-400/5", dot: "bg-yellow-400", text: "text-yellow-400", label: "Checked in late" },
+  "on-time":     { border: "border-green-400/40",  bg: "bg-green-400/5",  dot: "bg-green-400",  text: "text-green-400",  label: "On time" },
+  "editing-due": { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "Delivery overdue" },
+};
+
 function ShootCard({ shoot }: { shoot: Shoot }) {
-  const behind = isBehindSchedule(shoot);
-  const mins = behind ? minutesBehind(shoot) : 0;
-  const stage = STAGES.find(s => s.key === shoot.status);
+  const alert = getAlertStatus(shoot);
+  const style = alert ? ALERT_STYLES[alert] : null;
+  const stage = STAGES.find(s => s.dbStatuses.includes(shoot.status));
+  const mins = alert === "no-show" ? minutesBehind(shoot) : 0;
 
   return (
-    <div className={`border rounded-sm p-3 flex flex-col gap-1.5 ${behind ? "border-red-500/40 bg-red-500/5" : "border-white/8 bg-white/[0.02]"}`}>
-      {/* Behind schedule warning */}
-      {behind && (
+    <div className={`border rounded-sm p-3 flex flex-col gap-1.5 ${style ? `${style.border} ${style.bg}` : "border-white/8 bg-white/[0.02]"}`}>
+      {/* Alert badge */}
+      {style && (
         <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-          <span className="text-[10px] text-red-400 font-semibold tracking-wide">
-            {mins < 60 ? `${mins}m behind` : `${Math.floor(mins / 60)}h ${mins % 60}m behind`}
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${style.dot} ${alert === "no-show" || alert === "editing-due" ? "animate-pulse" : ""}`} />
+          <span className={`text-[10px] font-semibold tracking-wide ${style.text}`}>
+            {alert === "no-show"
+              ? `${mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`} — no check-in`
+              : style.label}
           </span>
         </div>
       )}
@@ -141,7 +182,7 @@ export default function BoardPage() {
   const paidStage = STAGES.find(s => s.key === "paid")!;
   const activeStages = STAGES.filter(s => s.key !== "paid");
 
-  const behindCount = shoots.filter(isBehindSchedule).length;
+  const behindCount = shoots.filter(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? "")).length;
   const activeCount = shoots.filter(s => stageKey(s) !== "paid").length;
 
   return (
@@ -190,7 +231,7 @@ export default function BoardPage() {
 
             {activeStages.map(stage => {
               const stageShots = shoots.filter(s => stageKey(s) === stage.key);
-              const behindInStage = stageShots.filter(isBehindSchedule);
+              const behindInStage = stageShots.filter(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? ""));
               const isExpanded = expandedCols.has(stage.key);
 
               return (
@@ -230,9 +271,10 @@ export default function BoardPage() {
                       {/* Sort: behind schedule first, then by time */}
                       {[...stageShots]
                         .sort((a, b) => {
-                          const aBehind = isBehindSchedule(a) ? 0 : 1;
-                          const bBehind = isBehindSchedule(b) ? 0 : 1;
-                          if (aBehind !== bBehind) return aBehind - bBehind;
+                          const priority = { "no-show": 0, "editing-due": 0, "late": 1, "on-time": 2, null: 3 } as Record<string, number>;
+                          const ap = priority[getAlertStatus(a) ?? "null"] ?? 3;
+                          const bp = priority[getAlertStatus(b) ?? "null"] ?? 3;
+                          if (ap !== bp) return ap - bp;
                           return (a.scheduled_at || "").localeCompare(b.scheduled_at || "");
                         })
                         .map(shoot => <ShootCard key={shoot.id} shoot={shoot} />)
