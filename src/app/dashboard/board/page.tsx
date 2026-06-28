@@ -7,6 +7,8 @@ type Shoot = {
   address: string;
   scheduled_at: string | null;
   checked_in_at: string | null;
+  delivered_at: string | null;
+  paid_at: string | null;
   status: string;
   client_name: string;
   client_email: string;
@@ -25,8 +27,7 @@ const STAGES: { key: string; label: string; color: string; dim: string; dbStatus
   { key: "scheduled", label: "Scheduled", color: "text-[#60a5fa]", dim: "border-[#60a5fa]/20 bg-[#60a5fa]/5",  dbStatuses: ["scheduled"] },
   { key: "active",    label: "Active",    color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5",  dbStatuses: ["en_route", "on_site", "wrapping"] },
   { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["editing"] },
-  { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5",  dbStatuses: ["delivered"] },
-  { key: "paid",      label: "Paid",      color: "text-[#4ade80]", dim: "border-[#4ade80]/20 bg-[#4ade80]/5",  dbStatuses: ["completed"] },
+  { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5",  dbStatuses: ["delivered", "completed"] },
 ];
 
 function stageKey(shoot: Shoot): string {
@@ -46,6 +47,15 @@ type AlertStatus = "no-show" | "late" | "on-time" | "editing-due" | null;
 function getAlertStatus(shoot: Shoot): AlertStatus {
   const now = Date.now();
   const scheduledMs = shoot.scheduled_at ? new Date(shoot.scheduled_at).getTime() : null;
+
+  // Paid: green
+  if (shoot.paid_at) return "on-time";
+
+  // Payment overdue: delivered 24h+ ago and not paid
+  if ((shoot.status === "delivered" || shoot.status === "completed") && shoot.delivered_at) {
+    if (now > new Date(shoot.delivered_at).getTime() + 24 * 3600000) return "no-show";
+    return null;
+  }
 
   // Editing overdue: not delivered by 4pm day after shoot
   if (shoot.status === "editing" && scheduledMs) {
@@ -88,7 +98,7 @@ function fmtScheduled(iso: string | null): string {
 const ALERT_STYLES: Record<string, { border: string; bg: string; dot: string; text: string; label: string }> = {
   "no-show":     { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "No check-in" },
   "late":        { border: "border-yellow-400/40", bg: "bg-yellow-400/5", dot: "bg-yellow-400", text: "text-yellow-400", label: "Checked in late" },
-  "on-time":     { border: "border-green-400/40",  bg: "bg-green-400/5",  dot: "bg-green-400",  text: "text-green-400",  label: "On time" },
+  "on-time":     { border: "border-green-400/40",  bg: "bg-green-400/5",  dot: "bg-green-400",  text: "text-green-400",  label: "Paid" },
   "editing-due": { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "Delivery overdue" },
 };
 
@@ -105,7 +115,9 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
         <div className="flex items-center gap-1.5 mb-0.5">
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${style.dot} ${alert === "no-show" || alert === "editing-due" ? "animate-pulse" : ""}`} />
           <span className={`text-[10px] font-semibold tracking-wide ${style.text}`}>
-            {alert === "no-show"
+            {alert === "no-show" && ["delivered", "completed"].includes(shoot.status)
+              ? "Invoice unpaid"
+              : alert === "no-show"
               ? `${mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`} — no check-in`
               : style.label}
           </span>
@@ -136,14 +148,24 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
         <p className={`text-xs font-bold mt-0.5 ${stage?.color || "text-white"}`}>${shoot.price.toLocaleString()}</p>
       )}
 
-      {/* View link */}
-      <a
-        href={`/admin/contacts/${shoot.contact_id}`}
-        className="text-[10px] text-[#333] hover:text-white transition-colors mt-0.5 self-start"
-        onClick={e => e.stopPropagation()}
-      >
-        View profile →
-      </a>
+      {/* Footer row */}
+      <div className="flex items-center justify-between mt-0.5">
+        {shoot.contact_id ? (
+          <a href={`/admin/contacts/${shoot.contact_id}`} className="text-[10px] text-[#333] hover:text-white transition-colors" onClick={e => e.stopPropagation()}>
+            View profile →
+          </a>
+        ) : <span />}
+
+        {/* Mark Paid button — shown on delivered/completed, unpaid */}
+        {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && !shoot.id.startsWith("demo-") && (
+          <button
+            onClick={async e => { e.stopPropagation(); await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: shoot.id, status: "paid" }) }); }}
+            className="text-[10px] tracking-[1px] uppercase font-semibold text-[#4ade80] border border-[#4ade80]/30 px-2 py-0.5 rounded-sm hover:bg-[#4ade80]/10 transition-colors"
+          >
+            Mark Paid
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -156,17 +178,19 @@ const yesterday4pm = (() => { const d = new Date(now); d.setDate(d.getDate() - 1
 
 const DEMO_SHOOTS: Shoot[] = [
   // Scheduled — no-show (RED): scheduled 12 min ago, no check-in
-  { id: "demo-1", client_name: "Sarah Mitchell", client_email: "", address: "4210 Maple Grove Dr, Tampa", scheduled_at: minsAgo(12), checked_in_at: null, status: "scheduled", package_name: "Listing Photos + Drone", services: [], price: 275, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 2400, contact_id: null },
-  // Active — late check-in (YELLOW): shoot was 30 min ago, checked in 22 min late
-  { id: "demo-2", client_name: "James Kowalski", client_email: "", address: "817 Bayside Blvd, St. Pete", scheduled_at: minsAgo(30), checked_in_at: minsAgo(8), status: "on_site", package_name: "Listing Photos", services: [], price: 195, photographer_ids: [], notes: null, property_type: "Condo", square_footage: 1100, contact_id: null },
-  // Active — on-time check-in (GREEN): shoot was 20 min ago, checked in 2 min after
-  { id: "demo-3", client_name: "Priya Nair", client_email: "", address: "1502 Osprey Ave, Sarasota", scheduled_at: minsAgo(20), checked_in_at: minsAgo(18), status: "en_route", package_name: "Listing Photos + Matterport", services: [], price: 350, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 3100, contact_id: null },
-  // Editing — overdue (RED): shoot was yesterday, still editing past 4pm
-  { id: "demo-4", client_name: "Derek Haines", client_email: "", address: "330 Palm Harbor Pkwy, Clearwater", scheduled_at: yesterday4pm, checked_in_at: hoursAgo(26), status: "editing", package_name: "Listing Photos + Video", services: [], price: 495, photographer_ids: [], notes: null, property_type: "Townhome", square_footage: 1800, contact_id: null },
-  // Delivered — late carry (YELLOW): checked in late, now delivered
-  { id: "demo-5", client_name: "Tanya Cruz", client_email: "", address: "908 Harbour Island Dr, Tampa", scheduled_at: hoursAgo(48), checked_in_at: hoursAgo(47), status: "delivered", package_name: "Drone Photos", services: [], price: 149, photographer_ids: [], notes: null, property_type: "Waterfront", square_footage: 4200, contact_id: null },
-  // Delivered — on-time carry (GREEN)
-  { id: "demo-6", client_name: "Marcus Webb", client_email: "", address: "2201 Bayshore Blvd, Tampa", scheduled_at: hoursAgo(36), checked_in_at: new Date(new Date(hoursAgo(36)).getTime() + 3 * 60000).toISOString(), status: "delivered", package_name: "Full Package", services: [], price: 695, photographer_ids: [], notes: null, property_type: "Luxury", square_footage: 5800, contact_id: null },
+  { id: "demo-1", client_name: "Sarah Mitchell", client_email: "", address: "4210 Maple Grove Dr, Tampa", scheduled_at: minsAgo(12), checked_in_at: null, delivered_at: null, paid_at: null, status: "scheduled", package_name: "Listing Photos + Drone", services: [], price: 275, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 2400, contact_id: null },
+  // Active — late check-in (YELLOW)
+  { id: "demo-2", client_name: "James Kowalski", client_email: "", address: "817 Bayside Blvd, St. Pete", scheduled_at: minsAgo(30), checked_in_at: minsAgo(8), delivered_at: null, paid_at: null, status: "on_site", package_name: "Listing Photos", services: [], price: 195, photographer_ids: [], notes: null, property_type: "Condo", square_footage: 1100, contact_id: null },
+  // Active — on-time check-in (GREEN)
+  { id: "demo-3", client_name: "Priya Nair", client_email: "", address: "1502 Osprey Ave, Sarasota", scheduled_at: minsAgo(20), checked_in_at: minsAgo(18), delivered_at: null, paid_at: null, status: "en_route", package_name: "Listing Photos + Matterport", services: [], price: 350, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 3100, contact_id: null },
+  // Editing — overdue (RED)
+  { id: "demo-4", client_name: "Derek Haines", client_email: "", address: "330 Palm Harbor Pkwy, Clearwater", scheduled_at: yesterday4pm, checked_in_at: hoursAgo(26), delivered_at: null, paid_at: null, status: "editing", package_name: "Listing Photos + Video", services: [], price: 495, photographer_ids: [], notes: null, property_type: "Townhome", square_footage: 1800, contact_id: null },
+  // Delivered — invoice unpaid 24h+ (RED)
+  { id: "demo-5", client_name: "Tanya Cruz", client_email: "", address: "908 Harbour Island Dr, Tampa", scheduled_at: hoursAgo(48), checked_in_at: hoursAgo(47), delivered_at: hoursAgo(26), paid_at: null, status: "delivered", package_name: "Drone Photos", services: [], price: 149, photographer_ids: [], notes: null, property_type: "Waterfront", square_footage: 4200, contact_id: null },
+  // Delivered — paid (GREEN)
+  { id: "demo-6", client_name: "Marcus Webb", client_email: "", address: "2201 Bayshore Blvd, Tampa", scheduled_at: hoursAgo(36), checked_in_at: new Date(new Date(hoursAgo(36)).getTime() + 3 * 60000).toISOString(), delivered_at: hoursAgo(10), paid_at: hoursAgo(8), status: "completed", package_name: "Full Package", services: [], price: 695, photographer_ids: [], notes: null, property_type: "Luxury", square_footage: 5800, contact_id: null },
+  // Delivered — within 24h, no color yet
+  { id: "demo-7", client_name: "Jules Fernandez", client_email: "", address: "1840 Pine St, San Marcos", scheduled_at: hoursAgo(6), checked_in_at: hoursAgo(5), delivered_at: hoursAgo(2), paid_at: null, status: "delivered", package_name: "Listing Photos", services: [], price: 225, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 1600, contact_id: null },
 ];
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -174,7 +198,6 @@ export default function BoardPage() {
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [showCompleted, setShowCompleted] = useState(true);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/shoots?full=1");
@@ -192,8 +215,7 @@ export default function BoardPage() {
     return () => clearInterval(interval);
   }, [load]);
 
-  const paidStage = STAGES.find(s => s.key === "paid")!;
-  const activeStages = STAGES.filter(s => s.key !== "paid");
+  const activeStages = STAGES;
 
   const behindCount = shoots.filter(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? "")).length;
   const activeCount = shoots.filter(s => stageKey(s) !== "paid").length;
@@ -310,29 +332,6 @@ export default function BoardPage() {
             })}
           </div>
 
-          {/* Paid — collapsible row at the bottom */}
-          <div className="mt-6 border-t border-white/5 pt-4">
-            <button
-              onClick={() => setShowCompleted(v => !v)}
-              className="flex items-center gap-3 text-xs text-[#444] hover:text-[#888] transition-colors"
-            >
-              <span>{showCompleted ? "▾" : "▸"}</span>
-              <span className="tracking-[2px] uppercase">Paid</span>
-              <span className={`text-2xl font-black tabular-nums ${paidStage.color}`}>
-                {shoots.filter(s => stageKey(s) === "paid").length}
-              </span>
-            </button>
-
-            {showCompleted && (
-              <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
-                {shoots
-                  .filter(s => stageKey(s) === "paid")
-                  .sort((a, b) => (b.scheduled_at || "").localeCompare(a.scheduled_at || ""))
-                  .map(shoot => <ShootCard key={shoot.id} shoot={shoot} />)
-                }
-              </div>
-            )}
-          </div>
 
         </div>
       )}
