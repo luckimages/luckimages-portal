@@ -117,6 +117,24 @@ export default function BetaPage() {
 
       <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-16">
 
+        {/* Beta Tools */}
+        <section>
+          <div className="mb-6">
+            <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Beta Tools</p>
+            <h2 className="text-2xl font-black tracking-tight uppercase">New Features</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <a href="/dashboard/board" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">Live</span>
+                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+              </div>
+              <p className="text-sm font-black uppercase tracking-tight text-white">Shoot Board</p>
+              <p className="text-[11px] text-[#555] leading-snug">Full-width Kanban board tracking every active shoot through the workflow in real time.</p>
+            </a>
+          </div>
+        </section>
+
         {/* Web Leads */}
         <section>
           <div className="flex items-end justify-between mb-6">
