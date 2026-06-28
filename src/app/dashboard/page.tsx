@@ -1761,43 +1761,89 @@ export default function DashboardPage() {
     }
 
     if (s === "Command Center") {
+      const asapList = todoLists.find(l => l.name.toLowerCase().includes("asap")) || todoLists[0];
+      const asapTasks = asapList ? todos.filter(t => t.list_id === asapList.id) : [];
+
+      function assigneeBadge(a?: string) {
+        if (a === "ryan") return <span className="text-[10px] font-bold w-4 h-4 rounded-full bg-[#4ade80]/15 text-[#4ade80] flex items-center justify-center flex-shrink-0">R</span>;
+        if (a === "leif") return <span className="text-[10px] font-bold w-4 h-4 rounded-full bg-[#60a5fa]/15 text-[#60a5fa] flex items-center justify-center flex-shrink-0">L</span>;
+        return <span className="text-[10px] font-bold w-4 h-4 rounded-full bg-white/10 text-[#555] flex items-center justify-center flex-shrink-0">B</span>;
+      }
+
       return (
         <section key={s}>
           <p className={sectionLabel}>Command Center</p>
-
-          {/* Task board — Kanban columns, draggable */}
-          <TaskBoard
-            lists={todoLists}
-            todos={todos}
-            completedTodos={completedTodos}
-            onTodosChange={setTodos}
-            onCompletedChange={setCompletedTodos}
-            onListsChange={setTodoLists}
-          />
-
-          {/* Updates — below the board */}
-          <div className="bg-[#111] border border-white/10 flex flex-col mt-4" style={{ maxHeight: 280 }}>
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-              <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
-              <a href="/admin/updates" className="text-xs text-[#444] hover:text-white transition-colors">View All →</a>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ASAP TO DO */}
+            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                <span className="text-xs tracking-[2px] uppercase text-[#888]">{asapList?.name || "To Do"}</span>
+                <a href="/dashboard/todos" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
+              </div>
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {asapTasks.length === 0 && (
+                  <p className="text-xs text-[#333] italic p-3">Nothing in ASAP.</p>
+                )}
+                {asapTasks.map(t => {
+                  const title = t.title || t.text;
+                  const due = t.due_date ? (() => {
+                    const dt = new Date(t.due_date + "T00:00:00");
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const diff = Math.round((dt.getTime() - today.getTime()) / 86400000);
+                    if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, cls: "text-red-400" };
+                    if (diff === 0) return { label: "Today", cls: "text-[#fbbf24]" };
+                    if (diff === 1) return { label: "Tomorrow", cls: "text-[#fbbf24]" };
+                    return { label: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }), cls: "text-[#555]" };
+                  })() : null;
+                  return (
+                    <div key={t.id} className="flex items-center gap-2 px-3 py-2 border-b border-white/5 hover:bg-white/[0.02]">
+                      <button
+                        onClick={async () => {
+                          await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", id: t.id }) });
+                          const done = todos.find(x => x.id === t.id);
+                          setTodos(prev => prev.filter(x => x.id !== t.id));
+                          if (done) setCompletedTodos(prev => [{ ...done, completed_at: new Date().toISOString() }, ...prev]);
+                        }}
+                        className="w-4 h-4 rounded-full border border-white/25 flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white truncate">{title}</p>
+                        {due && <p className={`text-[10px] ${due.cls}`}>{due.label}</p>}
+                      </div>
+                      {assigneeBadge(t.assigned_to)}
+                    </div>
+                  );
+                })}
+              </div>
+              <a href="/dashboard/todos" className="border-t border-white/10 w-full text-left px-3 py-2 text-xs text-[#333] hover:text-[#666] transition-colors block">
+                + Add task or view all lists →
+              </a>
             </div>
-            <div className="flex-1 overflow-y-auto min-h-0">
-              {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
-              {updates.slice(0, 12).map(u => {
-                const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : u.type === "alert" ? "⚠️" : "💬";
-                return (
-                  <div key={u.id} className={`px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${u.type === "alert" ? "bg-[#ef444408]" : ""}`}>
-                    <p className={`text-xs truncate ${u.type === "alert" ? "text-[#ef4444]" : ""}`}>{icon} {u.message}</p>
-                    <p className="text-[10px] text-[#444]">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
-                  </div>
-                );
-              })}
+
+            {/* UPDATES */}
+            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
+                <a href="/admin/updates" className="text-xs text-[#444] hover:text-white transition-colors">View All →</a>
+              </div>
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
+                {updates.slice(0, 12).map(u => {
+                  const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : u.type === "alert" ? "⚠️" : "💬";
+                  return (
+                    <div key={u.id} className={`px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${u.type === "alert" ? "bg-[#ef444408]" : ""}`}>
+                      <p className={`text-xs truncate ${u.type === "alert" ? "text-[#ef4444]" : ""}`}>{icon} {u.message}</p>
+                      <p className="text-[10px] text-[#444]">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <form onSubmit={postUpdate} className="border-t border-white/10 flex">
+                <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update..."
+                  className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
+                <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
+              </form>
             </div>
-            <form onSubmit={postUpdate} className="border-t border-white/10 flex">
-              <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update..."
-                className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
-              <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
-            </form>
           </div>
         </section>
       );
