@@ -256,16 +256,16 @@ export default function BoardPage() {
                 <div key={stage.key} className="flex flex-col gap-2">
 
                   {/* Column header */}
-                  <div className={`border rounded-sm px-3 py-2.5 ${stageShots.length > 0 ? stage.dim : "border-white/5 bg-transparent"}`}>
+                  <div className="border border-white/8 bg-white/[0.02] rounded-sm px-3 py-2.5">
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className={`text-[10px] tracking-[2px] uppercase font-semibold ${stageShots.length > 0 ? stage.color : "text-[#333]"}`}>
+                      <span className="text-[10px] tracking-[2px] uppercase font-semibold text-[#555]">
                         {stage.label}
                       </span>
                       {behindInStage.length > 0 && (
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
                       )}
                     </div>
-                    <p className={`text-3xl font-black tabular-nums leading-none ${stageShots.length > 0 ? stage.color : "text-[#222]"}`}>
+                    <p className="text-3xl font-black tabular-nums leading-none text-white">
                       {stageShots.length}
                     </p>
                     {behindInStage.length > 0 && (
