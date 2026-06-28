@@ -1882,9 +1882,36 @@ export default function DashboardPage() {
 
       const months = [...new Set(shootLog.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean))].sort().reverse();
 
+      const BOARD_STAGES = [
+        { key: "pending",   label: "Pending",   color: "text-[#fbbf24]", dim: "border-[#fbbf24]/20 bg-[#fbbf24]/5",  dbStatuses: ["pending"] },
+        { key: "scheduled", label: "Scheduled", color: "text-[#60a5fa]", dim: "border-[#60a5fa]/20 bg-[#60a5fa]/5",  dbStatuses: ["scheduled"] },
+        { key: "active",    label: "Active",    color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5",  dbStatuses: ["en_route", "on_site", "wrapping"] },
+        { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["editing"] },
+        { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5",  dbStatuses: ["delivered"] },
+        { key: "paid",      label: "Paid",      color: "text-[#4ade80]", dim: "border-[#4ade80]/20 bg-[#4ade80]/5",  dbStatuses: ["completed"] },
+      ];
+      const activeShootsForBoard = allShoots.filter(s => s.status !== "cancelled");
+
       return (
         <section key={s}>
           <p className={sectionLabel}>Shoots</p>
+
+          {/* Mini board widget */}
+          <div className="mb-3">
+            <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+              {BOARD_STAGES.map(stage => {
+                const count = activeShootsForBoard.filter(sh => stage.dbStatuses.includes(sh.status)).length;
+                return (
+                  <div key={stage.key} className={`border rounded-sm px-3 py-2.5 ${count > 0 ? stage.dim : "border-white/5 bg-transparent"}`}>
+                    <span className={`text-[9px] tracking-[2px] uppercase font-semibold block mb-1 ${count > 0 ? stage.color : "text-[#333]"}`}>{stage.label}</span>
+                    <p className={`text-2xl font-black tabular-nums leading-none ${count > 0 ? stage.color : "text-[#222]"}`}>{count}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <a href="/dashboard/board" className="text-[10px] tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">Live Board →</a>
+          </div>
+
           <div className="bg-[#111] border border-white/10 flex items-center">
             <div className="flex-1 grid grid-cols-3 divide-x divide-white/5">
               <div className="px-8 py-6">

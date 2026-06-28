@@ -174,8 +174,7 @@ export default function BoardPage() {
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set());
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(true);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/shoots?full=1");
@@ -192,14 +191,6 @@ export default function BoardPage() {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [load]);
-
-  function toggleCol(key: string) {
-    setExpandedCols(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  }
 
   const paidStage = STAGES.find(s => s.key === "paid")!;
   const activeStages = STAGES.filter(s => s.key !== "paid");
@@ -260,7 +251,6 @@ export default function BoardPage() {
             {activeStages.map(stage => {
               const stageShots = shoots.filter(s => stageKey(s) === stage.key);
               const behindInStage = stageShots.filter(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? ""));
-              const isExpanded = expandedCols.has(stage.key);
 
               return (
                 <div key={stage.key} className="flex flex-col gap-2">
@@ -275,26 +265,16 @@ export default function BoardPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
                       )}
                     </div>
-                    <div className="flex items-end justify-between gap-2">
-                      <p className={`text-3xl font-black tabular-nums leading-none ${stageShots.length > 0 ? stage.color : "text-[#222]"}`}>
-                        {stageShots.length}
-                      </p>
-                      {stageShots.length > 0 && (
-                        <button
-                          onClick={() => toggleCol(stage.key)}
-                          className="text-[10px] text-[#555] hover:text-white transition-colors whitespace-nowrap pb-0.5"
-                        >
-                          {isExpanded ? "Hide ▲" : "View all ▼"}
-                        </button>
-                      )}
-                    </div>
+                    <p className={`text-3xl font-black tabular-nums leading-none ${stageShots.length > 0 ? stage.color : "text-[#222]"}`}>
+                      {stageShots.length}
+                    </p>
                     {behindInStage.length > 0 && (
                       <p className="text-[10px] text-red-400 mt-1">{behindInStage.length} behind</p>
                     )}
                   </div>
 
-                  {/* Expanded cards */}
-                  {isExpanded && stageShots.length > 0 && (
+                  {/* Cards — always visible on full board */}
+                  {stageShots.length > 0 && (
                     <div className="flex flex-col gap-2">
                       {/* Sort: behind schedule first, then by time */}
                       {[...stageShots]
