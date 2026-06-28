@@ -19,16 +19,21 @@ type Shoot = {
   contact_id: string | null;
 };
 
-const STAGES: { key: string; label: string; color: string; dim: string }[] = [
-  { key: "pending",   label: "Pending",   color: "text-[#fbbf24]", dim: "border-[#fbbf24]/20 bg-[#fbbf24]/5"  },
-  { key: "scheduled", label: "Scheduled", color: "text-[#60a5fa]", dim: "border-[#60a5fa]/20 bg-[#60a5fa]/5"  },
-  { key: "en_route",  label: "En Route",  color: "text-[#a78bfa]", dim: "border-[#a78bfa]/20 bg-[#a78bfa]/5"  },
-  { key: "on_site",   label: "On Site",   color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5"  },
-  { key: "wrapping",  label: "Wrapping",  color: "text-[#fb923c]", dim: "border-[#fb923c]/20 bg-[#fb923c]/5"  },
-  { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5"  },
-  { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5"  },
-  { key: "completed", label: "Completed", color: "text-[#4ade80]", dim: "border-[#4ade80]/20 bg-[#4ade80]/5"  },
+const STAGES: { key: string; label: string; color: string; dim: string; dbStatuses: string[] }[] = [
+  { key: "pending",   label: "Pending",   color: "text-[#fbbf24]", dim: "border-[#fbbf24]/20 bg-[#fbbf24]/5",  dbStatuses: ["pending"] },
+  { key: "scheduled", label: "Scheduled", color: "text-[#60a5fa]", dim: "border-[#60a5fa]/20 bg-[#60a5fa]/5",  dbStatuses: ["scheduled"] },
+  { key: "active",    label: "Active",    color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5",  dbStatuses: ["en_route", "on_site", "wrapping"] },
+  { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["editing"] },
+  { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5",  dbStatuses: ["delivered"] },
+  { key: "paid",      label: "Paid",      color: "text-[#4ade80]", dim: "border-[#4ade80]/20 bg-[#4ade80]/5",  dbStatuses: ["completed"] },
 ];
+
+function stageKey(shoot: Shoot): string {
+  for (const s of STAGES) {
+    if (s.dbStatuses.includes(shoot.status)) return s.key;
+  }
+  return "pending";
+}
 
 function isBehindSchedule(shoot: Shoot): boolean {
   if (!shoot.scheduled_at) return false;
@@ -133,11 +138,11 @@ export default function BoardPage() {
     });
   }
 
-  const activeStages = STAGES.filter(s => s.key !== "completed");
-  const completedStage = STAGES.find(s => s.key === "completed")!;
+  const paidStage = STAGES.find(s => s.key === "paid")!;
+  const activeStages = STAGES.filter(s => s.key !== "paid");
 
   const behindCount = shoots.filter(isBehindSchedule).length;
-  const activeCount = shoots.filter(s => s.status !== "completed").length;
+  const activeCount = shoots.filter(s => stageKey(s) !== "paid").length;
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -184,7 +189,7 @@ export default function BoardPage() {
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${activeStages.length}, minmax(0, 1fr))` }}>
 
             {activeStages.map(stage => {
-              const stageShots = shoots.filter(s => s.status === stage.key);
+              const stageShots = shoots.filter(s => stageKey(s) === stage.key);
               const behindInStage = stageShots.filter(isBehindSchedule);
               const isExpanded = expandedCols.has(stage.key);
 
@@ -239,23 +244,23 @@ export default function BoardPage() {
             })}
           </div>
 
-          {/* Completed — collapsible row at the bottom */}
+          {/* Paid — collapsible row at the bottom */}
           <div className="mt-6 border-t border-white/5 pt-4">
             <button
               onClick={() => setShowCompleted(v => !v)}
               className="flex items-center gap-3 text-xs text-[#444] hover:text-[#888] transition-colors"
             >
               <span>{showCompleted ? "▾" : "▸"}</span>
-              <span className="tracking-[2px] uppercase">Completed</span>
-              <span className={`text-2xl font-black tabular-nums ${completedStage.color}`}>
-                {shoots.filter(s => s.status === "completed").length}
+              <span className="tracking-[2px] uppercase">Paid</span>
+              <span className={`text-2xl font-black tabular-nums ${paidStage.color}`}>
+                {shoots.filter(s => stageKey(s) === "paid").length}
               </span>
             </button>
 
             {showCompleted && (
               <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
                 {shoots
-                  .filter(s => s.status === "completed")
+                  .filter(s => stageKey(s) === "paid")
                   .sort((a, b) => (b.scheduled_at || "").localeCompare(a.scheduled_at || ""))
                   .map(shoot => <ShootCard key={shoot.id} shoot={shoot} />)
                 }
