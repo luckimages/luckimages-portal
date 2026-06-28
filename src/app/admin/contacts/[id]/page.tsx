@@ -575,7 +575,7 @@ export default function ContactProfilePage() {
             const events: AnyEvent[] = [
               ...callLogs.map(l  => ({ kind: "call"  as const, ts: l.called_at,   data: l })),
               ...emailLogs.map(l => ({ kind: "email" as const, ts: l.sent_at,      data: l })),
-              ...shoots.map(s    => ({ kind: "shoot" as const, ts: s.scheduled_at || s.created_at || "", data: s })),
+              ...shoots.map(s    => ({ kind: "shoot" as const, ts: s.scheduled_at || "", data: s })),
               ...quotes.map(q    => ({ kind: "quote" as const, ts: q.created_at,   data: q })),
             ].filter(e => e.ts).sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
