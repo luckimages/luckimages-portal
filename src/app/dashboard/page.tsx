@@ -2240,7 +2240,7 @@ export default function DashboardPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contact_id: qbContact.id,
+            contact_id: qbContact?.id ?? null,
             address: qbAddress || null,
             sqft: qbSqft || null,
             primary_service: primarySvc.name,
