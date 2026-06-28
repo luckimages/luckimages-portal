@@ -116,7 +116,7 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
       <div>
         <p className="text-xs font-semibold text-white truncate">{shoot.client_name || shoot.client_email || "Client"}</p>
         {shoot.scheduled_at && (
-          <p className={`text-[10px] mt-0.5 ${behind ? "text-red-400" : "text-[#555]"}`}>{fmtScheduled(shoot.scheduled_at)}</p>
+          <p className={`text-[10px] mt-0.5 ${alert === "no-show" ? "text-red-400" : "text-[#555]"}`}>{fmtScheduled(shoot.scheduled_at)}</p>
         )}
       </div>
 
@@ -148,6 +148,28 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
   );
 }
 
+// ─── DEMO ONLY — remove this block when done previewing ───────────────────────
+const now = new Date();
+const minsAgo = (n: number) => new Date(now.getTime() - n * 60000).toISOString();
+const hoursAgo = (n: number) => new Date(now.getTime() - n * 3600000).toISOString();
+const yesterday4pm = (() => { const d = new Date(now); d.setDate(d.getDate() - 1); d.setHours(10, 0, 0, 0); return d.toISOString(); })();
+
+const DEMO_SHOOTS: Shoot[] = [
+  // Scheduled — no-show (RED): scheduled 12 min ago, no check-in
+  { id: "demo-1", client_name: "Sarah Mitchell", client_email: "", address: "4210 Maple Grove Dr, Tampa", scheduled_at: minsAgo(12), checked_in_at: null, status: "scheduled", package_name: "Listing Photos + Drone", services: [], price: 275, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 2400, contact_id: null },
+  // Active — late check-in (YELLOW): shoot was 30 min ago, checked in 22 min late
+  { id: "demo-2", client_name: "James Kowalski", client_email: "", address: "817 Bayside Blvd, St. Pete", scheduled_at: minsAgo(30), checked_in_at: minsAgo(8), status: "on_site", package_name: "Listing Photos", services: [], price: 195, photographer_ids: [], notes: null, property_type: "Condo", square_footage: 1100, contact_id: null },
+  // Active — on-time check-in (GREEN): shoot was 20 min ago, checked in 2 min after
+  { id: "demo-3", client_name: "Priya Nair", client_email: "", address: "1502 Osprey Ave, Sarasota", scheduled_at: minsAgo(20), checked_in_at: minsAgo(18), status: "en_route", package_name: "Listing Photos + Matterport", services: [], price: 350, photographer_ids: [], notes: null, property_type: "Single Family", square_footage: 3100, contact_id: null },
+  // Editing — overdue (RED): shoot was yesterday, still editing past 4pm
+  { id: "demo-4", client_name: "Derek Haines", client_email: "", address: "330 Palm Harbor Pkwy, Clearwater", scheduled_at: yesterday4pm, checked_in_at: hoursAgo(26), status: "editing", package_name: "Listing Photos + Video", services: [], price: 495, photographer_ids: [], notes: null, property_type: "Townhome", square_footage: 1800, contact_id: null },
+  // Delivered — late carry (YELLOW): checked in late, now delivered
+  { id: "demo-5", client_name: "Tanya Cruz", client_email: "", address: "908 Harbour Island Dr, Tampa", scheduled_at: hoursAgo(48), checked_in_at: hoursAgo(47), status: "delivered", package_name: "Drone Photos", services: [], price: 149, photographer_ids: [], notes: null, property_type: "Waterfront", square_footage: 4200, contact_id: null },
+  // Delivered — on-time carry (GREEN)
+  { id: "demo-6", client_name: "Marcus Webb", client_email: "", address: "2201 Bayshore Blvd, Tampa", scheduled_at: hoursAgo(36), checked_in_at: new Date(new Date(hoursAgo(36)).getTime() + 3 * 60000).toISOString(), status: "delivered", package_name: "Full Package", services: [], price: 695, photographer_ids: [], notes: null, property_type: "Luxury", square_footage: 5800, contact_id: null },
+];
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function BoardPage() {
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +181,7 @@ export default function BoardPage() {
     const res = await fetch("/api/admin/shoots?full=1");
     if (res.ok) {
       const data: Shoot[] = await res.json();
-      setShoots(data.filter(s => s.status !== "cancelled"));
+      setShoots([...DEMO_SHOOTS, ...data.filter(s => s.status !== "cancelled")]);
       setLastRefresh(new Date());
     }
     setLoading(false);
@@ -207,6 +229,12 @@ export default function BoardPage() {
           <button onClick={load} className="text-xs text-[#444] hover:text-white transition-colors">↻ Refresh</button>
         </div>
       </header>
+
+      {/* Demo banner */}
+      <div className="bg-[#fbbf24]/10 border-b border-[#fbbf24]/30 px-6 py-2 flex items-center gap-2 shrink-0">
+        <span className="text-[10px] font-black tracking-[2px] uppercase text-[#fbbf24]">Demo Mode</span>
+        <span className="text-[10px] text-[#fbbf24]/60">— fake shoot cards are injected for preview only, not in your database</span>
+      </div>
 
       {/* Page title */}
       <div className="px-6 pt-6 pb-4 shrink-0">
