@@ -233,7 +233,24 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
     return { label: "Registered", color: "text-[#60a5fa] bg-[#60a5fa]/10" };
   }
 
-  const totalShootRevenue = shoots.filter(s => s.price).reduce((sum, s) => sum + (s.price || 0), 0);
+  const pricedShoots = shoots.filter(s => s.price && s.price > 0);
+  const totalShootRevenue = pricedShoots.reduce((sum, s) => sum + (s.price || 0), 0);
+  const completedShoots = shoots.filter(s => s.status === "completed");
+  const avgPerShoot = pricedShoots.length > 0 ? Math.round(totalShootRevenue / pricedShoots.length) : 0;
+  const lastShoot = shoots.find(s => s.scheduled_at);
+  const SERVICE_LABELS: Record<string, string> = {
+    "Listing Photos": "Listing Photos", "Drone Photos": "Drone Photos", "Drone Video": "Drone Video",
+    "Floor Plan": "Floor Plans", "Matterport": "Matterport", "Virtual Staging": "Virtual Staging",
+    "Video — Bronze": "Video", "Video — Silver": "Video + Drone", "Headshots": "Headshots", "Twilight": "Twilight",
+  };
+  const serviceCount: Record<string, number> = {};
+  for (const shoot of shoots) {
+    for (const svc of (shoot.services || [])) {
+      const label = Object.entries(SERVICE_LABELS).find(([k]) => svc.toLowerCase().includes(k.toLowerCase()))?.[1] || svc;
+      serviceCount[label] = (serviceCount[label] || 0) + 1;
+    }
+  }
+  const serviceBreakdown = Object.entries(serviceCount).sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -380,23 +397,60 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
                   </div>
                 )}
 
-                {/* Stats row */}
-                <div className="grid grid-cols-3 divide-x divide-white/5">
-                  <div className="p-4 text-center">
-                    <p className="text-xl font-bold tabular-nums">{callLogs.length}</p>
-                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Calls</p>
-                  </div>
-                  <div className="p-4 text-center">
-                    <p className="text-xl font-bold tabular-nums text-[#4ade80]">{shoots.length}</p>
-                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Shoots</p>
-                  </div>
+                {/* Relationship metrics */}
+                <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
                   <div className="p-4 text-center">
                     <p className="text-xl font-bold tabular-nums text-[#4ade80]">
                       {totalShootRevenue > 0 ? `$${totalShootRevenue.toLocaleString()}` : "—"}
                     </p>
-                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Revenue</p>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Lifetime Rev.</p>
+                  </div>
+                  <div className="p-4 text-center">
+                    <p className="text-xl font-bold tabular-nums">{shoots.length}</p>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Total Shoots</p>
+                  </div>
+                  <div className="p-4 text-center">
+                    <p className="text-xl font-bold tabular-nums text-[#4ade80]">
+                      {avgPerShoot > 0 ? `$${avgPerShoot.toLocaleString()}` : "—"}
+                    </p>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Avg / Shoot</p>
                   </div>
                 </div>
+                <div className="grid grid-cols-3 divide-x divide-white/5">
+                  <div className="p-4 text-center">
+                    <p className="text-xs font-semibold tabular-nums">
+                      {contact?.created_at ? new Date(contact.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—"}
+                    </p>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Client Since</p>
+                  </div>
+                  <div className="p-4 text-center">
+                    <p className="text-xs font-semibold tabular-nums">
+                      {lastShoot?.scheduled_at
+                        ? new Date(lastShoot.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Last Booking</p>
+                  </div>
+                  <div className="p-4 text-center">
+                    <p className="text-xl font-bold tabular-nums">{completedShoots.length}</p>
+                    <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-1">Completed</p>
+                  </div>
+                </div>
+
+                {/* Service breakdown */}
+                {serviceBreakdown.length > 0 && (
+                  <div className="border-t border-white/5">
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#444] px-5 pt-4 pb-2">Services Purchased</p>
+                    <div className="grid grid-cols-2 gap-px bg-white/5 mx-5 mb-4">
+                      {serviceBreakdown.map(([name, count]) => (
+                        <div key={name} className="bg-[#0f0f0f] px-3 py-2 flex items-center justify-between gap-2">
+                          <span className="text-xs text-[#777] truncate">{name}</span>
+                          <span className="text-sm font-bold text-white tabular-nums shrink-0">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Related contacts */}
                 {linkedContacts.length > 0 && (
