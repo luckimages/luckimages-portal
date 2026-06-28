@@ -42,14 +42,14 @@ function stageKey(shoot: Shoot): string {
 // "on-time"     → checked in within 5 min → GREEN, persists
 // "editing-due" → in editing past 4pm the day after shoot → RED
 // null          → no special state (pending/scheduled before time)
-type AlertStatus = "no-show" | "late" | "on-time" | "editing-due" | null;
+type AlertStatus = "no-show" | "late" | "on-time" | "editing-due" | "paid" | null;
 
 function getAlertStatus(shoot: Shoot): AlertStatus {
   const now = Date.now();
   const scheduledMs = shoot.scheduled_at ? new Date(shoot.scheduled_at).getTime() : null;
 
   // Paid: green
-  if (shoot.paid_at) return "on-time";
+  if (shoot.paid_at) return "paid";
 
   // Payment overdue: delivered 24h+ ago and not paid
   if ((shoot.status === "delivered" || shoot.status === "completed") && shoot.delivered_at) {
@@ -98,7 +98,8 @@ function fmtScheduled(iso: string | null): string {
 const ALERT_STYLES: Record<string, { border: string; bg: string; dot: string; text: string; label: string }> = {
   "no-show":     { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "No check-in" },
   "late":        { border: "border-yellow-400/40", bg: "bg-yellow-400/5", dot: "bg-yellow-400", text: "text-yellow-400", label: "Checked in late" },
-  "on-time":     { border: "border-green-400/40",  bg: "bg-green-400/5",  dot: "bg-green-400",  text: "text-green-400",  label: "Paid" },
+  "on-time":     { border: "border-green-400/40",  bg: "bg-green-400/5",  dot: "bg-green-400",  text: "text-green-400",  label: "On time" },
+  "paid":        { border: "border-green-400/40",  bg: "bg-green-400/5",  dot: "bg-green-400",  text: "text-green-400",  label: "Paid" },
   "editing-due": { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "Delivery overdue" },
 };
 
@@ -317,7 +318,7 @@ export default function BoardPage() {
                       {/* Sort: behind schedule first, then by time */}
                       {[...stageShots]
                         .sort((a, b) => {
-                          const priority = { "no-show": 0, "editing-due": 0, "late": 1, "on-time": 2, null: 3 } as Record<string, number>;
+                          const priority = { "no-show": 0, "editing-due": 0, "late": 1, "on-time": 2, null: 3, "paid": 4 } as Record<string, number>;
                           const ap = priority[getAlertStatus(a) ?? "null"] ?? 3;
                           const bp = priority[getAlertStatus(b) ?? "null"] ?? 3;
                           if (ap !== bp) return ap - bp;
