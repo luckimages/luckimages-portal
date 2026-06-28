@@ -116,7 +116,7 @@ export default function ContactProfilePage() {
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [historyTab, setHistoryTab] = useState<"activity" | "leads" | "shoots" | "quotes">("activity");
+  const [historyTab, setHistoryTab] = useState<"activity" | "actions" | "leads" | "shoots" | "quotes">("activity");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -550,6 +550,9 @@ export default function ContactProfilePage() {
               Activity
               <span className="ml-2 text-[#444]">({callLogs.length + emailLogs.length + shoots.length + quotes.length})</span>
             </button>
+            <button onClick={() => setHistoryTab("actions")} className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors whitespace-nowrap ${historyTab === "actions" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}>
+              Suggested Actions
+            </button>
             <button onClick={() => setHistoryTab("leads")} className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors whitespace-nowrap ${historyTab === "leads" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}>
               Calls & Emails
               {(callLogs.length + emailLogs.length) > 0 && <span className="ml-2 text-[#444]">({callLogs.length + emailLogs.length})</span>}
@@ -702,6 +705,126 @@ export default function ContactProfilePage() {
                     );
                   })}
                 </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Suggested Actions ── */}
+          {historyTab === "actions" && (() => {
+            const now = Date.now();
+            const daysSince = (iso: string) => Math.floor((now - new Date(iso).getTime()) / 86400000);
+            const lastShootDays = lastShoot?.scheduled_at ? daysSince(lastShoot.scheduled_at) : null;
+            const lastCallDays = callLogs[0]?.called_at ? daysSince(callLogs[0].called_at) : null;
+            const lastEmailDays = emailLogs[0]?.sent_at ? daysSince(emailLogs[0].sent_at) : null;
+            const hasPortalAccount = contact.stage === "client" || !!contact.user_id;
+            const lastNoAnswer = callLogs[0]?.outcome === "no_answer";
+            const lastOutcome = callLogs[0]?.outcome;
+
+            type Action = { priority: "high" | "medium" | "low"; title: string; reason: string; cta: string; onClick?: () => void; href?: string };
+            const actions: Action[] = [];
+
+            // No contact yet
+            if (callLogs.length === 0 && emailLogs.length === 0 && shoots.length === 0) {
+              actions.push({ priority: "high", title: "Make first contact", reason: "This contact has never been called or emailed.", cta: "Log a Call", href: `/admin/cold-calls?contact=${contact.id}` });
+            }
+
+            // Has shoots but no portal invite
+            if (shoots.length > 0 && !hasPortalAccount) {
+              actions.push({ priority: "high", title: "Send portal invite", reason: "This client has completed shoots but hasn't been invited to the portal yet.", cta: "Send Invite", onClick: () => setHistoryTab("activity") });
+            }
+
+            // Never quoted
+            if (quotes.length === 0 && shoots.length === 0) {
+              actions.push({ priority: "high", title: "Send a quote", reason: "No quote has ever been sent to this contact.", cta: "Build Quote", href: `/dashboard/quotes?contact=${contact.id}` });
+            }
+
+            // Last call was no-answer
+            if (lastNoAnswer) {
+              actions.push({ priority: "high", title: "Follow up — no answer", reason: `Last call on ${new Date(callLogs[0].called_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} went unanswered.`, cta: "Log Call", href: `/admin/cold-calls?contact=${contact.id}` });
+            }
+
+            // Interested but no shoot booked
+            if (isInterested && shoots.length === 0) {
+              actions.push({ priority: "high", title: "Book a shoot", reason: "This contact expressed interest but has never had a shoot scheduled.", cta: "Book Shoot", href: `/dashboard` });
+            }
+
+            // Big spender, inactive 60+ days
+            if (totalShootRevenue >= 500 && lastShootDays !== null && lastShootDays >= 60) {
+              actions.push({ priority: "high", title: "Re-engage top client", reason: `${contact.name} has spent $${totalShootRevenue.toLocaleString()} but hasn't booked in ${lastShootDays} days.`, cta: "Send Email", href: `mailto:${contact.email}` });
+            }
+
+            // Inactive 90+ days
+            if (lastShootDays !== null && lastShootDays >= 90) {
+              actions.push({ priority: "medium", title: "Re-engagement outreach", reason: `No shoots in ${lastShootDays} days. A check-in could bring them back.`, cta: "Log Call", href: `/admin/cold-calls?contact=${contact.id}` });
+            } else if (lastShootDays !== null && lastShootDays >= 45) {
+              actions.push({ priority: "low", title: "Check in soon", reason: `Last shoot was ${lastShootDays} days ago — a good time to reconnect before they go quiet.`, cta: "Log Call", href: `/admin/cold-calls?contact=${contact.id}` });
+            }
+
+            // No activity in 30+ days (lead, never shot)
+            if (shoots.length === 0 && lastCallDays !== null && lastCallDays >= 30) {
+              actions.push({ priority: "medium", title: "Revive cold lead", reason: `Last contact was ${lastCallDays} days ago and no shoot has ever been booked.`, cta: "Log Call", href: `/admin/cold-calls?contact=${contact.id}` });
+            }
+
+            // Quoted but never booked
+            if (quotes.length > 0 && shoots.length === 0) {
+              const daysSinceQuote = daysSince(quotes[quotes.length - 1].created_at);
+              if (daysSinceQuote >= 3) {
+                actions.push({ priority: "medium", title: "Follow up on quote", reason: `A quote was sent ${daysSinceQuote} day${daysSinceQuote !== 1 ? "s" : ""} ago but no shoot was ever booked.`, cta: "Send Follow-up", href: `mailto:${contact.email}` });
+              }
+            }
+
+            // Never emailed
+            if (emailLogs.length === 0 && shoots.length > 0) {
+              actions.push({ priority: "low", title: "Send an email", reason: "This client has had shoots but has never received an email from you.", cta: "Send Email", href: `mailto:${contact.email}` });
+            }
+
+            // Last outcome was call_again
+            if (lastOutcome === "call_again" && lastCallDays !== null && lastCallDays >= 2) {
+              actions.push({ priority: "medium", title: "Call again — flagged", reason: `You marked this contact as 'call again' ${lastCallDays} day${lastCallDays !== 1 ? "s" : ""} ago.`, cta: "Log Call", href: `/admin/cold-calls?contact=${contact.id}` });
+            }
+
+            const PRIORITY_STYLES = {
+              high:   { bar: "bg-red-500",    badge: "text-red-400 bg-red-500/10 border-red-500/20",   label: "High" },
+              medium: { bar: "bg-[#fbbf24]",  badge: "text-[#fbbf24] bg-[#fbbf24]/10 border-[#fbbf24]/20", label: "Medium" },
+              low:    { bar: "bg-[#60a5fa]",  badge: "text-[#60a5fa] bg-[#60a5fa]/10 border-[#60a5fa]/20", label: "Low" },
+            };
+
+            const sorted = [...actions].sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.priority] - { high: 0, medium: 1, low: 2 }[b.priority]));
+
+            return (
+              <div className="space-y-3">
+                {sorted.length === 0 ? (
+                  <div className="bg-[#111] border border-white/10 p-10 text-center">
+                    <p className="text-[#4ade80] text-sm font-semibold mb-1">All clear</p>
+                    <p className="text-[#333] text-xs">No suggested actions right now. This contact is in good shape.</p>
+                  </div>
+                ) : sorted.map((action, i) => {
+                  const s = PRIORITY_STYLES[action.priority];
+                  return (
+                    <div key={i} className="bg-[#111] border border-white/10 flex overflow-hidden">
+                      <div className={`w-1 shrink-0 ${s.bar}`} />
+                      <div className="flex-1 p-4 flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase border ${s.badge}`}>{s.label}</span>
+                            <p className="text-sm font-semibold text-white">{action.title}</p>
+                          </div>
+                          <p className="text-xs text-[#555]">{action.reason}</p>
+                        </div>
+                        {action.href ? (
+                          <a href={action.href} className="shrink-0 text-xs tracking-[1px] uppercase font-semibold border border-white/20 px-4 py-2 text-white hover:bg-white hover:text-black transition-all whitespace-nowrap">
+                            {action.cta} →
+                          </a>
+                        ) : (
+                          <button onClick={action.onClick} className="shrink-0 text-xs tracking-[1px] uppercase font-semibold border border-white/20 px-4 py-2 text-white hover:bg-white hover:text-black transition-all whitespace-nowrap">
+                            {action.cta} →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <p className="text-[10px] text-[#333] text-right pt-1">Based on shoot history, call logs, and quotes</p>
               </div>
             );
           })()}
