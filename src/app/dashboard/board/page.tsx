@@ -245,20 +245,17 @@ export default function BoardPage() {
       ) : (
         <div className="flex-1 overflow-auto px-6 pb-8">
 
-          {/* Step tracker — dots + connecting lines */}
-          <div className="flex items-center mb-4">
-            {activeStages.map((stage, i) => {
+          {/* Step tracker — dots centered over each column */}
+          <div className="grid mb-4 relative" style={{ gridTemplateColumns: `repeat(${activeStages.length}, minmax(0, 1fr))` }}>
+            {/* Connecting line behind dots */}
+            <div className="absolute top-[5px] left-[calc(100%/(${activeStages.length}*2))] right-[calc(100%/(${activeStages.length}*2))] h-px bg-white/10" style={{ left: `calc(100% / ${activeStages.length * 2})`, right: `calc(100% / ${activeStages.length * 2})` }} />
+            {activeStages.map((stage) => {
               const count = shoots.filter(s => stageKey(s) === stage.key).length;
               const hasAlert = shoots.filter(s => stageKey(s) === stage.key).some(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? ""));
               return (
-                <div key={stage.key} className="flex items-center flex-1 min-w-0">
-                  <div className="flex flex-col items-center gap-1.5 shrink-0">
-                    <div className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${hasAlert ? "bg-red-500 border-red-500" : count > 0 ? "bg-white border-white" : "bg-transparent border-white/20"}`} />
-                    <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold whitespace-nowrap ${count > 0 ? "text-white" : "text-[#333]"}`}>{stage.label}</span>
-                  </div>
-                  {i < activeStages.length - 1 && (
-                    <div className="flex-1 h-px bg-white/10 mx-2 mb-3.5" />
-                  )}
+                <div key={stage.key} className="flex flex-col items-center gap-1.5">
+                  <div className={`w-2.5 h-2.5 rounded-full border-2 relative z-10 transition-colors ${hasAlert ? "bg-red-500 border-red-500" : count > 0 ? "bg-white border-white" : "bg-[#0c0c0c] border-white/20"}`} />
+                  <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold ${count > 0 ? "text-white" : "text-[#333]"}`}>{stage.label}</span>
                 </div>
               );
             })}
