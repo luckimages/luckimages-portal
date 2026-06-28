@@ -245,6 +245,25 @@ export default function BoardPage() {
       ) : (
         <div className="flex-1 overflow-auto px-6 pb-8">
 
+          {/* Step tracker — dots + connecting lines */}
+          <div className="flex items-center mb-4">
+            {activeStages.map((stage, i) => {
+              const count = shoots.filter(s => stageKey(s) === stage.key).length;
+              const hasAlert = shoots.filter(s => stageKey(s) === stage.key).some(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? ""));
+              return (
+                <div key={stage.key} className="flex items-center flex-1 min-w-0">
+                  <div className="flex flex-col items-center gap-1.5 shrink-0">
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${hasAlert ? "bg-red-500 border-red-500" : count > 0 ? "bg-white border-white" : "bg-transparent border-white/20"}`} />
+                    <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold whitespace-nowrap ${count > 0 ? "text-white" : "text-[#333]"}`}>{stage.label}</span>
+                  </div>
+                  {i < activeStages.length - 1 && (
+                    <div className="flex-1 h-px bg-white/10 mx-2 mb-3.5" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
           {/* Active stages board */}
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${activeStages.length}, minmax(0, 1fr))` }}>
 
@@ -255,22 +274,22 @@ export default function BoardPage() {
               return (
                 <div key={stage.key} className="flex flex-col gap-2">
 
-                  {/* Column header */}
-                  <div className="border border-white/8 bg-white/[0.02] rounded-sm px-3 py-2.5">
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] tracking-[2px] uppercase font-semibold text-[#555]">
+                  {/* Column header — fixed height so all columns align */}
+                  <div className="border border-white/8 bg-white/[0.02] rounded-sm px-3 py-3 h-20 flex flex-col justify-between">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] tracking-[2px] uppercase font-semibold text-[#444]">
                         {stage.label}
                       </span>
                       {behindInStage.length > 0 && (
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
                       )}
                     </div>
-                    <p className="text-3xl font-black tabular-nums leading-none text-white">
-                      {stageShots.length}
-                    </p>
-                    {behindInStage.length > 0 && (
-                      <p className="text-[10px] text-red-400 mt-1">{behindInStage.length} behind</p>
-                    )}
+                    <div>
+                      <p className="text-3xl font-black tabular-nums leading-none text-white">{stageShots.length}</p>
+                      {behindInStage.length > 0 && (
+                        <p className="text-[10px] text-red-400 mt-0.5">{behindInStage.length} behind</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Cards — always visible on full board */}
