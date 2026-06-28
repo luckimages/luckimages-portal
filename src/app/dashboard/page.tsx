@@ -143,7 +143,8 @@ export default function DashboardPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Command center state
-  type Todo = { id: string; text: string; title?: string; details?: string; created_by: string; created_at: string; completed_at: string | null; completed_by?: string; is_urgent: boolean };
+  type TodoList = { id: string; name: string; position: number };
+  type Todo = { id: string; text: string; title?: string; details?: string; notes?: string; created_by: string; created_at: string; completed_at: string | null; completed_by?: string; is_urgent: boolean; list_id?: string | null; assigned_to?: string; due_date?: string | null };
 
   function userColor(name: string) {
     if (name === "ryan") return "text-[#4ade80]";
@@ -155,7 +156,10 @@ export default function DashboardPage() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
   type UpdateItem = { id: string; type: string; message: string; created_at: string; by?: string };
+  const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [completedTodos, setCompletedTodos] = useState<Todo[]>([]);
+  const [activeListId, setActiveListId] = useState<string | null>(null);
   const [todoInput, setTodoInput] = useState("");
   const [todoUrgent, setTodoUrgent] = useState(false);
   const [todoFilter, setTodoFilter] = useState<"all" | "urgent">("all");
@@ -165,6 +169,11 @@ export default function DashboardPage() {
   const [todoEditDetails, setTodoEditDetails] = useState("");
   const [todoDetailsInput, setTodoDetailsInput] = useState("");
   const [todoAddOpen, setTodoAddOpen] = useState(false);
+  const [todoAddAssignee, setTodoAddAssignee] = useState<string>("both");
+  const [todoAddDueDate, setTodoAddDueDate] = useState("");
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [listRenamingId, setListRenamingId] = useState<string | null>(null);
+  const [listRenameValue, setListRenameValue] = useState("");
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [updateInput, setUpdateInput] = useState("");
   const [needsAttention, setNeedsAttention] = useState<UpdateItem[]>([]);
@@ -288,7 +297,13 @@ export default function DashboardPage() {
         fetch("/api/admin/todos"),
         fetch("/api/admin/company-updates"),
       ]);
-      if (todosRes.ok) { const d = await todosRes.json(); setTodos(d.active || []); }
+      if (todosRes.ok) {
+        const d = await todosRes.json();
+        setTodoLists(d.lists || []);
+        setTodos(d.active || []);
+        setCompletedTodos(d.completed || []);
+        if (d.lists?.length > 0) setActiveListId(d.lists[0].id);
+      }
       if (updatesRes.ok) {
         const d = await updatesRes.json();
         const all = [...(d.posts || []).map((p: {id: string; message: string; created_at: string; created_by: string}) => ({ id: p.id, type: "post", message: p.message, created_at: p.created_at, by: p.created_by })), ...(d.auto || [])].sort((a: {created_at: string}, b: {created_at: string}) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -356,19 +371,60 @@ export default function DashboardPage() {
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     if (!todoInput.trim()) return;
-    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", title: todoInput, details: todoDetailsInput, is_urgent: todoUrgent }) });
-    if (res.ok) { const { todo } = await res.json(); setTodos(t => [...t, todo]); setTodoInput(""); setTodoDetailsInput(""); setTodoUrgent(false); setTodoAddOpen(false); }
+    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create", title: todoInput, notes: todoDetailsInput, list_id: activeListId, assigned_to: todoAddAssignee, due_date: todoAddDueDate || null, is_urgent: todoUrgent }) });
+    if (res.ok) { const { todo } = await res.json(); setTodos(t => [...t, todo]); setTodoInput(""); setTodoDetailsInput(""); setTodoUrgent(false); setTodoAddOpen(false); setTodoAddAssignee("both"); setTodoAddDueDate(""); }
   }
 
   async function saveTodoEdit(id: string) {
-    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update", id, title: todoEditTitle, details: todoEditDetails }) });
-    setTodos(ts => ts.map(t => t.id === id ? { ...t, title: todoEditTitle, text: todoEditTitle, details: todoEditDetails } : t));
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update", id, title: todoEditTitle, notes: todoEditDetails }) });
+    setTodos(ts => ts.map(t => t.id === id ? { ...t, title: todoEditTitle, text: todoEditTitle, notes: todoEditDetails } : t));
     setTodoEditing(null);
   }
 
   async function completeTodo(id: string) {
     await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", id }) });
+    const done = todos.find(x => x.id === id);
     setTodos(t => t.filter(x => x.id !== id));
+    if (done) setCompletedTodos(c => [{ ...done, completed_at: new Date().toISOString() }, ...c]);
+  }
+
+  async function uncompleteTodo(id: string) {
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "uncomplete", id }) });
+    const item = completedTodos.find(x => x.id === id);
+    setCompletedTodos(c => c.filter(x => x.id !== id));
+    if (item) setTodos(t => [...t, { ...item, completed_at: null }]);
+  }
+
+  async function deleteTodo(id: string) {
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", id }) });
+    setTodos(t => t.filter(x => x.id !== id));
+    setCompletedTodos(c => c.filter(x => x.id !== id));
+  }
+
+  async function createList() {
+    if (todoLists.length >= 5) return;
+    const res = await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_list", name: "New List", position: todoLists.length }) });
+    if (res.ok) { const { list } = await res.json(); setTodoLists(l => [...l, list]); setActiveListId(list.id); }
+  }
+
+  async function renameList(id: string, name: string) {
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "rename_list", id, name }) });
+    setTodoLists(l => l.map(x => x.id === id ? { ...x, name } : x));
+    setListRenamingId(null);
+  }
+
+  async function deleteList(id: string) {
+    if (!confirm("Delete this list and all its tasks?")) return;
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_list", id }) });
+    setTodoLists(l => l.filter(x => x.id !== id));
+    setTodos(t => t.filter(x => x.list_id !== id));
+    const remaining = todoLists.filter(x => x.id !== id);
+    setActiveListId(remaining[0]?.id || null);
+  }
+
+  async function updateTodoAssignee(id: string, assigned_to: string) {
+    await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "update", id, assigned_to }) });
+    setTodos(ts => ts.map(t => t.id === id ? { ...t, assigned_to } : t));
   }
 
   async function postUpdate(e: React.FormEvent) {
@@ -864,6 +920,26 @@ export default function DashboardPage() {
                   {dayEvents.length === 0 && (
                     <div className="flex-1" />
                   )}
+                  {(() => {
+                    const dayTodos = todos.filter(t => t.due_date === dayStr);
+                    if (dayTodos.length === 0) return null;
+                    const [todayTodoOpen, setTodayTodoOpen] = [todoExpanded === `cal-${dayStr}`, (v: boolean) => setTodoExpanded(v ? `cal-${dayStr}` : null)];
+                    return (
+                      <div className="bg-[#fbbf2415] border border-[#fbbf2430] text-[#fbbf24] p-1.5 rounded-sm">
+                        <button onClick={() => setTodayTodoOpen(!todayTodoOpen)} className="w-full flex items-center justify-between gap-1">
+                          <span className="text-[9px] tracking-[1.5px] uppercase font-semibold">TO DO</span>
+                          <span className="text-[9px]">{todayTodoOpen ? "▲" : "▼"}</span>
+                        </button>
+                        {todayTodoOpen && (
+                          <ul className="mt-1 flex flex-col gap-0.5">
+                            {dayTodos.map(t => (
+                              <li key={t.id} className="text-[10px] text-[#fbbf24] opacity-80 truncate">· {t.title || t.text}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {dayEvents.map(shoot => (
                     <div
                       key={shoot.id}
@@ -1757,49 +1833,109 @@ export default function DashboardPage() {
     }
 
     if (s === "Command Center") {
-      const urgentCount = todos.filter(t => t.is_urgent).length;
-      const visibleTodos = todoFilter === "urgent" ? todos.filter(t => t.is_urgent) : todos;
+      const activeTasks = todos.filter(t => t.list_id === activeListId);
+      const completedInList = completedTodos.filter(t => t.list_id === activeListId);
+      const activeList = todoLists.find(l => l.id === activeListId);
+      function assigneeLabel(a?: string) {
+        if (a === "ryan") return { label: "R", cls: "bg-[#4ade80]/15 text-[#4ade80]" };
+        if (a === "leif") return { label: "L", cls: "bg-[#60a5fa]/15 text-[#60a5fa]" };
+        return { label: "B", cls: "bg-white/10 text-[#888]" };
+      }
+      function cycleAssignee(current?: string) {
+        if (!current || current === "both") return "ryan";
+        if (current === "ryan") return "leif";
+        return "both";
+      }
+      function fmtDue(d?: string | null) {
+        if (!d) return null;
+        const dt = new Date(d + "T00:00:00");
+        const today = new Date(); today.setHours(0,0,0,0);
+        const diff = Math.round((dt.getTime() - today.getTime()) / 86400000);
+        if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, cls: "text-red-400" };
+        if (diff === 0) return { label: "Today", cls: "text-[#fbbf24]" };
+        if (diff === 1) return { label: "Tomorrow", cls: "text-[#fbbf24]" };
+        return { label: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }), cls: "text-[#555]" };
+      }
       return (
         <section key={s}>
           <p className={sectionLabel}>Command Center</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* TO DO + NEEDS ATTENTION */}
-            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setTodoFilter("all")}
-                    className={`text-xs px-2 py-0.5 transition-colors ${todoFilter === "all" ? "text-white" : "text-[#555] hover:text-[#888]"}`}>
-                    All {todos.length > 0 && <span className="text-[#444]">({todos.length})</span>}
-                  </button>
-                  <button onClick={() => setTodoFilter("urgent")}
-                    className={`text-xs px-2 py-0.5 transition-colors flex items-center gap-1 ${todoFilter === "urgent" ? "text-red-400" : "text-[#555] hover:text-[#888]"}`}>
-                    {urgentCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
-                    Urgent {urgentCount > 0 && <span>({urgentCount})</span>}
-                  </button>
-                </div>
-                <a href="/admin/todos" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
-              </div>
-              <div className="flex-1 overflow-y-auto min-h-0">
-                {visibleTodos.length === 0 && (
-                  <p className="text-xs text-[#333] italic p-3">{todoFilter === "urgent" ? "No urgent items." : "Nothing pending."}</p>
+            {/* TASKS — Google Tasks-style */}
+            <div className="bg-[#111] border border-white/10 flex flex-col" style={{ minHeight: 320 }}>
+              {/* List tabs */}
+              <div className="flex items-center gap-0 border-b border-white/10 overflow-x-auto">
+                {todoLists.map(list => (
+                  <div key={list.id} className={`flex items-center gap-1 flex-shrink-0 border-r border-white/5 ${activeListId === list.id ? "border-b-2 border-b-white" : ""}`}>
+                    {listRenamingId === list.id ? (
+                      <input
+                        autoFocus
+                        value={listRenameValue}
+                        onChange={e => setListRenameValue(e.target.value)}
+                        onBlur={() => renameList(list.id, listRenameValue || list.name)}
+                        onKeyDown={e => { if (e.key === "Enter") renameList(list.id, listRenameValue || list.name); if (e.key === "Escape") setListRenamingId(null); }}
+                        className="bg-transparent text-xs px-3 py-2.5 outline-none text-white w-24"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setActiveListId(list.id)}
+                        onDoubleClick={() => { setListRenamingId(list.id); setListRenameValue(list.name); }}
+                        className={`text-xs px-3 py-2.5 transition-colors whitespace-nowrap ${activeListId === list.id ? "text-white" : "text-[#555] hover:text-[#888]"}`}
+                      >
+                        {list.name}
+                        {todos.filter(t => t.list_id === list.id).length > 0 && (
+                          <span className="ml-1.5 text-[#333]">({todos.filter(t => t.list_id === list.id).length})</span>
+                        )}
+                      </button>
+                    )}
+                    {activeListId === list.id && (
+                      <button onClick={() => deleteList(list.id)} className="text-[#333] hover:text-red-400 transition-colors pr-2 text-[10px]" title="Delete list">×</button>
+                    )}
+                  </div>
+                ))}
+                {todoLists.length < 5 && (
+                  <button onClick={createList} className="text-xs px-3 py-2.5 text-[#333] hover:text-[#888] transition-colors flex-shrink-0 whitespace-nowrap">+ New List</button>
                 )}
-                {visibleTodos.map(t => {
+              </div>
+
+              {/* Task list */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                {activeTasks.length === 0 && (
+                  <p className="text-xs text-[#333] italic p-4">No tasks in this list.</p>
+                )}
+                {activeTasks.map(t => {
                   const isOpen = todoExpanded === t.id;
                   const isEdit = todoEditing === t.id;
                   const title = t.title || t.text;
+                  const asgn = assigneeLabel(t.assigned_to);
+                  const due = fmtDue(t.due_date);
                   return (
-                    <div key={t.id} className={`border-b border-white/5 ${t.is_urgent ? "border-l-2 border-l-red-500/60" : ""}`}>
-                      {/* Title row */}
-                      <div className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.02] cursor-pointer"
-                        onClick={() => setTodoExpanded(isOpen ? null : t.id)}>
-                        <button onClick={e => { e.stopPropagation(); completeTodo(t.id); }}
-                          className="w-3.5 h-3.5 border border-white/20 rounded-sm flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all" />
-                        <p className="text-xs flex-1 truncate">{title}</p>
-                        <span className="text-[#333] text-[10px] ml-auto">{isOpen ? "▲" : "▼"}</span>
+                    <div key={t.id} className="border-b border-white/5">
+                      <div className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.02]">
+                        {/* Circle checkbox */}
+                        <button
+                          onClick={() => completeTodo(t.id)}
+                          className="w-4 h-4 rounded-full border border-white/25 flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all flex items-center justify-center"
+                        />
+                        {/* Title + notes */}
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setTodoExpanded(isOpen ? null : t.id)}>
+                          <p className="text-xs text-white truncate">{title}</p>
+                          {(t.notes || t.details) && !isOpen && (
+                            <p className="text-[10px] text-[#444] truncate mt-0.5">{t.notes || t.details}</p>
+                          )}
+                          {due && (
+                            <p className={`text-[10px] mt-0.5 ${due.cls}`}>{due.label}</p>
+                          )}
+                        </div>
+                        {/* Assignee badge — click to cycle */}
+                        <button
+                          onClick={() => updateTodoAssignee(t.id, cycleAssignee(t.assigned_to))}
+                          className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${asgn.cls}`}
+                          title={`Assigned: ${t.assigned_to || "both"} — click to change`}
+                        >{asgn.label}</button>
+                        <button onClick={() => setTodoExpanded(isOpen ? null : t.id)} className="text-[#333] text-[10px]">{isOpen ? "▲" : "▼"}</button>
                       </div>
-                      {/* Expanded detail */}
                       {isOpen && (
-                        <div className="px-3 pb-3 bg-white/[0.015]">
+                        <div className="px-4 pb-3 bg-white/[0.015]">
                           {isEdit ? (
                             <div className="flex flex-col gap-1.5 pt-1">
                               <input value={todoEditTitle} onChange={e => setTodoEditTitle(e.target.value)}
@@ -1807,57 +1943,85 @@ export default function DashboardPage() {
                                 placeholder="Title" />
                               <textarea value={todoEditDetails} onChange={e => setTodoEditDetails(e.target.value)}
                                 className="bg-[#1a1a1a] border border-white/10 text-xs px-2 py-1.5 outline-none text-white w-full resize-none"
-                                rows={3} placeholder="Details (optional)" />
+                                rows={2} placeholder="Notes (optional)" />
                               <div className="flex gap-2">
-                                <button onClick={() => saveTodoEdit(t.id)}
-                                  className="text-[10px] tracking-[1px] uppercase text-[#4ade80] hover:text-white transition-colors">Save</button>
-                                <button onClick={() => setTodoEditing(null)}
-                                  className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Cancel</button>
+                                <button onClick={() => saveTodoEdit(t.id)} className="text-[10px] tracking-[1px] uppercase text-[#4ade80] hover:text-white transition-colors">Save</button>
+                                <button onClick={() => setTodoEditing(null)} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Cancel</button>
                               </div>
                             </div>
                           ) : (
-                            <>
-                              {t.details ? (
-                                <p className="text-[11px] text-[#777] leading-relaxed pt-1.5 whitespace-pre-wrap">{t.details}</p>
-                              ) : (
-                                <p className="text-[10px] text-[#333] italic pt-1.5">No details added.</p>
-                              )}
-                              <div className="flex items-center gap-3 mt-2">
-                                <p className="text-[9px] flex items-center gap-1">
-                                  <span className={userColor(t.created_by)}>{t.created_by}</span>
-                                  <span className="text-[#333]">· {fmtTime(t.created_at)}</span>
-                                </p>
-                                <button onClick={() => { setTodoEditing(t.id); setTodoEditTitle(t.title || t.text); setTodoEditDetails(t.details || ""); }}
-                                  className="text-[9px] text-[#444] hover:text-white transition-colors uppercase tracking-[1px]">Edit</button>
+                            <div className="pt-1 flex flex-col gap-1">
+                              {(t.notes || t.details) && <p className="text-[11px] text-[#777] leading-relaxed whitespace-pre-wrap">{t.notes || t.details}</p>}
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className={`text-[9px] ${userColor(t.created_by)}`}>{t.created_by}</span>
+                                <span className="text-[9px] text-[#333]">{fmtTime(t.created_at)}</span>
+                                <button onClick={() => { setTodoEditing(t.id); setTodoEditTitle(t.title || t.text); setTodoEditDetails(t.notes || t.details || ""); }} className="text-[9px] text-[#444] hover:text-white transition-colors uppercase tracking-[1px]">Edit</button>
+                                <button onClick={() => deleteTodo(t.id)} className="text-[9px] text-[#333] hover:text-red-400 transition-colors uppercase tracking-[1px]">Delete</button>
                               </div>
-                            </>
+                            </div>
                           )}
                         </div>
                       )}
                     </div>
                   );
                 })}
+
+                {/* Completed collapse */}
+                {completedInList.length > 0 && (
+                  <div className="border-t border-white/5 mt-1">
+                    <button onClick={() => setCompletedOpen(o => !o)} className="w-full flex items-center gap-2 px-3 py-2 text-[10px] text-[#444] hover:text-[#888] transition-colors">
+                      <span>{completedOpen ? "▾" : "▸"}</span>
+                      <span>{completedInList.length} completed</span>
+                    </button>
+                    {completedOpen && completedInList.map(t => (
+                      <div key={t.id} className="flex items-center gap-2.5 px-3 py-2 border-b border-white/5 opacity-50 hover:opacity-75">
+                        <button onClick={() => uncompleteTodo(t.id)} className="w-4 h-4 rounded-full border border-white/40 flex-shrink-0 bg-white/10 flex items-center justify-center text-[8px] text-white hover:border-white transition-all">✓</button>
+                        <span className="text-xs text-[#555] line-through flex-1 truncate">{t.title || t.text}</span>
+                        <button onClick={() => deleteTodo(t.id)} className="text-[10px] text-[#333] hover:text-red-400 transition-colors">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              {/* Add task — collapsed by default, expands inline */}
+
+              {/* Add task form */}
               {todoAddOpen ? (
-                <form onSubmit={addTodo} className="border-t border-white/10 flex flex-col gap-1 p-2">
-                  <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Title"
+                <form onSubmit={addTodo} className="border-t border-white/10 flex flex-col gap-1.5 p-3">
+                  <input value={todoInput} onChange={e => setTodoInput(e.target.value)} placeholder="Task title"
                     className="bg-transparent text-xs px-2 py-1.5 outline-none placeholder:text-[#333] text-white border border-white/10" autoFocus />
-                  <input value={todoDetailsInput} onChange={e => setTodoDetailsInput(e.target.value)} placeholder="Details (optional)"
+                  <input value={todoDetailsInput} onChange={e => setTodoDetailsInput(e.target.value)} placeholder="Notes (optional)"
                     className="bg-transparent text-xs px-2 py-1.5 outline-none placeholder:text-[#333] text-white border border-white/10" />
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setTodoUrgent(u => !u)}
-                      className={`text-[10px] uppercase tracking-[1px] transition-colors ${todoUrgent ? "text-red-400" : "text-[#444] hover:text-[#888]"}`}>! Urgent</button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Assignee selector */}
+                    <div className="flex items-center gap-1">
+                      {(["both","ryan","leif"] as const).map(a => {
+                        const lbl = a === "both" ? "Both" : a === "ryan" ? "R" : "L";
+                        const active = todoAddAssignee === a;
+                        const cls = a === "ryan" ? "border-[#4ade80] text-[#4ade80]" : a === "leif" ? "border-[#60a5fa] text-[#60a5fa]" : "border-white/20 text-[#555]";
+                        return (
+                          <button key={a} type="button" onClick={() => setTodoAddAssignee(a)}
+                            className={`text-[10px] px-2 py-0.5 border transition-colors ${active ? cls : "border-white/10 text-[#333] hover:border-white/20"}`}>
+                            {lbl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Due date */}
+                    <input type="date" value={todoAddDueDate} onChange={e => setTodoAddDueDate(e.target.value)}
+                      className="bg-transparent border border-white/10 text-[10px] text-[#555] px-2 py-0.5 outline-none" />
                     <button type="submit" className="text-[10px] uppercase tracking-[1px] text-[#4ade80] hover:text-white transition-colors ml-auto">Add</button>
                     <button type="button" onClick={() => setTodoAddOpen(false)} className="text-[10px] uppercase tracking-[1px] text-[#444] hover:text-white transition-colors">Cancel</button>
                   </div>
                 </form>
               ) : (
-                <button onClick={() => setTodoAddOpen(true)} className="border-t border-white/10 w-full text-left px-3 py-2 text-xs text-[#444] hover:text-white transition-colors">+ Add task</button>
+                <button onClick={() => setTodoAddOpen(true)} className="border-t border-white/10 w-full text-left px-3 py-2.5 text-xs text-[#333] hover:text-[#888] transition-colors">
+                  + Add task{activeList ? ` to ${activeList.name}` : ""}
+                </button>
               )}
             </div>
+
             {/* UPDATES */}
-            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+            <div className="bg-[#111] border border-white/10 flex flex-col h-80">
               <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                 <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
                 <a href="/admin/updates" className="text-xs text-[#444] hover:text-white transition-colors">View All →</a>
