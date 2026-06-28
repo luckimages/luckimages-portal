@@ -116,7 +116,7 @@ export default function ContactProfilePage() {
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [historyTab, setHistoryTab] = useState<"leads" | "shoots" | "quotes">("leads");
+  const [historyTab, setHistoryTab] = useState<"activity" | "leads" | "shoots" | "quotes">("activity");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -545,29 +545,166 @@ export default function ContactProfilePage() {
         <div className="space-y-4">
 
           {/* Tab bar */}
-          <div className="flex border-b border-white/10">
-            <button
-              onClick={() => setHistoryTab("leads")}
-              className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "leads" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
-            >
-              Lead History
-              {callLogs.length > 0 && <span className="ml-2 text-[#444]">({callLogs.length + emailLogs.length})</span>}
+          <div className="flex border-b border-white/10 overflow-x-auto">
+            <button onClick={() => setHistoryTab("activity")} className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors whitespace-nowrap ${historyTab === "activity" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}>
+              Activity
+              <span className="ml-2 text-[#444]">({callLogs.length + emailLogs.length + shoots.length + quotes.length})</span>
             </button>
-            <button
-              onClick={() => setHistoryTab("shoots")}
-              className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "shoots" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
-            >
-              Shoot History
+            <button onClick={() => setHistoryTab("leads")} className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors whitespace-nowrap ${historyTab === "leads" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}>
+              Calls & Emails
+              {(callLogs.length + emailLogs.length) > 0 && <span className="ml-2 text-[#444]">({callLogs.length + emailLogs.length})</span>}
+            </button>
+            <button onClick={() => setHistoryTab("shoots")} className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors whitespace-nowrap ${historyTab === "shoots" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}>
+              Shoots
               {shoots.length > 0 && <span className="ml-2 text-[#444]">({shoots.length})</span>}
             </button>
-            <button
-              onClick={() => setHistoryTab("quotes")}
-              className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors ${historyTab === "quotes" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}
-            >
+            <button onClick={() => setHistoryTab("quotes")} className={`px-6 py-3 text-xs tracking-[2px] uppercase font-semibold border-b-2 transition-colors whitespace-nowrap ${historyTab === "quotes" ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"}`}>
               Quotes
               {quotes.length > 0 && <span className="ml-2 text-[#444]">({quotes.length})</span>}
             </button>
           </div>
+
+          {/* ── Unified Activity Timeline ── */}
+          {historyTab === "activity" && (() => {
+            type AnyEvent =
+              | { kind: "call";  ts: string; data: CallLog }
+              | { kind: "email"; ts: string; data: EmailLog }
+              | { kind: "shoot"; ts: string; data: typeof shoots[0] }
+              | { kind: "quote"; ts: string; data: typeof quotes[0] };
+
+            const events: AnyEvent[] = [
+              ...callLogs.map(l  => ({ kind: "call"  as const, ts: l.called_at,   data: l })),
+              ...emailLogs.map(l => ({ kind: "email" as const, ts: l.sent_at,      data: l })),
+              ...shoots.map(s    => ({ kind: "shoot" as const, ts: s.scheduled_at || s.created_at || "", data: s })),
+              ...quotes.map(q    => ({ kind: "quote" as const, ts: q.created_at,   data: q })),
+            ].filter(e => e.ts).sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+
+            if (events.length === 0) return (
+              <div className="bg-[#111] border border-white/10 p-10 text-center">
+                <p className="text-[#333] text-sm">No activity yet.</p>
+              </div>
+            );
+
+            return (
+              <div className="relative">
+                {/* Vertical line */}
+                <div className="absolute left-[19px] top-0 bottom-0 w-px bg-white/5" />
+
+                <div className="space-y-0">
+                  {events.map((event, i) => {
+                    const fmtDate = (ts: string) => new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                    const fmtTime = (ts: string) => new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+                    // Date divider
+                    const thisDay = event.ts.slice(0, 10);
+                    const prevDay = i > 0 ? events[i - 1].ts.slice(0, 10) : null;
+                    const showDivider = thisDay !== prevDay;
+
+                    return (
+                      <div key={i}>
+                        {showDivider && (
+                          <div className="flex items-center gap-3 py-3 pl-10">
+                            <span className="text-[10px] tracking-[2px] uppercase text-[#333]">{fmtDate(event.ts)}</span>
+                            <div className="flex-1 h-px bg-white/5" />
+                          </div>
+                        )}
+
+                        <div className="flex gap-4 pb-4 pl-2">
+                          {/* Icon dot */}
+                          <div className="shrink-0 w-9 flex flex-col items-center pt-1">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] z-10 relative ${
+                              event.kind === "shoot" ? "bg-[#60a5fa]/20 border border-[#60a5fa]/40 text-[#60a5fa]" :
+                              event.kind === "call"  ? "bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24]" :
+                              event.kind === "email" ? "bg-[#a78bfa]/20 border border-[#a78bfa]/40 text-[#a78bfa]" :
+                                                       "bg-[#34d399]/20 border border-[#34d399]/40 text-[#34d399]"
+                            }`}>
+                              {event.kind === "shoot" ? "📷" : event.kind === "call" ? "📞" : event.kind === "email" ? "✉" : "💬"}
+                            </div>
+                          </div>
+
+                          {/* Card */}
+                          <div className="flex-1 bg-[#111] border border-white/8 rounded-sm p-3 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {event.kind === "shoot" && (
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${STATUS_COLORS[(event.data as typeof shoots[0]).status] || "text-[#555] bg-white/5"}`}>
+                                    Shoot · {(event.data as typeof shoots[0]).status}
+                                  </span>
+                                )}
+                                {event.kind === "call" && (
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase border ${CALL_COLORS[(event.data as CallLog).outcome] || "text-[#555] bg-white/5 border-white/5"}`}>
+                                    {CALL_LABELS[(event.data as CallLog).outcome] || (event.data as CallLog).outcome}
+                                  </span>
+                                )}
+                                {event.kind === "email" && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#818cf8] bg-[#818cf8]/10 border border-[#818cf8]/20">
+                                    Email Sent
+                                  </span>
+                                )}
+                                {event.kind === "quote" && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#34d399] bg-[#34d399]/10 border border-[#34d399]/20">
+                                    Quote
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-[#333] shrink-0">{fmtTime(event.ts)}</span>
+                            </div>
+
+                            {/* Content */}
+                            {event.kind === "shoot" && (() => {
+                              const s = event.data as typeof shoots[0];
+                              return (
+                                <div>
+                                  <p className="text-sm font-medium text-white truncate">{s.address}</p>
+                                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                    {s.package_name && <span className="text-xs text-[#555]">{s.package_name}</span>}
+                                    {!s.package_name && s.services?.length > 0 && <span className="text-xs text-[#555]">{s.services.join(", ")}</span>}
+                                    {s.price != null && <span className="text-xs font-bold text-[#4ade80]">${s.price.toLocaleString()}</span>}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {event.kind === "call" && (() => {
+                              const c = event.data as CallLog;
+                              return (
+                                <div>
+                                  {c.listing_address && <p className="text-xs text-[#555]">📍 {c.listing_address}</p>}
+                                  {c.notes && <p className="text-xs text-[#666] italic mt-0.5">"{c.notes}"</p>}
+                                  <p className="text-[10px] text-[#333] mt-1">by {c.called_by}</p>
+                                </div>
+                              );
+                            })()}
+                            {event.kind === "email" && (() => {
+                              const e = event.data as EmailLog;
+                              return (
+                                <div>
+                                  <p className="text-sm font-medium">{e.subject}</p>
+                                  {e.body && <p className="text-xs text-[#555] mt-0.5 line-clamp-2">{e.body}</p>}
+                                  <p className="text-[10px] text-[#333] mt-1">by {e.sent_by}</p>
+                                </div>
+                              );
+                            })()}
+                            {event.kind === "quote" && (() => {
+                              const q = event.data as typeof quotes[0];
+                              return (
+                                <div>
+                                  <p className="text-sm font-medium">{q.primary_service}</p>
+                                  <div className="flex items-center gap-3 mt-0.5">
+                                    {q.sqft && <span className="text-xs text-[#555]">{q.sqft} sqft</span>}
+                                    <span className="text-xs font-bold text-[#34d399]">${q.total.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── Lead History ── */}
           {historyTab === "leads" && (
