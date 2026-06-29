@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import ContactChip from "@/components/ContactChip";
+import ShootGallery from "@/components/ShootGallery";
 
 type Shoot = {
   id: string;
@@ -164,12 +165,78 @@ function ShootCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
   );
 }
 
-function ShootModal({ shoot, onClose, onMarkPaid }: { shoot: Shoot; onClose: () => void; onMarkPaid: (id: string) => void }) {
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+
+function ShootTracker({ status }: { status: string }) {
+  const TRACKER_STAGES = [
+    { key: "scheduled", label: "Scheduled" },
+    { key: "en_route",  label: "En Route" },
+    { key: "on_site",   label: "On Site" },
+    { key: "wrapping",  label: "Wrapped Up" },
+    { key: "delivered", label: "Delivered" },
+  ];
+  const ORDER = ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing", "delivered", "completed"];
+  const cur = ORDER.indexOf(status);
+  return (
+    <div className="flex items-start gap-0 mt-3">
+      {TRACKER_STAGES.map((stage, i) => {
+        const idx = ORDER.indexOf(stage.key);
+        const effectiveIdx = status === "editing" ? ORDER.indexOf("editing") : cur;
+        const isDone = effectiveIdx > idx || status === "completed";
+        const isActive = !isDone && (effectiveIdx === idx || (stage.key === "wrapping" && status === "editing"));
+        return (
+          <div key={stage.key} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div className={`w-2 h-2 rounded-full transition-colors ${isDone ? "bg-[#4ade80]" : isActive ? "bg-white" : "bg-white/15"}`} />
+              <span className={`text-[8px] tracking-[1px] uppercase whitespace-nowrap ${isActive ? "text-white" : isDone ? "text-[#4ade80]/70" : "text-[#333]"}`}>{stage.label}</span>
+            </div>
+            {i < TRACKER_STAGES.length - 1 && (
+              <div className={`w-10 h-px mb-3.5 ${isDone ? "bg-[#4ade80]/30" : "bg-white/10"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function parseNotes(raw: string | null): { access: string; notes: string } {
+  const str = raw || "";
+  const m = str.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
+  if (m) return { access: m[1] || "", notes: (m[2] || "").replace(/^\n\n/, "").trim() };
+  return { access: "", notes: str };
+}
+
+function toDatetimeLocal(iso: string) {
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+type Photographer = { id: string; name: string; email: string };
+
+function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
+  shoot: Shoot;
+  photographers: Photographer[];
+  onClose: () => void;
+  onMarkPaid: (id: string) => void;
+  onSave: (id: string, patch: Partial<Shoot>) => void;
+}) {
   const alert = getAlertStatus(shoot);
   const style = alert ? ALERT_STYLES[alert] : null;
   const stage = STAGES.find(s => s.dbStatuses.includes(shoot.status));
   const mins = alert === "no-show" ? minutesBehind(shoot) : 0;
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [tab, setTab] = useState<"info" | "edit" | "media">("info");
+
+  const parsed = parseNotes(shoot.notes);
+  const [esAccess, setEsAccess] = useState(parsed.access);
+  const [esNotes, setEsNotes] = useState(parsed.notes);
+  const [esDatetime, setEsDatetime] = useState(shoot.scheduled_at ? toDatetimeLocal(shoot.scheduled_at) : "");
+  const [esAddress, setEsAddress] = useState(shoot.address || "");
+  const [esPhotographers, setEsPhotographers] = useState<string[]>(shoot.photographer_ids || []);
+  const [esSaving, setEsSaving] = useState(false);
+  const [esSaved, setEsSaved] = useState(false);
 
   async function handleMarkPaid() {
     setMarkingPaid(true);
@@ -179,191 +246,289 @@ function ShootModal({ shoot, onClose, onMarkPaid }: { shoot: Shoot; onClose: () 
     onClose();
   }
 
+  async function handleSave() {
+    setEsSaving(true);
+    const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
+    const scheduledAtISO = esDatetime ? new Date(esDatetime).toISOString() : null;
+    const res = await fetch("/api/admin/shoots", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: shoot.id, address: esAddress, scheduled_at: scheduledAtISO, photographer_ids: esPhotographers, notes: combinedNotes }),
+    });
+    if (res.ok) {
+      onSave(shoot.id, { address: esAddress, scheduled_at: scheduledAtISO || shoot.scheduled_at, photographer_ids: esPhotographers, notes: combinedNotes || "" });
+      setEsSaved(true);
+    }
+    setEsSaving(false);
+  }
+
+  const assignedPhotographers = photographers.filter(p => (shoot.photographer_ids || []).includes(p.id));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/75" />
+      <div className="absolute inset-0 bg-black/70" />
       <div
-        className={`relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#141414] border ${style ? style.border : "border-white/15"} p-6 space-y-5`}
+        className={`relative bg-[#141414] border ${style ? style.border : "border-[#4ade80]/20"} w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center justify-between px-6 pt-6 pb-0">
           <div>
-            {style && (
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${style.dot} ${alert === "no-show" || alert === "editing-due" ? "animate-pulse" : ""}`} />
-                <span className={`text-[10px] font-semibold tracking-[2px] uppercase ${style.text}`}>
-                  {alert === "no-show" && ["delivered", "completed"].includes(shoot.status)
-                    ? "Invoice unpaid"
-                    : alert === "no-show"
-                    ? `${mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`} — no check-in`
-                    : style.label}
-                </span>
-              </div>
-            )}
-            <p className="text-base font-bold leading-snug">{shoot.address}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-[10px] tracking-[2px] uppercase font-semibold px-2 py-0.5 border ${stage ? `${stage.color} border-current/20` : "text-[#555] border-white/10"}`}>
-                {stage?.label || shoot.status}
-              </span>
-              {shoot.property_type && (
-                <span className="text-[10px] text-[#444] uppercase tracking-wide">{shoot.property_type}</span>
+            <div className="flex items-center gap-2 mb-1">
+              {style ? (
+                <>
+                  <span className={`w-1.5 h-1.5 rounded-full ${style.dot} ${alert === "no-show" || alert === "editing-due" ? "animate-pulse" : ""}`} />
+                  <p className={`text-[10px] tracking-[3px] uppercase ${style.text}`}>
+                    {alert === "no-show" && ["delivered", "completed"].includes(shoot.status)
+                      ? "Invoice unpaid"
+                      : alert === "no-show"
+                      ? `${mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`} — no check-in`
+                      : style.label}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80]" />
+                  <p className="text-[10px] tracking-[3px] uppercase text-[#4ade80]">{shoot.status.replace(/_/g, " ")}</p>
+                </>
               )}
             </div>
+            <p className="text-sm font-semibold">{shoot.address}</p>
+            {!["pending", "cancelled", "delivered", "completed", "paid"].includes(shoot.status) && (
+              <ShootTracker status={shoot.status} />
+            )}
           </div>
-          <button onClick={onClose} className="text-[#555] hover:text-white transition-colors text-xl leading-none shrink-0">✕</button>
+          <button onClick={onClose} className="text-[#555] hover:text-white transition-colors text-lg leading-none shrink-0">✕</button>
         </div>
 
-        {/* Details grid */}
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          {/* Client */}
-          <div>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Client</p>
-            {shoot.contact_id ? (
-              <a href={`/admin/contacts/${shoot.contact_id}`} className="font-medium hover:text-[#a78bfa] transition-colors" onClick={e => e.stopPropagation()}>
-                {shoot.client_name || "View Profile →"}
-              </a>
-            ) : (
-              <p className="font-medium">{shoot.client_name || "—"}</p>
-            )}
-            {shoot.client_email && <p className="text-xs text-[#555] mt-0.5">{shoot.client_email}</p>}
-          </div>
-
-          {/* Date / time */}
-          <div>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Scheduled</p>
-            <p className="font-medium">
-              {shoot.scheduled_at
-                ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-                : "No date"}
-            </p>
-            {shoot.scheduled_at && (
-              <p className="text-xs text-[#555] mt-0.5">
-                {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-              </p>
-            )}
-          </div>
-
-          {/* Price */}
-          {shoot.price != null && (
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Price</p>
-              <p className={`text-xl font-black ${stage?.color || "text-white"}`}>${shoot.price.toLocaleString()}</p>
-            </div>
-          )}
-
-          {/* Sq ft */}
-          {shoot.square_footage && (
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
-              <p className="font-medium">{shoot.square_footage.toLocaleString()}</p>
-            </div>
-          )}
-
-          {/* Check-in */}
-          {shoot.checked_in_at && (
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Checked In</p>
-              <p className="text-sm">
-                {new Date(shoot.checked_in_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-              </p>
-            </div>
-          )}
-
-          {/* Delivered */}
-          {shoot.delivered_at && (
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Delivered</p>
-              <p className="text-sm">
-                {new Date(shoot.delivered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                {" · "}
-                {new Date(shoot.delivered_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-              </p>
-            </div>
-          )}
-
-          {/* Paid */}
-          {shoot.paid_at && (
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Paid</p>
-              <p className="text-sm text-[#4ade80]">
-                {new Date(shoot.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </p>
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="flex border-b border-white/10 px-6 mt-4 gap-0">
+          {(["info", "edit", "media"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`text-[10px] tracking-[2px] uppercase px-4 py-2.5 border-b-2 transition-colors ${tab === t ? "border-white text-white" : "border-transparent text-[#444] hover:text-[#888]"}`}>
+              {t === "info" ? "Info" : t === "edit" ? "✏️ Edit" : "📁 Media"}
+            </button>
+          ))}
         </div>
 
-        {/* Services */}
-        {(shoot.package_name || shoot.services?.length > 0) && (
-          <div>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
-            {shoot.package_name && (
-              <p className="text-xs text-[#888] mb-1.5">{shoot.package_name}</p>
-            )}
+        {tab === "info" && (
+          <div className="p-6 space-y-5">
+            <div className="grid grid-cols-2 gap-5 text-sm">
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+                <p>{shoot.scheduled_at
+                  ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) + " · " + new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+                  : "TBD"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor</p>
+                {shoot.client_name ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    {shoot.contact_id && (
+                      <img
+                        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${shoot.contact_id}`}
+                        alt={shoot.client_name}
+                        className="w-8 h-8 rounded-full object-cover shrink-0 bg-white/5"
+                        onError={e => {
+                          const el = e.currentTarget;
+                          el.style.display = "none";
+                          const sib = el.nextElementSibling as HTMLElement | null;
+                          if (sib) sib.style.display = "flex";
+                        }}
+                      />
+                    )}
+                    {shoot.contact_id && (
+                      <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 items-center justify-center text-xs font-bold shrink-0" style={{ display: "none" }}>
+                        {shoot.client_name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      {shoot.contact_id
+                        ? <a href={`/admin/contacts/${shoot.contact_id}`} className="font-medium text-sm hover:text-[#a78bfa] transition-colors" onClick={e => e.stopPropagation()}>{shoot.client_name}</a>
+                        : <p className="font-medium text-sm">{shoot.client_name}</p>}
+                      {shoot.client_email && <p className="text-xs text-[#555]">{shoot.client_email}</p>}
+                    </div>
+                  </div>
+                ) : <p className="text-[#555] italic text-sm">—</p>}
+              </div>
+              {shoot.property_type && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Type</p>
+                  <p>{shoot.property_type}</p>
+                </div>
+              )}
+              {shoot.square_footage && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Size</p>
+                  <p>{shoot.square_footage.toLocaleString()} {["Lot","Land"].includes(shoot.property_type || "") ? "acres" : "sq ft"}</p>
+                </div>
+              )}
+              {shoot.price && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Price</p>
+                  <p className="font-semibold text-[#4ade80]">${shoot.price.toLocaleString()}</p>
+                </div>
+              )}
+              {shoot.checked_in_at && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Checked In</p>
+                  <p>{new Date(shoot.checked_in_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
+                </div>
+              )}
+              {shoot.delivered_at && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Delivered</p>
+                  <p>{new Date(shoot.delivered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {new Date(shoot.delivered_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
+                </div>
+              )}
+              {shoot.paid_at && (
+                <div>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Paid</p>
+                  <p className="text-[#4ade80]">{new Date(shoot.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                </div>
+              )}
+            </div>
+
             {shoot.services?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {shoot.services.map((svc: string) => (
-                  <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{svc}</span>
-                ))}
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {shoot.services.map((svc: string) => (
+                    <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{svc}</span>
+                  ))}
+                </div>
               </div>
             )}
+
+            {assignedPhotographers.length > 0 && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+                <div className="flex flex-wrap gap-3">
+                  {assignedPhotographers.map(p => (
+                    <div key={p.id} className="flex items-center gap-2">
+                      <img
+                        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${p.id}`}
+                        alt={p.name}
+                        className="w-7 h-7 rounded-full object-cover bg-white/5"
+                        onError={e => {
+                          const el = e.currentTarget;
+                          el.style.display = "none";
+                          const sib = el.nextElementSibling as HTMLElement | null;
+                          if (sib) sib.style.display = "flex";
+                        }}
+                      />
+                      <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 items-center justify-center text-xs font-bold shrink-0" style={{ display: "none" }}>
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs text-[#888]">{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {parsed.access && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Access</p>
+                <p className="text-sm text-[#aaa]">{parsed.access}</p>
+              </div>
+            )}
+            {parsed.notes && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+                <p className="text-sm text-[#888] leading-relaxed">{parsed.notes}</p>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-white/10">
+              {shoot.contact_id && (
+                <a href={`/admin/contacts/${shoot.contact_id}`} onClick={e => e.stopPropagation()}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/20 text-white hover:bg-white/5 transition-colors">
+                  View Profile →
+                </a>
+              )}
+              {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && !shoot.id.startsWith("demo-") && (
+                <button onClick={handleMarkPaid} disabled={markingPaid}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/10 transition-colors disabled:opacity-40">
+                  {markingPaid ? "Marking..." : "Mark Paid ✓"}
+                </button>
+              )}
+              {shoot.status === "scheduled" && shoot.contact_id && (
+                <a href={`/dashboard/outreach?template=preshoot_checklist&contact=${shoot.contact_id}`} onClick={e => e.stopPropagation()}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:text-white transition-colors">
+                  Send Checklist →
+                </a>
+              )}
+              {["delivered", "completed"].includes(shoot.status) && shoot.contact_id && (
+                <a href={`/dashboard/outreach?template=thank_you&contact=${shoot.contact_id}`} onClick={e => e.stopPropagation()}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:text-white transition-colors">
+                  Send Thank You →
+                </a>
+              )}
+            </div>
+            <button onClick={onClose} className="w-full py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Close</button>
           </div>
         )}
 
-        {/* Notes */}
-        {shoot.notes && (
-          <div>
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
-            <p className="text-xs text-[#888] leading-relaxed">{shoot.notes}</p>
+        {tab === "edit" && (
+          <div className="p-6 space-y-5">
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Listing Address</p>
+              <input value={esAddress} onChange={e => { setEsAddress(e.target.value); setEsSaved(false); }}
+                className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+              <input type="datetime-local" value={esDatetime} onChange={e => { setEsDatetime(e.target.value); setEsSaved(false); }}
+                className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographer(s)</p>
+              <div className="flex flex-wrap gap-2">
+                {photographers.map(p => {
+                  const assigned = esPhotographers.includes(p.id);
+                  return (
+                    <button key={p.id} type="button"
+                      onClick={() => { setEsSaved(false); setEsPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
+                      className={`flex items-center gap-2 text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
+                      <img
+                        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${p.id}`}
+                        alt={p.name}
+                        className="w-5 h-5 rounded-full object-cover bg-white/5 shrink-0"
+                        onError={e => { e.currentTarget.style.display = "none"; }}
+                      />
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Property Access</p>
+              <input value={esAccess} onChange={e => { setEsAccess(e.target.value); setEsSaved(false); }}
+                placeholder="Lockbox, Supra, gate code, etc."
+                className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
+            </div>
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+              <textarea value={esNotes} onChange={e => { setEsNotes(e.target.value); setEsSaved(false); }} rows={3}
+                className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30 resize-none" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={handleSave} disabled={esSaving}
+                className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                {esSaving ? "Saving..." : esSaved ? "Saved ✓" : "Save Changes"}
+              </button>
+              <button onClick={() => setTab("info")} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Cancel</button>
+            </div>
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 pt-1 border-t border-white/10">
-          {shoot.contact_id && (
-            <a
-              href={`/admin/contacts/${shoot.contact_id}`}
-              onClick={e => e.stopPropagation()}
-              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/20 text-white hover:bg-white/5 transition-colors"
-            >
-              View Profile →
-            </a>
-          )}
-          {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && !shoot.id.startsWith("demo-") && (
-            <button
-              onClick={handleMarkPaid}
-              disabled={markingPaid}
-              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/10 transition-colors disabled:opacity-40"
-            >
-              {markingPaid ? "Marking..." : "Mark Paid ✓"}
-            </button>
-          )}
-          {shoot.status === "scheduled" && shoot.contact_id && (
-            <a
-              href={`/dashboard/outreach?template=preshoot_checklist&contact=${shoot.contact_id}`}
-              onClick={e => e.stopPropagation()}
-              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:text-white transition-colors"
-            >
-              Send Checklist →
-            </a>
-          )}
-          {["delivered", "completed"].includes(shoot.status) && shoot.contact_id && (
-            <a
-              href={`/dashboard/outreach?template=thank_you&contact=${shoot.contact_id}`}
-              onClick={e => e.stopPropagation()}
-              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:text-white transition-colors"
-            >
-              Send Thank You →
-            </a>
-          )}
-          <a
-            href="/admin/shoots"
-            onClick={e => e.stopPropagation()}
-            className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#555] hover:text-white transition-colors"
-          >
-            All Shoots
-          </a>
-        </div>
+        {tab === "media" && (
+          <div className="p-6">
+            <ShootGallery shootId={shoot.id} services={shoot.services || []} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -374,13 +539,21 @@ export default function BoardPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [selectedShoot, setSelectedShoot] = useState<Shoot | null>(null);
+  const [photographers, setPhotographers] = useState<Photographer[]>([]);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/shoots?full=1");
-    if (res.ok) {
-      const data: Shoot[] = await res.json();
+    const [shootRes, pgRes] = await Promise.all([
+      fetch("/api/admin/shoots?full=1"),
+      fetch("/api/admin/photographers"),
+    ]);
+    if (shootRes.ok) {
+      const data: Shoot[] = await shootRes.json();
       setShoots(data.filter(s => s.status !== "cancelled"));
       setLastRefresh(new Date());
+    }
+    if (pgRes.ok) {
+      const pg = await pgRes.json();
+      setPhotographers(pg);
     }
     setLoading(false);
   }, []);
@@ -509,8 +682,13 @@ export default function BoardPage() {
       {selectedShoot && (
         <ShootModal
           shoot={selectedShoot}
+          photographers={photographers}
           onClose={() => setSelectedShoot(null)}
           onMarkPaid={id => setShoots(prev => prev.map(s => s.id === id ? { ...s, paid_at: new Date().toISOString(), status: "paid" } : s))}
+          onSave={(id, patch) => {
+            setShoots(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+            setSelectedShoot(prev => prev?.id === id ? { ...prev, ...patch } : prev);
+          }}
         />
       )}
     </main>
