@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ContactChip from "@/components/ContactChip";
 
 type Shoot = {
   id: string;
@@ -127,7 +128,7 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
 
       {/* Client + time */}
       <div>
-        <p className="text-xs font-semibold text-white truncate">{shoot.client_name || shoot.client_email || "Client"}</p>
+        <ContactChip contactId={shoot.contact_id} name={shoot.client_name || shoot.client_email || "Client"} size="sm" />
         {shoot.scheduled_at && (
           <p className={`text-[10px] mt-0.5 ${alert === "no-show" ? "text-red-400" : "text-[#555]"}`}>{fmtScheduled(shoot.scheduled_at)}</p>
         )}
@@ -150,13 +151,7 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
       )}
 
       {/* Footer row */}
-      <div className="flex items-center justify-between mt-0.5">
-        {shoot.contact_id ? (
-          <a href={`/admin/contacts/${shoot.contact_id}`} className="text-[10px] text-[#333] hover:text-white transition-colors" onClick={e => e.stopPropagation()}>
-            View profile →
-          </a>
-        ) : <span />}
-
+      <div className="flex items-center justify-end mt-0.5">
         {/* Mark Paid button — shown on delivered/completed, unpaid */}
         {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && !shoot.id.startsWith("demo-") && (
           <button
