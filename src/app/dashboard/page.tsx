@@ -650,7 +650,7 @@ export default function DashboardPage() {
   const [realtors, setRealtors] = useState<Realtor[]>([]);
   const [realtorTab, setRealtorTab] = useState<"all" | "new">("all");
 
-  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[]; price: number | null; package_name: string | null; contact_id: string | null; property_type: string | null };
+  type ShootEvent = { id: string; address: string; scheduled_at: string; services: string[]; notes: string; square_footage: number | null; client_name: string; client_email: string; status: string; photographer_ids: string[]; price: number | null; package_name: string | null; contact_id: string | null; property_type: string | null; checked_in_at: string | null; delivered_at: string | null; paid_at: string | null };
   const [allShoots, setAllShoots] = useState<ShootEvent[]>([]);
 
   // Shoot-derived live stats — update instantly when a shoot is created/completed
@@ -1891,47 +1891,86 @@ export default function DashboardPage() {
         { key: "paid",      label: "Paid",      color: "text-[#4ade80]", dim: "border-[#4ade80]/20 bg-[#4ade80]/5",  dbStatuses: ["completed"] },
       ];
       const activeShootsForBoard = allShoots.filter(s => s.status !== "cancelled");
+      const nowMs = Date.now();
+
+      // Alert detection — mirrors board page logic
+      const redShoots = activeShootsForBoard.filter(sh => {
+        const scheduledMs = sh.scheduled_at ? new Date(sh.scheduled_at).getTime() : null;
+        // No check-in 5+ min after scheduled
+        if (sh.status === "scheduled" && !sh.checked_in_at && scheduledMs && nowMs > scheduledMs + 5 * 60000) return true;
+        // Editing past 4pm day after shoot
+        if (sh.status === "editing" && scheduledMs) {
+          const due = new Date(scheduledMs); due.setDate(due.getDate() + 1); due.setHours(16, 0, 0, 0);
+          if (nowMs > due.getTime()) return true;
+        }
+        // Invoice unpaid 24h+ after delivery
+        if ((sh.status === "delivered" || sh.status === "completed") && sh.delivered_at && !sh.paid_at) {
+          if (nowMs > new Date(sh.delivered_at).getTime() + 24 * 3600000) return true;
+        }
+        return false;
+      });
+
+      const activeCount2 = activeShootsForBoard.filter(s => s.status !== "completed").length;
+      const revenueThisMonth = allShoots
+        .filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price)
+        .reduce((sum, s) => sum + (s.price || 0), 0);
 
       return (
-        <section key={s}>
-          <p className={sectionLabel}>Shoots</p>
+        <section key={s} className="-mx-4 md:-mx-8 px-0">
+          <div className="px-4 md:px-8 mb-3 flex items-center justify-between">
+            <p className={sectionLabel}>Shoots</p>
+            <a href="/dashboard/board" className="text-[10px] tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">Live Board →</a>
+          </div>
 
-          {/* Mini board widget */}
-          <div className="mb-3">
-            <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+          {/* Red alert banner */}
+          {redShoots.length > 0 && (
+            <div className="mx-4 md:mx-8 mb-3 flex items-center gap-3 bg-red-500/10 border border-red-500/30 px-4 py-3 rounded-sm">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+              <p className="text-xs text-red-400 font-semibold flex-1">
+                {redShoots.length} shoot{redShoots.length !== 1 ? "s" : ""} need attention —{" "}
+                {redShoots.map(s => s.client_name || s.address).join(", ")}
+              </p>
+              <a href="/dashboard/board" className="text-xs text-red-400 border border-red-500/30 px-3 py-1 hover:bg-red-500/20 transition-colors whitespace-nowrap">View Board →</a>
+            </div>
+          )}
+
+          {/* Full-width board strip */}
+          <div className="border-t border-b border-white/8 bg-[#0d0d0d] px-4 md:px-8 py-4">
+            {/* Stage columns */}
+            <div className="grid gap-2 mb-4" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
               {BOARD_STAGES.map(stage => {
                 const count = activeShootsForBoard.filter(sh => stage.dbStatuses.includes(sh.status)).length;
+                const hasRed = redShoots.some(sh => stage.dbStatuses.includes(sh.status));
                 return (
-                  <div key={stage.key} className={`border rounded-sm px-3 py-2.5 ${count > 0 ? stage.dim : "border-white/5 bg-transparent"}`}>
-                    <span className={`text-[9px] tracking-[2px] uppercase font-semibold block mb-1 ${count > 0 ? stage.color : "text-[#333]"}`}>{stage.label}</span>
-                    <p className={`text-2xl font-black tabular-nums leading-none ${count > 0 ? stage.color : "text-[#222]"}`}>{count}</p>
+                  <div key={stage.key} className={`border rounded-sm px-3 py-3 h-20 flex flex-col justify-between ${count > 0 ? stage.dim : "border-white/5 bg-transparent"}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[9px] tracking-[2px] uppercase font-semibold ${count > 0 ? stage.color : "text-[#333]"}`}>{stage.label}</span>
+                      {hasRed && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
+                    </div>
+                    <p className={`text-3xl font-black tabular-nums leading-none ${count > 0 ? stage.color : "text-[#222]"}`}>{count}</p>
                   </div>
                 );
               })}
             </div>
-            <a href="/dashboard/board" className="text-[10px] tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">Live Board →</a>
-          </div>
 
-          <div className="bg-[#111] border border-white/10 flex items-center">
-            <div className="flex-1 grid grid-cols-3 divide-x divide-white/5">
-              <div className="px-8 py-6">
-                <p className="text-4xl font-bold tabular-nums">{totalCount}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Total Shoots</p>
+            {/* Quick stats row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border-t border-white/5 pt-4">
+              <div>
+                <p className="text-2xl font-black tabular-nums">{activeCount2}</p>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mt-0.5">Active Shoots</p>
               </div>
-              <div className="px-8 py-6">
-                <p className="text-4xl font-bold tabular-nums">{thisMonthCount}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">This Month</p>
+              <div>
+                <p className="text-2xl font-black tabular-nums">{thisMonthCount}</p>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mt-0.5">This Month</p>
               </div>
-              <div className="px-8 py-6">
-                <p className="text-4xl font-bold tabular-nums text-[#4ade80]">{completedCount}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1.5">Completed</p>
+              <div>
+                <p className="text-2xl font-black tabular-nums text-[#4ade80]">{completedCount}</p>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mt-0.5">Completed</p>
               </div>
-            </div>
-            <div className="px-6 flex-shrink-0">
-              <a href="/admin/shoots"
-                className="px-8 py-3 bg-white text-black text-xs tracking-[3px] uppercase font-bold hover:bg-[#ddd] transition-colors whitespace-nowrap block text-center">
-                View All Shoots →
-              </a>
+              <div>
+                <p className="text-2xl font-black tabular-nums text-[#4ade80]">${revenueThisMonth.toLocaleString()}</p>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mt-0.5">Revenue This Month</p>
+              </div>
             </div>
           </div>
         </section>
