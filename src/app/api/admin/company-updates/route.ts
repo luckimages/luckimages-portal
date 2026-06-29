@@ -33,8 +33,8 @@ export async function GET(req: Request) {
     db.from("cold_calls").select("id, called_at, outcome, called_by, listing_address, contact_id").gte("called_at", since).order("called_at", { ascending: false }).limit(rowLimit),
     db.from("contacts").select("id, name, created_at, stage").gte("created_at", since).order("created_at", { ascending: false }).limit(rowLimit),
     db.from("shoots").select("id, address, scheduled_at, status, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(rowLimit),
-    // Late photographer check — shoots past their time with no check-in yet
-    db.from("shoots").select("id, address, scheduled_at").eq("status", "scheduled").lt("scheduled_at", new Date(Date.now() + 60 * 60 * 1000).toISOString()),
+    // Late photographer check — shoots past their time with no check-in (any active status)
+    db.from("shoots").select("id, address, scheduled_at, status").in("status", ["scheduled", "en_route", "on_site", "wrapping"]).lt("scheduled_at", new Date(Date.now() + 60 * 60 * 1000).toISOString()),
   ]);
 
   // Merge contact names into calls

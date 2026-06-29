@@ -74,7 +74,8 @@ function getAlertStatus(shoot: Shoot): AlertStatus {
   }
 
   // No check-in yet — are they 5+ min overdue?
-  if (!shoot.checked_in_at && shoot.status === "scheduled" && scheduledMs) {
+  // Covers scheduled AND en_route/on_site/wrapping (photographer moved status but never logged on-site)
+  if (!shoot.checked_in_at && ["scheduled", "en_route", "on_site", "wrapping"].includes(shoot.status) && scheduledMs) {
     if (now > scheduledMs + 5 * 60 * 1000) return "no-show";
   }
 
