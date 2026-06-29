@@ -168,6 +168,8 @@ export default function DashboardPage() {
   const [needsAttention, setNeedsAttention] = useState<UpdateItem[]>([]);
   const [notifReadAt, setNotifReadAt] = useState<Date | null>(null);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(["shoots","clients","marketing","finance","team","nocturne","alerts"]));
+  const [expandedNotifId, setExpandedNotifId] = useState<string | null>(null);
+  const [todoTab, setTodoTab] = useState("asap");
 
   const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -1872,63 +1874,102 @@ export default function DashboardPage() {
 
     if (s === "Command Center") {
       const asapList = todoLists.find(l => l.name.toLowerCase().includes("asap")) || todoLists[0];
-      const asapTasks = asapList ? todos.filter(t => t.list_id === asapList.id) : [];
+      const generalList = todoLists.find(l => l.name.toLowerCase().includes("general"));
+
+      const TODO_TABS: { key: string; label: string; color: string }[] = [
+        { key: "asap",    label: "ASAP",    color: "text-[#fbbf24]" },
+        { key: "general", label: "General", color: "text-[#888]" },
+        { key: "ryan",    label: "Ryan",    color: "text-[#4ade80]" },
+        { key: "leif",    label: "Leif",    color: "text-[#60a5fa]" },
+      ];
+
+      function getTabTasks(tab: string) {
+        if (tab === "asap") return asapList ? todos.filter(t => t.list_id === asapList.id) : [];
+        if (tab === "general") return generalList ? todos.filter(t => t.list_id === generalList.id) : todos.filter(t => !t.list_id || t.list_id !== asapList?.id);
+        return todos.filter(t => t.assigned_to === tab);
+      }
 
       function assigneeBadge(a?: string) {
         if (a === "ryan") return <span className="text-[10px] font-bold w-4 h-4 rounded-full bg-[#4ade80]/15 text-[#4ade80] flex items-center justify-center flex-shrink-0">R</span>;
         if (a === "leif") return <span className="text-[10px] font-bold w-4 h-4 rounded-full bg-[#60a5fa]/15 text-[#60a5fa] flex items-center justify-center flex-shrink-0">L</span>;
-        return <span className="text-[10px] font-bold w-4 h-4 rounded-full bg-white/10 text-[#555] flex items-center justify-center flex-shrink-0">B</span>;
+        return null;
       }
 
       return (
         <section key={s}>
           <p className={sectionLabel}>Command Center <HelpTip title="Command Center" content="Quick-action buttons for the most common tasks: book a shoot, send a quote, log a call, invite a client to the portal. Shortcuts to avoid navigating deep into the app." /></p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* ASAP TO DO */}
-            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888]">{asapList?.name || "To Do"}</span>
-                <a href="/dashboard/todos" className="text-xs text-[#555] hover:text-white transition-colors">View all →</a>
-              </div>
-              <div className="flex-1 overflow-y-auto min-h-0">
-                {asapTasks.length === 0 && (
-                  <p className="text-xs text-[#333] italic p-3">Nothing in ASAP.</p>
-                )}
-                {asapTasks.map(t => {
-                  const title = t.title || t.text;
-                  const due = t.due_date ? (() => {
-                    const dt = new Date(t.due_date + "T00:00:00");
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    const diff = Math.round((dt.getTime() - today.getTime()) / 86400000);
-                    if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, cls: "text-red-400" };
-                    if (diff === 0) return { label: "Today", cls: "text-[#fbbf24]" };
-                    if (diff === 1) return { label: "Tomorrow", cls: "text-[#fbbf24]" };
-                    return { label: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }), cls: "text-[#555]" };
-                  })() : null;
-                  return (
-                    <div key={t.id} className="flex items-center gap-2 px-3 py-2 border-b border-white/5 hover:bg-white/[0.02]">
-                      <button
-                        onClick={async () => {
-                          await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", id: t.id }) });
-                          const done = todos.find(x => x.id === t.id);
-                          setTodos(prev => prev.filter(x => x.id !== t.id));
-                          if (done) setCompletedTodos(prev => [{ ...done, completed_at: new Date().toISOString() }, ...prev]);
-                        }}
-                        className="w-4 h-4 rounded-full border border-white/25 flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-white truncate">{title}</p>
-                        {due && <p className={`text-[10px] ${due.cls}`}>{due.label}</p>}
-                      </div>
-                      {assigneeBadge(t.assigned_to)}
-                    </div>
-                  );
-                })}
-              </div>
-              <a href="/dashboard/todos" className="border-t border-white/10 w-full text-left px-3 py-2 text-xs text-[#333] hover:text-[#666] transition-colors block">
-                + Add task or view all lists →
-              </a>
-            </div>
+            {/* TO DO — tabbed */}
+            {(() => {
+              const activeTab = todoTab;
+              const tabTasks = getTabTasks(activeTab);
+              const activeTabDef = TODO_TABS.find(t => t.key === activeTab)!;
+              return (
+                <div className="bg-[#111] border border-white/10 flex flex-col h-48">
+                  {/* Tab bar */}
+                  <div className="flex items-center border-b border-white/10 shrink-0">
+                    {TODO_TABS.map(tab => {
+                      const count = getTabTasks(tab.key).length;
+                      const isActive = tab.key === activeTab;
+                      return (
+                        <button
+                          key={tab.key}
+                          onClick={() => setTodoTab(tab.key)}
+                          className={`flex-1 px-2 py-2 text-[10px] tracking-[1.5px] uppercase font-semibold transition-colors border-b-2 ${
+                            isActive
+                              ? `${tab.color} border-current`
+                              : "text-[#333] border-transparent hover:text-[#555]"
+                          }`}
+                        >
+                          {tab.label}
+                          {count > 0 && <span className={`ml-1 ${isActive ? "opacity-60" : "opacity-40"}`}>({count})</span>}
+                        </button>
+                      );
+                    })}
+                    <a href="/dashboard/todos" className="px-3 py-2 text-[10px] text-[#333] hover:text-[#666] transition-colors whitespace-nowrap border-b-2 border-transparent shrink-0">all →</a>
+                  </div>
+                  {/* Task list */}
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    {tabTasks.length === 0 && (
+                      <p className="text-xs text-[#333] italic p-3">Nothing in {activeTabDef.label}.</p>
+                    )}
+                    {tabTasks.map(t => {
+                      const title = t.title || t.text;
+                      const due = t.due_date ? (() => {
+                        const dt = new Date(t.due_date + "T00:00:00");
+                        const today = new Date(); today.setHours(0,0,0,0);
+                        const diff = Math.round((dt.getTime() - today.getTime()) / 86400000);
+                        if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, cls: "text-red-400" };
+                        if (diff === 0) return { label: "Today", cls: "text-[#fbbf24]" };
+                        if (diff === 1) return { label: "Tomorrow", cls: "text-[#fbbf24]" };
+                        return { label: dt.toLocaleDateString("en-US", { month: "short", day: "numeric" }), cls: "text-[#555]" };
+                      })() : null;
+                      return (
+                        <div key={t.id} className="flex items-center gap-2 px-3 py-2 border-b border-white/5 hover:bg-white/[0.02]">
+                          <button
+                            onClick={async () => {
+                              await fetch("/api/admin/todos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete", id: t.id }) });
+                              const done = todos.find(x => x.id === t.id);
+                              setTodos(prev => prev.filter(x => x.id !== t.id));
+                              if (done) setCompletedTodos(prev => [{ ...done, completed_at: new Date().toISOString() }, ...prev]);
+                            }}
+                            className="w-4 h-4 rounded-full border border-white/25 flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-white truncate">{title}</p>
+                            {due && <p className={`text-[10px] ${due.cls}`}>{due.label}</p>}
+                          </div>
+                          {assigneeBadge(t.assigned_to)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <a href="/dashboard/todos" className="border-t border-white/10 w-full text-left px-3 py-2 text-xs text-[#333] hover:text-[#666] transition-colors block shrink-0">
+                    + Add task or view all lists →
+                  </a>
+                </div>
+              );
+            })()}
 
             {/* NOTIFICATION CENTER */}
             {(() => {
@@ -2012,24 +2053,42 @@ export default function DashboardPage() {
                       const isUnread = notifReadAt ? new Date(u.created_at) > notifReadAt : true;
                       const dot = CAT_DOT[u.category || "nocturne"] || "bg-white/40";
                       const isAlert = u.category === "alerts";
-                      const content = (
-                        <div className={`px-3 py-2.5 hover:bg-white/[0.03] transition-colors flex gap-2.5 items-start ${isAlert ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-45"}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${dot} ${isAlert ? "animate-pulse" : ""}`} />
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-xs leading-snug ${isUnread ? "text-white" : "text-[#666]"}`}>{u.message}</p>
-                            <p className="text-[10px] text-[#333] mt-0.5">
-                              {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                              {" · "}
-                              {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                              {u.by ? ` · ${u.by}` : ""}
-                            </p>
+                      const parts = u.message.split("\n---\n");
+                      const headline = parts[0];
+                      const details = parts[1];
+                      const isExpanded = expandedNotifId === u.id;
+                      return (
+                        <div key={u.id} className={`${isAlert ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-45"}`}>
+                          <div
+                            className={`px-3 py-2.5 flex gap-2.5 items-start ${details ? "cursor-pointer hover:bg-white/[0.03]" : u.link ? "" : "hover:bg-white/[0.03]"} transition-colors`}
+                            onClick={() => details && setExpandedNotifId(isExpanded ? null : u.id)}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${dot} ${isAlert ? "animate-pulse" : ""}`} />
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-xs leading-snug ${isUnread ? "text-white" : "text-[#666]"}`}>{headline}</p>
+                              <p className="text-[10px] text-[#333] mt-0.5">
+                                {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                {" · "}
+                                {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                {u.by ? ` · ${u.by}` : ""}
+                              </p>
+                            </div>
+                            {details && <span className="text-[10px] text-[#444] shrink-0 mt-0.5">{isExpanded ? "▲" : "▼"}</span>}
+                            {!details && u.link && <span className={`text-[10px] shrink-0 mt-0.5 ${dot.replace("bg-", "text-")}`}>→</span>}
                           </div>
-                          {u.link && <span className={`text-[10px] shrink-0 mt-0.5 ${dot.replace("bg-", "text-")}`}>→</span>}
+                          {details && isExpanded && (
+                            <div className="px-6 pb-3 space-y-1">
+                              {details.split("\n").filter(Boolean).map((line, i) => (
+                                <p key={i} className="text-[10px] text-[#666] leading-relaxed">{line}</p>
+                              ))}
+                              {u.link && <a href={u.link} className={`text-[10px] ${dot.replace("bg-", "text-")} mt-1 block`}>Open →</a>}
+                            </div>
+                          )}
+                          {!details && u.link && (
+                            <a href={u.link} className="absolute inset-0" aria-label={headline} />
+                          )}
                         </div>
                       );
-                      return u.link
-                        ? <a key={u.id} href={u.link}>{content}</a>
-                        : <div key={u.id}>{content}</div>;
                     })}
                   </div>
 
