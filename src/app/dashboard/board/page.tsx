@@ -338,6 +338,24 @@ function ShootModal({ shoot, onClose, onMarkPaid }: { shoot: Shoot; onClose: () 
               {markingPaid ? "Marking..." : "Mark Paid ✓"}
             </button>
           )}
+          {shoot.status === "scheduled" && shoot.contact_id && (
+            <a
+              href={`/dashboard/outreach?template=preshoot_checklist&contact=${shoot.contact_id}`}
+              onClick={e => e.stopPropagation()}
+              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:text-white transition-colors"
+            >
+              Send Checklist →
+            </a>
+          )}
+          {["delivered", "completed"].includes(shoot.status) && shoot.contact_id && (
+            <a
+              href={`/dashboard/outreach?template=thank_you&contact=${shoot.contact_id}`}
+              onClick={e => e.stopPropagation()}
+              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#888] hover:text-white transition-colors"
+            >
+              Send Thank You →
+            </a>
+          )}
           <a
             href="/admin/shoots"
             onClick={e => e.stopPropagation()}

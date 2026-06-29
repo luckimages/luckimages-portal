@@ -36,10 +36,12 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");
-    const by = params.get("by");
-    if (ref) setForm(f => ({ ...f, referralSource: ref }));
-    if (by) setReferredBy(by);
+    const ref = params.get("ref");   // contact ID of the referrer
+    const src = params.get("src");   // lead source string (channel name)
+    const by = params.get("by");     // legacy alias for ref
+    if (ref || by) setReferredBy(ref || by);
+    if (ref || by) setForm(f => ({ ...f, referralSource: "referral" }));
+    if (src) setForm(f => ({ ...f, referralSource: src }));
   }, []);
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));

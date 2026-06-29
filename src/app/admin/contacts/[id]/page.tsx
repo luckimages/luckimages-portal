@@ -846,7 +846,7 @@ export default function ContactProfilePage() {
 
             // Big spender, inactive 60+ days
             if (totalShootRevenue >= 500 && lastShootDays !== null && lastShootDays >= 60) {
-              actions.push({ priority: "high", title: "Re-engage top client", reason: `${contact.name} has spent $${totalShootRevenue.toLocaleString()} but hasn't booked in ${lastShootDays} days.`, cta: "Send Email", href: `mailto:${contact.email}` });
+              actions.push({ priority: "high", title: "Re-engage top client", reason: `${contact.name} has spent $${totalShootRevenue.toLocaleString()} but hasn't booked in ${lastShootDays} days.`, cta: "Send Email", href: `/dashboard/outreach?template=reengagement&contact=${contact.id}` });
             }
 
             // Inactive 90+ days
@@ -865,13 +865,13 @@ export default function ContactProfilePage() {
             if (quotes.length > 0 && shoots.length === 0) {
               const daysSinceQuote = daysSince(quotes[quotes.length - 1].created_at);
               if (daysSinceQuote >= 3) {
-                actions.push({ priority: "medium", title: "Follow up on quote", reason: `A quote was sent ${daysSinceQuote} day${daysSinceQuote !== 1 ? "s" : ""} ago but no shoot was ever booked.`, cta: "Send Follow-up", href: `mailto:${contact.email}` });
+                actions.push({ priority: "medium", title: "Follow up on quote", reason: `A quote was sent ${daysSinceQuote} day${daysSinceQuote !== 1 ? "s" : ""} ago but no shoot was ever booked.`, cta: "Send Follow-up", href: `/dashboard/outreach?template=reengagement&contact=${contact.id}` });
               }
             }
 
             // Never emailed
             if (emailLogs.length === 0 && shoots.length > 0) {
-              actions.push({ priority: "low", title: "Send an email", reason: "This client has had shoots but has never received an email from you.", cta: "Send Email", href: `mailto:${contact.email}` });
+              actions.push({ priority: "low", title: "Send an email", reason: "This client has had shoots but has never received an email from you.", cta: "Send Email", href: `/dashboard/outreach?template=thank_you&contact=${contact.id}` });
             }
 
             // Google review request — after a completed shoot
@@ -879,7 +879,7 @@ export default function ContactProfilePage() {
               const firstName = contact.name.split(" ")[0];
               const subject = encodeURIComponent("Would you mind leaving us a review?");
               const body = encodeURIComponent(`Hi ${firstName},\n\nThank you so much for working with Luck Images! If you had a great experience, we'd love it if you could take a moment to leave us a Google review — it helps other clients find us.\n\nhttps://g.page/r/CdYourReviewLink/review\n\nThank you!\nRyan`);
-              actions.push({ priority: "low", title: "Request a Google review", reason: `${contact.name} has completed shoots — happy clients are your best source of Google reviews.`, cta: "Send Request", href: `mailto:${contact.email}?subject=${subject}&body=${body}` });
+              actions.push({ priority: "low", title: "Request a Google review", reason: `${contact.name} has completed shoots — happy clients are your best source of Google reviews.`, cta: "Send Request", href: `/dashboard/outreach?template=google_review&contact=${contact.id}` });
             }
 
             // Last outcome was call_again

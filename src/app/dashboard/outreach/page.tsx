@@ -122,7 +122,7 @@ const TEMPLATES: Template[] = [
     subject: c => `${c.name.split(" ")[0]}, know any other agents?`,
     html: c => {
       const n = c.name.split(" ")[0];
-      const referralLink = `${PORTAL_URL}/register?ref=${c.id}`;
+      const referralLink = `${PORTAL_URL}/register?ref=${c.id}&src=referral`;
       return wrap(
         EYEBROW("") +
         H1(`Know Any Other Agents, ${n}?`) +
@@ -367,17 +367,32 @@ export default function OutreachPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    // Read deep-link params
+    const params = new URLSearchParams(window.location.search);
+    const tmpl = params.get("template");
+    const contactParam = params.get("contact");
+    if (tmpl) {
+      const found = TEMPLATES.find(t => t.id === tmpl);
+      if (found) selectTemplate(found);
+    }
+
     async function load() {
       const { data } = await supabase
         .from("contacts")
         .select("id, name, email, stage, total_revenue, user_id, created_at, lead_source")
         .neq("stage", "deleted")
         .order("total_revenue", { ascending: false, nullsFirst: false });
-      setContacts(data || []);
+      const list = data || [];
+      setContacts(list);
       setLoading(false);
+      // Pre-select contact from deep link
+      if (contactParam) {
+        const c = list.find(x => x.id === contactParam);
+        if (c) { setSelected(new Set([c.id])); setPreviewContact(c); }
+      }
     }
     load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When template changes, reset selection + extra fields
   function selectTemplate(t: Template) {
