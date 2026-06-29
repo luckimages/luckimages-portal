@@ -2085,7 +2085,7 @@ export default function DashboardPage() {
                             </div>
                           )}
                           {!details && u.link && (
-                            <a href={u.link} className="absolute inset-0" aria-label={headline} />
+                            <a href={u.link} className="block px-3 py-1.5 text-[10px] text-[#444] hover:text-white transition-colors border-t border-white/5">Open →</a>
                           )}
                         </div>
                       );
