@@ -104,14 +104,17 @@ const ALERT_STYLES: Record<string, { border: string; bg: string; dot: string; te
   "editing-due": { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "Delivery overdue" },
 };
 
-function ShootCard({ shoot }: { shoot: Shoot }) {
+function ShootCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
   const alert = getAlertStatus(shoot);
   const style = alert ? ALERT_STYLES[alert] : null;
   const stage = STAGES.find(s => s.dbStatuses.includes(shoot.status));
   const mins = alert === "no-show" ? minutesBehind(shoot) : 0;
 
   return (
-    <div className={`border rounded-sm p-3 flex flex-col gap-1.5 ${style ? `${style.border} ${style.bg}` : "border-white/8 bg-white/[0.02]"}`}>
+    <div
+      className={`border rounded-sm p-3 flex flex-col gap-1.5 cursor-pointer hover:brightness-110 transition-all ${style ? `${style.border} ${style.bg}` : "border-white/8 bg-white/[0.02]"}`}
+      onClick={onClick}
+    >
       {/* Alert badge */}
       {style && (
         <div className="flex items-center gap-1.5 mb-0.5">
@@ -150,17 +153,199 @@ function ShootCard({ shoot }: { shoot: Shoot }) {
         <p className={`text-xs font-bold mt-0.5 ${stage?.color || "text-white"}`}>${shoot.price.toLocaleString()}</p>
       )}
 
-      {/* Footer row */}
-      <div className="flex items-center justify-end mt-0.5">
-        {/* Mark Paid button — shown on delivered/completed, unpaid */}
-        {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && !shoot.id.startsWith("demo-") && (
-          <button
-            onClick={async e => { e.stopPropagation(); await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: shoot.id, status: "paid" }) }); }}
-            className="text-[10px] tracking-[1px] uppercase font-semibold text-[#4ade80] border border-[#4ade80]/30 px-2 py-0.5 rounded-sm hover:bg-[#4ade80]/10 transition-colors"
-          >
-            Mark Paid
-          </button>
+      {/* Expand hint */}
+      <div className="flex items-center justify-between mt-0.5">
+        <span className="text-[9px] text-[#333] tracking-wide">click to expand</span>
+        {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && (
+          <span className="text-[9px] text-[#4ade80] tracking-wide">unpaid</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ShootModal({ shoot, onClose, onMarkPaid }: { shoot: Shoot; onClose: () => void; onMarkPaid: (id: string) => void }) {
+  const alert = getAlertStatus(shoot);
+  const style = alert ? ALERT_STYLES[alert] : null;
+  const stage = STAGES.find(s => s.dbStatuses.includes(shoot.status));
+  const mins = alert === "no-show" ? minutesBehind(shoot) : 0;
+  const [markingPaid, setMarkingPaid] = useState(false);
+
+  async function handleMarkPaid() {
+    setMarkingPaid(true);
+    await fetch("/api/admin/shoots", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: shoot.id, status: "paid" }) });
+    onMarkPaid(shoot.id);
+    setMarkingPaid(false);
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/75" />
+      <div
+        className={`relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#141414] border ${style ? style.border : "border-white/15"} p-6 space-y-5`}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            {style && (
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${style.dot} ${alert === "no-show" || alert === "editing-due" ? "animate-pulse" : ""}`} />
+                <span className={`text-[10px] font-semibold tracking-[2px] uppercase ${style.text}`}>
+                  {alert === "no-show" && ["delivered", "completed"].includes(shoot.status)
+                    ? "Invoice unpaid"
+                    : alert === "no-show"
+                    ? `${mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`} — no check-in`
+                    : style.label}
+                </span>
+              </div>
+            )}
+            <p className="text-base font-bold leading-snug">{shoot.address}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-[10px] tracking-[2px] uppercase font-semibold px-2 py-0.5 border ${stage ? `${stage.color} border-current/20` : "text-[#555] border-white/10"}`}>
+                {stage?.label || shoot.status}
+              </span>
+              {shoot.property_type && (
+                <span className="text-[10px] text-[#444] uppercase tracking-wide">{shoot.property_type}</span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[#555] hover:text-white transition-colors text-xl leading-none shrink-0">✕</button>
+        </div>
+
+        {/* Details grid */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          {/* Client */}
+          <div>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Client</p>
+            {shoot.contact_id ? (
+              <a href={`/admin/contacts/${shoot.contact_id}`} className="font-medium hover:text-[#a78bfa] transition-colors" onClick={e => e.stopPropagation()}>
+                {shoot.client_name || "View Profile →"}
+              </a>
+            ) : (
+              <p className="font-medium">{shoot.client_name || "—"}</p>
+            )}
+            {shoot.client_email && <p className="text-xs text-[#555] mt-0.5">{shoot.client_email}</p>}
+          </div>
+
+          {/* Date / time */}
+          <div>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Scheduled</p>
+            <p className="font-medium">
+              {shoot.scheduled_at
+                ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+                : "No date"}
+            </p>
+            {shoot.scheduled_at && (
+              <p className="text-xs text-[#555] mt-0.5">
+                {new Date(shoot.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </p>
+            )}
+          </div>
+
+          {/* Price */}
+          {shoot.price != null && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Price</p>
+              <p className={`text-xl font-black ${stage?.color || "text-white"}`}>${shoot.price.toLocaleString()}</p>
+            </div>
+          )}
+
+          {/* Sq ft */}
+          {shoot.square_footage && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
+              <p className="font-medium">{shoot.square_footage.toLocaleString()}</p>
+            </div>
+          )}
+
+          {/* Check-in */}
+          {shoot.checked_in_at && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Checked In</p>
+              <p className="text-sm">
+                {new Date(shoot.checked_in_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </p>
+            </div>
+          )}
+
+          {/* Delivered */}
+          {shoot.delivered_at && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Delivered</p>
+              <p className="text-sm">
+                {new Date(shoot.delivered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {" · "}
+                {new Date(shoot.delivered_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </p>
+            </div>
+          )}
+
+          {/* Paid */}
+          {shoot.paid_at && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Paid</p>
+              <p className="text-sm text-[#4ade80]">
+                {new Date(shoot.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Services */}
+        {(shoot.package_name || shoot.services?.length > 0) && (
+          <div>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+            {shoot.package_name && (
+              <p className="text-xs text-[#888] mb-1.5">{shoot.package_name}</p>
+            )}
+            {shoot.services?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {shoot.services.map((svc: string) => (
+                  <span key={svc} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{svc}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Notes */}
+        {shoot.notes && (
+          <div>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+            <p className="text-xs text-[#888] leading-relaxed">{shoot.notes}</p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2 pt-1 border-t border-white/10">
+          {shoot.contact_id && (
+            <a
+              href={`/admin/contacts/${shoot.contact_id}`}
+              onClick={e => e.stopPropagation()}
+              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/20 text-white hover:bg-white/5 transition-colors"
+            >
+              View Profile →
+            </a>
+          )}
+          {["delivered", "completed"].includes(shoot.status) && !shoot.paid_at && !shoot.id.startsWith("demo-") && (
+            <button
+              onClick={handleMarkPaid}
+              disabled={markingPaid}
+              className="text-xs tracking-[1px] uppercase px-4 py-2 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/10 transition-colors disabled:opacity-40"
+            >
+              {markingPaid ? "Marking..." : "Mark Paid ✓"}
+            </button>
+          )}
+          <a
+            href="/admin/shoots"
+            onClick={e => e.stopPropagation()}
+            className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#555] hover:text-white transition-colors"
+          >
+            All Shoots
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -170,6 +355,7 @@ export default function BoardPage() {
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [selectedShoot, setSelectedShoot] = useState<Shoot | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/shoots?full=1");
@@ -289,7 +475,7 @@ export default function BoardPage() {
                           if (ap !== bp) return ap - bp;
                           return (a.scheduled_at || "").localeCompare(b.scheduled_at || "");
                         })
-                        .map(shoot => <ShootCard key={shoot.id} shoot={shoot} />)
+                        .map(shoot => <ShootCard key={shoot.id} shoot={shoot} onClick={() => setSelectedShoot(shoot)} />)
                       }
                     </div>
                   )}
@@ -300,6 +486,14 @@ export default function BoardPage() {
 
 
         </div>
+      )}
+
+      {selectedShoot && (
+        <ShootModal
+          shoot={selectedShoot}
+          onClose={() => setSelectedShoot(null)}
+          onMarkPaid={id => setShoots(prev => prev.map(s => s.id === id ? { ...s, paid_at: new Date().toISOString(), status: "paid" } : s))}
+        />
       )}
     </main>
   );
