@@ -73,9 +73,13 @@ function getAlertStatus(shoot: Shoot): AlertStatus {
     return lateMs > 5 * 60 * 1000 ? "late" : "on-time";
   }
 
-  // No check-in yet — are they 5+ min overdue?
-  // Covers scheduled AND en_route/on_site/wrapping (photographer moved status but never logged on-site)
-  if (!shoot.checked_in_at && ["scheduled", "en_route", "on_site", "wrapping"].includes(shoot.status) && scheduledMs) {
+  // No check-in timestamp but clearly on-site — treat as late, not no-show
+  if (!shoot.checked_in_at && ["on_site", "wrapping"].includes(shoot.status) && scheduledMs) {
+    if (now > scheduledMs + 5 * 60 * 1000) return "late";
+  }
+
+  // No check-in and still en route or scheduled — no-show
+  if (!shoot.checked_in_at && ["scheduled", "en_route"].includes(shoot.status) && scheduledMs) {
     if (now > scheduledMs + 5 * 60 * 1000) return "no-show";
   }
 
