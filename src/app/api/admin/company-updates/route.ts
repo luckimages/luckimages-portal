@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const history = url.searchParams.get("history") === "1";
 
   // Manual posts (includes system-generated ones with links)
-  const postsQuery = db.from("company_updates").select("id, message, created_by, created_at, link").order("created_at", { ascending: false });
+  const postsQuery = db.from("company_updates").select("id, message, created_by, created_at, link, category").order("created_at", { ascending: false });
   if (!history) postsQuery.limit(40);
   const { data: posts } = await postsQuery;
 
