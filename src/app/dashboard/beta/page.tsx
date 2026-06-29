@@ -147,16 +147,16 @@ export default function BetaPage() {
               <p className="text-sm font-black uppercase tracking-tight text-white">Import Past Shoots</p>
               <p className="text-[11px] text-[#555] leading-snug">Bulk-import historical shoot data from a CSV. Auto-matches or creates contacts.</p>
             </a>
-            <a href="/admin/invite-all" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
+            <a href="/dashboard/outreach" className="border border-[#f472b6]/20 bg-[#f472b6]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#f472b6]/40 hover:bg-[#f472b6]/10 transition-all group">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
+                <span className="text-[10px] tracking-[2px] uppercase text-[#f472b6] font-semibold">New</span>
                 <div className="flex items-center gap-2">
-                  <HelpTip title="Mass Portal Invite" content="Send personalized portal invite emails to every past client who doesn't have an account yet. Each gets a magic link valid for 24h. Select all or pick individually." />
-                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                  <HelpTip title="Email Outreach" content="Full email outreach center with preset campaign templates: portal invite, Google review request, re-engagement, thank you, and seasonal promos. Select contacts, preview the HTML, and send in bulk." />
+                  <span className="text-[10px] text-[#444] group-hover:text-[#f472b6] transition-colors">→</span>
                 </div>
               </div>
-              <p className="text-sm font-black uppercase tracking-tight text-white">Mass Portal Invite</p>
-              <p className="text-[11px] text-[#555] leading-snug">Invite all past clients to the portal in one shot — personalized emails with magic links.</p>
+              <p className="text-sm font-black uppercase tracking-tight text-white">Email Outreach</p>
+              <p className="text-[11px] text-[#555] leading-snug">5 preset campaigns — portal invite, review requests, re-engagement, thank you, seasonal promos. Live HTML preview before you send.</p>
             </a>
             <a href="/dashboard/marketing" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
