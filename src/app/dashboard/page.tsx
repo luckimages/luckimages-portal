@@ -1915,6 +1915,11 @@ export default function DashboardPage() {
         .filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price)
         .reduce((sum, s) => sum + (s.price || 0), 0);
 
+      // DEMO: inject Jules Fernandez as a red scheduled shoot (no check-in)
+      const DEMO_RED: ShootEvent = { id: "demo-red-jules", client_name: "Jules Fernandez", client_email: "", address: "1840 Pine St, San Marcos", scheduled_at: new Date(Date.now() - 15 * 60000).toISOString(), status: "scheduled", services: [], notes: "", square_footage: null, photographer_ids: [], price: 225, package_name: "Listing Photos", contact_id: "ce202021-1564-4393-8e95-a75383a14e01", property_type: null, checked_in_at: null, delivered_at: null, paid_at: null };
+      const boardShoots = [...activeShootsForBoard, DEMO_RED];
+      const allRedShoots = [...redShoots, DEMO_RED];
+
       return (
         <section key={s} className="-mx-4 md:-mx-8 px-0">
           <div className="px-4 md:px-8 mb-3 flex items-center justify-between">
@@ -1923,12 +1928,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Red alert banner */}
-          {redShoots.length > 0 && (
+          {allRedShoots.length > 0 && (
             <div className="mx-4 md:mx-8 mb-3 flex items-center gap-3 bg-red-500/10 border border-red-500/30 px-4 py-3 rounded-sm">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
               <p className="text-xs text-red-400 font-semibold flex-1">
-                {redShoots.length} shoot{redShoots.length !== 1 ? "s" : ""} need attention —{" "}
-                {redShoots.map(s => s.client_name || s.address).join(", ")}
+                {allRedShoots.length} shoot{allRedShoots.length !== 1 ? "s" : ""} need attention —{" "}
+                {allRedShoots.map(sh => sh.client_name || sh.address).join(", ")}
               </p>
               <a href="/dashboard/board" className="text-xs text-red-400 border border-red-500/30 px-3 py-1 hover:bg-red-500/20 transition-colors whitespace-nowrap">View Board →</a>
             </div>
@@ -1936,18 +1941,34 @@ export default function DashboardPage() {
 
           {/* Full-width board strip */}
           <div className="border-t border-b border-white/8 bg-[#0d0d0d] px-4 md:px-8 py-4">
+
+            {/* Dot + line tracker */}
+            <div className="grid mb-3 relative" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+              <div className="absolute top-[5px] h-px bg-white/10" style={{ left: `calc(100% / 12)`, right: `calc(100% / 12)` }} />
+              {BOARD_STAGES.map(stage => {
+                const count = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status)).length;
+                const hasRed = allRedShoots.some(sh => stage.dbStatuses.includes(sh.status));
+                return (
+                  <div key={stage.key} className="flex flex-col items-center gap-1.5">
+                    <div className={`w-2.5 h-2.5 rounded-full border-2 relative z-10 transition-colors ${hasRed ? "bg-red-500 border-red-500" : count > 0 ? "bg-white border-white" : "bg-[#0d0d0d] border-white/20"}`} />
+                    <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold ${count > 0 ? "text-white" : "text-[#333]"}`}>{stage.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
             {/* Stage columns */}
             <div className="grid gap-2 mb-4" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
               {BOARD_STAGES.map(stage => {
-                const count = activeShootsForBoard.filter(sh => stage.dbStatuses.includes(sh.status)).length;
-                const hasRed = redShoots.some(sh => stage.dbStatuses.includes(sh.status));
+                const count = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status)).length;
+                const hasRed = allRedShoots.some(sh => stage.dbStatuses.includes(sh.status));
                 return (
-                  <div key={stage.key} className={`border rounded-sm px-3 py-3 h-20 flex flex-col justify-between ${count > 0 ? stage.dim : "border-white/5 bg-transparent"}`}>
+                  <div key={stage.key} className={`border rounded-sm px-3 py-3 h-20 flex flex-col justify-between ${hasRed ? "border-red-500/30 bg-red-500/5" : count > 0 ? stage.dim : "border-white/5 bg-transparent"}`}>
                     <div className="flex items-center justify-between">
-                      <span className={`text-[9px] tracking-[2px] uppercase font-semibold ${count > 0 ? stage.color : "text-[#333]"}`}>{stage.label}</span>
+                      <span className={`text-[9px] tracking-[2px] uppercase font-semibold ${hasRed ? "text-red-400" : count > 0 ? stage.color : "text-[#333]"}`}>{stage.label}</span>
                       {hasRed && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
                     </div>
-                    <p className={`text-3xl font-black tabular-nums leading-none ${count > 0 ? stage.color : "text-[#222]"}`}>{count}</p>
+                    <p className={`text-3xl font-black tabular-nums leading-none ${hasRed ? "text-red-400" : count > 0 ? stage.color : "text-[#222]"}`}>{count}</p>
                   </div>
                 );
               })}
