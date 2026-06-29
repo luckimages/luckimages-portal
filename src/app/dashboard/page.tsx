@@ -157,7 +157,7 @@ export default function DashboardPage() {
     const d = new Date(iso);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
-  type UpdateItem = { id: string; type: string; message: string; created_at: string; by?: string; link?: string };
+  type UpdateItem = { id: string; type: string; category: string; message: string; created_at: string; by?: string; link?: string };
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [completedTodos, setCompletedTodos] = useState<Todo[]>([]);
@@ -165,6 +165,7 @@ export default function DashboardPage() {
   const [updateInput, setUpdateInput] = useState("");
   const [needsAttention, setNeedsAttention] = useState<UpdateItem[]>([]);
   const [notifReadAt, setNotifReadAt] = useState<Date | null>(null);
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(["shoots","clients","marketing","finance","team","nocturne","alerts"]));
 
   const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -369,7 +370,7 @@ export default function DashboardPage() {
     const res = await fetch("/api/admin/company-updates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: updateInput }) });
     if (res.ok) {
       const { post } = await res.json();
-      setUpdates(u => [{ id: post.id, type: "post", message: post.message, created_at: post.created_at, by: post.created_by }, ...u]);
+      setUpdates(u => [{ id: post.id, type: "post", category: "nocturne", message: post.message, created_at: post.created_at, by: post.created_by }, ...u]);
       setUpdateInput("");
     }
   }
@@ -1867,20 +1868,41 @@ export default function DashboardPage() {
 
             {/* NOTIFICATION CENTER */}
             {(() => {
-              const TYPE_STYLE: Record<string, { icon: string; dot: string; text: string }> = {
-                alert:   { icon: "⚠️", dot: "bg-red-500",    text: "text-red-400" },
-                shoot:   { icon: "📷", dot: "bg-[#60a5fa]",  text: "text-[#60a5fa]" },
-                contact: { icon: "👤", dot: "bg-[#fbbf24]",  text: "text-[#fbbf24]" },
-                call:    { icon: "📞", dot: "bg-[#4ade80]",  text: "text-[#4ade80]" },
-                tool:    { icon: "🛠️", dot: "bg-[#a78bfa]",  text: "text-[#a78bfa]" },
-                post:    { icon: "💬", dot: "bg-white/40",   text: "text-white" },
-              };
+              const CATS: { key: string; label: string; dot: string }[] = [
+                { key: "alerts",   label: "Alerts",   dot: "bg-red-500" },
+                { key: "shoots",   label: "Shoots",   dot: "bg-[#60a5fa]" },
+                { key: "clients",  label: "Clients",  dot: "bg-[#fbbf24]" },
+                { key: "marketing",label: "Marketing",dot: "bg-[#f472b6]" },
+                { key: "finance",  label: "Finance",  dot: "bg-[#4ade80]" },
+                { key: "team",     label: "Team",     dot: "bg-[#fb923c]" },
+                { key: "nocturne", label: "Nocturne", dot: "bg-[#a78bfa]" },
+              ];
+              const CAT_DOT: Record<string, string> = Object.fromEntries(CATS.map(c => [c.key, c.dot]));
+
+              function toggleCat(key: string) {
+                setActiveCategories(prev => {
+                  const next = new Set(prev);
+                  if (next.size === CATS.length) {
+                    // All on → show only this one
+                    return new Set([key]);
+                  }
+                  if (next.has(key) && next.size === 1) {
+                    // Only one active and clicking it → back to all
+                    return new Set(CATS.map(c => c.key));
+                  }
+                  next.has(key) ? next.delete(key) : next.add(key);
+                  return next;
+                });
+              }
+
+              const filtered = updates.filter(u => activeCategories.has(u.category || "nocturne"));
               const unreadCount = notifReadAt
                 ? updates.filter(u => new Date(u.created_at) > notifReadAt).length
                 : updates.length;
 
               return (
-                <div className="bg-[#111] border border-white/10 flex flex-col h-72">
+                <div className="bg-[#111] border border-white/10 flex flex-col h-80">
+                  {/* Header */}
                   <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs tracking-[2px] uppercase text-[#888]">Notifications</span>
@@ -1888,20 +1910,47 @@ export default function DashboardPage() {
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">{unreadCount}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {unreadCount > 0 && (
                         <button onClick={markAllRead} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Mark all read</button>
                       )}
+                      <a href="/dashboard/updates" className="text-[10px] text-[#444] hover:text-white transition-colors">View all →</a>
                     </div>
                   </div>
+
+                  {/* Category filter chips */}
+                  <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/5 overflow-x-auto shrink-0">
+                    {CATS.map(cat => {
+                      const isActive = activeCategories.has(cat.key);
+                      const count = updates.filter(u => (u.category || "nocturne") === cat.key).length;
+                      return (
+                        <button
+                          key={cat.key}
+                          onClick={() => toggleCat(cat.key)}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold tracking-wide whitespace-nowrap transition-all shrink-0 ${
+                            isActive
+                              ? "border-white/20 bg-white/10 text-white"
+                              : "border-white/5 bg-transparent text-[#444] hover:text-[#666]"
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cat.dot : "bg-[#333]"}`} />
+                          {cat.label}
+                          {count > 0 && <span className={isActive ? "text-white/60" : "text-[#333]"}>{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Feed */}
                   <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/5">
-                    {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
-                    {updates.slice(0, 30).map(u => {
+                    {filtered.length === 0 && <p className="text-xs text-[#333] italic p-3">Nothing in this category.</p>}
+                    {filtered.slice(0, 40).map(u => {
                       const isUnread = notifReadAt ? new Date(u.created_at) > notifReadAt : true;
-                      const s = TYPE_STYLE[u.type] || TYPE_STYLE.post;
+                      const dot = CAT_DOT[u.category || "nocturne"] || "bg-white/40";
+                      const isAlert = u.category === "alerts";
                       const content = (
-                        <div className={`px-3 py-2.5 hover:bg-white/[0.03] transition-colors flex gap-2.5 items-start ${u.type === "alert" ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-50"}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${s.dot} ${u.type === "alert" ? "animate-pulse" : ""}`} />
+                        <div className={`px-3 py-2.5 hover:bg-white/[0.03] transition-colors flex gap-2.5 items-start ${isAlert ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-45"}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${dot} ${isAlert ? "animate-pulse" : ""}`} />
                           <div className="min-w-0 flex-1">
                             <p className={`text-xs leading-snug ${isUnread ? "text-white" : "text-[#666]"}`}>{u.message}</p>
                             <p className="text-[10px] text-[#333] mt-0.5">
@@ -1911,7 +1960,7 @@ export default function DashboardPage() {
                               {u.by ? ` · ${u.by}` : ""}
                             </p>
                           </div>
-                          {u.link && <span className={`text-[10px] shrink-0 mt-0.5 ${s.text}`}>→</span>}
+                          {u.link && <span className={`text-[10px] shrink-0 mt-0.5 ${dot.replace("bg-", "text-")}`}>→</span>}
                         </div>
                       );
                       return u.link
@@ -1919,6 +1968,8 @@ export default function DashboardPage() {
                         : <div key={u.id}>{content}</div>;
                     })}
                   </div>
+
+                  {/* Post update */}
                   <form onSubmit={postUpdate} className="border-t border-white/10 flex shrink-0">
                     <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update for Leif..."
                       className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
