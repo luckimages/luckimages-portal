@@ -32,6 +32,7 @@ export default function UpdatesPage() {
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(ALL_KEYS));
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [notifReadAt, setNotifReadAt] = useState<Date | null>(null);
   const [updateInput, setUpdateInput] = useState("");
 
@@ -176,28 +177,46 @@ export default function UpdatesPage() {
             const isUnread = notifReadAt ? new Date(u.created_at) > notifReadAt : true;
             const cat = CAT_MAP[u.category || "nocturne"] || CAT_MAP.nocturne;
             const isAlert = u.category === "alerts";
-            const content = (
-              <div className={`px-5 py-4 hover:bg-white/[0.02] transition-colors flex gap-3 items-start ${isAlert ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-45"}`}>
-                <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${cat.dot} ${isAlert ? "animate-pulse" : ""}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <p className={`text-sm leading-snug ${isUnread ? "text-white" : "text-[#666]"}`}>{u.message}</p>
-                    <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded border border-white/5 ${cat.text} whitespace-nowrap`}>{cat.label}</span>
+            const parts = u.message.split("\n---\n");
+            const headline = parts[0];
+            const details = parts[1];
+            const isExpanded = expandedId === u.id;
+            return (
+              <div key={u.id} className={`${isAlert ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-45"}`}>
+                <div
+                  className={`px-5 py-4 flex gap-3 items-start transition-colors ${details ? "cursor-pointer hover:bg-white/[0.02]" : ""}`}
+                  onClick={() => details && setExpandedId(isExpanded ? null : u.id)}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${cat.dot} ${isAlert ? "animate-pulse" : ""}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <p className={`text-sm leading-snug ${isUnread ? "text-white" : "text-[#666]"}`}>{headline}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border border-white/5 ${cat.text} whitespace-nowrap`}>{cat.label}</span>
+                        {details && <span className="text-[10px] text-[#444]">{isExpanded ? "▲" : "▼"}</span>}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-[#444] mt-1">
+                      {new Date(u.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                      {" · "}
+                      {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      {u.by ? ` · ${u.by}` : ""}
+                      {isUnread && <span className="ml-2 text-[#a78bfa]">● new</span>}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-[#444] mt-1">
-                    {new Date(u.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-                    {" · "}
-                    {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                    {u.by ? ` · ${u.by}` : ""}
-                    {isUnread && <span className="ml-2 text-[#a78bfa]">● new</span>}
-                  </p>
+                  {!details && u.link && <span className={`text-xs shrink-0 mt-1 ${cat.text}`}>→</span>}
                 </div>
-                {u.link && <span className={`text-xs shrink-0 mt-1 ${cat.text}`}>→</span>}
+                {details && isExpanded && (
+                  <div className="px-8 pb-4 pt-1 space-y-1.5 border-t border-white/5 bg-white/[0.01]">
+                    {details.split("\n").filter(Boolean).map((line, i) => (
+                      <p key={i} className="text-xs text-[#666] leading-relaxed">{line}</p>
+                    ))}
+                    {u.link && <a href={u.link} className={`text-xs ${cat.text} mt-2 block`}>Open →</a>}
+                  </div>
+                )}
+                {!details && u.link && <a href={u.link} className="block" />}
               </div>
             );
-            return u.link
-              ? <a key={u.id} href={u.link}>{content}</a>
-              : <div key={u.id}>{content}</div>;
           })}
         </div>
 
