@@ -225,7 +225,7 @@ export async function PATCH(req: Request) {
     const label = STATUS_LABELS[status] || status;
     const addr = shoot.address || "shoot";
     const notifMsg = `${label} — ${addr}`;
-    await supabase.from("company_updates").insert({ message: notifMsg, created_by: "system", link: "/dashboard/board" });
+    await supabase.from("company_updates").insert({ message: notifMsg, created_by: "system", link: "/dashboard/board", category: "shoots" });
   }
 
   // Notify newly assigned photographers

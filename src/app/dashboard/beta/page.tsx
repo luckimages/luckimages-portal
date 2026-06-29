@@ -136,6 +136,28 @@ export default function BetaPage() {
               <p className="text-sm font-black uppercase tracking-tight text-white">Shoot Board</p>
               <p className="text-[11px] text-[#555] leading-snug">Full-width Kanban board tracking every active shoot through the workflow in real time.</p>
             </a>
+            <a href="/dashboard/import" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
+                <div className="flex items-center gap-2">
+                  <HelpTip title="Import Shoots" content="Upload a CSV of past shoots (address, date, client name, services, price, status). New contacts are created automatically if not found. Supports up to 5,000 rows." />
+                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                </div>
+              </div>
+              <p className="text-sm font-black uppercase tracking-tight text-white">Import Past Shoots</p>
+              <p className="text-[11px] text-[#555] leading-snug">Bulk-import historical shoot data from a CSV. Auto-matches or creates contacts.</p>
+            </a>
+            <a href="/admin/invite-all" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
+                <div className="flex items-center gap-2">
+                  <HelpTip title="Mass Portal Invite" content="Send personalized portal invite emails to every past client who doesn't have an account yet. Each gets a magic link valid for 24h. Select all or pick individually." />
+                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                </div>
+              </div>
+              <p className="text-sm font-black uppercase tracking-tight text-white">Mass Portal Invite</p>
+              <p className="text-[11px] text-[#555] leading-snug">Invite all past clients to the portal in one shot — personalized emails with magic links.</p>
+            </a>
             <a href="/dashboard/marketing" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>

@@ -713,6 +713,8 @@ export default function DashboardPage() {
   const [qbShowNewForm, setQbShowNewForm] = useState(false);
 
   const [qbSyncing, setQbSyncing] = useState(false);
+  const [qbSending, setQbSending] = useState(false);
+  const [qbSent, setQbSent] = useState(false);
 
   async function syncQB() {
     setQbSyncing(true);
@@ -2537,9 +2539,31 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3 shrink-0 flex-wrap">
                   <p className="text-3xl font-bold">${total.toLocaleString()}</p>
-                  <button disabled title="Email sending coming soon"
-                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/10 text-[#444] cursor-not-allowed">
-                    Send Quote
+                  <button
+                    disabled={!qbContact?.email || qbSending || !primarySvc}
+                    onClick={async () => {
+                      if (!qbContact?.email || !primarySvc) return;
+                      setQbSending(true);
+                      const html = `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
+<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images — Real Estate Photography</p>
+<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 8px">Your Custom Quote</h1>
+${qbAddress ? `<p style="color:#888;font-size:13px;margin:0 0 32px">${qbAddress}</p>` : `<p style="margin:0 0 32px"></p>`}
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+  <tr style="border-bottom:1px solid #222"><td style="padding:10px 0;font-size:13px">${primarySvc.name}</td><td style="padding:10px 0;font-size:13px;text-align:right;font-weight:700">$${primaryPrice}</td></tr>
+  ${addonItems.map(a => `<tr style="border-bottom:1px solid #1a1a1a"><td style="padding:8px 0;font-size:12px;color:#888">${a.name}</td><td style="padding:8px 0;font-size:12px;color:#888;text-align:right">$${a.price}</td></tr>`).join("")}
+  <tr><td style="padding:14px 0;font-size:16px;font-weight:900">Total</td><td style="padding:14px 0;font-size:20px;font-weight:900;text-align:right;color:#4ade80">$${total.toLocaleString()}</td></tr>
+</table>
+<p style="font-size:11px;color:#555;margin:32px 0 0">Questions? Reply to this email or call Ryan directly.</p>
+<p style="font-size:11px;color:#333;margin:8px 0 0">luckimages.com</p>
+</body></html>`;
+                      await fetch("/api/admin/send-email", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contactId: qbContact.id, to: qbContact.email, subject: `Quote from Luck Images${qbAddress ? " — " + qbAddress : ""}`, html }),
+                      });
+                      setQbSending(false); setQbSent(true); setTimeout(() => setQbSent(false), 4000);
+                    }}
+                    className="text-xs tracking-[1px] uppercase px-4 py-2 border border-white/20 text-white hover:bg-white hover:text-black transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                    {qbSent ? "Sent ✓" : qbSending ? "Sending..." : "Send Quote"}
                   </button>
                   <button onClick={saveQuote} disabled={qbSaving}
                     className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">

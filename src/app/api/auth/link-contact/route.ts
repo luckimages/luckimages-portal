@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   try {
     const { data: { user: newUser } } = await db.auth.admin.getUserById(userId);
     const name = newUser?.user_metadata?.full_name || email || "Someone";
-    await db.from("company_updates").insert({ message: `New portal registration — ${name}`, created_by: "system", link: "/admin/contacts" });
+    await db.from("company_updates").insert({ message: `New portal registration — ${name}`, created_by: "system", link: "/admin/contacts", category: "clients" });
   } catch { /* non-fatal */ }
 
   return NextResponse.json({ ok: true });
