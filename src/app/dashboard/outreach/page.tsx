@@ -343,6 +343,17 @@ const TEMPLATES: Template[] = [
   },
 ];
 
+const EXAMPLE_CONTACT: Contact = {
+  id: "example",
+  name: "Sarah Johnson",
+  email: "sarah@example.com",
+  stage: "active",
+  total_revenue: 2400,
+  user_id: null,
+  created_at: new Date(Date.now() - 90 * 24 * 3600000).toISOString(),
+  lead_source: "referral",
+};
+
 export default function OutreachPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -393,7 +404,7 @@ export default function OutreachPage() {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
 
-  const preview = previewContact || filtered[0] || null;
+  const preview = previewContact || filtered[0] || EXAMPLE_CONTACT;
 
   async function sendAll() {
     if (selected.size === 0 || sending) return;
@@ -602,7 +613,11 @@ export default function OutreachPage() {
           <div className="md:w-96 lg:w-[480px] flex flex-col overflow-hidden shrink-0 border-t md:border-t-0 border-white/10">
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
-              {preview && <p className="text-[10px] text-[#333]">→ {preview.name.split(" ")[0]}</p>}
+              {preview && (
+                <p className="text-[10px] text-[#333]">
+                  {preview.id === "example" ? "example — Sarah Johnson" : `→ ${preview.name.split(" ")[0]}`}
+                </p>
+              )}
             </div>
             {preview ? (
               <div className="flex-1 overflow-y-auto bg-[#0a0a0a]">
