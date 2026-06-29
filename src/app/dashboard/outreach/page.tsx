@@ -32,8 +32,20 @@ type Template = {
 };
 
 const GOOGLE_REVIEW_URL = "https://g.page/r/CdYourReviewLink/review"; // TODO: replace with real URL
+const PORTAL_URL = "https://luckimages-portal.vercel.app";
+
+const BASE = `background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto`;
+const EYEBROW = (label: string) => `<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images${label ? ` — ${label}` : ""}</p>`;
+const H1 = (text: string) => `<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">${text}</h1>`;
+const P = (text: string, style = "") => `<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px${style ? `;${style}` : ""}">${text}</p>`;
+const BTN = (href: string, label: string) => `<a href="${href}" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">${label}</a>`;
+const SMALL = (text: string) => `<p style="color:#444;font-size:11px;line-height:1.6;margin:0">${text}</p>`;
+const SIG = `<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>`;
+const HIGHLIGHT = (text: string, color: string, rgb: string) => `<p style="color:${color};font-size:13px;font-weight:700;margin:0 0 24px;border:1px solid rgba(${rgb},0.3);padding:12px 16px;display:inline-block">${text}</p><br>`;
+const wrap = (body: string) => `<!DOCTYPE html><html><body style="${BASE}">${body}</body></html>`;
 
 const TEMPLATES: Template[] = [
+  // ── ONBOARDING ──────────────────────────────────────────────────────────────
   {
     id: "portal_invite",
     label: "Portal Invite",
@@ -44,38 +56,115 @@ const TEMPLATES: Template[] = [
     subject: c => `Your Luck Images client portal is ready, ${c.name.split(" ")[0]}`,
     requiresPortalLink: true,
     html: (c, extra) => {
-      const firstName = c.name.split(" ")[0];
+      const n = c.name.split(" ")[0];
       const link = extra?.portalLink || "#";
-      return `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
-<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images — Client Portal</p>
-<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">Your Portal is Ready, ${firstName}</h1>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 32px">We built a private portal where you can view your past shoot photos, track upcoming sessions, download files, and manage your account — all in one place.</p>
-<a href="${link}" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">Access Your Portal →</a>
-<p style="color:#444;font-size:11px;line-height:1.6;margin:0">This link is personal to you and expires in 24 hours. If you need a new one, just reply to this email.</p>
-<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>
-</body></html>`;
+      return wrap(
+        EYEBROW("Client Portal") +
+        H1(`Your Portal is Ready, ${n}`) +
+        P("We built a private portal where you can view your past shoot photos, track upcoming sessions, download files, and manage your account — all in one place.") +
+        BTN(link, "Access Your Portal →") +
+        SMALL("This link is personal to you and expires in 24 hours. If you need a new one, just reply to this email.") +
+        SIG
+      );
     },
   },
+
+  // ── REVIEWS ─────────────────────────────────────────────────────────────────
   {
     id: "google_review",
     label: "Google Review Request",
-    description: "Ask delivered clients to leave a Google review. Only targets clients who've had a completed or delivered shoot.",
+    description: "Ask past clients to leave a Google review. Targets anyone who has spent money with you.",
     tag: "Reviews",
     tagColor: "text-[#fbbf24]",
     filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
     subject: c => `Quick favor, ${c.name.split(" ")[0]}?`,
     html: c => {
-      const firstName = c.name.split(" ")[0];
-      return `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
-<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images</p>
-<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">A Quick Favor, ${firstName}</h1>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px">It was a pleasure working with you. If you were happy with the photos, would you mind leaving us a quick Google review? It takes about 60 seconds and means the world to a small business like ours.</p>
-<a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">Leave a Review →</a>
-<p style="color:#444;font-size:11px;line-height:1.6;margin:0">No pressure at all — but if you have 60 seconds, we'd really appreciate it.</p>
-<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>
-</body></html>`;
+      const n = c.name.split(" ")[0];
+      return wrap(
+        EYEBROW("") +
+        H1(`A Quick Favor, ${n}`) +
+        P("It was a pleasure working with you. If you were happy with the photos, would you mind leaving us a quick Google review? It takes about 60 seconds and means the world to a small business like ours.") +
+        BTN(GOOGLE_REVIEW_URL, "Leave a Review →") +
+        SMALL("No pressure at all — but if you have 60 seconds, we'd really appreciate it.") +
+        SIG
+      );
     },
   },
+
+  // ── RELATIONSHIP ────────────────────────────────────────────────────────────
+  {
+    id: "thank_you",
+    label: "Thank You / Follow-up",
+    description: "Personal follow-up after shoot delivery. Reinforces the relationship before the next listing comes up.",
+    tag: "Relationship",
+    tagColor: "text-[#4ade80]",
+    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    subject: c => `Thank you, ${c.name.split(" ")[0]}`,
+    html: c => {
+      const n = c.name.split(" ")[0];
+      return wrap(
+        EYEBROW("") +
+        H1(`Thank You, ${n}`) +
+        P("It was great working with you. We hope you love the photos as much as we enjoyed shooting the property.") +
+        P("If there's anything you'd like adjusted or have questions about the files, just reply to this email and we'll take care of it right away.") +
+        SMALL("Looking forward to working together again on your next listing.") +
+        SIG
+      );
+    },
+  },
+  {
+    id: "referral_ask",
+    label: "Referral Ask",
+    description: "Ask happy clients to refer other agents. Includes their personal referral link so the new client is automatically attributed.",
+    tag: "Referral",
+    tagColor: "text-[#34d399]",
+    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    subject: c => `${c.name.split(" ")[0]}, know any other agents?`,
+    html: c => {
+      const n = c.name.split(" ")[0];
+      const referralLink = `${PORTAL_URL}/register?ref=${c.id}`;
+      return wrap(
+        EYEBROW("") +
+        H1(`Know Any Other Agents, ${n}?`) +
+        P("We've really loved working with you and we're always looking to grow with great clients like you. If you know any other agents or brokers who need photography, we'd love the intro.") +
+        P("We put together a personal referral link just for you — anyone who books through it gets priority scheduling, and we'll always take extra good care of anyone you send our way.") +
+        BTN(referralLink, "Share Your Referral Link →") +
+        SMALL("Just forward this email or share the link. That's all it takes.") +
+        SIG
+      );
+    },
+  },
+  {
+    id: "portfolio_feature",
+    label: "Portfolio Feature",
+    description: "Let a client know their listing photos were featured in your portfolio or Instagram. Builds loyalty and gets engagement.",
+    tag: "Relationship",
+    tagColor: "text-[#4ade80]",
+    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    subject: c => `${c.name.split(" ")[0]}, we featured your listing 📸`,
+    extraFields: [
+      { key: "address", label: "Property address (optional)", placeholder: "e.g. 228 Avian Dr, San Marcos", default: "" },
+      { key: "platform", label: "Where it was featured", placeholder: "e.g. Instagram, our portfolio website", default: "Instagram" },
+      { key: "link", label: "Link to the post (optional)", placeholder: "https://instagram.com/p/...", default: "" },
+    ],
+    html: (c, extra) => {
+      const n = c.name.split(" ")[0];
+      const address = extra?.address;
+      const platform = extra?.platform || "Instagram";
+      const link = extra?.link;
+      return wrap(
+        EYEBROW("") +
+        H1(`We Featured Your Listing, ${n}`) +
+        P(`We loved how ${address ? `the photos from ${address}` : "your listing photos"} turned out — so much that we featured them on our ${platform}.`) +
+        (link ? BTN(link, `See it on ${platform} →`) : "") +
+        P("Thank you for letting us capture it. These are the kinds of shoots we love to show off.") +
+        SMALL("If you ever want us to tag you or your brokerage in a future post, just let us know.") +
+        SIG
+      );
+    },
+  },
+
+  // ── RETENTION ───────────────────────────────────────────────────────────────
   {
     id: "reengagement",
     label: "Re-engagement",
@@ -88,39 +177,114 @@ const TEMPLATES: Template[] = [
       { key: "promo", label: "Promo line (optional)", placeholder: "e.g. 10% off your next shoot through July", default: "" },
     ],
     html: (c, extra) => {
-      const firstName = c.name.split(" ")[0];
+      const n = c.name.split(" ")[0];
       const promo = extra?.promo;
-      return `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
-<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images</p>
-<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">Hey ${firstName}, It's Been a While</h1>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px">We wanted to reach out and say hello. We've loved working with you in the past and would love the chance to shoot your next listing.</p>
-${promo ? `<p style="color:#a78bfa;font-size:13px;font-weight:700;margin:0 0 24px;border:1px solid rgba(167,139,250,0.3);padding:12px 16px;display:inline-block">${promo}</p><br>` : ""}
-<a href="mailto:ryan@luckimages.com" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">Book a Shoot →</a>
-<p style="color:#444;font-size:11px;line-height:1.6;margin:0">Reply to this email or click above to get started. We'll make it easy.</p>
-<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>
-</body></html>`;
+      return wrap(
+        EYEBROW("") +
+        H1(`Hey ${n}, It's Been a While`) +
+        P("We wanted to reach out and say hello. We've loved working with you in the past and would love the chance to shoot your next listing.") +
+        (promo ? HIGHLIGHT(promo, "#a78bfa", "167,139,250") : "") +
+        BTN("mailto:ryan@luckimages.com", "Book a Shoot →") +
+        SMALL("Reply to this email or click above to get started. We'll make it easy.") +
+        SIG
+      );
     },
   },
   {
-    id: "thank_you",
-    label: "Thank You / Follow-up",
-    description: "Personal follow-up after shoot delivery. Build the relationship before the next listing.",
-    tag: "Relationship",
-    tagColor: "text-[#4ade80]",
+    id: "lapsed_winback",
+    label: "Lapsed Win-back",
+    description: "Stronger re-engagement for clients who haven't booked in 12+ months. Acknowledges the gap and makes it easy to restart.",
+    tag: "Retention",
+    tagColor: "text-[#60a5fa]",
     filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
-    subject: c => `Thank you, ${c.name.split(" ")[0]} — your photos are ready`,
-    html: c => {
-      const firstName = c.name.split(" ")[0];
-      return `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
-<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images</p>
-<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">Thank You, ${firstName}</h1>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px">It was great working with you. Your photos have been delivered — we hope you love them as much as we do.</p>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 32px">If there's anything you'd like adjusted or if you have questions about the files, just reply to this email and we'll take care of it right away.</p>
-<p style="color:#555;font-size:12px;line-height:1.6;margin:0">Looking forward to working together again on your next listing.</p>
-<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>
-</body></html>`;
+    subject: c => `Still working in real estate, ${c.name.split(" ")[0]}?`,
+    extraFields: [
+      { key: "offer", label: "Incentive (optional)", placeholder: "e.g. First shoot back — $25 off", default: "" },
+    ],
+    html: (c, extra) => {
+      const n = c.name.split(" ")[0];
+      const offer = extra?.offer;
+      return wrap(
+        EYEBROW("") +
+        H1(`Still Selling, ${n}?`) +
+        P("We noticed it's been a while since we last worked together — and we just wanted to check in. We've made a lot of improvements to our editing, turnaround times, and services since then.") +
+        P("If you have an upcoming listing, we'd love to get back on your radar. We'll treat you like the returning client you are.") +
+        (offer ? HIGHLIGHT(offer, "#60a5fa", "96,165,250") : "") +
+        BTN("mailto:ryan@luckimages.com", "Let's Work Together Again →") +
+        SMALL("No pressure — just wanted to stay in touch and make sure you know we're here.") +
+        SIG
+      );
     },
   },
+
+  // ── UPSELL ──────────────────────────────────────────────────────────────────
+  {
+    id: "upsell",
+    label: "Upsell / Cross-sell",
+    description: "Target clients who've only booked basic photos and introduce them to drone, video, or twilight add-ons.",
+    tag: "Upsell",
+    tagColor: "text-[#fb923c]",
+    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    subject: c => `${c.name.split(" ")[0]}, have you tried our drone footage?`,
+    extraFields: [
+      { key: "service", label: "Service to highlight", placeholder: "e.g. Aerial Drone, Twilight Shoot, Video Tour", default: "Aerial Drone" },
+      { key: "hook", label: "Why it sells listings faster (optional)", placeholder: "e.g. Listings with drone sell 20% faster on average", default: "" },
+    ],
+    html: (c, extra) => {
+      const n = c.name.split(" ")[0];
+      const service = extra?.service || "Aerial Drone";
+      const hook = extra?.hook;
+      return wrap(
+        EYEBROW("") +
+        H1(`Have You Tried ${service}, ${n}?`) +
+        P(`We've been doing ${service} for a while now and it consistently helps listings stand out in a crowded market.`) +
+        (hook ? P(hook, "color:#fb923c;font-weight:700") : "") +
+        P("We'd love to add it to your next shoot — it's easy to add on and the results speak for themselves. Reply to this email and we'll walk you through pricing.") +
+        BTN("mailto:ryan@luckimages.com", `Add ${service} to My Next Shoot →`) +
+        SIG
+      );
+    },
+  },
+
+  // ── PRE-SHOOT ───────────────────────────────────────────────────────────────
+  {
+    id: "preshoot_checklist",
+    label: "Pre-shoot Checklist",
+    description: "Day-before reminder with staging tips. Reduces surprises on shoot day and makes you look polished and professional.",
+    tag: "Operations",
+    tagColor: "text-[#888]",
+    filter: c => !!c.email && c.stage !== "deleted",
+    subject: c => `${c.name.split(" ")[0]}, your shoot is tomorrow — quick checklist`,
+    extraFields: [
+      { key: "address", label: "Property address", placeholder: "e.g. 228 Avian Dr, San Marcos", default: "" },
+      { key: "time", label: "Shoot time", placeholder: "e.g. 10:00 AM", default: "" },
+    ],
+    html: (c, extra) => {
+      const n = c.name.split(" ")[0];
+      const address = extra?.address;
+      const time = extra?.time;
+      return wrap(
+        EYEBROW("Shoot Prep") +
+        H1(`See You Tomorrow, ${n}`) +
+        (address || time ? `<p style="color:#555;font-size:12px;margin:0 0 24px">${[address, time].filter(Boolean).join(" · ")}</p>` : "") +
+        P("To make sure we get the best possible photos, here's a quick checklist to run through before we arrive:") +
+        `<ul style="color:#888;font-size:13px;line-height:1.8;margin:0 0 24px;padding-left:20px">
+<li>Turn on all lights — every lamp, overhead, and under-cabinet</li>
+<li>Clear countertops in the kitchen and bathrooms</li>
+<li>Remove personal photos, clutter, and anything you wouldn't want in the listing</li>
+<li>Ensure the lawn/exterior is tidy (mow if needed, cars out of the driveway)</li>
+<li>Make all beds and fluff pillows</li>
+<li>Close toilet lids</li>
+<li>Remove trash cans from visible areas</li>
+</ul>` +
+        P("These small steps make a big difference in the final photos. We'll take care of the rest.") +
+        SMALL("Reply to this email with any questions or if anything changes. See you tomorrow!") +
+        SIG
+      );
+    },
+  },
+
+  // ── PROMO ───────────────────────────────────────────────────────────────────
   {
     id: "seasonal",
     label: "Seasonal Promo",
@@ -128,23 +292,53 @@ ${promo ? `<p style="color:#a78bfa;font-size:13px;font-weight:700;margin:0 0 24p
     tag: "Promo",
     tagColor: "text-[#f472b6]",
     filter: c => !!c.email && c.stage !== "deleted" && c.stage !== "lead",
-    subject: () => "Listing season is here — book your shoot",
+    subject: c => `Listing season is here, ${c.name.split(" ")[0]} — book your shoot`,
     extraFields: [
       { key: "season", label: "Season / occasion", placeholder: "e.g. Spring Listing Season", default: "Spring Listing Season" },
       { key: "offer", label: "Offer or hook", placeholder: "e.g. Book before April 30 and save $50", default: "" },
     ],
     html: (c, extra) => {
-      const firstName = c.name.split(" ")[0];
+      const n = c.name.split(" ")[0];
       const season = extra?.season || "Listing Season";
       const offer = extra?.offer;
-      return `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
-<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images</p>
-<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">${season} is Here, ${firstName}</h1>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px">The market is moving and listings need to look their best. We're booking shoots now — let's make your next property stand out.</p>
-${offer ? `<p style="color:#f472b6;font-size:13px;font-weight:700;margin:0 0 24px;border:1px solid rgba(244,114,182,0.3);padding:12px 16px;display:inline-block">${offer}</p><br>` : ""}
-<a href="mailto:ryan@luckimages.com" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">Book a Shoot →</a>
-<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>
-</body></html>`;
+      return wrap(
+        EYEBROW("") +
+        H1(`${season} is Here, ${n}`) +
+        P("The market is moving and listings need to look their best. We're booking shoots now — let's make your next property stand out.") +
+        (offer ? HIGHLIGHT(offer, "#f472b6", "244,114,182") : "") +
+        BTN("mailto:ryan@luckimages.com", "Book a Shoot →") +
+        SIG
+      );
+    },
+  },
+  {
+    id: "new_service",
+    label: "New Service Launch",
+    description: "Announce a new service to your existing client base. Great when adding drone, Matterport, video tours, twilight, etc.",
+    tag: "Promo",
+    tagColor: "text-[#f472b6]",
+    filter: c => !!c.email && c.stage !== "deleted" && c.stage !== "lead",
+    subject: c => `${c.name.split(" ")[0]}, we just launched something new`,
+    extraFields: [
+      { key: "service", label: "New service name", placeholder: "e.g. 3D Matterport Tours", default: "" },
+      { key: "pitch", label: "One-line pitch", placeholder: "e.g. Walk buyers through the property before they ever visit", default: "" },
+      { key: "offer", label: "Launch offer (optional)", placeholder: "e.g. First 10 bookings get 20% off", default: "" },
+    ],
+    html: (c, extra) => {
+      const n = c.name.split(" ")[0];
+      const service = extra?.service || "a new service";
+      const pitch = extra?.pitch;
+      const offer = extra?.offer;
+      return wrap(
+        EYEBROW("New") +
+        H1(`We Just Launched ${service}, ${n}`) +
+        (pitch ? P(pitch, "color:#f472b6;font-weight:700") : "") +
+        P("We've been working on this for a while and we think it's going to make a real difference for your listings. As one of our existing clients, you're the first to hear about it.") +
+        (offer ? HIGHLIGHT(offer, "#f472b6", "244,114,182") : "") +
+        BTN("mailto:ryan@luckimages.com", `Add ${service} to My Next Shoot →`) +
+        SMALL("Reply with any questions — we're happy to walk you through exactly what it includes.") +
+        SIG
+      );
     },
   },
 ];
