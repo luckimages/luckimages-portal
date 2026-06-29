@@ -18,6 +18,7 @@ type KPI = {
   unpaidCount: number;
   recentInvoices: { num: string; client: string; date: string; amount: string; paid: boolean }[];
   monthly: { month: string; rev: number }[];
+  monthlyRaw: Record<string, number>;
   syncedAt: string | null;
 };
 
@@ -30,6 +31,7 @@ const DEFAULT_KPI: KPI = {
   unpaidCount: 0,
   recentInvoices: [],
   monthly: [],
+  monthlyRaw: {},
   syncedAt: null,
 };
 
@@ -220,6 +222,7 @@ export default function DashboardPage() {
             paid: i.paid,
           })),
           monthly,
+          monthlyRaw: breakdown,
           syncedAt: snap.synced_at ?? null,
         });
       }
@@ -723,6 +726,7 @@ export default function DashboardPage() {
           .filter(([k]) => k.startsWith(`${year}-`))
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([k, v]) => ({ month: MONTH_NAMES[parseInt(k.split("-")[1]) - 1], rev: v as number }));
+        const rawBreakdown: Record<string, number> = snap.monthly_breakdown || {};
         setQB({
           revMonth: snap.rev_month ?? 0,
           revYTD: snap.rev_ytd ?? 0,
@@ -732,6 +736,7 @@ export default function DashboardPage() {
           unpaidCount: snap.unpaid_count ?? 0,
           recentInvoices: snap.recent_invoices ?? [],
           monthly,
+          monthlyRaw: rawBreakdown,
           syncedAt: snap.synced_at ?? null,
         });
       }
@@ -1519,12 +1524,41 @@ export default function DashboardPage() {
             )}
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card label="Revenue This Month" value={`$${QB.revMonth.toLocaleString()}`} accent="#4ade80" sub="Current billing period" valueClass={blur} />
-          <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
-          <Card label="Net Income YTD" value={`$${QB.netIncome.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
-          <Card label="Unpaid Invoices" value={QB.unpaidCount.toString()} accent="#fbbf24" sub="Outstanding balance" />
-        </div>
+        {(() => {
+          const now = new Date();
+          const pad = (n: number) => String(n).padStart(2, "0");
+          const thisKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+          const lastDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const lastKey = `${lastDate.getFullYear()}-${pad(lastDate.getMonth() + 1)}`;
+          const lyKey = `${now.getFullYear() - 1}-${pad(now.getMonth() + 1)}`;
+          const thisMonthRev = QB.monthlyRaw[thisKey] ?? QB.revMonth;
+          const lastMonthRev = QB.monthlyRaw[lastKey] ?? 0;
+          const lyMonthRev = QB.monthlyRaw[lyKey] ?? 0;
+          const delta = thisMonthRev - lastMonthRev;
+          const lyDelta = thisMonthRev - lyMonthRev;
+          const deltaStr = (d: number) => `${d >= 0 ? "+" : ""}$${Math.abs(d).toLocaleString()}`;
+          const deltaColor = (d: number) => d >= 0 ? "text-[#4ade80]" : "text-red-400";
+          const lyLabel = `${now.toLocaleString("en-US", { month: "short" })} ${now.getFullYear() - 1}`;
+          const lastLabel = lastDate.toLocaleString("en-US", { month: "short" });
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-[#111] border border-white/10 p-6" style={{ borderBottom: "2px solid #4ade80" }}>
+                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-4">Revenue This Month</p>
+                <p className={`text-3xl font-bold ${blur}`}>${QB.revMonth.toLocaleString()}</p>
+                {(lastMonthRev > 0 || lyMonthRev > 0) && (
+                  <div className="flex flex-col gap-0.5 mt-2">
+                    {lastMonthRev > 0 && <p className={`text-xs ${deltaColor(delta)}`}>{deltaStr(delta)} vs {lastLabel}</p>}
+                    {lyMonthRev > 0 && <p className={`text-xs ${deltaColor(lyDelta)}`}>{deltaStr(lyDelta)} vs {lyLabel}</p>}
+                  </div>
+                )}
+                {lastMonthRev === 0 && lyMonthRev === 0 && <p className="text-xs text-[#444] mt-2">Sync QB for deltas</p>}
+              </div>
+              <Card label="Revenue YTD" value={`$${QB.revYTD.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
+              <Card label="Net Income YTD" value={`$${QB.netIncome.toLocaleString()}`} accent="#4ade80" sub="Year to date" valueClass={blur} />
+              <Card label="Unpaid Invoices" value={QB.unpaidCount.toString()} accent="#fbbf24" sub="Outstanding balance" />
+            </div>
+          );
+        })()}
         <div className="mt-2 text-right">
           <a href="/admin/shoots" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">View Monthly Breakdown →</a>
         </div>
@@ -1767,6 +1801,34 @@ export default function DashboardPage() {
             )}
 
           </div>
+
+          {/* Top 10 clients by lifetime value */}
+          {(() => {
+            const top10 = [...activeContacts]
+              .filter(c => (c.total_revenue || 0) > 0)
+              .sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0))
+              .slice(0, 5);
+            if (top10.length === 0) return null;
+            return (
+              <div className="mt-3 border border-white/10 bg-[#0d0d0d]">
+                <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] tracking-[2px] uppercase text-[#888] font-semibold">Top Clients by Revenue</span>
+                  </div>
+                  <a href="/dashboard/marketing" className="text-[10px] text-[#444] hover:text-white transition-colors">Full list →</a>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {top10.map((c, i) => (
+                    <a key={c.id} href={`/admin/contacts/${c.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors">
+                      <span className="text-[10px] text-[#333] w-3 shrink-0">{i + 1}</span>
+                      <span className="text-xs font-medium flex-1">{c.name}</span>
+                      <span className="text-xs font-semibold text-[#4ade80]">${(c.total_revenue || 0).toLocaleString()}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* At-risk clients */}
           {(() => {
@@ -2632,6 +2694,55 @@ export default function DashboardPage() {
         </div>
         </div>
 
+
+        {/* ── DAILY OPERATIONS BRIEFING ── */}
+        {(() => {
+          const todayStr = new Date().toISOString().split("T")[0];
+          const todayShoots = allShoots.filter(s => s.scheduled_at?.startsWith(todayStr) && s.status !== "cancelled");
+          const nowMs = Date.now();
+          const alertShoots = allShoots.filter(sh => {
+            const scheduledMs = sh.scheduled_at ? new Date(sh.scheduled_at).getTime() : null;
+            if (sh.status === "scheduled" && !sh.checked_in_at && scheduledMs && nowMs > scheduledMs + 5 * 60000) return true;
+            if (sh.status === "editing" && scheduledMs) {
+              const due = new Date(scheduledMs); due.setDate(due.getDate() + 1); due.setHours(16, 0, 0, 0);
+              if (nowMs > due.getTime()) return true;
+            }
+            if ((sh.status === "delivered") && sh.delivered_at && !sh.paid_at) {
+              if (nowMs > new Date(sh.delivered_at).getTime() + 24 * 3600000) return true;
+            }
+            return false;
+          });
+          const editingShoots = allShoots.filter(s => s.status === "editing").length;
+          const yesterday = new Date(Date.now() - 24 * 3600000).toISOString();
+          const newLeads24h = contacts.filter(c => c.created_at > yesterday && c.stage !== "deleted").length;
+          const items = [
+            { icon: "📷", label: "Today's Shoots", value: todayShoots.length, detail: todayShoots.map(s => s.scheduled_at ? new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "TBD").join(" · ") || null, href: "/dashboard/board", color: todayShoots.length > 0 ? "text-white" : "text-[#444]" },
+            { icon: "⚠️", label: "Needs Attention", value: alertShoots.length, detail: alertShoots.length > 0 ? alertShoots.map(s => s.client_name || s.address).join(", ") : null, href: "/dashboard/board", color: alertShoots.length > 0 ? "text-red-400" : "text-[#444]" },
+            { icon: "✏️", label: "In Editing", value: editingShoots, detail: null, href: "/dashboard/board", color: editingShoots > 0 ? "text-[#fbbf24]" : "text-[#444]" },
+            { icon: "💰", label: "Unpaid Invoices", value: QB.unpaidCount, detail: null, href: "/admin/shoots", color: QB.unpaidCount > 0 ? "text-[#fbbf24]" : "text-[#444]" },
+            { icon: "👤", label: "New Leads (24h)", value: newLeads24h, detail: null, href: "/admin/contacts", color: newLeads24h > 0 ? "text-[#60a5fa]" : "text-[#444]" },
+          ];
+          return (
+            <div className="bg-[#0d0d0d] border border-white/8">
+              <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#4ade80] animate-pulse" />
+                <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Morning Briefing — {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 divide-x divide-white/5">
+                {items.map(item => (
+                  <a key={item.label} href={item.href} className="px-4 py-4 hover:bg-white/[0.02] transition-colors group flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base leading-none">{item.icon}</span>
+                      <span className={`text-2xl font-black tabular-nums ${item.color}`}>{item.value}</span>
+                    </div>
+                    <p className="text-[10px] tracking-[1.5px] uppercase text-[#444]">{item.label}</p>
+                    {item.detail && <p className="text-[10px] text-[#333] truncate">{item.detail}</p>}
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {order.map(renderSection)}
 

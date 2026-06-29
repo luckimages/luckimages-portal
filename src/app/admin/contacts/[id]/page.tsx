@@ -874,6 +874,14 @@ export default function ContactProfilePage() {
               actions.push({ priority: "low", title: "Send an email", reason: "This client has had shoots but has never received an email from you.", cta: "Send Email", href: `mailto:${contact.email}` });
             }
 
+            // Google review request — after a completed shoot
+            if (shoots.some(s => ["delivered", "completed"].includes(s.status)) && contact.email) {
+              const firstName = contact.name.split(" ")[0];
+              const subject = encodeURIComponent("Would you mind leaving us a review?");
+              const body = encodeURIComponent(`Hi ${firstName},\n\nThank you so much for working with Luck Images! If you had a great experience, we'd love it if you could take a moment to leave us a Google review — it helps other clients find us.\n\nhttps://g.page/r/CdYourReviewLink/review\n\nThank you!\nRyan`);
+              actions.push({ priority: "low", title: "Request a Google review", reason: `${contact.name} has completed shoots — happy clients are your best source of Google reviews.`, cta: "Send Request", href: `mailto:${contact.email}?subject=${subject}&body=${body}` });
+            }
+
             // Last outcome was call_again
             if (lastOutcome === "call_again" && lastCallDays !== null && lastCallDays >= 2) {
               actions.push({ priority: "medium", title: "Call again — flagged", reason: `You marked this contact as 'call again' ${lastCallDays} day${lastCallDays !== 1 ? "s" : ""} ago.`, cta: "Log Call", href: `/admin/cold-calls?contact=${contact.id}` });

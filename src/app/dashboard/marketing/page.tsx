@@ -32,6 +32,13 @@ type Contact = {
   referred_by_contact_id: string | null;
 };
 
+type Shoot = {
+  id: string;
+  contact_id: string | null;
+  scheduled_at: string | null;
+  status: string;
+};
+
 type ChannelStats = {
   key: string;
   label: string;
@@ -46,6 +53,7 @@ const BASE_URL = "https://luckimages-portal.vercel.app";
 
 export default function MarketingPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [shoots, setShoots] = useState<Shoot[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [referralSearch, setReferralSearch] = useState("");
@@ -53,12 +61,13 @@ export default function MarketingPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("contacts")
-      .select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id")
-      .neq("stage", "deleted");
-    setContacts(data || []);
-    setAllContacts(data || []);
+    const [{ data: contactData }, { data: shootData }] = await Promise.all([
+      supabase.from("contacts").select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id").neq("stage", "deleted"),
+      supabase.from("shoots").select("id, contact_id, scheduled_at, status").in("status", ["completed", "delivered"]),
+    ]);
+    setContacts(contactData || []);
+    setAllContacts(contactData || []);
+    setShoots(shootData || []);
     setLoading(false);
   }, []);
 
@@ -89,6 +98,33 @@ export default function MarketingPage() {
   const totalRevenue = contacts.reduce((s, c) => s + (c.total_revenue || 0), 0);
   const overallConversion = totalLeads > 0 ? Math.round((totalClients / totalLeads) * 100) : 0;
 
+  // Repeat clients & avg time between bookings (from shoots data)
+  const clientShootMap: Record<string, number[]> = {};
+  for (const sh of shoots) {
+    if (!sh.contact_id) continue;
+    if (!clientShootMap[sh.contact_id]) clientShootMap[sh.contact_id] = [];
+    clientShootMap[sh.contact_id].push(new Date(sh.scheduled_at || sh.id).getTime());
+  }
+  const uniqueClientsWithShoots = Object.keys(clientShootMap).length;
+  const repeatClientCount = Object.values(clientShootMap).filter(d => d.length >= 2).length;
+  const repeatClientPct = uniqueClientsWithShoots > 0 ? Math.round((repeatClientCount / uniqueClientsWithShoots) * 100) : 0;
+
+  const avgBookingGapDays = (() => {
+    const gaps: number[] = [];
+    for (const dates of Object.values(clientShootMap)) {
+      if (dates.length < 2) continue;
+      dates.sort((a, b) => a - b);
+      for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i-1]) / 86400000);
+    }
+    return gaps.length ? Math.round(gaps.reduce((a, b) => a + b) / gaps.length) : null;
+  })();
+
+  // Top 10 clients by lifetime value
+  const top10LTV = [...contacts]
+    .filter(c => (c.total_revenue || 0) > 0)
+    .sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0))
+    .slice(0, 10);
+
   const referralContacts = allContacts.filter(c =>
     referralSearch.length > 1 &&
     c.name.toLowerCase().includes(referralSearch.toLowerCase())
@@ -114,16 +150,19 @@ export default function MarketingPage() {
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-white/5 border border-white/5">
           {[
             { label: "Total Contacts", value: totalLeads.toString() },
             { label: "Converted Clients", value: totalClients.toString() },
             { label: "Conversion Rate", value: `${overallConversion}%` },
             { label: "Attributed Revenue", value: `$${totalRevenue.toLocaleString()}` },
+            { label: "Repeat Client Rate", value: uniqueClientsWithShoots > 0 ? `${repeatClientPct}%` : "—", sub: `${repeatClientCount} of ${uniqueClientsWithShoots} clients booked 2+` },
+            { label: "Avg Gap Between Bookings", value: avgBookingGapDays ? `${avgBookingGapDays}d` : "—", sub: avgBookingGapDays ? "avg days between shoots" : "Not enough data yet" },
           ].map(stat => (
             <div key={stat.label} className="bg-[#0c0c0c] px-5 py-5">
               <p className="text-2xl font-black tabular-nums text-white">{stat.value}</p>
               <p className="text-[10px] tracking-[1.5px] uppercase text-[#444] mt-1">{stat.label}</p>
+              {"sub" in stat && stat.sub && <p className="text-[10px] text-[#333] mt-0.5">{stat.sub}</p>}
             </div>
           ))}
         </div>
@@ -242,6 +281,27 @@ export default function MarketingPage() {
                 </div>
               );
             })()}
+
+            {/* Top 10 clients by lifetime value */}
+            {top10LTV.length > 0 && (
+              <div>
+                <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Top Clients by Lifetime Value</p>
+                <div className="border border-white/5 divide-y divide-white/5">
+                  {top10LTV.map((c, i) => {
+                    const shootCount = clientShootMap[c.id]?.length || 0;
+                    return (
+                      <div key={c.id} className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                        <span className="text-[10px] tabular-nums text-[#333] w-4 shrink-0">{i + 1}</span>
+                        <a href={`/admin/contacts/${c.id}`} className="flex-1 text-sm font-medium hover:underline">{c.name}</a>
+                        {shootCount > 0 && <span className="text-xs text-[#555]">{shootCount} shoot{shootCount !== 1 ? "s" : ""}</span>}
+                        {shootCount >= 2 && <span className="text-[10px] tracking-wide text-[#a78bfa]">repeat</span>}
+                        <span className="text-sm font-bold text-[#4ade80]">${(c.total_revenue || 0).toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Referral link generator */}
             <div>
