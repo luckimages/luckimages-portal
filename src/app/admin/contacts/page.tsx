@@ -20,7 +20,27 @@ type Contact = {
   is_hot: boolean;
   user_id: string | null;
   created_at: string;
+  lead_source: string | null;
+  total_revenue: number | null;
 };
+
+function healthGrade(contact: Contact, shootMap: Record<string, { count: number; lastDate: string | null }>, refMap: Record<string, number>): { grade: string; score: number; color: string } {
+  const now = Date.now();
+  const sh = shootMap[contact.id] || { count: 0, lastDate: null };
+  const lastShootDays = sh.lastDate ? Math.floor((now - new Date(sh.lastDate).getTime()) / 86400000) : null;
+  const refCount = refMap[contact.id] || 0;
+
+  const recencyPts = lastShootDays === null ? 0 : lastShootDays < 30 ? 30 : lastShootDays < 60 ? 20 : lastShootDays < 90 ? 10 : 0;
+  const freqPts    = sh.count >= 5 ? 25 : sh.count >= 3 ? 18 : sh.count === 2 ? 12 : sh.count === 1 ? 6 : 0;
+  const refPts     = refCount >= 2 ? 20 : refCount === 1 ? 12 : 0;
+  const portalPts  = contact.user_id ? 15 : 0;
+  const sourcePts  = contact.lead_source ? 10 : 0;
+  const score      = recencyPts + freqPts + refPts + portalPts + sourcePts;
+
+  const grade = score >= 80 ? "A" : score >= 60 ? "B" : score >= 40 ? "C" : "D";
+  const color = grade === "A" ? "text-[#4ade80]" : grade === "B" ? "text-[#60a5fa]" : grade === "C" ? "text-[#fbbf24]" : "text-red-400";
+  return { grade, score, color };
+}
 
 // Pipeline stages — only applies to leads. "dead" triggers soft-delete.
 const LEAD_STAGES = ["new", "contacted", "interested", "follow-up", "invited", "dead"];
@@ -45,6 +65,8 @@ function ContactsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [shootMap, setShootMap] = useState<Record<string, { count: number; lastDate: string | null }>>({});
+  const [refMap, setRefMap]     = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [filterStage, setFilterStage] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -58,8 +80,30 @@ function ContactsPageInner() {
   const loadContacts = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").select("id, name, email, phone, brokerage, type, stage, notes, is_hot, user_id, created_at").order("name", { ascending: true });
+    const [{ data }, { data: shoots }, { data: refs }] = await Promise.all([
+      supabase.from("contacts").select("id, name, email, phone, brokerage, type, stage, notes, is_hot, user_id, created_at, lead_source, total_revenue").order("name", { ascending: true }),
+      supabase.from("shoots").select("contact_id, scheduled_at").neq("status", "cancelled").order("scheduled_at", { ascending: false }),
+      supabase.from("contacts").select("referred_by_contact_id").not("referred_by_contact_id", "is", null),
+    ]);
     setContacts(data || []);
+
+    // Build shoot map: contact_id → { count, lastDate }
+    const sm: Record<string, { count: number; lastDate: string | null }> = {};
+    for (const s of (shoots || [])) {
+      if (!s.contact_id) continue;
+      if (!sm[s.contact_id]) sm[s.contact_id] = { count: 0, lastDate: null };
+      sm[s.contact_id].count++;
+      if (!sm[s.contact_id].lastDate) sm[s.contact_id].lastDate = s.scheduled_at;
+    }
+    setShootMap(sm);
+
+    // Build referral map: contact_id → count of people they referred
+    const rm: Record<string, number> = {};
+    for (const r of (refs || [])) {
+      if (!r.referred_by_contact_id) continue;
+      rm[r.referred_by_contact_id] = (rm[r.referred_by_contact_id] || 0) + 1;
+    }
+    setRefMap(rm);
     setLoading(false);
   }, []);
 
@@ -237,6 +281,7 @@ function ContactsPageInner() {
                   <th className="text-left px-4 py-3 font-normal">Phone</th>
                   <th className="text-left px-4 py-3 font-normal">Brokerage</th>
                   <th className="text-left px-4 py-3 font-normal">Status</th>
+                  <th className="text-left px-4 py-3 font-normal">Health</th>
                   <th className="text-left px-4 py-3 font-normal">Added</th>
                 </tr>
               </thead>
@@ -281,6 +326,11 @@ function ContactsPageInner() {
                             {tc.label}
                           </span>
                         )}
+                      </td>
+                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                        {(() => { const { grade, color } = healthGrade(contact, shootMap, refMap); return (
+                          <span className={`text-sm font-black tabular-nums ${color}`}>{grade}</span>
+                        ); })()}
                       </td>
                       <td className="px-4 py-3 text-[#444] whitespace-nowrap">
                         {new Date(contact.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

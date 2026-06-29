@@ -29,6 +29,7 @@ type Contact = {
   lead_source: string | null;
   total_revenue: number | null;
   created_at: string;
+  referred_by_contact_id: string | null;
 };
 
 type ChannelStats = {
@@ -54,7 +55,7 @@ export default function MarketingPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("contacts")
-      .select("id, name, type, stage, lead_source, total_revenue, created_at")
+      .select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id")
       .neq("stage", "deleted");
     setContacts(data || []);
     setAllContacts(data || []);
@@ -204,6 +205,43 @@ export default function MarketingPage() {
                 </table>
               </div>
             </div>
+
+            {/* Top referrers leaderboard */}
+            {(() => {
+              // Build map: referrer contact_id → { count, revenue }
+              const map: Record<string, { name: string; count: number; revenue: number }> = {};
+              for (const c of contacts) {
+                if (!c.referred_by_contact_id) continue;
+                if (!map[c.referred_by_contact_id]) {
+                  const referrer = contacts.find(x => x.id === c.referred_by_contact_id);
+                  map[c.referred_by_contact_id] = { name: referrer?.name || "Unknown", count: 0, revenue: 0 };
+                }
+                map[c.referred_by_contact_id].count++;
+                map[c.referred_by_contact_id].revenue += c.total_revenue || 0;
+              }
+              const leaderboard = Object.entries(map)
+                .map(([id, v]) => ({ id, ...v }))
+                .sort((a, b) => b.revenue - a.revenue || b.count - a.count)
+                .slice(0, 10);
+
+              if (leaderboard.length === 0) return null;
+
+              return (
+                <div>
+                  <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Top Referrers</p>
+                  <div className="border border-white/5 divide-y divide-white/5">
+                    {leaderboard.map((r, i) => (
+                      <div key={r.id} className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02] transition-colors">
+                        <span className="text-[10px] tabular-nums text-[#333] w-4 shrink-0">{i + 1}</span>
+                        <a href={`/admin/contacts/${r.id}`} className="flex-1 text-sm font-medium hover:underline">{r.name}</a>
+                        <span className="text-xs text-[#555]">{r.count} referral{r.count !== 1 ? "s" : ""}</span>
+                        {r.revenue > 0 && <span className="text-xs font-semibold text-[#4ade80]">${r.revenue.toLocaleString()}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Referral link generator */}
             <div>

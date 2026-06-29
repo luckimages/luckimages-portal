@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import InsightsPage from "../InsightsPage";
+import HelpTip from "@/components/HelpTip";
 
 const supabase = createClient();
 
@@ -127,7 +128,10 @@ export default function BetaPage() {
             <a href="/dashboard/board" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">Live</span>
-                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                <div className="flex items-center gap-2">
+                  <HelpTip title="Shoot Board" content="6-stage Kanban (Pending → Paid) tracking every active shoot. Cards turn red when a photographer hasn't checked in, editing is overdue, or an invoice is unpaid 24h+. Auto-refreshes every 30 seconds." />
+                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                </div>
               </div>
               <p className="text-sm font-black uppercase tracking-tight text-white">Shoot Board</p>
               <p className="text-[11px] text-[#555] leading-snug">Full-width Kanban board tracking every active shoot through the workflow in real time.</p>
@@ -135,7 +139,10 @@ export default function BetaPage() {
             <a href="/dashboard/marketing" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
-                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                <div className="flex items-center gap-2">
+                  <HelpTip title="Marketing Metrics" content="Tracks where every client came from across 14 channels. Generates trackable registration links per channel or per person (for referrals). When someone registers via a link, their source is automatically recorded — no manual tagging needed." />
+                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+                </div>
               </div>
               <p className="text-sm font-black uppercase tracking-tight text-white">Marketing Metrics</p>
               <p className="text-[11px] text-[#555] leading-snug">Channel attribution, conversion rates, revenue by source, and referral link generator.</p>

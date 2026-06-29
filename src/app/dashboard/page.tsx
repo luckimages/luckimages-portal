@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import ShootGallery from "@/components/ShootGallery";
 import { normalizePhone } from "@/lib/format";
+import HelpTip from "@/components/HelpTip";
 import TaskBoard from "./TaskBoard";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -105,7 +106,7 @@ export default function DashboardPage() {
   const [visible, setVisible] = useState<Record<Section, boolean>>(DEFAULT_VISIBLE);
 
   // Contacts + Cold Calls state
-  type Contact = { id: string; name: string; email: string | null; phone: string | null; brokerage: string | null; stage: string; is_hot: boolean; total_invoices: number; total_revenue: number; type: string; created_at: string; };
+  type Contact = { id: string; name: string; email: string | null; phone: string | null; brokerage: string | null; stage: string; is_hot: boolean; total_invoices: number; total_revenue: number; type: string; created_at: string; user_id: string | null; lead_source: string | null; };
   type CallLog = { id: string; contact_id: string; outcome: string; called_at: string; notes: string | null; listing_address: string | null; called_by: string; };
   const CALL_OUTCOMES = [
     { value: "no_answer", label: "No Answer", color: "bg-zinc-700 text-zinc-300" },
@@ -1521,7 +1522,7 @@ export default function DashboardPage() {
     );
     if (s === "Clients") return (
       <section key={s}>
-        <p className={sectionLabel}>Invoices</p>
+        <p className={sectionLabel}>Invoices <HelpTip title="Invoices" content="Recent invoices synced from QuickBooks. Green = paid, red = outstanding. Use the QB sync button to pull the latest data. Unpaid count rolls into your KPI totals." /></p>
         <div className="bg-[#111] border border-white/10 overflow-hidden">
           <div className="grid grid-cols-2 divide-x divide-white/10">
             <div className="p-5">
@@ -1557,7 +1558,7 @@ export default function DashboardPage() {
       const convPct = monthLeads > 0 ? Math.round((monthConversions / monthLeads) * 100) : 0;
       return (
         <section key={s}>
-          <p className={sectionLabel}>Marketing</p>
+          <p className={sectionLabel}>Marketing <HelpTip title="Marketing" content="Lead pipeline overview — total contacts, leads vs. realtors, pipeline stage breakdown. For full channel attribution and tracking links, visit the Marketing Metrics page in Beta Tools." /></p>
           <div className="bg-[#111] border border-white/10">
             <div className="grid grid-cols-3 divide-x divide-white/5">
               <div className="px-5 py-5">
@@ -1662,7 +1663,7 @@ export default function DashboardPage() {
       const activeContacts = contacts.filter(c => c.stage !== "deleted");
       return (
         <section key={s}>
-          <p className={sectionLabel}>Contacts</p>
+          <p className={sectionLabel}>Contacts <HelpTip title="Contacts" content="Quick-add leads and search your contact list. Click any name to open their full profile with shoot history, health score, suggested actions, and activity timeline. Full list at /admin/contacts." /></p>
           <div className="bg-[#111] border border-white/10 flex flex-col">
 
             {/* Stats row */}
@@ -1756,6 +1757,41 @@ export default function DashboardPage() {
             )}
 
           </div>
+
+          {/* At-risk clients */}
+          {(() => {
+            const now = Date.now();
+            const atRisk = activeContacts.filter(c => {
+              if ((c.total_revenue || 0) === 0) return false;
+              const score =
+                (c.user_id ? 15 : 0) +
+                (c.lead_source ? 10 : 0);
+              // Without shoot data here, flag anyone with revenue but no portal and no source
+              return score < 15 && (c.total_revenue || 0) > 0;
+            }).slice(0, 5);
+            if (atRisk.length === 0) return null;
+            return (
+              <div className="mt-3 border border-red-500/20 bg-red-500/5">
+                <div className="px-4 py-2.5 border-b border-red-500/10 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                  <span className="text-[10px] tracking-[2px] uppercase text-red-400 font-semibold">Clients at Risk</span>
+                  <HelpTip title="Clients at Risk" content="Active clients who've spent money but have incomplete profiles — no portal account or unknown lead source. Check their profiles and fill in the gaps to improve their health score." />
+                </div>
+                <div className="divide-y divide-red-500/10">
+                  {atRisk.map(c => (
+                    <a key={c.id} href={`/admin/contacts/${c.id}`} className="flex items-center justify-between px-4 py-2.5 hover:bg-red-500/5 transition-colors">
+                      <span className="text-xs font-medium">{c.name}</span>
+                      <div className="flex items-center gap-3">
+                        {!c.user_id && <span className="text-[10px] text-red-400/70">No portal</span>}
+                        {!c.lead_source && <span className="text-[10px] text-red-400/70">No source</span>}
+                        <span className="text-[10px] text-[#4ade80]">${(c.total_revenue || 0).toLocaleString()}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </section>
       );
     }
@@ -1772,7 +1808,7 @@ export default function DashboardPage() {
 
       return (
         <section key={s}>
-          <p className={sectionLabel}>Command Center</p>
+          <p className={sectionLabel}>Command Center <HelpTip title="Command Center" content="Quick-action buttons for the most common tasks: book a shoot, send a quote, log a call, invite a client to the portal. Shortcuts to avoid navigating deep into the app." /></p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* ASAP TO DO */}
             <div className="bg-[#111] border border-white/10 flex flex-col h-48">
@@ -1923,7 +1959,7 @@ export default function DashboardPage() {
       return (
         <section key={s} className="-mx-4 md:-mx-8 px-0">
           <div className="px-4 md:px-8 mb-3 flex items-center justify-between">
-            <p className={sectionLabel}>Shoots</p>
+            <p className={sectionLabel}>Shoots <HelpTip title="Shoots" content="Full shoot log with filters by status and date. Shows the board widget (all 6 stages) and alerts for any shoot needing attention. Click View Board for the full Kanban view." /></p>
             <a href="/dashboard/board" className="text-[10px] tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">Live Board →</a>
           </div>
 
@@ -2065,7 +2101,7 @@ export default function DashboardPage() {
         .filter(Boolean) as typeof contacts;
       return (
         <section key={s}>
-          <p className={sectionLabel}>Team</p>
+          <p className={sectionLabel}>Team <HelpTip title="Team" content="Photographer roster with hours worked this week and this month. Click a name to see their shoot history. Time tracked automatically from shoot check-in to wrap status." /></p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {employees.length === 0 && (
               <div className="bg-[#111] border border-white/10 p-6 text-xs text-[#444] italic sm:col-span-2">
@@ -2222,7 +2258,7 @@ export default function DashboardPage() {
       return (
         <section key={s}>
           <div className="flex items-center justify-between mb-4">
-            <p className={sectionLabel} style={{ marginBottom: 0 }}>Quote Builder</p>
+            <p className={sectionLabel} style={{ marginBottom: 0 }}>Quote Builder <HelpTip title="Quote Builder" content="Build a custom quote by selecting a package and add-ons. Set a square footage discount, attach it to a contact, and send via email. Saved quotes appear on the client's profile." /></p>
             <a href="/dashboard/quotes" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">View All →</a>
           </div>
           <div className="bg-[#111] border border-white/10 p-6 space-y-8">
