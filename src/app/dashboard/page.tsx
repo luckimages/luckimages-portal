@@ -754,6 +754,32 @@ export default function DashboardPage() {
 
   const [capTotal, setCapTotal] = useState(50);
 
+  // Late shoot banner + auto ASAP task
+  const [lateShoots, setLateShoots] = useState<ShootEvent[]>([]);
+  const firedAlerts = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ACTIVE = ["scheduled", "en_route", "on_site", "wrapping"];
+    const now = Date.now();
+    const late = allShoots.filter(s =>
+      ACTIVE.includes(s.status) &&
+      !s.checked_in_at &&
+      s.scheduled_at &&
+      now > new Date(s.scheduled_at).getTime() + 5 * 60 * 1000
+    );
+    setLateShoots(late);
+    // Fire API once per shoot per page session to create ASAP task + notification
+    for (const s of late) {
+      if (firedAlerts.current.has(s.id)) continue;
+      firedAlerts.current.add(s.id);
+      const mins = Math.floor((now - new Date(s.scheduled_at).getTime()) / 60000);
+      fetch("/api/admin/late-shoot-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shootId: s.id, address: s.address, scheduledAt: s.scheduled_at, minutesPast: mins }),
+      }).catch(() => {});
+    }
+  }, [allShoots]);
+
   const sectionLabel = "text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']";
 
   async function saveQuickContact(e: React.FormEvent) {
@@ -2688,6 +2714,29 @@ ${qbAddress ? `<p style="color:#888;font-size:13px;margin:0 0 32px">${qbAddress}
           </form>
         </div>
       </header>
+
+      {/* LATE SHOOT BANNER */}
+      {lateShoots.length > 0 && (
+        <div className="bg-red-500/10 border-b border-red-500/30 px-4 md:px-8 py-3 flex items-center gap-3 flex-wrap">
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+          <p className="text-sm font-semibold text-red-400 shrink-0">
+            {lateShoots.length === 1 ? "Shoot Alert" : `${lateShoots.length} Shoot Alerts`}
+          </p>
+          <div className="flex flex-wrap gap-3 flex-1">
+            {lateShoots.map(s => {
+              const mins = Math.floor((Date.now() - new Date(s.scheduled_at).getTime()) / 60000);
+              const h = Math.floor(mins / 60);
+              const m = mins % 60;
+              return (
+                <a key={s.id} href="/dashboard/board"
+                  className="text-xs text-red-300 hover:text-white transition-colors border border-red-500/20 px-3 py-1 bg-red-500/5 hover:bg-red-500/10">
+                  {s.address} — {h > 0 ? `${h}h ${m}m` : `${mins}m`} past schedule, no check-in →
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-7xl mx-auto w-full space-y-10 md:space-y-12">
 
