@@ -1907,26 +1907,29 @@ export default function DashboardPage() {
               return (
                 <div className="bg-[#111] border border-white/10 flex flex-col h-48">
                   {/* Tab bar */}
-                  <div className="flex items-center border-b border-white/10 shrink-0">
-                    {TODO_TABS.map(tab => {
+                  <div className="flex items-center border-b border-white/10 shrink-0 px-3">
+                    {TODO_TABS.map((tab, i) => {
                       const count = getTabTasks(tab.key).length;
                       const isActive = tab.key === activeTab;
                       return (
-                        <button
-                          key={tab.key}
-                          onClick={() => setTodoTab(tab.key)}
-                          className={`flex-1 px-2 py-2 text-[10px] tracking-[1.5px] uppercase font-semibold transition-colors border-b-2 ${
-                            isActive
-                              ? `${tab.color} border-current`
-                              : "text-[#333] border-transparent hover:text-[#555]"
-                          }`}
-                        >
-                          {tab.label}
-                          {count > 0 && <span className={`ml-1 ${isActive ? "opacity-60" : "opacity-40"}`}>({count})</span>}
-                        </button>
+                        <div key={tab.key} className="flex items-center">
+                          {i > 0 && <span className="text-[#222] text-[10px] px-1">/</span>}
+                          <button
+                            onClick={() => setTodoTab(tab.key)}
+                            className={`py-2 px-1 text-[10px] tracking-[1.5px] uppercase font-semibold transition-colors border-b-2 ${
+                              isActive
+                                ? `${tab.color} border-current`
+                                : "text-[#333] border-transparent hover:text-[#555]"
+                            }`}
+                          >
+                            {tab.label}
+                            {count > 0 && <span className={`ml-0.5 ${isActive ? "opacity-60" : "opacity-40"}`}>({count})</span>}
+                          </button>
+                        </div>
                       );
                     })}
-                    <a href="/dashboard/todos" className="px-3 py-2 text-[10px] text-[#333] hover:text-[#666] transition-colors whitespace-nowrap border-b-2 border-transparent shrink-0">all →</a>
+                    <span className="text-[#222] text-[10px] px-1">/</span>
+                    <a href="/dashboard/todos" className="py-2 px-1 text-[10px] text-[#333] hover:text-[#555] transition-colors whitespace-nowrap border-b-2 border-transparent">all</a>
                   </div>
                   {/* Task list */}
                   <div className="flex-1 overflow-y-auto min-h-0">
