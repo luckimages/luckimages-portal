@@ -169,6 +169,14 @@ export default function BetaPage() {
               <p className="text-sm font-black uppercase tracking-tight text-white">Marketing Metrics</p>
               <p className="text-[11px] text-[#555] leading-snug">Channel attribution, conversion rates, revenue by source, and referral link generator.</p>
             </a>
+            <a href="/dashboard/calendar" className="border border-[#4ade80]/20 bg-[#4ade80]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#4ade80]/40 hover:bg-[#4ade80]/10 transition-all group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-[2px] uppercase text-[#4ade80] font-semibold">New</span>
+                <span className="text-[10px] text-[#444] group-hover:text-[#4ade80] transition-colors">→</span>
+              </div>
+              <p className="text-sm font-black uppercase tracking-tight text-white">Master Calendar</p>
+              <p className="text-[11px] text-[#555] leading-snug">Unified calendar showing shoots, deliveries, payments, new contacts, cold calls, app updates, and Ryan &amp; Leif&apos;s clock-ins all in one view.</p>
+            </a>
           </div>
         </section>
 
