@@ -147,14 +147,14 @@ export default function UpdatesPage() {
                 onClick={() => toggleCat(cat.key)}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold tracking-wide transition-all ${
                   isActive
-                    ? "border-white/20 bg-white/10 text-white"
-                    : "border-white/5 bg-transparent text-[#444] hover:text-[#666]"
+                    ? "border-white/10 bg-white/[0.06] text-[#888]"
+                    : "border-white/5 bg-transparent text-[#333] hover:text-[#555]"
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${isActive ? cat.dot : "bg-[#333]"}`} />
+                <span className={`w-2 h-2 rounded-full opacity-50 ${isActive ? cat.dot : "bg-[#2a2a2a]"}`} />
                 {cat.label}
                 {count > 0 && (
-                  <span className={`text-[10px] ${isActive ? "text-white/60" : "text-[#333]"}`}>{count}</span>
+                  <span className={`text-[10px] ${isActive ? "text-[#666]" : "text-[#333]"}`}>{count}</span>
                 )}
               </button>
             );

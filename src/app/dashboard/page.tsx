@@ -2034,11 +2034,11 @@ export default function DashboardPage() {
                           onClick={() => toggleCat(cat.key)}
                           className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold tracking-wide whitespace-nowrap transition-all shrink-0 ${
                             isActive
-                              ? "border-white/20 bg-white/10 text-white"
-                              : "border-white/5 bg-transparent text-[#444] hover:text-[#666]"
+                              ? "border-white/10 bg-white/[0.06] text-[#888]"
+                              : "border-white/5 bg-transparent text-[#333] hover:text-[#555]"
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cat.dot : "bg-[#333]"}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full opacity-50 ${isActive ? cat.dot : "bg-[#2a2a2a]"}`} />
                           {cat.label}
                           {count > 0 && <span className={isActive ? "text-white/60" : "text-[#333]"}>{count}</span>}
                         </button>
