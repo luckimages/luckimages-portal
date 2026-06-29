@@ -1994,6 +1994,65 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Shoot log — expandable */}
+          <div className="px-4 md:px-8 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <button
+                onClick={() => { setShootLogExpanded(e => !e); if (!shootLogLoaded) loadShootLog(); }}
+                className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors flex items-center gap-2"
+              >
+                <span>{shootLogExpanded ? "▾" : "▸"}</span> Full Shoot Log
+              </button>
+              <a href="/admin/shoots" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">View All →</a>
+            </div>
+
+            {shootLogExpanded && (
+              <div className="space-y-3">
+                {/* Filters */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {(["all","scheduled","completed","pending","cancelled"] as const).map(f => (
+                    <button key={f} onClick={() => setShootLogFilter(f)} className={`text-[10px] tracking-[1px] uppercase px-3 py-1 border transition-colors ${shootLogFilter === f ? "border-white text-white" : "border-white/10 text-[#444] hover:text-white"}`}>{f}</button>
+                  ))}
+                  <select value={shootLogMonth} onChange={e => setShootLogMonth(e.target.value)} className="text-[10px] tracking-[1px] uppercase bg-transparent border border-white/10 text-[#444] px-3 py-1 ml-auto">
+                    <option value="">All months</option>
+                    {months.map(m => <option key={m} value={m!}>{m}</option>)}
+                  </select>
+                </div>
+
+                {filtered.length === 0 ? (
+                  <div className="border border-white/10 p-8 text-center text-[#333] text-sm">No shoots match this filter.</div>
+                ) : filtered.map(shoot => {
+                  const day = shoot.scheduled_at?.slice(0, 10) || "";
+                  const hours = dayHours[day];
+                  return (
+                    <div key={shoot.id} className="bg-[#111] border border-white/10 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <p className="font-medium text-sm truncate">{shoot.address}</p>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase shrink-0 ${statusColor(shoot.status)} bg-white/5`}>{shoot.status}</span>
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-xs text-[#555]">{shoot.client_name}</span>
+                            {shoot.scheduled_at && <span className="text-xs text-[#444]">{new Date(shoot.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</span>}
+                            {shoot.package_name && <span className="text-xs text-[#333]">{shoot.package_name}</span>}
+                          </div>
+                          {hours && (hours.ryan > 0 || hours.leif > 0) && (
+                            <div className="flex gap-3 mt-1">
+                              {hours.ryan > 0 && <span className="text-[10px] text-[#333]">R: {fmtH(hours.ryan)}</span>}
+                              {hours.leif > 0 && <span className="text-[10px] text-[#333]">L: {fmtH(hours.leif)}</span>}
+                            </div>
+                          )}
+                        </div>
+                        {shoot.price != null && <p className="font-bold text-[#4ade80] shrink-0">${shoot.price.toLocaleString()}</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </section>
       );
     }
