@@ -1,22 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-const SERVICES = ["Listing Photos", "Drone", "Matterport", "Video", "Headshots"];
-const SOURCES = ["Social Media", "Referral", "Google / SEO", "Other"];
+const CHANNELS: { key: string; label: string }[] = [
+  { key: "referral",          label: "Referral from someone I know" },
+  { key: "google-seo",        label: "Google Search" },
+  { key: "google-business",   label: "Google Business Profile" },
+  { key: "yelp",              label: "Yelp" },
+  { key: "instagram",         label: "Instagram" },
+  { key: "facebook",          label: "Facebook" },
+  { key: "linkedin-business", label: "LinkedIn (Luck Images)" },
+  { key: "linkedin-personal", label: "LinkedIn (Ryan Luck)" },
+  { key: "cold-call",         label: "They called me" },
+  { key: "cold-email",        label: "Email outreach" },
+  { key: "zillow",            label: "Zillow / Realtor.com" },
+  { key: "networking",        label: "Networking event" },
+  { key: "partnership",       label: "Partner company" },
+  { key: "direct-mail",       label: "Direct mail / postcard" },
+  { key: "other",             label: "Other" },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [referredBy, setReferredBy] = useState<string | null>(null);
   const [form, setForm] = useState({
     fullName: "", email: "", password: "", phone: "",
     brokerage: "", areas: "", birthday: "",
     mailingList: false, referralSource: "",
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    const by = params.get("by");
+    if (ref) setForm(f => ({ ...f, referralSource: ref }));
+    if (by) setReferredBy(by);
+  }, []);
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
@@ -49,7 +73,13 @@ export default function RegisterPage() {
       await fetch("/api/auth/link-contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId: contactId || null, email: form.email, userId: newUser.id }),
+        body: JSON.stringify({
+          contactId: contactId || null,
+          email: form.email,
+          userId: newUser.id,
+          leadSource: form.referralSource || null,
+          referredByContactId: referredBy || null,
+        }),
       });
     }
 
@@ -119,7 +149,7 @@ export default function RegisterPage() {
               <label className={labelCls}>How did you hear about us?</label>
               <select value={form.referralSource} onChange={e => set("referralSource", e.target.value)} className={inputCls + " cursor-pointer"}>
                 <option value="">Select one...</option>
-                {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                {CHANNELS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
             </div>
 

@@ -132,6 +132,14 @@ export default function BetaPage() {
               <p className="text-sm font-black uppercase tracking-tight text-white">Shoot Board</p>
               <p className="text-[11px] text-[#555] leading-snug">Full-width Kanban board tracking every active shoot through the workflow in real time.</p>
             </a>
+            <a href="/dashboard/marketing" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
+                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+              </div>
+              <p className="text-sm font-black uppercase tracking-tight text-white">Marketing Metrics</p>
+              <p className="text-[11px] text-[#555] leading-snug">Channel attribution, conversion rates, revenue by source, and referral link generator.</p>
+            </a>
           </div>
         </section>
 

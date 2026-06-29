@@ -7,20 +7,40 @@ import { formatPhone, normalizePhone } from "@/lib/format";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
+const CHANNEL_LABELS: Record<string, string> = {
+  "referral":          "Referral",
+  "google-seo":        "Google SEO",
+  "google-business":   "Google Business",
+  "yelp":              "Yelp",
+  "instagram":         "Instagram",
+  "facebook":          "Facebook",
+  "linkedin-business": "LinkedIn (Luck Images)",
+  "linkedin-personal": "LinkedIn (Ryan Luck)",
+  "cold-call":         "Cold Call",
+  "cold-email":        "Cold Email",
+  "zillow":            "Zillow / Realtor.com",
+  "networking":        "Networking",
+  "partnership":       "Partner Referral",
+  "direct-mail":       "Direct Mail",
+  "other":             "Other",
+};
+
 type Contact = {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
   brokerage: string | null;
-  type: string; // lead | realtor | employee | admin
-  stage: string; // pipeline stage — only relevant for type=lead
+  type: string;
+  stage: string;
   notes: string | null;
   total_invoices: number;
   total_revenue: number;
   is_hot: boolean;
   user_id: string | null;
   created_at: string;
+  lead_source: string | null;
+  referred_by_contact_id: string | null;
 };
 
 type CallLog = {
@@ -121,7 +141,8 @@ export default function ContactProfilePage() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "", lead_source: "" });
+  const [referralCount, setReferralCount] = useState(0);
 
   // Invite
   const [inviting, setInviting] = useState(false);
@@ -153,7 +174,11 @@ export default function ContactProfilePage() {
       .order("scheduled_at", { ascending: false });
     if (!c) { router.replace("/admin/contacts"); return; }
     setContact(c);
-    setForm({ name: c.name, email: c.email || "", phone: c.phone || "", brokerage: c.brokerage || "", stage: c.stage, notes: c.notes || "" });
+    setForm({ name: c.name, email: c.email || "", phone: c.phone || "", brokerage: c.brokerage || "", stage: c.stage, notes: c.notes || "", lead_source: c.lead_source || "" });
+
+    // Count contacts who were referred by this person
+    const { count } = await supabase.from("contacts").select("id", { count: "exact", head: true }).eq("referred_by_contact_id", id);
+    setReferralCount(count || 0);
 
     setCallLogs(calls || []);
     setEmailLogs(emails || []);
@@ -201,7 +226,7 @@ export default function ContactProfilePage() {
     if (!contact) return;
     setSaving(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").update({ ...form, phone: normalizePhone(form.phone), updated_at: new Date().toISOString() }).eq("id", contact.id).select().single();
+    const { data } = await supabase.from("contacts").update({ ...form, phone: normalizePhone(form.phone), lead_source: form.lead_source || null, updated_at: new Date().toISOString() }).eq("id", contact.id).select().single();
     if (data) setContact(data);
     setSaving(false);
     setEditing(false);
@@ -418,6 +443,20 @@ export default function ContactProfilePage() {
               <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Added</p>
               <p className="text-sm text-[#666]">{new Date(contact.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
             </div>
+            {contact.lead_source && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Source</p>
+                <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase bg-white/5 border border-white/10 text-[#888]">
+                  {CHANNEL_LABELS[contact.lead_source] || contact.lead_source}
+                </span>
+              </div>
+            )}
+            {referralCount > 0 && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Referrals Given</p>
+                <p className="text-sm font-bold text-[#4ade80]">{referralCount}</p>
+              </div>
+            )}
           </div>
 
           {/* Relationship metrics */}
@@ -540,6 +579,63 @@ export default function ContactProfilePage() {
             </div>
           </div>
         )}
+
+        {/* ═══ CLIENT HEALTH ═══ */}
+        {(() => {
+          const now = Date.now();
+          const daysSince = (iso: string) => Math.floor((now - new Date(iso).getTime()) / 86400000);
+          const lastShootDays = lastShoot?.scheduled_at ? daysSince(lastShoot.scheduled_at) : null;
+
+          // Score signals (max 100)
+          const recencyPts = lastShootDays === null ? 0 : lastShootDays < 30 ? 30 : lastShootDays < 60 ? 20 : lastShootDays < 90 ? 10 : 0;
+          const freqPts    = shoots.length >= 5 ? 25 : shoots.length >= 3 ? 18 : shoots.length === 2 ? 12 : shoots.length === 1 ? 6 : 0;
+          const refPts     = referralCount >= 2 ? 20 : referralCount === 1 ? 12 : 0;
+          const portalPts  = contact.user_id ? 15 : 0;
+          const sourcePts  = contact.lead_source ? 10 : 0;
+          const score      = recencyPts + freqPts + refPts + portalPts + sourcePts;
+
+          const grade = score >= 80 ? "A" : score >= 60 ? "B" : score >= 40 ? "C" : "D";
+          const gradeColor = grade === "A" ? "text-[#4ade80]" : grade === "B" ? "text-[#60a5fa]" : grade === "C" ? "text-[#fbbf24]" : "text-red-400";
+          const barColor   = grade === "A" ? "bg-[#4ade80]" : grade === "B" ? "bg-[#60a5fa]" : grade === "C" ? "bg-[#fbbf24]" : "bg-red-500";
+
+          const signals: { label: string; value: string; pts: number; max: number }[] = [
+            { label: "Recency",        value: lastShootDays === null ? "No shoots yet" : lastShootDays < 30 ? `Last shoot ${lastShootDays}d ago` : lastShootDays < 60 ? `Last shoot ${lastShootDays}d ago` : `Last shoot ${lastShootDays}d ago`,  pts: recencyPts, max: 30 },
+            { label: "Frequency",      value: `${shoots.length} shoot${shoots.length !== 1 ? "s" : ""} total`,  pts: freqPts,    max: 25 },
+            { label: "Referrals",      value: referralCount > 0 ? `${referralCount} referral${referralCount !== 1 ? "s" : ""} sent` : "No referrals yet",   pts: refPts,     max: 20 },
+            { label: "Portal Account", value: contact.user_id ? "Active account" : "Not registered",           pts: portalPts,  max: 15 },
+            { label: "Source Tracked", value: contact.lead_source ? CHANNEL_LABELS[contact.lead_source] || contact.lead_source : "Unknown source",          pts: sourcePts,  max: 10 },
+          ];
+
+          return (
+            <div className="bg-[#111] border border-white/10">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444]">Client Health</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${score}%` }} />
+                  </div>
+                  <span className={`text-xl font-black tabular-nums ${gradeColor}`}>{grade}</span>
+                </div>
+              </div>
+              <div className="divide-y divide-white/5">
+                {signals.map(sig => (
+                  <div key={sig.label} className="px-5 py-3 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] tracking-[1.5px] uppercase text-[#444] mb-0.5">{sig.label}</p>
+                      <p className="text-xs text-[#777]">{sig.value}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${sig.pts > 0 ? barColor : "bg-transparent"}`} style={{ width: `${(sig.pts / sig.max) * 100}%` }} />
+                      </div>
+                      <span className="text-[10px] tabular-nums text-[#444] w-8 text-right">{sig.pts}/{sig.max}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ═══ HISTORY TABS ═══ */}
         <div className="space-y-4">
@@ -1013,6 +1109,11 @@ export default function ContactProfilePage() {
                   {LEAD_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               )}
+              <select value={form.lead_source} onChange={e => setForm(f => ({ ...f, lead_source: e.target.value }))}
+                className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
+                <option value="">Source — how did they find us?</option>
+                {Object.entries(CHANNEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Notes"
                 rows={3}
