@@ -157,13 +157,14 @@ export default function DashboardPage() {
     const d = new Date(iso);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
-  type UpdateItem = { id: string; type: string; message: string; created_at: string; by?: string };
+  type UpdateItem = { id: string; type: string; message: string; created_at: string; by?: string; link?: string };
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [completedTodos, setCompletedTodos] = useState<Todo[]>([]);
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [updateInput, setUpdateInput] = useState("");
   const [needsAttention, setNeedsAttention] = useState<UpdateItem[]>([]);
+  const [notifReadAt, setNotifReadAt] = useState<Date | null>(null);
 
   const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -183,9 +184,11 @@ export default function DashboardPage() {
       }
       if (meta?.section_visible) {
         const saved = meta.section_visible as Record<Section, boolean>;
-        // Merge: apply saved visibility, default new sections to visible
         const merged = { ...DEFAULT_VISIBLE, ...saved };
         setVisible(merged);
+      }
+      if (meta?.notif_read_at) {
+        setNotifReadAt(new Date(meta.notif_read_at));
       }
 
       // Load live QB KPI snapshot
@@ -292,7 +295,7 @@ export default function DashboardPage() {
       }
       if (updatesRes.ok) {
         const d = await updatesRes.json();
-        const all = [...(d.posts || []).map((p: {id: string; message: string; created_at: string; created_by: string}) => ({ id: p.id, type: "post", message: p.message, created_at: p.created_at, by: p.created_by })), ...(d.auto || [])].sort((a: {created_at: string}, b: {created_at: string}) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const all = [...(d.posts || []), ...(d.auto || [])].sort((a: {created_at: string}, b: {created_at: string}) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setUpdates(all);
         // Needs attention = overdue callbacks + recent no_answers
         setNeedsAttention((d.auto || []).filter((u: {type: string; message: string}) => u.type === "call" && (u.message.includes("no answer") || u.message.includes("callback"))).slice(0, 8));
@@ -352,6 +355,12 @@ export default function DashboardPage() {
         setPartnerName(pName);
       }
     }
+  }
+
+  async function markAllRead() {
+    const now = new Date();
+    setNotifReadAt(now);
+    createClient().auth.updateUser({ data: { notif_read_at: now.toISOString() } });
   }
 
   async function postUpdate(e: React.FormEvent) {
@@ -1856,30 +1865,68 @@ export default function DashboardPage() {
               </a>
             </div>
 
-            {/* UPDATES */}
-            <div className="bg-[#111] border border-white/10 flex flex-col h-48">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-                <span className="text-xs tracking-[2px] uppercase text-[#888]">Updates</span>
-                <a href="/admin/updates" className="text-xs text-[#444] hover:text-white transition-colors">View All →</a>
-              </div>
-              <div className="flex-1 overflow-y-auto min-h-0">
-                {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
-                {updates.slice(0, 12).map(u => {
-                  const icon = u.type === "call" ? "📞" : u.type === "contact" ? "👤" : u.type === "shoot" ? "📷" : u.type === "alert" ? "⚠️" : "💬";
-                  return (
-                    <div key={u.id} className={`px-3 py-2 hover:bg-white/[0.02] border-b border-white/5 ${u.type === "alert" ? "bg-[#ef444408]" : ""}`}>
-                      <p className={`text-xs truncate ${u.type === "alert" ? "text-[#ef4444]" : ""}`}>{icon} {u.message}</p>
-                      <p className="text-[10px] text-[#444]">{new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}{u.by ? ` · ${u.by}` : ""}</p>
+            {/* NOTIFICATION CENTER */}
+            {(() => {
+              const TYPE_STYLE: Record<string, { icon: string; dot: string; text: string }> = {
+                alert:   { icon: "⚠️", dot: "bg-red-500",    text: "text-red-400" },
+                shoot:   { icon: "📷", dot: "bg-[#60a5fa]",  text: "text-[#60a5fa]" },
+                contact: { icon: "👤", dot: "bg-[#fbbf24]",  text: "text-[#fbbf24]" },
+                call:    { icon: "📞", dot: "bg-[#4ade80]",  text: "text-[#4ade80]" },
+                tool:    { icon: "🛠️", dot: "bg-[#a78bfa]",  text: "text-[#a78bfa]" },
+                post:    { icon: "💬", dot: "bg-white/40",   text: "text-white" },
+              };
+              const unreadCount = notifReadAt
+                ? updates.filter(u => new Date(u.created_at) > notifReadAt).length
+                : updates.length;
+
+              return (
+                <div className="bg-[#111] border border-white/10 flex flex-col h-72">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs tracking-[2px] uppercase text-[#888]">Notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">{unreadCount}</span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-              <form onSubmit={postUpdate} className="border-t border-white/10 flex">
-                <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update..."
-                  className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
-                <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
-              </form>
-            </div>
+                    <div className="flex items-center gap-3">
+                      {unreadCount > 0 && (
+                        <button onClick={markAllRead} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Mark all read</button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto min-h-0 divide-y divide-white/5">
+                    {updates.length === 0 && <p className="text-xs text-[#333] italic p-3">No recent activity.</p>}
+                    {updates.slice(0, 30).map(u => {
+                      const isUnread = notifReadAt ? new Date(u.created_at) > notifReadAt : true;
+                      const s = TYPE_STYLE[u.type] || TYPE_STYLE.post;
+                      const content = (
+                        <div className={`px-3 py-2.5 hover:bg-white/[0.03] transition-colors flex gap-2.5 items-start ${u.type === "alert" ? "bg-red-500/5" : ""} ${isUnread ? "" : "opacity-50"}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${s.dot} ${u.type === "alert" ? "animate-pulse" : ""}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs leading-snug ${isUnread ? "text-white" : "text-[#666]"}`}>{u.message}</p>
+                            <p className="text-[10px] text-[#333] mt-0.5">
+                              {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              {" · "}
+                              {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                              {u.by ? ` · ${u.by}` : ""}
+                            </p>
+                          </div>
+                          {u.link && <span className={`text-[10px] shrink-0 mt-0.5 ${s.text}`}>→</span>}
+                        </div>
+                      );
+                      return u.link
+                        ? <a key={u.id} href={u.link}>{content}</a>
+                        : <div key={u.id}>{content}</div>;
+                    })}
+                  </div>
+                  <form onSubmit={postUpdate} className="border-t border-white/10 flex shrink-0">
+                    <input value={updateInput} onChange={e => setUpdateInput(e.target.value)} placeholder="Post an update for Leif..."
+                      className="flex-1 bg-transparent text-xs px-3 py-2 outline-none placeholder:text-[#333] text-white" />
+                    <button type="submit" className="px-3 py-2 text-[#555] hover:text-white transition-colors">→</button>
+                  </form>
+                </div>
+              );
+            })()}
           </div>
         </section>
       );

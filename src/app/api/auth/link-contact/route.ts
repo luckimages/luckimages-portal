@@ -41,5 +41,12 @@ export async function POST(req: Request) {
     }
   }
 
+  // Notify admins of new portal registration
+  try {
+    const { data: { user: newUser } } = await db.auth.admin.getUserById(userId);
+    const name = newUser?.user_metadata?.full_name || email || "Someone";
+    await db.from("company_updates").insert({ message: `New portal registration — ${name}`, created_by: "system", link: "/admin/contacts" });
+  } catch { /* non-fatal */ }
+
   return NextResponse.json({ ok: true });
 }

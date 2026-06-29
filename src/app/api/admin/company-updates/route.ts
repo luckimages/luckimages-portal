@@ -21,9 +21,9 @@ export async function GET(req: Request) {
   const url = new URL(req.url ?? "http://localhost");
   const history = url.searchParams.get("history") === "1";
 
-  // Manual posts
-  const postsQuery = db.from("company_updates").select("*").order("created_at", { ascending: false });
-  if (!history) postsQuery.limit(20);
+  // Manual posts (includes system-generated ones with links)
+  const postsQuery = db.from("company_updates").select("id, message, created_by, created_at, link").order("created_at", { ascending: false });
+  if (!history) postsQuery.limit(40);
   const { data: posts } = await postsQuery;
 
   // Auto-generated activity from other tables (last 120h, or all-time if ?history=1)
@@ -44,13 +44,14 @@ export async function GET(req: Request) {
     : { data: [] };
   const nameMap = Object.fromEntries((contactNames || []).map((c: {id: string; name: string}) => [c.id, c.name]));
 
-  type AutoItem = { id: string; type: string; message: string; created_at: string; by?: string };
+  type AutoItem = { id: string; type: string; message: string; created_at: string; by?: string; link?: string };
   const nowIso = new Date().toISOString();
   const lateAlerts: AutoItem[] = (lateShoots || []).map((s: {id: string; address: string; scheduled_at: string}) => ({
     id: `late-${s.id}`,
     type: "alert",
     message: `Photographer not checked in — ${s.address} was scheduled for ${new Date(s.scheduled_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
     created_at: nowIso,
+    link: "/dashboard/board",
   }));
   const auto: AutoItem[] = [
     ...(calls || []).map((c: {id: string; called_at: string; outcome: string; called_by: string; listing_address: string | null; contact_id: string}) => ({
@@ -59,25 +60,37 @@ export async function GET(req: Request) {
       message: `${c.called_by} logged a call — ${nameMap[c.contact_id] || "contact"}${c.listing_address ? ` (${c.listing_address})` : ""} — ${c.outcome.replace("_", " ")}`,
       created_at: c.called_at,
       by: c.called_by,
+      link: c.contact_id ? `/admin/contacts/${c.contact_id}` : undefined,
     })),
     ...(contacts || []).map((c: {id: string; name: string; created_at: string; stage: string}) => ({
       id: `contact-${c.id}`,
       type: "contact",
-      message: `New contact added — ${c.name} (${c.stage})`,
+      message: `New contact — ${c.name} (${c.stage})`,
       created_at: c.created_at,
+      link: `/admin/contacts/${c.id}`,
     })),
     ...(shoots || []).map((s: {id: string; address: string; scheduled_at: string; status: string; created_at: string}) => ({
       id: `shoot-${s.id}`,
       type: "shoot",
-      message: `Shoot ${s.status} — ${s.address}`,
+      message: `Shoot booked — ${s.address}`,
       created_at: s.created_at,
+      link: "/dashboard/board",
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 15);
 
   // Late alerts always float to top regardless of scheduled_at
   const allAuto = [...lateAlerts, ...auto];
 
-  return NextResponse.json({ posts: posts || [], auto: allAuto });
+  const mappedPosts = (posts || []).map((p: { id: string; message: string; created_at: string; created_by: string; link?: string }) => ({
+    id: p.id,
+    type: p.created_by === "system" ? "tool" : "post",
+    message: p.message,
+    created_at: p.created_at,
+    by: p.created_by !== "system" ? p.created_by : undefined,
+    link: p.link,
+  }));
+
+  return NextResponse.json({ posts: mappedPosts, auto: allAuto });
 }
 
 export async function POST(req: Request) {

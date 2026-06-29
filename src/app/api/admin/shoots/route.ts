@@ -209,6 +209,25 @@ export async function PATCH(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Fire a notification for significant status changes
+  if (status && shoot) {
+    const STATUS_LABELS: Record<string, string> = {
+      scheduled:  "Scheduled",
+      en_route:   "Photographer en route",
+      on_site:    "Photographer on site",
+      wrapping:   "Wrapping up",
+      editing:    "In editing",
+      delivered:  "Delivered to client",
+      paid:       "Invoice paid",
+      completed:  "Marked complete",
+      cancelled:  "Cancelled",
+    };
+    const label = STATUS_LABELS[status] || status;
+    const addr = shoot.address || "shoot";
+    const notifMsg = `${label} — ${addr}`;
+    await supabase.from("company_updates").insert({ message: notifMsg, created_by: "system", link: "/dashboard/board" });
+  }
+
   // Notify newly assigned photographers
   if (photographer_ids?.length && shoot) {
     try {
