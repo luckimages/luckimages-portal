@@ -128,45 +128,45 @@ export default function BetaPage() {
             <a href="/dashboard/board" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">Live</span>
-                <div className="flex items-center gap-2">
-                  <HelpTip title="Shoot Board" content="6-stage Kanban (Pending → Paid) tracking every active shoot. Cards turn red when a photographer hasn't checked in, editing is overdue, or an invoice is unpaid 24h+. Auto-refreshes every 30 seconds." />
-                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
-                </div>
+                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
               </div>
-              <p className="text-sm font-black uppercase tracking-tight text-white">Shoot Board</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-white">Shoot Board</p>
+                <HelpTip title="Shoot Board" content="6-stage Kanban (Pending → Paid) tracking every active shoot. Cards turn red when a photographer hasn't checked in, editing is overdue, or an invoice is unpaid 24h+. Click any card to expand full shoot details. Auto-refreshes every 30 seconds." />
+              </div>
               <p className="text-[11px] text-[#555] leading-snug">Full-width Kanban board tracking every active shoot through the workflow in real time.</p>
             </a>
             <a href="/dashboard/import" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
-                <div className="flex items-center gap-2">
-                  <HelpTip title="Import Shoots" content="Upload a CSV of past shoots (address, date, client name, services, price, status). New contacts are created automatically if not found. Supports up to 5,000 rows." />
-                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
-                </div>
+                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
               </div>
-              <p className="text-sm font-black uppercase tracking-tight text-white">Import Past Shoots</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-white">Import Past Shoots</p>
+                <HelpTip title="Import Past Shoots" content="Upload a CSV of past shoots (address, date, client name, services, price, status). New contacts are created automatically if not found. Required columns: address, scheduled_at. Supports up to 5,000 rows." />
+              </div>
               <p className="text-[11px] text-[#555] leading-snug">Bulk-import historical shoot data from a CSV. Auto-matches or creates contacts.</p>
             </a>
             <a href="/dashboard/outreach" className="border border-[#f472b6]/20 bg-[#f472b6]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#f472b6]/40 hover:bg-[#f472b6]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#f472b6] font-semibold">New</span>
-                <div className="flex items-center gap-2">
-                  <HelpTip title="Email Outreach" content="Full email outreach center with preset campaign templates: portal invite, Google review request, re-engagement, thank you, and seasonal promos. Select contacts, preview the HTML, and send in bulk." />
-                  <span className="text-[10px] text-[#444] group-hover:text-[#f472b6] transition-colors">→</span>
-                </div>
+                <span className="text-[10px] text-[#444] group-hover:text-[#f472b6] transition-colors">→</span>
               </div>
-              <p className="text-sm font-black uppercase tracking-tight text-white">Email Outreach</p>
-              <p className="text-[11px] text-[#555] leading-snug">5 preset campaigns — portal invite, review requests, re-engagement, thank you, seasonal promos. Live HTML preview before you send.</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-white">Email Outreach</p>
+                <HelpTip title="Email Outreach" content="11 preset HTML email templates: portal invite, Google review request, thank you, referral ask, portfolio feature, re-engagement, lapsed win-back, upsell, pre-shoot checklist, seasonal promo, and new service launch. Pick a template, select contacts from your list, preview the live HTML, then send. Requires RESEND_API_KEY in Vercel env vars." />
+              </div>
+              <p className="text-[11px] text-[#555] leading-snug">11 preset campaigns with live HTML preview. Select contacts, preview, send.</p>
             </a>
             <a href="/dashboard/marketing" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
-                <div className="flex items-center gap-2">
-                  <HelpTip title="Marketing Metrics" content="Tracks where every client came from across 14 channels. Generates trackable registration links per channel or per person (for referrals). When someone registers via a link, their source is automatically recorded — no manual tagging needed." />
-                  <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
-                </div>
+                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
               </div>
-              <p className="text-sm font-black uppercase tracking-tight text-white">Marketing Metrics</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-white">Marketing Metrics</p>
+                <HelpTip title="Marketing Metrics" content="Tracks where every client came from across 14 channels (Instagram, Google, referral, etc.). Generates trackable registration links per channel or per person for referrals. When someone signs up via that link their source is recorded automatically — no manual tagging needed." />
+              </div>
               <p className="text-[11px] text-[#555] leading-snug">Channel attribution, conversion rates, revenue by source, and referral link generator.</p>
             </a>
             <a href="/dashboard/calendar" className="border border-[#4ade80]/20 bg-[#4ade80]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#4ade80]/40 hover:bg-[#4ade80]/10 transition-all group">
@@ -174,8 +174,11 @@ export default function BetaPage() {
                 <span className="text-[10px] tracking-[2px] uppercase text-[#4ade80] font-semibold">New</span>
                 <span className="text-[10px] text-[#444] group-hover:text-[#4ade80] transition-colors">→</span>
               </div>
-              <p className="text-sm font-black uppercase tracking-tight text-white">Master Calendar</p>
-              <p className="text-[11px] text-[#555] leading-snug">Unified calendar showing shoots, deliveries, payments, new contacts, cold calls, app updates, and Ryan &amp; Leif&apos;s clock-ins all in one view.</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-white">Master Calendar</p>
+                <HelpTip title="Master Calendar" content="One calendar that shows everything: shoots scheduled/delivered/paid (green), new contacts added (yellow), cold calls logged (blue), app/platform updates (purple), and Ryan & Leif's clock-in/clock-out entries (orange). Click any day to see a full list of everything that happened. Use the legend chips at the top to filter by type." />
+              </div>
+              <p className="text-[11px] text-[#555] leading-snug">Unified calendar — shoots, deliveries, payments, contacts, calls, updates, timesheets.</p>
             </a>
           </div>
         </section>
