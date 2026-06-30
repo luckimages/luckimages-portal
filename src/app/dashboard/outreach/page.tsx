@@ -488,10 +488,10 @@ export default function OutreachPage() {
           <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and send.</p>
         </div>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden gap-0">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-[260px_1fr_360px] overflow-hidden">
 
           {/* LEFT — Template picker + config */}
-          <div className="md:w-72 lg:w-80 border-r border-white/10 flex flex-col overflow-y-auto shrink-0">
+          <div className="border-r border-white/10 flex flex-col overflow-y-auto">
             <div className="px-4 py-3 border-b border-white/10">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Campaign Templates</p>
             </div>
@@ -533,7 +533,7 @@ export default function OutreachPage() {
           </div>
 
           {/* MIDDLE — Contact list */}
-          <div className="flex-1 flex flex-col border-r border-white/10 overflow-hidden min-w-0">
+          <div className="flex flex-col border-r border-white/10 overflow-hidden min-w-0">
             {/* List header */}
             <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
               <div className="flex-1">
@@ -625,7 +625,7 @@ export default function OutreachPage() {
           </div>
 
           {/* RIGHT — Live email preview */}
-          <div className="md:w-96 lg:w-[480px] flex flex-col overflow-hidden shrink-0 border-t md:border-t-0 border-white/10">
+          <div className="flex flex-col overflow-hidden border-t md:border-t-0 border-white/10">
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
               {preview && (
