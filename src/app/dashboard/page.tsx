@@ -758,10 +758,10 @@ export default function DashboardPage() {
   const [lateShoots, setLateShoots] = useState<ShootEvent[]>([]);
   const firedAlerts = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const ACTIVE = ["scheduled", "en_route", "on_site", "wrapping"];
+    // Only truly missing — on_site/wrapping with no check-in = late but present (yellow card, no banner)
     const now = Date.now();
     const late = allShoots.filter(s =>
-      ACTIVE.includes(s.status) &&
+      ["scheduled", "en_route"].includes(s.status) &&
       !s.checked_in_at &&
       s.scheduled_at &&
       now > new Date(s.scheduled_at).getTime() + 5 * 60 * 1000
