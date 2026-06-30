@@ -938,9 +938,6 @@ function ColdCallsPage() {
                   { key: "video_silver", label: "Video Silver",   price: "$300" },
                   { key: "video_gold",   label: "Video Gold",     price: "Custom" },
                   { key: "matterport",   label: "Matterport 3D",  price: "$200–$500" },
-                  { key: "twilight",     label: "Twilight",       price: "$400" },
-                  { key: "virtual_staging", label: "Virtual Staging", price: "$25–$150" },
-                  { key: "floor_plan",   label: "Floor Plan",     price: "$50–$75" },
                   { key: "headshots",    label: "Headshots",      price: "$200+" },
                 ] as const).map(svc => (
                   <button
@@ -964,10 +961,11 @@ function ColdCallsPage() {
               <p className="text-[10px] tracking-[2px] uppercase text-[#333] mb-2">Add-Ons</p>
               <div className="flex flex-wrap gap-2">
                 {([
-                  { key: "addon_drone",      label: "Drone Photos",   price: "+$100–$150" },
-                  { key: "addon_twilight",   label: "Twilight",       price: "+$150–$200" },
-                  { key: "addon_matterport", label: "Matterport 3D",  price: "+$100–$250" },
-                  { key: "addon_floor_plan", label: "Floor Plan",     price: "+$50–$75" },
+                  { key: "addon_drone",           label: "Drone Photos",    price: "+$100–$150" },
+                  { key: "addon_twilight",        label: "Twilight",        price: "+$150–$200" },
+                  { key: "addon_matterport",      label: "Matterport 3D",   price: "+$100–$250" },
+                  { key: "addon_floor_plan",      label: "Floor Plan",      price: "+$50–$75" },
+                  { key: "addon_virtual_staging", label: "Virtual Staging", price: "+$25–$150" },
                 ] as const).map(addon => {
                   const active = selectedAddOns.has(addon.key);
                   return (
