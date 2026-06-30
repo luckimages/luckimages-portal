@@ -947,53 +947,42 @@ function ColdCallsPage() {
             {tabLogs[logTab].length === 0 ? (
               <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>
             ) : tabLogs[logTab].map((log: EnrichedLog) => {
-              const tagMeta = Object.fromEntries(CALL_TAGS.map(t => [t.key, t]));
               const isExpanded = expandedLog === log.id;
+              const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+              const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
               return (
                 <div key={log.id}
                   onClick={() => setExpandedLog(isExpanded ? null : log.id)}
                   className={`px-4 py-3.5 cursor-pointer transition-colors ${isExpanded ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {log.contact ? (
-                        <button
-                          onClick={e => { e.stopPropagation(); openContact(log.contact!.id); }}
-                          className="text-sm font-medium truncate hover:underline text-left"
-                        >
-                          {log.contact.name}
-                        </button>
-                      ) : (
-                        <span className="text-sm font-medium truncate">Unknown</span>
-                      )}
+                  <div className="flex items-center gap-3">
+                    {/* Avatar */}
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-bold text-white/60 shrink-0">
+                      {initials}
                     </div>
-                    <div className="flex flex-wrap gap-1 justify-end shrink-0">
-                      {log.outcome.split(",").map(tag => {
-                        const meta = tagMeta[tag as CallTag];
-                        return (
-                          <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase"
-                            style={{ color: meta?.color || "#888", background: `${meta?.color || "#888"}1a` }}>
-                            {meta?.label || tag}
-                          </span>
-                        );
-                      })}
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); if (log.contact) openContact(log.contact.id); }}
+                        className="text-sm font-semibold hover:underline text-left leading-tight"
+                      >
+                        {log.contact?.name || "Unknown"}
+                      </button>
+                      {log.contact?.brokerage && (
+                        <p className="text-[11px] text-[#444] mt-0.5">{log.contact.brokerage}</p>
+                      )}
+                      {mostRecentAddress && (
+                        <p className="text-[11px] text-[#555] mt-0.5" onClick={e => e.stopPropagation()}>
+                          📍 {mostRecentAddress.url
+                            ? <a href={mostRecentAddress.url} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-white transition-colors">{mostRecentAddress.address}</a>
+                            : mostRecentAddress.address}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-[#333] mt-1">
+                        {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
+                      </p>
                     </div>
                   </div>
-                  {(contactListings[log.contact_id] || []).length > 0 && (
-                    <div className="mt-0.5 space-y-0.5">
-                      {contactListings[log.contact_id].map(l => (
-                        <p key={l.address} className="text-xs text-[#555]">
-                          📍 {l.url
-                            ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">{l.address}</a>
-                            : <span className="text-white">{l.address}</span>}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {log.contact?.brokerage && <p className="text-xs text-[#444] mt-0.5">{log.contact.brokerage}</p>}
-                  <p className="text-[10px] text-[#333] mt-1">
-                    {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
-                  </p>
                 </div>
               );
             })}
