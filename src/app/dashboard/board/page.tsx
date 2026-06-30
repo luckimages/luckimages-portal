@@ -27,8 +27,8 @@ type Shoot = {
 const STAGES: { key: string; label: string; color: string; dim: string; dbStatuses: string[] }[] = [
   { key: "pending",   label: "Pending",   color: "text-[#fbbf24]", dim: "border-[#fbbf24]/20 bg-[#fbbf24]/5",  dbStatuses: ["pending"] },
   { key: "scheduled", label: "Scheduled", color: "text-[#60a5fa]", dim: "border-[#60a5fa]/20 bg-[#60a5fa]/5",  dbStatuses: ["scheduled"] },
-  { key: "active",    label: "Active",    color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5",  dbStatuses: ["en_route", "on_site", "wrapping"] },
-  { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["editing"] },
+  { key: "active",    label: "Active",    color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5",  dbStatuses: ["en_route", "on_site"] },
+  { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["wrapping", "editing"] },
   { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5",  dbStatuses: ["delivered", "completed"] },
 ];
 
@@ -59,8 +59,8 @@ function getAlertStatus(shoot: Shoot): AlertStatus {
     return null;
   }
 
-  // Editing overdue: not delivered by 4pm day after shoot
-  if (shoot.status === "editing" && scheduledMs) {
+  // Editing overdue: not delivered by 4pm day after shoot (wrapping = same editing phase)
+  if (["editing", "wrapping"].includes(shoot.status) && scheduledMs) {
     const dayAfter = new Date(scheduledMs);
     dayAfter.setDate(dayAfter.getDate() + 1);
     dayAfter.setHours(16, 0, 0, 0);

@@ -2172,7 +2172,7 @@ export default function DashboardPage() {
         { key: "pending",   label: "Pending",   color: "text-[#fbbf24]", dim: "border-[#fbbf24]/20 bg-[#fbbf24]/5",  dbStatuses: ["pending"] },
         { key: "scheduled", label: "Scheduled", color: "text-[#60a5fa]", dim: "border-[#60a5fa]/20 bg-[#60a5fa]/5",  dbStatuses: ["scheduled"] },
         { key: "active",    label: "Active",    color: "text-[#f472b6]", dim: "border-[#f472b6]/20 bg-[#f472b6]/5",  dbStatuses: ["en_route", "on_site", "wrapping"] },
-        { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["editing"] },
+        { key: "editing",   label: "Editing",   color: "text-[#facc15]", dim: "border-[#facc15]/20 bg-[#facc15]/5",  dbStatuses: ["wrapping", "editing"] },
         { key: "delivered", label: "Delivered", color: "text-[#34d399]", dim: "border-[#34d399]/20 bg-[#34d399]/5",  dbStatuses: ["delivered"] },
         { key: "paid",      label: "Paid",      color: "text-[#4ade80]", dim: "border-[#4ade80]/20 bg-[#4ade80]/5",  dbStatuses: ["completed"] },
       ];
@@ -2832,8 +2832,15 @@ ${qbAddress ? `<p style="color:#888;font-size:13px;margin:0 0 32px">${qbAddress}
 
         {/* ── DAILY OPERATIONS BRIEFING ── */}
         {(() => {
-          const todayStr = new Date().toISOString().split("T")[0];
-          const todayShoots = allShoots.filter(s => s.scheduled_at?.startsWith(todayStr) && s.status !== "cancelled");
+          // Use local date so it doesn't flip at midnight UTC while still daytime in CT
+          const _now = new Date();
+          const todayStr = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
+          const todayShoots = allShoots.filter(s => {
+            if (!s.scheduled_at || s.status === "cancelled") return false;
+            const d = new Date(s.scheduled_at);
+            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+            return ds === todayStr;
+          });
           const nowMs = Date.now();
           const alertShoots = allShoots.filter(sh => {
             const scheduledMs = sh.scheduled_at ? new Date(sh.scheduled_at).getTime() : null;
@@ -2847,7 +2854,7 @@ ${qbAddress ? `<p style="color:#888;font-size:13px;margin:0 0 32px">${qbAddress}
             }
             return false;
           });
-          const editingShoots = allShoots.filter(s => s.status === "editing").length;
+          const editingShoots = allShoots.filter(s => ["editing", "wrapping"].includes(s.status)).length;
           const yesterday = new Date(Date.now() - 24 * 3600000).toISOString();
           const newLeads24h = contacts.filter(c => c.created_at > yesterday && c.stage !== "deleted").length;
           const items = [
