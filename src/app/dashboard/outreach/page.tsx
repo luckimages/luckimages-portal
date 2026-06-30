@@ -164,6 +164,38 @@ const TEMPLATES: Template[] = [
     },
   },
 
+  // ── PORTFOLIO FOLLOW-UP ─────────────────────────────────────────────────────
+  {
+    id: "portfolio_followup",
+    label: "Portfolio Follow-up",
+    description: "Send a curated selection of their shoot photos with a note. Reminds clients how great the work looked and opens the door for the next booking.",
+    tag: "Relationship",
+    tagColor: "text-[#4ade80]",
+    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    subject: c => `${c.name.split(" ")[0]}, a look back at your listing photos`,
+    extraFields: [
+      { key: "address", label: "Property address", placeholder: "e.g. 228 Avian Dr, San Marcos", default: "" },
+      { key: "galleryLink", label: "Gallery / delivery link", placeholder: "https://...", default: "" },
+      { key: "highlight", label: "Standout detail (optional)", placeholder: "e.g. The twilight shots turned out especially well", default: "" },
+    ],
+    html: (c, extra) => {
+      const n = c.name.split(" ")[0];
+      const address = extra?.address;
+      const galleryLink = extra?.galleryLink;
+      const highlight = extra?.highlight;
+      return wrap(
+        EYEBROW("Portfolio") +
+        H1(`A Look Back, ${n}`) +
+        P(`We were going through our recent work and ${address ? `the photos from ${address}` : "your listing photos"} really stood out. We're proud of how they came together.`) +
+        (highlight ? P(highlight, "color:#4ade80;font-weight:700") : "") +
+        P("Your photos are part of the portfolio we show potential clients — which is a testament to how well the shoot went. We wanted to make sure you had easy access to the full gallery.") +
+        (galleryLink ? BTN(galleryLink, "View Your Gallery →") : "") +
+        P("If you have another listing coming up, we'd love to do it again. Just reply and we'll get something on the calendar.") +
+        SIG
+      );
+    },
+  },
+
   // ── RETENTION ───────────────────────────────────────────────────────────────
   {
     id: "reengagement",
@@ -365,6 +397,9 @@ export default function OutreachPage() {
   const [extraFields, setExtraFields] = useState<Record<string, string>>({});
   const [previewContact, setPreviewContact] = useState<Contact | null>(null);
   const [search, setSearch] = useState("");
+  const [mode, setMode] = useState<"campaign" | "quicksend">("campaign");
+  const [qs, setQs] = useState({ to: "", name: "", subject: "", body: "" });
+  const [qsStatus, setQsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
 
   useEffect(() => {
     // Read deep-link params
@@ -467,6 +502,27 @@ export default function OutreachPage() {
   const doneCount = Object.values(statuses).filter(s => s === "done").length;
   const errorCount = Object.values(statuses).filter(s => s === "error").length;
 
+  async function sendQuick() {
+    if (!qs.to || !qs.subject || !qs.body || qsStatus === "sending") return;
+    setQsStatus("sending");
+    const html = wrap(
+      EYEBROW("") +
+      H1(qs.subject) +
+      qs.body.split("\n\n").map(para => P(para)).join("") +
+      SIG
+    );
+    try {
+      const res = await fetch("/api/admin/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: qs.to, subject: qs.subject, html }),
+      });
+      setQsStatus(res.ok ? "done" : "error");
+    } catch {
+      setQsStatus("error");
+    }
+  }
+
   return (
     <main className="min-h-screen w-full bg-[#0c0c0c] text-white flex flex-col">
       <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
@@ -482,10 +538,22 @@ export default function OutreachPage() {
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Page header */}
-        <div className="px-4 md:px-8 pt-8 pb-4 shrink-0">
-          <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Beta</p>
-          <h1 className="text-3xl font-black tracking-tight uppercase">Email Outreach</h1>
-          <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and send.</p>
+        <div className="px-4 md:px-8 pt-8 pb-4 shrink-0 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Beta</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">Email Outreach</h1>
+            <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and send.</p>
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <button
+              onClick={() => setMode("campaign")}
+              className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "campaign" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}
+            >Campaign</button>
+            <button
+              onClick={() => { setMode("quicksend"); setQsStatus("idle"); }}
+              className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "quicksend" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}
+            >Quick Send</button>
+          </div>
         </div>
 
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[260px_1fr_360px] overflow-hidden">
@@ -532,7 +600,69 @@ export default function OutreachPage() {
             )}
           </div>
 
-          {/* MIDDLE — Contact list */}
+          {/* MIDDLE — Contact list (campaign) or Quick Send compose */}
+          {mode === "quicksend" ? (
+            <div className="flex flex-col border-r border-white/10 overflow-hidden min-w-0">
+              <div className="px-4 py-3 border-b border-white/10 shrink-0">
+                <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Quick Send — One-off Email</p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div>
+                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">To (email)</label>
+                  <input
+                    type="email"
+                    value={qs.to}
+                    onChange={e => setQs(q => ({ ...q, to: e.target.value }))}
+                    placeholder="client@example.com"
+                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Name (for preview)</label>
+                  <input
+                    type="text"
+                    value={qs.name}
+                    onChange={e => setQs(q => ({ ...q, name: e.target.value }))}
+                    placeholder="First Last"
+                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Subject</label>
+                  <input
+                    type="text"
+                    value={qs.subject}
+                    onChange={e => setQs(q => ({ ...q, subject: e.target.value }))}
+                    placeholder="Hey Sarah, quick note..."
+                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Message body</label>
+                  <p className="text-[10px] text-[#333] mb-2">Separate paragraphs with a blank line. Will be styled in Luck Images brand email format.</p>
+                  <textarea
+                    value={qs.body}
+                    onChange={e => setQs(q => ({ ...q, body: e.target.value }))}
+                    rows={10}
+                    placeholder={"Hey Sarah,\n\nJust wanted to follow up on your last shoot...\n\nLet me know if you have any upcoming listings."}
+                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20 resize-none leading-relaxed"
+                  />
+                </div>
+                <button
+                  onClick={sendQuick}
+                  disabled={!qs.to || !qs.subject || !qs.body || qsStatus === "sending" || qsStatus === "done"}
+                  className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40"
+                >
+                  {qsStatus === "sending" ? "Sending..." : qsStatus === "done" ? "✓ Sent" : qsStatus === "error" ? "Error — Retry" : "Send Email →"}
+                </button>
+                {qsStatus === "done" && (
+                  <button onClick={() => { setQs({ to: "", name: "", subject: "", body: "" }); setQsStatus("idle"); }} className="w-full text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors py-2">
+                    Send another
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
           <div className="flex flex-col border-r border-white/10 overflow-hidden min-w-0">
             {/* List header */}
             <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
@@ -623,18 +753,43 @@ export default function OutreachPage() {
               })}
             </div>
           </div>
+          )} {/* end mode === "campaign" */}
 
           {/* RIGHT — Live email preview */}
           <div className="flex flex-col overflow-hidden border-t md:border-t-0 border-white/10">
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
-              {preview && (
+              {mode === "quicksend" && qs.name && (
+                <p className="text-[10px] text-[#333]">→ {qs.name.split(" ")[0]}</p>
+              )}
+              {mode === "campaign" && preview && (
                 <p className="text-[10px] text-[#333]">
                   {preview.id === "example" ? "example — Sarah Johnson" : `→ ${preview.name.split(" ")[0]}`}
                 </p>
               )}
             </div>
-            {preview ? (
+            {mode === "quicksend" ? (
+              <div className="flex-1 overflow-y-auto bg-[#0a0a0a]">
+                {qs.subject && (
+                  <div className="px-4 py-3 border-b border-white/5">
+                    <p className="text-[10px] text-[#444] mb-0.5">Subject</p>
+                    <p className="text-xs text-white font-medium">{qs.subject}</p>
+                  </div>
+                )}
+                {qs.body ? (
+                  <div
+                    className="p-0"
+                    dangerouslySetInnerHTML={{
+                      __html: wrap(EYEBROW("") + H1(qs.subject || "Your message") + qs.body.split("\n\n").map(para => P(para)).join("") + SIG)
+                    }}
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center p-8">
+                    <p className="text-xs text-[#333] italic">Start typing to see a live preview</p>
+                  </div>
+                )}
+              </div>
+            ) : preview ? (
               <div className="flex-1 overflow-y-auto bg-[#0a0a0a]">
                 {/* Subject line */}
                 <div className="px-4 py-3 border-b border-white/5">
