@@ -180,6 +180,9 @@ function ColdCallsPage() {
   const [listingUrl, setListingUrl] = useState("");
 
   const [contact, setContact] = useState<Contact | null>(null);
+  const [additionalContacts, setAdditionalContacts] = useState<Contact[]>([]);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [addContactInput, setAddContactInput] = useState("");
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", brokerage: "" });
   const [contactMode, setContactMode] = useState<"none" | "new" | "search">("none");
   const [searchQuery, setSearchQuery] = useState("");
@@ -239,6 +242,26 @@ function ColdCallsPage() {
     });
     loadData();
   }, [router, loadData]);
+
+  async function selectContact(c: Contact) {
+    setContact(c);
+    setAdditionalContacts([]);
+    setShowAddContact(false);
+    setAddContactInput("");
+    // Auto-load linked contacts (team members)
+    const supabase = createClient();
+    const { data: links } = await supabase
+      .from("contact_links")
+      .select("contact_id_a, contact_id_b")
+      .or(`contact_id_a.eq.${c.id},contact_id_b.eq.${c.id}`);
+    if (links && links.length > 0) {
+      const otherIds = links.map((l: { contact_id_a: string; contact_id_b: string }) =>
+        l.contact_id_a === c.id ? l.contact_id_b : l.contact_id_a
+      );
+      const { data: linked } = await supabase.from("contacts").select("id, name, email, phone, brokerage, stage").in("id", otherIds);
+      setAdditionalContacts((linked || []) as Contact[]);
+    }
+  }
 
   async function importZillow() {
     if (!zillow.trim()) return;
@@ -527,16 +550,15 @@ function ColdCallsPage() {
                     )}
                     {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
                     {(contactListings[log.contact_id] || []).length > 0 && (
-                      <p className="text-sm text-[#4ade80] mt-1.5">
-                        📍 {contactListings[log.contact_id].map((l, i) => (
-                          <span key={l.address}>
-                            {i > 0 && <span className="text-[#333] mx-1">·</span>}
-                            {l.url
+                      <div className="mt-1.5 space-y-0.5">
+                        {contactListings[log.contact_id].map(l => (
+                          <p key={l.address} className="text-sm text-[#555]">
+                            📍 {l.url
                               ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">{l.address}</a>
-                              : <span>{l.address}</span>}
-                          </span>
+                              : <span className="text-white">{l.address}</span>}
+                          </p>
                         ))}
-                      </p>
+                      </div>
                     )}
                     {log.contact?.phone && <a href={`tel:${log.contact.phone}`} className="text-sm text-[#4ade80] font-mono mt-1 block">{log.contact.phone}</a>}
                     {log.contact?.email && <p className="text-xs text-[#444] mt-0.5">{log.contact.email}</p>}
@@ -623,7 +645,7 @@ function ColdCallsPage() {
                   <button
                     onClick={() => {
                       if (log.contact) {
-                        setContact(log.contact);
+                        selectContact(log.contact);
                         setContactInput("");
                         setCreatingNew(false);
                       }
@@ -713,30 +735,66 @@ function ColdCallsPage() {
             <p className="text-xs tracking-[2px] uppercase text-[#555]">Agent / Contact</p>
 
             {contact ? (
-              <div className="bg-[#181818] border border-white/10 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{contact.name}</p>
-                    {contact.brokerage && <p className="text-xs text-[#555] mt-0.5">{contact.brokerage}</p>}
-                    {contact.phone && (
-                      <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] mt-1.5 block font-mono tracking-wide">
-                        {contact.phone}
-                      </a>
-                    )}
-                    {contact.email && <p className="text-xs text-[#444] mt-0.5">{contact.email}</p>}
-                    {attemptCounts[contact.id] > 0 && (
-                      <p className="text-xs text-[#fbbf24] mt-1.5">
-                        📞 {attemptCounts[contact.id]} previous attempt{attemptCounts[contact.id] !== 1 ? "s" : ""}
-                      </p>
+              <div className="space-y-2">
+                {/* Primary contact + any linked team members */}
+                {[contact, ...additionalContacts].map((c, idx) => (
+                  <div key={c.id} className="bg-[#181818] border border-white/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <button onClick={() => openContact(c.id)} className="font-semibold hover:underline text-left">{c.name}</button>
+                        {c.brokerage && <p className="text-xs text-[#555] mt-0.5">{c.brokerage}</p>}
+                        {attemptCounts[c.id] > 0 && (
+                          <p className="text-xs text-[#fbbf24] mt-1">
+                            📞 {attemptCounts[c.id]} previous attempt{attemptCounts[c.id] !== 1 ? "s" : ""}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (idx === 0) { setContact(null); setAdditionalContacts([]); setShowAddContact(false); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); setContactMode("none"); }
+                          else setAdditionalContacts(prev => prev.filter(x => x.id !== c.id));
+                        }}
+                        className="text-[#444] hover:text-white text-xs shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add another contact to this call */}
+                {!showAddContact ? (
+                  <button onClick={() => setShowAddContact(true)} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">
+                    + Add team member
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <input
+                      autoFocus
+                      value={addContactInput}
+                      onChange={e => setAddContactInput(e.target.value)}
+                      onBlur={() => setTimeout(() => setShowAddContact(false), 150)}
+                      placeholder="Search contact to add..."
+                      className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+                    />
+                    {addContactInput.trim().length > 0 && (
+                      <div className="absolute z-20 top-full left-0 right-0 bg-[#181818] border border-white/10 border-t-0 max-h-40 overflow-y-auto divide-y divide-white/5">
+                        {contacts.filter(c =>
+                          c.id !== contact.id &&
+                          !additionalContacts.find(a => a.id === c.id) &&
+                          (c.name.toLowerCase().includes(addContactInput.toLowerCase()) ||
+                           (c.brokerage || "").toLowerCase().includes(addContactInput.toLowerCase()))
+                        ).slice(0, 6).map(c => (
+                          <button key={c.id} onMouseDown={() => { setAdditionalContacts(prev => [...prev, c]); setAddContactInput(""); setShowAddContact(false); }}
+                            className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors">
+                            <span className="font-medium">{c.name}</span>
+                            {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => { setContact(null); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); setContactMode("none"); }}
-                    className="text-[#444] hover:text-white text-xs shrink-0"
-                  >
-                    ✕
-                  </button>
-                </div>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -766,7 +824,7 @@ function ColdCallsPage() {
                         <button
                           key={c.id}
                           onMouseDown={() => {
-                            setContact(c);
+                            selectContact(c);
                             setContactInput("");
                             setShowDropdown(false);
                             setCreatingNew(false);
@@ -925,18 +983,17 @@ function ColdCallsPage() {
                     </div>
                   </div>
                   {(contactListings[log.contact_id] || []).length > 0 && (
-                    <p className="text-xs text-[#555] mt-0.5">
-                      📍 {contactListings[log.contact_id].map((l, i) => (
-                        <span key={l.address}>
-                          {i > 0 && <span className="text-[#333] mx-1">·</span>}
-                          {l.url
+                    <div className="mt-0.5 space-y-0.5">
+                      {contactListings[log.contact_id].map(l => (
+                        <p key={l.address} className="text-xs text-[#555]">
+                          📍 {l.url
                             ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">{l.address}</a>
-                            : <span>{l.address}</span>}
-                        </span>
+                            : <span className="text-white">{l.address}</span>}
+                        </p>
                       ))}
-                    </p>
+                    </div>
                   )}
-                  {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
+                  {log.contact?.brokerage && <p className="text-xs text-[#444] mt-0.5">{log.contact.brokerage}</p>}
                   <p className="text-[10px] text-[#333] mt-1">
                     {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
                   </p>
