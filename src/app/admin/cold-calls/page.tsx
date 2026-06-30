@@ -966,9 +966,6 @@ function ColdCallsPage() {
                       ) : (
                         <span className="text-sm font-medium truncate">Unknown</span>
                       )}
-                      {log.attempts > 0 && (
-                        <span className="text-[10px] text-[#fbbf24]/60 shrink-0">×{log.attempts + 1}</span>
-                      )}
                     </div>
                     <div className="flex flex-wrap gap-1 justify-end shrink-0">
                       {log.outcome.split(",").map(tag => {
