@@ -27,7 +27,19 @@ type CallLog = {
 };
 
 type LogTab = "all" | "interested" | "follow_up" | "dead";
-type Outcome = "call_again" | "left_voicemail" | "interested" | "dead";
+type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "interested" | "dead";
+
+const CALL_TAGS: { key: CallTag; label: string; emoji: string; color: string; sub: string }[] = [
+  { key: "no_answer", label: "No Answer", emoji: "📵", color: "#a78bfa", sub: "didn't pick up" },
+  { key: "left_voicemail", label: "Left Voicemail", emoji: "🎙️", color: "#fbbf24", sub: "call back tomorrow" },
+  { key: "sent_text", label: "Sent Text", emoji: "💬", color: "#60a5fa", sub: "texted from your phone" },
+  { key: "interested", label: "Interested", emoji: "🔥", color: "#4ade80", sub: "marks as lead" },
+  { key: "dead", label: "Dead", emoji: "💀", color: "#f87171", sub: "not interested" },
+];
+
+function hasTag(outcome: string, tag: string): boolean {
+  return outcome.split(",").includes(tag);
+}
 
 function buildPitchHtml(firstName: string): string {
   const BASE = "https://luckimages.com";
@@ -144,6 +156,7 @@ function ColdCallsPage() {
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [callerName, setCallerName] = useState("ryan");
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Set<CallTag>>(new Set());
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -222,10 +235,11 @@ function ColdCallsPage() {
     await loadData();
   }
 
-  async function logCall(outcome: Outcome) {
-    if (!contact) return;
+  async function logCall() {
+    if (!contact || selectedTags.size === 0) return;
     setLogging(true);
     const supabase = createClient();
+    const outcome = [...selectedTags].join(",");
     await supabase.from("cold_calls").insert({
       contact_id: contact.id,
       outcome,
@@ -233,19 +247,16 @@ function ColdCallsPage() {
       listing_address: address || null,
       called_by: callerName,
     });
-    const stageMap: Record<string, string> = {
-      interested: "lead",
-      dead: "dead",
-      call_again: "follow-up",
-      left_voicemail: "follow-up",
-    };
-    await supabase.from("contacts").update({ stage: stageMap[outcome] }).eq("id", contact.id);
+    // dead > interested > follow-up, in that priority
+    const stage = selectedTags.has("dead") ? "dead" : selectedTags.has("interested") ? "lead" : "follow-up";
+    await supabase.from("contacts").update({ stage }).eq("id", contact.id);
     setLogging(false);
 
     showFlash(
-      outcome === "interested" ? "Logged as interested 🔥" :
-      outcome === "left_voicemail" ? "Voicemail logged — call back tomorrow" :
-      outcome === "call_again" ? "Logged — will call again" : "Marked dead"
+      selectedTags.has("dead") ? "Marked dead" :
+      selectedTags.has("interested") ? "Logged as interested 🔥 — remember to follow up tomorrow" :
+      selectedTags.has("left_voicemail") ? "Voicemail logged — call back tomorrow" :
+      "Logged"
     );
 
     setNotes("");
@@ -254,6 +265,7 @@ function ColdCallsPage() {
     setContact(null);
     setContactMode("none");
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
+    setSelectedTags(new Set());
     await loadData();
   }
 
@@ -286,7 +298,7 @@ function ColdCallsPage() {
   // ── Derived ────────────────────────────────────────────────────
   const attemptCounts: Record<string, number> = {};
   callLogs.forEach(l => {
-    if (["call_again", "left_voicemail"].includes(l.outcome))
+    if (!hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead"))
       attemptCounts[l.contact_id] = (attemptCounts[l.contact_id] || 0) + 1;
   });
 
@@ -306,15 +318,15 @@ function ColdCallsPage() {
 
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
     all: enrichedLogs.slice(0, 50),
-    interested: latestLogs.filter(l => l.outcome === "interested"),
-    follow_up: latestLogs.filter(l => ["call_again", "left_voicemail"].includes(l.outcome)).sort((a, b) => b.attempts - a.attempts),
-    dead: latestLogs.filter(l => l.outcome === "dead"),
+    interested: latestLogs.filter(l => hasTag(l.outcome, "interested")),
+    follow_up: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead")).sort((a, b) => b.attempts - a.attempts),
+    dead: latestLogs.filter(l => hasTag(l.outcome, "dead")),
   };
 
   const TAB_LABELS: Record<LogTab, string> = {
     all: "All",
     interested: `Interested (${tabLogs.interested.length})`,
-    follow_up: `Follow-up (${tabLogs.follow_up.length})`,
+    follow_up: `No Response (${tabLogs.follow_up.length})`,
     dead: `Dead (${tabLogs.dead.length})`,
   };
 
@@ -388,14 +400,7 @@ function ColdCallsPage() {
             const log = enrichedLogs.find(l => l.id === expandedLog);
             if (!log) return null;
             const allCallsForContact = enrichedLogs.filter(l => l.contact_id === log.contact_id).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime());
-            const outcomeColor: Record<string, string> = {
-              interested: "text-[#4ade80]", call_again: "text-[#fbbf24]",
-              left_voicemail: "text-[#a78bfa]", dead: "text-[#555]",
-            };
-            const outcomeLabel: Record<string, string> = {
-              interested: "Interested 🔥", call_again: "Call Again 📞",
-              left_voicemail: "Left Voicemail 📵", dead: "Dead 💀",
-            };
+            const tagMeta = Object.fromEntries(CALL_TAGS.map(t => [t.key, t]));
             return (
               <div className="absolute inset-0 z-10 bg-[#0c0c0c] space-y-4">
                 {/* Header */}
@@ -416,10 +421,17 @@ function ColdCallsPage() {
                   {allCallsForContact.map(c => (
                     <div key={c.id} className="px-4 py-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`text-xs font-semibold ${outcomeColor[c.outcome] || "text-[#444]"}`}>
-                          {outcomeLabel[c.outcome] || c.outcome}
-                        </span>
-                        <span className="text-[10px] text-[#333]">
+                        <div className="flex flex-wrap gap-1.5">
+                          {c.outcome.split(",").map(tag => {
+                            const meta = tagMeta[tag as CallTag];
+                            return (
+                              <span key={tag} className="text-xs font-semibold" style={{ color: meta?.color || "#888" }}>
+                                {meta ? `${meta.label} ${meta.emoji}` : tag}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        <span className="text-[10px] text-[#333] shrink-0">
                           {new Date(c.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {c.called_by}
                         </span>
                       </div>
@@ -457,6 +469,14 @@ function ColdCallsPage() {
                     >
                       ✉ Send Follow-up Email
                     </button>
+                  )}
+                  {log.contact && hasTag(log.outcome, "interested") && (
+                    <a
+                      href={`/dashboard/outreach?contact=${log.contact.id}&template=portal_invite`}
+                      className="block w-full text-center text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors"
+                    >
+                      🔑 Send Portal Invite
+                    </a>
                   )}
                   {log.contact && (
                     <a
@@ -647,52 +667,46 @@ function ColdCallsPage() {
             />
           </div>
 
-          {/* Outcome buttons */}
+          {/* Outcome tags — multi-select */}
           <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-3">Log Outcome</p>
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <button
-                onClick={() => logCall("left_voicemail")}
-                disabled={!contact || logging}
-                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#a78bfa] hover:bg-[#a78bfa]/10 hover:border-[#a78bfa]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
-              >
-                <span className="text-2xl">📵</span>
-                <span>Left Voicemail</span>
-                <span className="text-[10px] text-[#a78bfa]/50 font-normal tracking-normal normal-case">no answer, call back tomorrow</span>
-              </button>
-
-              <button
-                onClick={() => logCall("call_again")}
-                disabled={!contact || logging}
-                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#fbbf24] hover:bg-[#fbbf24]/10 hover:border-[#fbbf24]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
-              >
-                <span className="text-2xl">📞</span>
-                <span>Call Again</span>
-                <span className="text-[10px] text-[#fbbf24]/50 font-normal tracking-normal normal-case">answered, call back later</span>
-              </button>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-3">Log Outcome <span className="normal-case tracking-normal text-[#333]">(select all that apply)</span></p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {CALL_TAGS.map(t => {
+                const active = selectedTags.has(t.key);
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => {
+                      setSelectedTags(prev => {
+                        const next = new Set(prev);
+                        if (next.has(t.key)) next.delete(t.key);
+                        else {
+                          next.add(t.key);
+                          // interested and dead are mutually exclusive verdicts
+                          if (t.key === "interested") next.delete("dead");
+                          if (t.key === "dead") next.delete("interested");
+                        }
+                        return next;
+                      });
+                    }}
+                    disabled={!contact}
+                    style={active ? { borderColor: t.color, color: t.color, background: `${t.color}1a` } : undefined}
+                    className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#888] hover:border-white/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
+                  >
+                    <span className="text-2xl">{t.emoji}</span>
+                    <span>{t.label}</span>
+                    <span className="text-[10px] font-normal tracking-normal normal-case opacity-60">{t.sub}</span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => logCall("interested")}
-                disabled={!contact || logging}
-                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#4ade80] hover:bg-[#4ade80]/10 hover:border-[#4ade80]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
-              >
-                <span className="text-2xl">🔥</span>
-                <span>Interested</span>
-                <span className="text-[10px] text-[#4ade80]/50 font-normal tracking-normal normal-case">marks as lead</span>
-              </button>
-
-              <button
-                onClick={() => logCall("dead")}
-                disabled={!contact || logging}
-                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#555] hover:bg-red-900/20 hover:border-red-800/30 hover:text-red-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
-              >
-                <span className="text-2xl">💀</span>
-                <span>Dead</span>
-                <span className="text-[10px] font-normal tracking-normal normal-case">not interested</span>
-              </button>
-
-            </div>
+            <button
+              onClick={logCall}
+              disabled={!contact || logging || selectedTags.size === 0}
+              className="w-full text-xs tracking-[2px] uppercase font-bold py-3.5 bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {logging ? "Saving..." : "Save Call Log"}
+            </button>
           </div>
         </div>
 
@@ -721,18 +735,7 @@ function ColdCallsPage() {
             {tabLogs[logTab].length === 0 ? (
               <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>
             ) : tabLogs[logTab].map((log: EnrichedLog) => {
-              const outcomeColor: Record<string, string> = {
-                interested: "text-[#4ade80] bg-[#4ade80]/10",
-                call_again: "text-[#fbbf24] bg-[#fbbf24]/10",
-                left_voicemail: "text-[#a78bfa] bg-[#a78bfa]/10",
-                dead: "text-[#444] bg-white/5",
-              };
-              const outcomeLabel: Record<string, string> = {
-                interested: "Interested",
-                call_again: "Call Again",
-                left_voicemail: "Voicemail",
-                dead: "Dead",
-              };
+              const tagMeta = Object.fromEntries(CALL_TAGS.map(t => [t.key, t]));
               const isExpanded = expandedLog === log.id;
               return (
                 <div key={log.id}
@@ -746,9 +749,17 @@ function ColdCallsPage() {
                         <span className="text-[10px] text-[#fbbf24]/60 shrink-0">×{log.attempts + 1}</span>
                       )}
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 font-semibold tracking-wide uppercase ${outcomeColor[log.outcome] || "text-[#444] bg-white/5"}`}>
-                      {outcomeLabel[log.outcome] || log.outcome}
-                    </span>
+                    <div className="flex flex-wrap gap-1 justify-end shrink-0">
+                      {log.outcome.split(",").map(tag => {
+                        const meta = tagMeta[tag as CallTag];
+                        return (
+                          <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase"
+                            style={{ color: meta?.color || "#888", background: `${meta?.color || "#888"}1a` }}>
+                            {meta?.label || tag}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                   {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
                   <p className="text-[10px] text-[#333] mt-1">
