@@ -72,6 +72,8 @@ export default function MarketingPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [referralSearch, setReferralSearch] = useState("");
+  const [callsToggle, setCallsToggle] = useState<"week" | "all">("week");
+  const [revenueToggle, setRevenueToggle] = useState<"mtd" | "ytd">("mtd");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -96,9 +98,11 @@ export default function MarketingPage() {
 
   // ── Cold calling stats ──────────────────────────────────────────────────
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const mtdStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const ytdStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
   const callsThisWeek = coldCalls.filter(c => c.called_at >= weekAgo).length;
+  const callsAllTime = coldCalls.length;
   const uniqueContactsCalled = new Set(coldCalls.map(c => c.contact_id)).size;
-  // latest log per contact
   const latestByContact: Record<string, ColdCallLog> = {};
   for (const log of coldCalls) {
     if (!latestByContact[log.contact_id] || log.called_at > latestByContact[log.contact_id].called_at)
@@ -107,11 +111,10 @@ export default function MarketingPage() {
   const latestLogs = Object.values(latestByContact);
   const interestedCount = latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead") && !hasTag(l.outcome, "closed")).length;
   const closedFromCalls = latestLogs.filter(l => hasTag(l.outcome, "closed")).length;
-  const deadCount = latestLogs.filter(l => hasTag(l.outcome, "dead")).length;
-  const callAgainCount = latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).length;
-  const sendInfoCount = latestLogs.filter(l => hasTag(l.outcome, "send_info") && !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).length;
   const coldCallConversion = uniqueContactsCalled > 0 ? Math.round((closedFromCalls / uniqueContactsCalled) * 100) : 0;
-  const coldCallRevenue = contacts.filter(c => c.lead_source === "cold-call").reduce((s, c) => s + (c.total_revenue || 0), 0);
+  const coldCallContacts = contacts.filter(c => c.lead_source === "cold-call");
+  const revMTD = coldCallContacts.filter(c => c.created_at >= mtdStart).reduce((s, c) => s + (c.total_revenue || 0), 0);
+  const revYTD = coldCallContacts.filter(c => c.created_at >= ytdStart).reduce((s, c) => s + (c.total_revenue || 0), 0);
 
   // ── Generic channel stats ───────────────────────────────────────────────
   const genericChannels = CHANNELS.filter(ch => !ch.dedicated).map(ch => {
@@ -219,18 +222,48 @@ export default function MarketingPage() {
                 </div>
 
                 {/* Stats grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/5">
-                  <StatBox label="Total Calls Logged" value={coldCalls.length.toString()} />
-                  <StatBox label="Calls This Week" value={callsThisWeek.toString()} />
-                  <StatBox label="Unique Contacts" value={uniqueContactsCalled.toString()} />
-                  <StatBox label="Attributed Revenue" value={coldCallRevenue > 0 ? `$${coldCallRevenue.toLocaleString()}` : "—"} accent="#4ade80" />
+                <div className="grid grid-cols-3 gap-px bg-white/5">
+                  {/* Calls — toggleable week / all time */}
+                  <div className="bg-[#0f0f0f] border border-white/5 px-4 py-3 flex flex-col gap-0.5">
+                    <p className="text-xl font-black tabular-nums text-white">
+                      {callsToggle === "week" ? callsThisWeek : callsAllTime}
+                    </p>
+                    <p className="text-[10px] tracking-[1.5px] uppercase text-[#444]">Calls</p>
+                    <div className="flex gap-2 mt-1">
+                      {(["week", "all"] as const).map(t => (
+                        <button key={t} onClick={() => setCallsToggle(t)}
+                          className={`text-[9px] tracking-[1px] uppercase px-1.5 py-0.5 border transition-all ${callsToggle === t ? "border-white/30 text-white" : "border-white/5 text-[#333] hover:text-[#555]"}`}>
+                          {t === "week" ? "This Week" : "All Time"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Contacts */}
+                  <StatBox label="Contacts" value={uniqueContactsCalled.toString()} />
+
+                  {/* Revenue — toggleable MTD / YTD */}
+                  <div className="bg-[#0f0f0f] border border-white/5 px-4 py-3 flex flex-col gap-0.5">
+                    <p className="text-xl font-black tabular-nums text-[#4ade80]">
+                      {(revenueToggle === "mtd" ? revMTD : revYTD) > 0
+                        ? `$${(revenueToggle === "mtd" ? revMTD : revYTD).toLocaleString()}`
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] tracking-[1.5px] uppercase text-[#444]">Revenue Generated</p>
+                    <div className="flex gap-2 mt-1">
+                      {(["mtd", "ytd"] as const).map(t => (
+                        <button key={t} onClick={() => setRevenueToggle(t)}
+                          className={`text-[9px] tracking-[1px] uppercase px-1.5 py-0.5 border transition-all ${revenueToggle === t ? "border-white/30 text-white" : "border-white/5 text-[#333] hover:text-[#555]"}`}>
+                          {t.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-white/5">
+
+                <div className="grid grid-cols-2 gap-px bg-white/5">
                   <StatBox label="Interested" value={interestedCount.toString()} accent="#4ade80" />
-                  <StatBox label="Info Sent" value={sendInfoCount.toString()} accent="#c084fc" />
-                  <StatBox label="Call Again" value={callAgainCount.toString()} accent="#fbbf24" />
                   <StatBox label="Closed" value={closedFromCalls.toString()} accent="#34d399" />
-                  <StatBox label="Dead" value={deadCount.toString()} accent="#f87171" />
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1.5 bg-white/5 overflow-hidden rounded-full">
