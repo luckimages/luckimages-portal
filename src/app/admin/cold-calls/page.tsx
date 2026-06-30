@@ -29,12 +29,13 @@ type CallLog = {
 };
 
 type LogTab = "all" | "interested" | "call_again" | "closed" | "dead";
-type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "interested" | "closed" | "dead" | "new_address";
+type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "send_info" | "interested" | "closed" | "dead" | "new_address";
 
 const CALL_TAGS: { key: CallTag; label: string; emoji: string; color: string; sub: string }[] = [
   { key: "no_answer", label: "No Answer", emoji: "📵", color: "#a78bfa", sub: "didn't pick up" },
   { key: "left_voicemail", label: "Left Voicemail", emoji: "🎙️", color: "#fbbf24", sub: "call back tomorrow" },
   { key: "sent_text", label: "Sent Text", emoji: "💬", color: "#60a5fa", sub: "texted from your phone" },
+  { key: "send_info", label: "Send Info", emoji: "📨", color: "#c084fc", sub: "wants pricing + portfolio" },
   { key: "interested", label: "Interested", emoji: "🔥", color: "#4ade80", sub: "marks as lead" },
   { key: "closed", label: "Closed", emoji: "✅", color: "#34d399", sub: "registered in portal" },
   { key: "dead", label: "Dead", emoji: "💀", color: "#f87171", sub: "not interested" },
