@@ -126,6 +126,9 @@ function ColdCallsPage() {
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", brokerage: "" });
   const [contactMode, setContactMode] = useState<"none" | "new" | "search">("none");
   const [searchQuery, setSearchQuery] = useState("");
+  const [contactInput, setContactInput] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
 
   const [notes, setNotes] = useState("");
   const [logging, setLogging] = useState(false);
@@ -442,72 +445,96 @@ function ColdCallsPage() {
                   </button>
                 </div>
               </div>
-            ) : contactMode === "new" ? (
-              <form onSubmit={createContact} className="space-y-2">
-                <input required autoFocus
-                  value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="Agent name *"
-                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))}
-                    placeholder="Phone"
-                    className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                  <input value={contactForm.brokerage} onChange={e => setContactForm(f => ({ ...f, brokerage: e.target.value }))}
-                    placeholder="Brokerage"
-                    className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                </div>
-                <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))}
-                  placeholder="Email (for pitch email)"
-                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
-                <div className="flex gap-2 pt-1">
-                  <button type="button"
-                    onClick={() => { setContactMode("none"); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); }}
-                    className="text-xs px-3 py-2 border border-white/10 text-[#555] hover:text-white transition-colors">
-                    Cancel
-                  </button>
-                  <button type="submit"
-                    className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-2 hover:bg-[#ddd] transition-colors font-bold">
-                    Save &amp; Select
-                  </button>
-                </div>
-              </form>
-            ) : contactMode === "search" ? (
-              <div className="space-y-2">
-                <input autoFocus
-                  value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Name, brokerage, or phone..."
-                  className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
-                />
-                {searchQuery && (
-                  <div className="bg-[#181818] border border-white/10 max-h-44 overflow-y-auto divide-y divide-white/5">
-                    {filteredContacts.length === 0 && <p className="px-3 py-3 text-xs text-[#444]">No results</p>}
-                    {filteredContacts.slice(0, 8).map(c => (
-                      <button key={c.id}
-                        onClick={() => { setContact(c); setContactMode("none"); setSearchQuery(""); }}
-                        className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors">
-                        <span className="font-medium">{c.name}</span>
-                        {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
-                        {callAgainCounts[c.id] > 0 && (
-                          <span className="text-[#fbbf24] ml-2">({callAgainCounts[c.id]}x tried)</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => { setContactMode("none"); setSearchQuery(""); }}
-                  className="text-xs text-[#444] hover:text-white transition-colors">Cancel</button>
-              </div>
             ) : (
-              <div className="flex gap-2">
-                <button onClick={() => setContactMode("new")}
-                  className="flex-1 text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2.5 text-[#888] hover:text-white hover:border-white/30 transition-all">
-                  + New contact
-                </button>
-                <button onClick={() => setContactMode("search")}
-                  className="flex-1 text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2.5 text-[#888] hover:text-white hover:border-white/30 transition-all">
-                  Search existing
-                </button>
+              <div className="space-y-2">
+                {/* Unified search + create input */}
+                <div className="relative">
+                  <input
+                    autoFocus
+                    value={contactInput}
+                    onChange={e => {
+                      setContactInput(e.target.value);
+                      setShowDropdown(true);
+                      setCreatingNew(false);
+                      setContactForm(f => ({ ...f, name: e.target.value }));
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                    placeholder="Type agent name, brokerage, or phone..."
+                    className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+                  />
+                  {showDropdown && contactInput.trim().length > 0 && (
+                    <div className="absolute z-20 top-full left-0 right-0 bg-[#181818] border border-white/10 border-t-0 max-h-52 overflow-y-auto divide-y divide-white/5">
+                      {contacts.filter(c =>
+                        c.name.toLowerCase().includes(contactInput.toLowerCase()) ||
+                        (c.brokerage || "").toLowerCase().includes(contactInput.toLowerCase()) ||
+                        (c.phone || "").includes(contactInput)
+                      ).slice(0, 8).map(c => (
+                        <button
+                          key={c.id}
+                          onMouseDown={() => {
+                            setContact(c);
+                            setContactInput("");
+                            setShowDropdown(false);
+                            setCreatingNew(false);
+                          }}
+                          className="w-full text-left px-3 py-2.5 text-xs hover:bg-white/5 transition-colors"
+                        >
+                          <span className="font-medium text-white">{c.name}</span>
+                          {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                          {c.phone && <span className="text-[#333] ml-2">{c.phone}</span>}
+                          {callAgainCounts[c.id] > 0 && (
+                            <span className="text-[#fbbf24] ml-2">({callAgainCounts[c.id]}x called)</span>
+                          )}
+                        </button>
+                      ))}
+                      {/* Create new option always at bottom */}
+                      <button
+                        onMouseDown={() => {
+                          setCreatingNew(true);
+                          setShowDropdown(false);
+                          setContactForm(f => ({ ...f, name: contactInput }));
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-xs text-[#4ade80] hover:bg-white/5 transition-colors"
+                      >
+                        + Create &quot;{contactInput}&quot; as new contact
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* New contact extra fields — shown inline after picking "Create new" */}
+                {creatingNew && (
+                  <form onSubmit={async e => {
+                    e.preventDefault();
+                    await createContact(e);
+                    setCreatingNew(false);
+                    setContactInput("");
+                  }} className="space-y-2 pt-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="Phone"
+                        className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                      <input value={contactForm.brokerage} onChange={e => setContactForm(f => ({ ...f, brokerage: e.target.value }))}
+                        placeholder="Brokerage"
+                        className="bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    </div>
+                    <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="Email (optional)"
+                      className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    <div className="flex gap-2">
+                      <button type="button"
+                        onClick={() => { setCreatingNew(false); setContactInput(""); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); }}
+                        className="text-xs px-3 py-2 border border-white/10 text-[#555] hover:text-white transition-colors">
+                        Cancel
+                      </button>
+                      <button type="submit"
+                        className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-2 hover:bg-[#ddd] transition-colors font-bold">
+                        Save &amp; Select
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
           </div>
