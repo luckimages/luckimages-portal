@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { normalizePhone } from "@/lib/format";
+import { useContactModal } from "@/context/ContactModalContext";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -162,6 +163,7 @@ export default function ColdCallsPageWrapper() {
 function ColdCallsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { openContact } = useContactModal();
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
@@ -513,7 +515,16 @@ function ColdCallsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs tracking-[4px] uppercase text-[#555]">Contact</p>
-                    <p className="text-lg font-bold mt-1">{log.contact?.name || "Unknown"}</p>
+                    {log.contact ? (
+                      <button
+                        onClick={() => openContact(log.contact!.id)}
+                        className="text-lg font-bold mt-1 hover:underline text-left"
+                      >
+                        {log.contact.name}
+                      </button>
+                    ) : (
+                      <p className="text-lg font-bold mt-1">Unknown</p>
+                    )}
                     {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
                     {(contactListings[log.contact_id] || []).length > 0 && (
                       <p className="text-sm text-[#4ade80] mt-1.5">
@@ -887,7 +898,16 @@ function ColdCallsPage() {
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium truncate">{log.contact?.name || "Unknown"}</span>
+                      {log.contact ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); openContact(log.contact!.id); }}
+                          className="text-sm font-medium truncate hover:underline text-left"
+                        >
+                          {log.contact.name}
+                        </button>
+                      ) : (
+                        <span className="text-sm font-medium truncate">Unknown</span>
+                      )}
                       {log.attempts > 0 && (
                         <span className="text-[10px] text-[#fbbf24]/60 shrink-0">×{log.attempts + 1}</span>
                       )}
