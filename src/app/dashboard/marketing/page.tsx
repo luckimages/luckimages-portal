@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-const CHANNELS: { key: string; label: string; icon: string }[] = [
+const CHANNELS: { key: string; label: string; icon: string; dedicated?: boolean }[] = [
+  { key: "cold-call",         label: "Cold Calling",              icon: "📞", dedicated: true },
   { key: "referral",          label: "Referral",                  icon: "👥" },
   { key: "google-seo",        label: "Google SEO",                icon: "🔍" },
   { key: "google-business",   label: "Google Business Profile",   icon: "📍" },
@@ -12,7 +14,6 @@ const CHANNELS: { key: string; label: string; icon: string }[] = [
   { key: "facebook",          label: "Facebook",                  icon: "📘" },
   { key: "linkedin-business", label: "LinkedIn — Luck Images",    icon: "💼" },
   { key: "linkedin-personal", label: "LinkedIn — Ryan Luck",      icon: "🧑‍💼" },
-  { key: "cold-call",         label: "Cold Calling",              icon: "📞" },
   { key: "cold-email",        label: "Cold Email",                icon: "📧" },
   { key: "zillow",            label: "Zillow / Realtor.com",      icon: "🏠" },
   { key: "networking",        label: "Networking Events",         icon: "🤝" },
@@ -39,35 +40,49 @@ type Shoot = {
   status: string;
 };
 
-type ChannelStats = {
-  key: string;
-  label: string;
-  icon: string;
-  leads: number;
-  clients: number;
-  revenue: number;
-  conversionRate: number;
+type ColdCallLog = {
+  id: string;
+  contact_id: string;
+  outcome: string;
+  called_at: string;
+  called_by: string;
 };
 
 const BASE_URL = "https://luckimages-portal.vercel.app";
 
+function hasTag(outcome: string, tag: string) {
+  return outcome.split(",").includes(tag);
+}
+
+function StatBox({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+  return (
+    <div className="bg-[#0f0f0f] border border-white/5 px-4 py-3 flex flex-col gap-0.5">
+      <p className={`text-xl font-black tabular-nums ${accent || "text-white"}`}>{value}</p>
+      <p className="text-[10px] tracking-[1.5px] uppercase text-[#444]">{label}</p>
+      {sub && <p className="text-[10px] text-[#333]">{sub}</p>}
+    </div>
+  );
+}
+
 export default function MarketingPage() {
+  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [shoots, setShoots] = useState<Shoot[]>([]);
+  const [coldCalls, setColdCalls] = useState<ColdCallLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
   const [referralSearch, setReferralSearch] = useState("");
-  const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: contactData }, { data: shootData }] = await Promise.all([
+    const [{ data: contactData }, { data: shootData }, { data: callData }] = await Promise.all([
       supabase.from("contacts").select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id").neq("stage", "deleted"),
       supabase.from("shoots").select("id, contact_id, scheduled_at, status").in("status", ["completed", "delivered"]),
+      supabase.from("cold_calls").select("id, contact_id, outcome, called_at, called_by"),
     ]);
     setContacts(contactData || []);
-    setAllContacts(contactData || []);
     setShoots(shootData || []);
+    setColdCalls(callData || []);
     setLoading(false);
   }, []);
 
@@ -79,10 +94,30 @@ export default function MarketingPage() {
     setTimeout(() => setCopied(null), 2000);
   }
 
-  const channelStats: ChannelStats[] = CHANNELS.map(ch => {
+  // ── Cold calling stats ──────────────────────────────────────────────────
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const callsThisWeek = coldCalls.filter(c => c.called_at >= weekAgo).length;
+  const uniqueContactsCalled = new Set(coldCalls.map(c => c.contact_id)).size;
+  // latest log per contact
+  const latestByContact: Record<string, ColdCallLog> = {};
+  for (const log of coldCalls) {
+    if (!latestByContact[log.contact_id] || log.called_at > latestByContact[log.contact_id].called_at)
+      latestByContact[log.contact_id] = log;
+  }
+  const latestLogs = Object.values(latestByContact);
+  const interestedCount = latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead") && !hasTag(l.outcome, "closed")).length;
+  const closedFromCalls = latestLogs.filter(l => hasTag(l.outcome, "closed")).length;
+  const deadCount = latestLogs.filter(l => hasTag(l.outcome, "dead")).length;
+  const callAgainCount = latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).length;
+  const sendInfoCount = latestLogs.filter(l => hasTag(l.outcome, "send_info") && !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).length;
+  const coldCallConversion = uniqueContactsCalled > 0 ? Math.round((closedFromCalls / uniqueContactsCalled) * 100) : 0;
+  const coldCallRevenue = contacts.filter(c => c.lead_source === "cold-call").reduce((s, c) => s + (c.total_revenue || 0), 0);
+
+  // ── Generic channel stats ───────────────────────────────────────────────
+  const genericChannels = CHANNELS.filter(ch => !ch.dedicated).map(ch => {
     const matched = contacts.filter(c => c.lead_source === ch.key);
-    const clients  = matched.filter(c => c.type === "realtor" || c.stage === "client" || (c.total_revenue || 0) > 0);
-    const revenue  = matched.reduce((s, c) => s + (c.total_revenue || 0), 0);
+    const clients = matched.filter(c => c.type === "realtor" || c.stage === "client" || (c.total_revenue || 0) > 0);
+    const revenue = matched.reduce((s, c) => s + (c.total_revenue || 0), 0);
     return {
       ...ch,
       leads: matched.length,
@@ -92,13 +127,12 @@ export default function MarketingPage() {
     };
   }).sort((a, b) => b.revenue - a.revenue || b.leads - a.leads);
 
-  const unattributed = contacts.filter(c => !c.lead_source);
-  const totalLeads   = contacts.length;
+  // ── Overall stats ───────────────────────────────────────────────────────
+  const totalLeads = contacts.length;
   const totalClients = contacts.filter(c => c.type === "realtor" || (c.total_revenue || 0) > 0).length;
   const totalRevenue = contacts.reduce((s, c) => s + (c.total_revenue || 0), 0);
   const overallConversion = totalLeads > 0 ? Math.round((totalClients / totalLeads) * 100) : 0;
 
-  // Repeat clients & avg time between bookings (from shoots data)
   const clientShootMap: Record<string, number[]> = {};
   for (const sh of shoots) {
     if (!sh.contact_id) continue;
@@ -108,32 +142,22 @@ export default function MarketingPage() {
   const uniqueClientsWithShoots = Object.keys(clientShootMap).length;
   const repeatClientCount = Object.values(clientShootMap).filter(d => d.length >= 2).length;
   const repeatClientPct = uniqueClientsWithShoots > 0 ? Math.round((repeatClientCount / uniqueClientsWithShoots) * 100) : 0;
-
   const avgBookingGapDays = (() => {
     const gaps: number[] = [];
     for (const dates of Object.values(clientShootMap)) {
       if (dates.length < 2) continue;
       dates.sort((a, b) => a - b);
-      for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i-1]) / 86400000);
+      for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i - 1]) / 86400000);
     }
     return gaps.length ? Math.round(gaps.reduce((a, b) => a + b) / gaps.length) : null;
   })();
 
-  // Top 10 clients by lifetime value
-  const top10LTV = [...contacts]
-    .filter(c => (c.total_revenue || 0) > 0)
-    .sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0))
-    .slice(0, 10);
-
-  const referralContacts = allContacts.filter(c =>
-    referralSearch.length > 1 &&
-    c.name.toLowerCase().includes(referralSearch.toLowerCase())
-  ).slice(0, 6);
+  const unattributed = contacts.filter(c => !c.lead_source);
+  const top10LTV = [...contacts].filter(c => (c.total_revenue || 0) > 0).sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0)).slice(0, 10);
+  const referralContacts = contacts.filter(c => referralSearch.length > 1 && c.name.toLowerCase().includes(referralSearch.toLowerCase())).slice(0, 6);
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-6">
           <a href="/" className="text-lg font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
@@ -143,13 +167,12 @@ export default function MarketingPage() {
 
       <div className="flex-1 px-6 py-8 max-w-6xl mx-auto w-full space-y-10">
 
-        {/* Title */}
         <div>
           <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Attribution</p>
           <h1 className="text-2xl font-black tracking-tight uppercase">Marketing Metrics</h1>
         </div>
 
-        {/* Quick stats */}
+        {/* Overall quick stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-white/5 border border-white/5">
           {[
             { label: "Total Contacts", value: totalLeads.toString() },
@@ -173,9 +196,51 @@ export default function MarketingPage() {
           </div>
         ) : (
           <>
-            {/* Channel scoreboard */}
+            {/* ── Cold Calling — dedicated card ── */}
             <div>
               <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Channel Breakdown</p>
+
+              <div className="border border-white/10 bg-[#111] p-5 space-y-4 mb-px">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📞</span>
+                    <div>
+                      <p className="text-sm font-bold tracking-wide">Cold Calling</p>
+                      <p className="text-[10px] text-[#444] mt-0.5">Live data from the Cold Call Tool</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => router.push("/admin/cold-calls")}
+                    className="text-[10px] tracking-[1.5px] uppercase border border-white/20 px-3 py-1.5 text-[#888] hover:text-white hover:border-white/40 transition-all shrink-0"
+                  >
+                    Open Tool →
+                  </button>
+                </div>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/5">
+                  <StatBox label="Total Calls Logged" value={coldCalls.length.toString()} />
+                  <StatBox label="Calls This Week" value={callsThisWeek.toString()} />
+                  <StatBox label="Unique Contacts" value={uniqueContactsCalled.toString()} />
+                  <StatBox label="Attributed Revenue" value={coldCallRevenue > 0 ? `$${coldCallRevenue.toLocaleString()}` : "—"} accent="#4ade80" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-white/5">
+                  <StatBox label="Interested" value={interestedCount.toString()} accent="#4ade80" />
+                  <StatBox label="Info Sent" value={sendInfoCount.toString()} accent="#c084fc" />
+                  <StatBox label="Call Again" value={callAgainCount.toString()} accent="#fbbf24" />
+                  <StatBox label="Closed" value={closedFromCalls.toString()} accent="#34d399" />
+                  <StatBox label="Dead" value={deadCount.toString()} accent="#f87171" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-white/5 overflow-hidden rounded-full">
+                    <div className="h-full bg-[#4ade80] transition-all" style={{ width: `${coldCallConversion}%` }} />
+                  </div>
+                  <p className="text-xs font-bold text-[#4ade80] tabular-nums shrink-0">{coldCallConversion}% conversion</p>
+                </div>
+              </div>
+
+              {/* Generic channels table */}
               <div className="border border-white/5 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -189,7 +254,7 @@ export default function MarketingPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {channelStats.map(ch => (
+                    {genericChannels.map(ch => (
                       <tr key={ch.key} className={`hover:bg-white/[0.02] transition-colors ${ch.leads === 0 ? "opacity-40" : ""}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
@@ -220,7 +285,6 @@ export default function MarketingPage() {
                       </tr>
                     ))}
 
-                    {/* Unattributed row */}
                     {unattributed.length > 0 && (
                       <tr className="opacity-30 hover:opacity-50 transition-opacity">
                         <td className="px-4 py-3">
@@ -245,9 +309,8 @@ export default function MarketingPage() {
               </div>
             </div>
 
-            {/* Top referrers leaderboard */}
+            {/* Top referrers */}
             {(() => {
-              // Build map: referrer contact_id → { count, revenue }
               const map: Record<string, { name: string; count: number; revenue: number }> = {};
               for (const c of contacts) {
                 if (!c.referred_by_contact_id) continue;
@@ -258,13 +321,8 @@ export default function MarketingPage() {
                 map[c.referred_by_contact_id].count++;
                 map[c.referred_by_contact_id].revenue += c.total_revenue || 0;
               }
-              const leaderboard = Object.entries(map)
-                .map(([id, v]) => ({ id, ...v }))
-                .sort((a, b) => b.revenue - a.revenue || b.count - a.count)
-                .slice(0, 10);
-
+              const leaderboard = Object.entries(map).map(([id, v]) => ({ id, ...v })).sort((a, b) => b.revenue - a.revenue || b.count - a.count).slice(0, 10);
               if (leaderboard.length === 0) return null;
-
               return (
                 <div>
                   <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Top Referrers</p>
@@ -282,7 +340,7 @@ export default function MarketingPage() {
               );
             })()}
 
-            {/* Top 10 clients by lifetime value */}
+            {/* Top clients by LTV */}
             {top10LTV.length > 0 && (
               <div>
                 <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Top Clients by Lifetime Value</p>
@@ -337,7 +395,6 @@ export default function MarketingPage() {
                 )}
               </div>
             </div>
-
           </>
         )}
       </div>
