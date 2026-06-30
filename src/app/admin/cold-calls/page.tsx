@@ -29,7 +29,7 @@ type CallLog = {
 };
 
 type LogTab = "all" | "interested" | "call_again" | "closed" | "dead";
-type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "interested" | "closed" | "dead";
+type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "interested" | "closed" | "dead" | "new_address";
 
 const CALL_TAGS: { key: CallTag; label: string; emoji: string; color: string; sub: string }[] = [
   { key: "no_answer", label: "No Answer", emoji: "📵", color: "#a78bfa", sub: "didn't pick up" },
@@ -38,6 +38,7 @@ const CALL_TAGS: { key: CallTag; label: string; emoji: string; color: string; su
   { key: "interested", label: "Interested", emoji: "🔥", color: "#4ade80", sub: "marks as lead" },
   { key: "closed", label: "Closed", emoji: "✅", color: "#34d399", sub: "registered in portal" },
   { key: "dead", label: "Dead", emoji: "💀", color: "#f87171", sub: "not interested" },
+  { key: "new_address", label: "New Address", emoji: "📍", color: "#94a3b8", sub: "save address, no contact made" },
 ];
 
 function hasTag(outcome: string, tag: string): boolean {
