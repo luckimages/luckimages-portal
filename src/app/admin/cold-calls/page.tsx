@@ -337,6 +337,25 @@ function ColdCallsPage() {
     await loadData();
   }
 
+  async function deleteLog(log: CallLog) {
+    const supabase = createClient();
+    await supabase.from("cold_calls").delete().eq("id", log.id);
+    // Recompute stage from remaining logs
+    const { data: remaining } = await supabase
+      .from("cold_calls")
+      .select("outcome, called_at")
+      .eq("contact_id", log.contact_id)
+      .order("called_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (remaining) {
+      await supabase.from("contacts").update({ stage: stageFromOutcome(remaining.outcome) }).eq("id", log.contact_id);
+    }
+    setEditingLogId(null);
+    showFlash("Log deleted");
+    await loadData();
+  }
+
   function showFlash(msg: string) {
     setFlash(msg);
     setTimeout(() => setFlash(null), 2500);
@@ -525,7 +544,7 @@ function ColdCallsPage() {
 
                 {/* Call history — editable */}
                 <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
-                  <p className="px-4 py-2 text-[10px] tracking-[2px] uppercase text-[#555]">Call History ({allCallsForContact.length})</p>
+                  <p className="px-4 py-2 text-[10px] tracking-[2px] uppercase text-[#555]">Lead History ({allCallsForContact.length})</p>
                   {allCallsForContact.map(c => {
                     const isEditing = editingLogId === c.id;
                     if (isEditing) {
@@ -542,6 +561,10 @@ function ColdCallsPage() {
                           <div className="flex gap-2">
                             <button onClick={() => setEditingLogId(null)} className="text-xs px-3 py-1.5 border border-white/10 text-[#555] hover:text-white transition-colors">
                               Cancel
+                            </button>
+                            <button onClick={() => deleteLog(c)}
+                              className="text-xs px-3 py-1.5 border border-red-900/40 text-red-500 hover:bg-red-900/20 transition-colors">
+                              Delete
                             </button>
                             <button onClick={() => saveEditedLog(c)} disabled={editTags.size === 0}
                               className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-1.5 hover:bg-[#ddd] transition-colors font-bold disabled:opacity-30">
