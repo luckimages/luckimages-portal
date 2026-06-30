@@ -546,7 +546,7 @@ function ColdCallsPage() {
                             </span>
                             <button
                               onClick={() => { setEditingLogId(c.id); setEditTags(new Set(c.outcome.split(",") as CallTag[])); setEditNotes(c.notes || ""); }}
-                              className="text-[#333] hover:text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="text-[#444] hover:text-white text-xs transition-colors"
                             >
                               ✎
                             </button>
