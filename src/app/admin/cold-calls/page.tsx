@@ -29,90 +29,74 @@ type CallLog = {
 type LogTab = "all" | "interested" | "call_again" | "dead";
 
 function buildPitchHtml(firstName: string): string {
+  const BASE = "https://luckimages.com";
+  const HERO_IMG = "https://images.squarespace-cdn.com/content/v1/61213811ee51ff1fda7a3bc4/97b5ff64-2aa4-43d2-a8a1-18af3072bbee/banner-1.jpg";
+
+  const serviceRow = (label: string, price: string, href: string) =>
+    `<tr>
+      <td style="padding:11px 0;font-size:13px;border-bottom:1px solid #1e1e1e;">
+        <a href="${href}" style="color:#ccc;text-decoration:none;">${label} <span style="font-size:10px;color:#444;">↗</span></a>
+      </td>
+      <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;border-bottom:1px solid #1e1e1e;">${price}</td>
+    </tr>`;
+
   return `<!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Luck Images — Real Estate Media</title>
-</head>
-<body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#ffffff;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#fff;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
 
-        <tr><td style="padding-bottom:32px;border-bottom:1px solid #222;">
-          <p style="margin:0;font-size:22px;font-weight:900;letter-spacing:4px;text-transform:uppercase;color:#fff;">LUCK IMAGES</p>
-          <p style="margin:4px 0 0;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#555;">Real Estate Media · Austin, TX</p>
-        </td></tr>
+  <tr><td style="padding:0;">
+    <div style="background-image:url(${HERO_IMG});background-size:cover;background-position:center;padding:64px 32px 56px;text-align:center;position:relative;">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
+      <div style="position:relative;z-index:1;">
+        <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.5);">Real Estate Media · Austin, TX</p>
+        <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#fff;line-height:1;">LUCK IMAGES</h1>
+        <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.75);max-width:400px;">Hey ${firstName}, thanks for taking the time to chat. Here's everything we offer — reach out whenever a listing comes up and we'll get you taken care of.</p>
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+          <tr>
+            <td style="padding-right:10px;">
+              <a href="${BASE}/pricing" style="display:inline-block;background:#fff;color:#000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">View Pricing →</a>
+            </td>
+            <td>
+              <a href="${BASE}" style="display:inline-block;border:1px solid rgba(255,255,255,0.4);color:#fff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </td></tr>
 
-        <tr><td style="padding:32px 0 24px;">
-          <p style="margin:0 0 16px;font-size:15px;color:#aaa;">Hi ${firstName},</p>
-          <p style="margin:0;font-size:15px;line-height:1.7;color:#ccc;">
-            Thanks for taking my call. Here's our full service menu and pricing — plus a look at how the client portal works for media delivery.
-          </p>
-        </td></tr>
-
-        <tr><td style="padding-bottom:32px;">
-          <p style="margin:0 0 16px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;border-bottom:1px solid #222;padding-bottom:10px;">Services &amp; Pricing</p>
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr style="border-bottom:1px solid #1a1a1a;">
-              <td style="padding:12px 0;font-size:13px;color:#fff;">Interior / Exterior Photos</td>
-              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$175</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1a1a1a;">
-              <td style="padding:12px 0;font-size:13px;color:#fff;">Drone Photos + Lot Lines</td>
-              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$200</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1a1a1a;">
-              <td style="padding:12px 0;font-size:13px;color:#fff;">Photo + Drone Package</td>
-              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$325</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1a1a1a;">
-              <td style="padding:12px 0;font-size:13px;color:#fff;">Video Walkthrough</td>
-              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$250</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1a1a1a;">
-              <td style="padding:12px 0;font-size:13px;color:#fff;">Matterport 3D Tour</td>
-              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$225</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1a1a1a;">
-              <td style="padding:12px 0;font-size:13px;color:#fff;">Twilight Shoot</td>
-              <td style="padding:12px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$250</td>
-            </tr>
-            <tr>
-              <td style="padding:12px 0;font-size:13px;color:#fff;font-weight:700;">Full Package <span style="font-weight:400;color:#666;font-size:11px;">(Photos + Drone + Video + 3D)</span></td>
-              <td style="padding:12px 0;font-size:15px;color:#4ade80;text-align:right;font-weight:900;">$750</td>
-            </tr>
-          </table>
-          <p style="margin:12px 0 0;font-size:11px;color:#444;">All shoots include next-day delivery. Rush same-day available.</p>
-        </td></tr>
-
-        <tr><td style="padding-bottom:32px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #222;">
-            <tr><td style="padding:24px;">
-              <p style="margin:0 0 6px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;">Client Portal</p>
-              <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#fff;">Your media, delivered instantly</p>
-              <p style="margin:0 0 16px;font-size:13px;color:#888;line-height:1.6;">Every client gets a private portal to download full-res photos, drone footage, and walkthroughs the moment they're ready.</p>
-              <a href="https://luckimages-portal.vercel.app" style="display:inline-block;background:#fff;color:#000;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:12px 24px;text-decoration:none;">View Portal →</a>
-            </td></tr>
-          </table>
-        </td></tr>
-
-        <tr><td style="padding-bottom:40px;">
-          <p style="margin:0 0 16px;font-size:13px;color:#888;line-height:1.6;">See the work first at <a href="https://luckimages.com" style="color:#4ade80;text-decoration:none;">luckimages.com</a> — aerial lot shots, twilight packages, full walkthroughs.</p>
-          <a href="https://luckimages.com" style="display:inline-block;border:1px solid #333;color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:12px 24px;text-decoration:none;">View Portfolio →</a>
-        </td></tr>
-
-        <tr><td style="border-top:1px solid #1a1a1a;padding-top:24px;">
-          <p style="margin:0;font-size:13px;color:#aaa;line-height:1.7;">Ready to book or have questions? Just reply or call me directly. I can usually get out within 24–48 hours.</p>
-          <p style="margin:20px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
-          <p style="margin:2px 0 0;font-size:12px;color:#555;">Luck Images · ryan@luckimages.com · luckimages.com</p>
-        </td></tr>
-
+  <tr><td style="padding:32px;">
+    <div style="background:rgba(0,0,0,0.75);border:1px solid #222;padding:28px;">
+      <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">Services &amp; Starting Prices</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${serviceRow("Listing Photos", "from $150", `${BASE}/photo`)}
+        ${serviceRow("Aerial Photography", "$100 add-on · $200 solo", `${BASE}/drone`)}
+        ${serviceRow("Matterport 3D Tour", "$150", `${BASE}/360`)}
+        ${serviceRow("Twilight Photography", "$100 add-on · $200 solo", `${BASE}/twilight`)}
+        ${serviceRow("Virtual Staging", "$30 / image", `${BASE}/virtual-staging`)}
+        ${serviceRow("Walk-Through Video", "contact for pricing", `${BASE}/reels`)}
+        <tr>
+          <td style="padding:11px 0 0;font-size:13px;color:#ccc;">Floor Plan</td>
+          <td style="padding:11px 0 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$50</td>
+        </tr>
       </table>
-    </td></tr>
-  </table>
+      <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>
+    </div>
+  </td></tr>
+
+  <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;">
+    <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Ready to book or have questions? Just reply — I can usually get out within 24–48 hours.</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
+    <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ryan@luckimages.com · luckimages.com</p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
 </body>
 </html>`;
 }
