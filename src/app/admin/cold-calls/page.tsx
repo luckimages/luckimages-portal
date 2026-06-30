@@ -23,6 +23,7 @@ type CallLog = {
   outcome: string;
   notes: string | null;
   listing_address: string | null;
+  listing_url: string | null;
   called_by: string;
 };
 
@@ -174,6 +175,7 @@ function ColdCallsPage() {
   const [zillowLoading, setZillowLoading] = useState(false);
   const [address, setAddress] = useState("");
   const [addressFromZillow, setAddressFromZillow] = useState(false);
+  const [listingUrl, setListingUrl] = useState("");
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", brokerage: "" });
@@ -246,7 +248,7 @@ function ColdCallsPage() {
         body: JSON.stringify({ url: zillow }),
       });
       const data = await res.json();
-      if (data.address) { setAddress(data.address); setAddressFromZillow(true); }
+      if (data.address) { setAddress(data.address); setAddressFromZillow(true); setListingUrl(zillow.trim()); }
       if (data.agentName && !contact) {
         setContactForm({
           name: data.agentName,
@@ -288,6 +290,7 @@ function ColdCallsPage() {
       outcome,
       notes: notes || null,
       listing_address: address || null,
+      listing_url: listingUrl || null,
       called_by: callerName,
     });
     await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).eq("id", contact.id);
@@ -303,6 +306,7 @@ function ColdCallsPage() {
     setNotes("");
     setAddress("");
     setAddressFromZillow(false);
+    setListingUrl("");
     setContact(null);
     setContactMode("none");
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
@@ -380,13 +384,13 @@ function ColdCallsPage() {
   });
   const latestLogs = Object.values(latestByContact);
 
-  // All unique listing addresses per contact (most recent first, blanks excluded)
-  const contactAddresses: Record<string, string[]> = {};
+  // All unique listing addresses per contact with their URLs (most recent first, blanks excluded)
+  const contactListings: Record<string, { address: string; url: string | null }[]> = {};
   enrichedLogs.forEach(l => {
     if (!l.listing_address) return;
-    if (!contactAddresses[l.contact_id]) contactAddresses[l.contact_id] = [];
-    if (!contactAddresses[l.contact_id].includes(l.listing_address))
-      contactAddresses[l.contact_id].push(l.listing_address);
+    if (!contactListings[l.contact_id]) contactListings[l.contact_id] = [];
+    if (!contactListings[l.contact_id].find(x => x.address === l.listing_address))
+      contactListings[l.contact_id].push({ address: l.listing_address, url: l.listing_url || null });
   });
 
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
@@ -492,8 +496,17 @@ function ColdCallsPage() {
                     <p className="text-xs tracking-[4px] uppercase text-[#555]">Contact</p>
                     <p className="text-lg font-bold mt-1">{log.contact?.name || "Unknown"}</p>
                     {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
-                    {(contactAddresses[log.contact_id] || []).length > 0 && (
-                      <p className="text-sm text-[#4ade80] mt-1.5">📍 {contactAddresses[log.contact_id].join(" · ")}</p>
+                    {(contactListings[log.contact_id] || []).length > 0 && (
+                      <p className="text-sm text-[#4ade80] mt-1.5">
+                        📍 {contactListings[log.contact_id].map((l, i) => (
+                          <span key={l.address}>
+                            {i > 0 && <span className="text-[#333] mx-1">·</span>}
+                            {l.url
+                              ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{l.address}</a>
+                              : <span>{l.address}</span>}
+                          </span>
+                        ))}
+                      </p>
                     )}
                     {log.contact?.phone && <a href={`tel:${log.contact.phone}`} className="text-sm text-[#4ade80] font-mono mt-1 block">{log.contact.phone}</a>}
                     {log.contact?.email && <p className="text-xs text-[#444] mt-0.5">{log.contact.email}</p>}
@@ -649,7 +662,7 @@ function ColdCallsPage() {
             {addressFromZillow && address ? (
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-[#4ade80]">📍 {address}</p>
-                <button onClick={() => { setAddress(""); setAddressFromZillow(false); }} className="text-[#444] hover:text-white text-xs">✕</button>
+                <button onClick={() => { setAddress(""); setAddressFromZillow(false); setListingUrl(""); }} className="text-[#444] hover:text-white text-xs">✕</button>
               </div>
             ) : (
               <input
@@ -868,8 +881,17 @@ function ColdCallsPage() {
                       })}
                     </div>
                   </div>
-                  {(contactAddresses[log.contact_id] || []).length > 0 && (
-                    <p className="text-xs text-[#4ade80]/70 mt-0.5">📍 {contactAddresses[log.contact_id].join(" · ")}</p>
+                  {(contactListings[log.contact_id] || []).length > 0 && (
+                    <p className="text-xs text-[#4ade80]/70 mt-0.5">
+                      📍 {contactListings[log.contact_id].map((l, i) => (
+                        <span key={l.address}>
+                          {i > 0 && <span className="text-[#333] mx-1">·</span>}
+                          {l.url
+                            ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{l.address}</a>
+                            : <span>{l.address}</span>}
+                        </span>
+                      ))}
+                    </p>
                   )}
                   {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
                   <p className="text-[10px] text-[#333] mt-1">
