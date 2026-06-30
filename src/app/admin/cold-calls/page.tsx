@@ -381,7 +381,7 @@ function ColdCallsPage() {
   const latestLogs = Object.values(latestByContact);
 
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
-    all: enrichedLogs.slice(0, 50),
+    all: latestLogs.sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
     interested: latestLogs.filter(l => hasTag(l.outcome, "interested")),
     follow_up: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead")).sort((a, b) => b.attempts - a.attempts),
     dead: latestLogs.filter(l => hasTag(l.outcome, "dead")),
