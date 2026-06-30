@@ -21,8 +21,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { shootId, address, scheduledAt, minutesPast } = await req.json();
+  const { shootId, address, scheduledAt, minutesPast, status: shootStatus } = await req.json();
   if (!shootId) return NextResponse.json({ error: "shootId required" }, { status: 400 });
+
+  // Don't fire for on_site/wrapping — photographer is clearly there
+  if (shootStatus && ["on_site", "wrapping"].includes(shootStatus)) {
+    return NextResponse.json({ ok: true, skipped: true });
+  }
 
   const db = service();
   const dedupKey = `LATE-SHOOT:${shootId}`;

@@ -775,7 +775,7 @@ export default function DashboardPage() {
       fetch("/api/admin/late-shoot-alert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shootId: s.id, address: s.address, scheduledAt: s.scheduled_at, minutesPast: mins }),
+        body: JSON.stringify({ shootId: s.id, address: s.address, scheduledAt: s.scheduled_at, minutesPast: mins, status: s.status }),
       }).catch(() => {});
     }
   }, [allShoots]);
