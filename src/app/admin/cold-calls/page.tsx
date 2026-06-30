@@ -332,6 +332,7 @@ function ColdCallsPage() {
     showFlash(
       selectedTags.has("dead") ? "Marked dead" :
       selectedTags.has("interested") ? "Logged as interested 🔥 — remember to follow up tomorrow" :
+      selectedTags.has("send_info") ? "Info sent — follow up in ~1 week 📨" :
       selectedTags.has("left_voicemail") ? "Voicemail logged — call back tomorrow" :
       "Logged"
     );
@@ -543,10 +544,15 @@ function ColdCallsPage() {
             const tagMeta = Object.fromEntries(CALL_TAGS.map(t => [t.key, t]));
             const mostRecent = allCallsForContact[0];
             const currentStage = mostRecent ? stageFromOutcome(mostRecent.outcome) : "new";
+            const recentOutcome = mostRecent?.outcome || "";
+            const isSendInfo = hasTag(recentOutcome, "send_info") && !hasTag(recentOutcome, "interested") && !hasTag(recentOutcome, "dead");
             const STAGE_META: Record<string, { label: string; color: string; next: string }> = {
               dead: { label: "Dead", color: "#f87171", next: "Marked dead — no action needed unless they reach back out." },
-              lead: { label: "Interested", color: "#4ade80", next: "Call back tomorrow to follow up. Send portfolio/pricing if you haven't yet — once they're ready to book, send a Portal Invite to convert them to a client." },
-              "follow-up": { label: "No Response", color: "#a78bfa", next: "Hasn't given a verdict yet — keep calling back." },
+              client: { label: "Closed", color: "#34d399", next: "Registered in the portal as a client." },
+              lead: { label: "Interested", color: "#4ade80", next: "Call back tomorrow to follow up. Once they're ready to book, send a Portal Invite to convert them to a client." },
+              "follow-up": isSendInfo
+                ? { label: "Info Sent", color: "#c084fc", next: "Pricing + portfolio sent — wait ~1 week then call back. Ask what they thought of the work and tell them about the new client portal." }
+                : { label: "No Response", color: "#a78bfa", next: "Hasn't given a verdict yet — keep calling back." },
               new: { label: "New", color: "#888", next: "No calls logged yet." },
             };
             const meta = STAGE_META[currentStage] || STAGE_META.new;
@@ -1048,9 +1054,11 @@ function ColdCallsPage() {
               const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
               const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
               const isInterested = hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
-              const isCallAgain = !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const isSendInfoRow = hasTag(log.outcome, "send_info") && !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const isCallAgain = !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "send_info") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
               const rowAccent = logTab === "all"
                 ? isInterested ? "border-l-2 border-l-[#4ade80] bg-[#4ade80]/[0.03]"
+                : isSendInfoRow ? "border-l-2 border-l-[#c084fc] bg-[#c084fc]/[0.03]"
                 : isCallAgain ? "border-l-2 border-l-[#fbbf24] bg-[#fbbf24]/[0.03]"
                 : ""
                 : "";
