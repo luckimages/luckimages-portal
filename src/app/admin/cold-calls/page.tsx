@@ -483,6 +483,7 @@ function ColdCallsPage() {
                     <p className="text-xs tracking-[4px] uppercase text-[#555]">Contact</p>
                     <p className="text-lg font-bold mt-1">{log.contact?.name || "Unknown"}</p>
                     {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
+                    {mostRecent?.listing_address && <p className="text-sm text-[#4ade80] mt-1.5">📍 {mostRecent.listing_address}</p>}
                     {log.contact?.phone && <a href={`tel:${log.contact.phone}`} className="text-sm text-[#4ade80] font-mono mt-1 block">{log.contact.phone}</a>}
                     {log.contact?.email && <p className="text-xs text-[#444] mt-0.5">{log.contact.email}</p>}
                   </div>
@@ -856,6 +857,7 @@ function ColdCallsPage() {
                       })}
                     </div>
                   </div>
+                  {log.listing_address && <p className="text-xs text-[#4ade80]/70 mt-0.5">📍 {log.listing_address}</p>}
                   {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
                   <p className="text-[10px] text-[#333] mt-1">
                     {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
