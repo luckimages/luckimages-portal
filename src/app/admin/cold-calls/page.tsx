@@ -26,7 +26,8 @@ type CallLog = {
   called_by: string;
 };
 
-type LogTab = "all" | "interested" | "call_again" | "dead";
+type LogTab = "all" | "interested" | "follow_up" | "dead";
+type Outcome = "call_again" | "left_voicemail" | "interested" | "dead";
 
 function buildPitchHtml(firstName: string): string {
   const BASE = "https://luckimages.com";
@@ -142,6 +143,7 @@ function ColdCallsPage() {
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [callerName, setCallerName] = useState("ryan");
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -220,7 +222,7 @@ function ColdCallsPage() {
     await loadData();
   }
 
-  async function logCall(outcome: "call_again" | "interested" | "dead") {
+  async function logCall(outcome: Outcome) {
     if (!contact) return;
     setLogging(true);
     const supabase = createClient();
@@ -232,15 +234,17 @@ function ColdCallsPage() {
       called_by: callerName,
     });
     const stageMap: Record<string, string> = {
-      interested: "interested",
+      interested: "lead",
       dead: "dead",
       call_again: "follow-up",
+      left_voicemail: "follow-up",
     };
     await supabase.from("contacts").update({ stage: stageMap[outcome] }).eq("id", contact.id);
     setLogging(false);
 
     showFlash(
       outcome === "interested" ? "Logged as interested 🔥" :
+      outcome === "left_voicemail" ? "Voicemail logged — call back tomorrow" :
       outcome === "call_again" ? "Logged — will call again" : "Marked dead"
     );
 
@@ -280,16 +284,17 @@ function ColdCallsPage() {
   }
 
   // ── Derived ────────────────────────────────────────────────────
-  const callAgainCounts: Record<string, number> = {};
+  const attemptCounts: Record<string, number> = {};
   callLogs.forEach(l => {
-    if (l.outcome === "call_again") callAgainCounts[l.contact_id] = (callAgainCounts[l.contact_id] || 0) + 1;
+    if (["call_again", "left_voicemail"].includes(l.outcome))
+      attemptCounts[l.contact_id] = (attemptCounts[l.contact_id] || 0) + 1;
   });
 
   type EnrichedLog = CallLog & { contact: Contact | undefined; attempts: number };
   const enrichedLogs: EnrichedLog[] = callLogs.map(l => ({
     ...l,
     contact: contacts.find(c => c.id === l.contact_id),
-    attempts: callAgainCounts[l.contact_id] || 0,
+    attempts: attemptCounts[l.contact_id] || 0,
   }));
 
   // Latest call per contact for bucketed tabs
@@ -302,14 +307,14 @@ function ColdCallsPage() {
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
     all: enrichedLogs.slice(0, 50),
     interested: latestLogs.filter(l => l.outcome === "interested"),
-    call_again: latestLogs.filter(l => l.outcome === "call_again").sort((a, b) => b.attempts - a.attempts),
+    follow_up: latestLogs.filter(l => ["call_again", "left_voicemail"].includes(l.outcome)).sort((a, b) => b.attempts - a.attempts),
     dead: latestLogs.filter(l => l.outcome === "dead"),
   };
 
   const TAB_LABELS: Record<LogTab, string> = {
     all: "All",
     interested: `Interested (${tabLogs.interested.length})`,
-    call_again: `Call Again (${tabLogs.call_again.length})`,
+    follow_up: `Follow-up (${tabLogs.follow_up.length})`,
     dead: `Dead (${tabLogs.dead.length})`,
   };
 
@@ -375,8 +380,97 @@ function ColdCallsPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
 
-        {/* ═══ LEFT: Dialer ═══ */}
-        <div className="space-y-4">
+        {/* ═══ LEFT: Dialer or Expanded Log ═══ */}
+        <div className="space-y-4 relative">
+
+          {/* Expanded log panel — overlays the new call block */}
+          {expandedLog && (() => {
+            const log = enrichedLogs.find(l => l.id === expandedLog);
+            if (!log) return null;
+            const allCallsForContact = enrichedLogs.filter(l => l.contact_id === log.contact_id).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime());
+            const outcomeColor: Record<string, string> = {
+              interested: "text-[#4ade80]", call_again: "text-[#fbbf24]",
+              left_voicemail: "text-[#a78bfa]", dead: "text-[#555]",
+            };
+            const outcomeLabel: Record<string, string> = {
+              interested: "Interested 🔥", call_again: "Call Again 📞",
+              left_voicemail: "Left Voicemail 📵", dead: "Dead 💀",
+            };
+            return (
+              <div className="absolute inset-0 z-10 bg-[#0c0c0c] space-y-4">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs tracking-[4px] uppercase text-[#555]">Call Detail</p>
+                    <p className="text-lg font-bold mt-1">{log.contact?.name || "Unknown"}</p>
+                    {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
+                    {log.contact?.phone && <a href={`tel:${log.contact.phone}`} className="text-sm text-[#4ade80] font-mono mt-1 block">{log.contact.phone}</a>}
+                    {log.contact?.email && <p className="text-xs text-[#444] mt-0.5">{log.contact.email}</p>}
+                  </div>
+                  <button onClick={() => setExpandedLog(null)} className="text-[#444] hover:text-white text-xl leading-none shrink-0 mt-1">✕</button>
+                </div>
+
+                {/* All calls for this contact */}
+                <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
+                  <p className="px-4 py-2 text-[10px] tracking-[2px] uppercase text-[#555]">Call History ({allCallsForContact.length})</p>
+                  {allCallsForContact.map(c => (
+                    <div key={c.id} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-xs font-semibold ${outcomeColor[c.outcome] || "text-[#444]"}`}>
+                          {outcomeLabel[c.outcome] || c.outcome}
+                        </span>
+                        <span className="text-[10px] text-[#333]">
+                          {new Date(c.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {c.called_by}
+                        </span>
+                      </div>
+                      {c.listing_address && <p className="text-xs text-[#444] mt-0.5">📍 {c.listing_address}</p>}
+                      {c.notes && <p className="text-xs text-[#444] italic mt-0.5">&ldquo;{c.notes}&rdquo;</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      if (log.contact) {
+                        setContact(log.contact);
+                        setContactInput("");
+                        setCreatingNew(false);
+                      }
+                      setExpandedLog(null);
+                    }}
+                    className="w-full text-xs tracking-[1px] uppercase font-bold py-3 border border-white/10 text-white hover:bg-white/5 transition-colors"
+                  >
+                    📞 Log Another Call
+                  </button>
+                  {log.contact && (
+                    <button
+                      onClick={() => {
+                        setPitchContact(log.contact!);
+                        setPitchSent(false);
+                        setPitchSubject("Real Estate Photography — Luck Images");
+                        setShowPitch(true);
+                        setExpandedLog(null);
+                      }}
+                      className="w-full text-xs tracking-[1px] uppercase font-bold py-3 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/10 transition-colors"
+                    >
+                      ✉ Send Follow-up Email
+                    </button>
+                  )}
+                  {log.contact && (
+                    <a
+                      href={`/admin/contacts/${log.contact.id}`}
+                      className="block w-full text-center text-xs tracking-[1px] uppercase py-3 border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-colors"
+                    >
+                      ↗ View Full Contact Profile
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
             New Call
           </p>
@@ -431,9 +525,9 @@ function ColdCallsPage() {
                       </a>
                     )}
                     {contact.email && <p className="text-xs text-[#444] mt-0.5">{contact.email}</p>}
-                    {callAgainCounts[contact.id] > 0 && (
+                    {attemptCounts[contact.id] > 0 && (
                       <p className="text-xs text-[#fbbf24] mt-1.5">
-                        📞 {callAgainCounts[contact.id]} previous attempt{callAgainCounts[contact.id] !== 1 ? "s" : ""}
+                        📞 {attemptCounts[contact.id]} previous attempt{attemptCounts[contact.id] !== 1 ? "s" : ""}
                       </p>
                     )}
                   </div>
@@ -483,8 +577,8 @@ function ColdCallsPage() {
                           <span className="font-medium text-white">{c.name}</span>
                           {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
                           {c.phone && <span className="text-[#333] ml-2">{c.phone}</span>}
-                          {callAgainCounts[c.id] > 0 && (
-                            <span className="text-[#fbbf24] ml-2">({callAgainCounts[c.id]}x called)</span>
+                          {attemptCounts[c.id] > 0 && (
+                            <span className="text-[#fbbf24] ml-2">({attemptCounts[c.id]}x called)</span>
                           )}
                         </button>
                       ))}
@@ -556,36 +650,42 @@ function ColdCallsPage() {
           {/* Outcome buttons */}
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-3">Log Outcome</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button
+                onClick={() => logCall("left_voicemail")}
+                disabled={!contact || logging}
+                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#a78bfa] hover:bg-[#a78bfa]/10 hover:border-[#a78bfa]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
+              >
+                <span className="text-2xl">📵</span>
+                <span>Left Voicemail</span>
+                <span className="text-[10px] text-[#a78bfa]/50 font-normal tracking-normal normal-case">no answer, call back tomorrow</span>
+              </button>
 
               <button
                 onClick={() => logCall("call_again")}
                 disabled={!contact || logging}
-                className="py-5 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#fbbf24] hover:bg-[#fbbf24]/10 hover:border-[#fbbf24]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
+                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#fbbf24] hover:bg-[#fbbf24]/10 hover:border-[#fbbf24]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
               >
                 <span className="text-2xl">📞</span>
                 <span>Call Again</span>
-                {contact && callAgainCounts[contact.id] > 0 && (
-                  <span className="text-[10px] text-[#fbbf24]/50 font-normal tracking-normal normal-case">
-                    attempt #{callAgainCounts[contact.id] + 1}
-                  </span>
-                )}
+                <span className="text-[10px] text-[#fbbf24]/50 font-normal tracking-normal normal-case">answered, call back later</span>
               </button>
-
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => logCall("interested")}
                 disabled={!contact || logging}
-                className="py-5 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#4ade80] hover:bg-[#4ade80]/10 hover:border-[#4ade80]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
+                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#4ade80] hover:bg-[#4ade80]/10 hover:border-[#4ade80]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
               >
                 <span className="text-2xl">🔥</span>
                 <span>Interested</span>
-                <span className="text-[10px] text-[#4ade80]/50 font-normal tracking-normal normal-case">log &amp; follow up later</span>
+                <span className="text-[10px] text-[#4ade80]/50 font-normal tracking-normal normal-case">marks as lead</span>
               </button>
 
               <button
                 onClick={() => logCall("dead")}
                 disabled={!contact || logging}
-                className="py-5 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#555] hover:bg-red-900/20 hover:border-red-800/30 hover:text-red-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
+                className="py-4 border border-white/10 text-xs font-bold tracking-[1px] uppercase text-[#555] hover:bg-red-900/20 hover:border-red-800/30 hover:text-red-400 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex flex-col items-center gap-2"
               >
                 <span className="text-2xl">💀</span>
                 <span>Dead</span>
@@ -604,7 +704,7 @@ function ColdCallsPage() {
 
           {/* Tabs */}
           <div className="flex overflow-x-auto border-b border-white/10">
-            {(["all", "interested", "call_again", "dead"] as LogTab[]).map(tab => (
+            {(["all", "interested", "follow_up", "dead"] as LogTab[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => setLogTab(tab)}
@@ -621,70 +721,39 @@ function ColdCallsPage() {
             {tabLogs[logTab].length === 0 ? (
               <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>
             ) : tabLogs[logTab].map((log: EnrichedLog) => {
-              const colors: Record<string, string> = {
+              const outcomeColor: Record<string, string> = {
                 interested: "text-[#4ade80] bg-[#4ade80]/10",
                 call_again: "text-[#fbbf24] bg-[#fbbf24]/10",
+                left_voicemail: "text-[#a78bfa] bg-[#a78bfa]/10",
                 dead: "text-[#444] bg-white/5",
               };
-              const labels: Record<string, string> = {
+              const outcomeLabel: Record<string, string> = {
                 interested: "Interested",
-                call_again: log.attempts > 1 ? `Call Again ×${log.attempts}` : "Call Again",
+                call_again: "Call Again",
+                left_voicemail: "Voicemail",
                 dead: "Dead",
               };
+              const isExpanded = expandedLog === log.id;
               return (
-                <div key={log.id} className="px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
+                <div key={log.id}
+                  onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                  className={`px-4 py-3.5 cursor-pointer transition-colors ${isExpanded ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
+                >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      <button
-                        onClick={() => log.contact && setContact(log.contact)}
-                        className="text-sm font-medium truncate hover:underline text-left"
-                      >
-                        {log.contact?.name || "Unknown"}
-                      </button>
-                      {log.contact && (
-                        <a
-                          href={`/admin/contacts/${log.contact.id}`}
-                          className="text-[10px] text-[#444] hover:text-white transition-colors shrink-0"
-                          title="View profile"
-                        >
-                          ↗
-                        </a>
+                      <span className="text-sm font-medium truncate">{log.contact?.name || "Unknown"}</span>
+                      {log.attempts > 0 && (
+                        <span className="text-[10px] text-[#fbbf24]/60 shrink-0">×{log.attempts + 1}</span>
                       )}
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 font-semibold tracking-wide uppercase ${colors[log.outcome] || "text-[#444] bg-white/5"}`}>
-                      {labels[log.outcome] || log.outcome}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 font-semibold tracking-wide uppercase ${outcomeColor[log.outcome] || "text-[#444] bg-white/5"}`}>
+                      {outcomeLabel[log.outcome] || log.outcome}
                     </span>
                   </div>
                   {log.contact?.brokerage && <p className="text-xs text-[#444]">{log.contact.brokerage}</p>}
-                  {log.listing_address && <p className="text-xs text-[#444]">📍 {log.listing_address}</p>}
-                  {log.notes && <p className="text-xs text-[#444] italic mt-0.5">"{log.notes}"</p>}
-                  <div className="flex items-center justify-between mt-1.5">
-                    <p className="text-[10px] text-[#333]">
-                      {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
-                    </p>
-                    <div className="flex items-center gap-3">
-                      {log.contact && (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setPitchContact(log.contact!);
-                            setPitchSent(false);
-                            setPitchSubject("Real Estate Photography — Luck Images");
-                            setShowPitch(true);
-                          }}
-                          className="text-[10px] tracking-[1px] uppercase font-semibold px-2.5 py-1 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/10 transition-colors"
-                        >
-                          ✉ Email Follow-up
-                        </button>
-                      )}
-                      {log.outcome === "call_again" && log.contact?.phone && (
-                        <a href={`tel:${log.contact.phone}`} onClick={e => e.stopPropagation()}
-                          className="text-[10px] text-[#fbbf24] hover:underline">
-                          📞 call
-                        </a>
-                      )}
-                    </div>
-                  </div>
+                  <p className="text-[10px] text-[#333] mt-1">
+                    {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
+                  </p>
                 </div>
               );
             })}
