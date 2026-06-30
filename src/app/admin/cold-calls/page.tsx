@@ -459,7 +459,7 @@ function ColdCallsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0c0c0c] text-white">
+    <div className="h-screen flex flex-col bg-[#0c0c0c] text-white overflow-hidden">
 
       {/* Header */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
@@ -511,10 +511,10 @@ function ColdCallsPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="flex-1 overflow-hidden max-w-6xl w-full mx-auto px-4 md:px-8 py-6 md:py-8 grid grid-cols-1 md:grid-cols-2 gap-8">
 
         {/* ═══ LEFT: Dialer or Expanded Log ═══ */}
-        <div className="space-y-4 relative">
+        <div className="space-y-4 relative overflow-y-auto min-h-0">
 
           {/* Expanded contact panel — overlays the new call block */}
           {expandedLog && (() => {
@@ -923,7 +923,7 @@ function ColdCallsPage() {
         </div>
 
         {/* ═══ RIGHT: Log ═══ */}
-        <div className="space-y-4">
+        <div className="flex flex-col min-h-0 gap-4">
           <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
             Call Log
           </p>
@@ -943,7 +943,7 @@ function ColdCallsPage() {
             ))}
           </div>
 
-          <div className="bg-[#111] border border-white/10 divide-y divide-white/5 max-h-[580px] overflow-y-auto">
+          <div className="bg-[#111] border border-white/10 divide-y divide-white/5 flex-1 overflow-y-auto min-h-0">
             {tabLogs[logTab].length === 0 ? (
               <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>
             ) : tabLogs[logTab].map((log: EnrichedLog) => {
