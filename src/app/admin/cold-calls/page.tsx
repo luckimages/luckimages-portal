@@ -502,7 +502,7 @@ function ColdCallsPage() {
                           <span key={l.address}>
                             {i > 0 && <span className="text-[#333] mx-1">·</span>}
                             {l.url
-                              ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{l.address}</a>
+                              ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">{l.address}</a>
                               : <span>{l.address}</span>}
                           </span>
                         ))}
@@ -882,12 +882,12 @@ function ColdCallsPage() {
                     </div>
                   </div>
                   {(contactListings[log.contact_id] || []).length > 0 && (
-                    <p className="text-xs text-[#4ade80]/70 mt-0.5">
+                    <p className="text-xs text-[#555] mt-0.5">
                       📍 {contactListings[log.contact_id].map((l, i) => (
                         <span key={l.address}>
                           {i > 0 && <span className="text-[#333] mx-1">·</span>}
                           {l.url
-                            ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{l.address}</a>
+                            ? <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">{l.address}</a>
                             : <span>{l.address}</span>}
                         </span>
                       ))}
