@@ -28,14 +28,15 @@ type CallLog = {
   called_by: string;
 };
 
-type LogTab = "all" | "interested" | "follow_up" | "dead";
-type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "interested" | "dead";
+type LogTab = "all" | "interested" | "call_again" | "closed" | "dead";
+type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "interested" | "closed" | "dead";
 
 const CALL_TAGS: { key: CallTag; label: string; emoji: string; color: string; sub: string }[] = [
   { key: "no_answer", label: "No Answer", emoji: "📵", color: "#a78bfa", sub: "didn't pick up" },
   { key: "left_voicemail", label: "Left Voicemail", emoji: "🎙️", color: "#fbbf24", sub: "call back tomorrow" },
   { key: "sent_text", label: "Sent Text", emoji: "💬", color: "#60a5fa", sub: "texted from your phone" },
   { key: "interested", label: "Interested", emoji: "🔥", color: "#4ade80", sub: "marks as lead" },
+  { key: "closed", label: "Closed", emoji: "✅", color: "#34d399", sub: "registered in portal" },
   { key: "dead", label: "Dead", emoji: "💀", color: "#f87171", sub: "not interested" },
 ];
 
@@ -45,6 +46,7 @@ function hasTag(outcome: string, tag: string): boolean {
 
 function stageFromOutcome(outcome: string): string {
   if (hasTag(outcome, "dead")) return "dead";
+  if (hasTag(outcome, "closed")) return "client";
   if (hasTag(outcome, "interested")) return "lead";
   return "follow-up";
 }
@@ -77,8 +79,9 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
   if (next.has(key)) next.delete(key);
   else {
     next.add(key);
-    if (key === "interested") next.delete("dead");
-    if (key === "dead") next.delete("interested");
+    if (key === "interested") { next.delete("dead"); next.delete("closed"); }
+    if (key === "closed") { next.delete("dead"); next.delete("interested"); }
+    if (key === "dead") { next.delete("interested"); next.delete("closed"); }
   }
   return next;
 }
@@ -439,15 +442,17 @@ function ColdCallsPage() {
 
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
     all: latestLogs.sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
-    interested: latestLogs.filter(l => hasTag(l.outcome, "interested")),
-    follow_up: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead")).sort((a, b) => b.attempts - a.attempts),
+    interested: latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")),
+    call_again: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
+    closed: latestLogs.filter(l => hasTag(l.outcome, "closed")),
     dead: latestLogs.filter(l => hasTag(l.outcome, "dead")),
   };
 
   const TAB_LABELS: Record<LogTab, string> = {
     all: "All",
     interested: `Interested (${tabLogs.interested.length})`,
-    follow_up: `No Response (${tabLogs.follow_up.length})`,
+    call_again: `Call Again (${tabLogs.call_again.length})`,
+    closed: `Closed (${tabLogs.closed.length})`,
     dead: `Dead (${tabLogs.dead.length})`,
   };
 
@@ -930,7 +935,7 @@ function ColdCallsPage() {
 
           {/* Tabs */}
           <div className="flex overflow-x-auto border-b border-white/10">
-            {(["all", "interested", "follow_up", "dead"] as LogTab[]).map(tab => (
+            {(["all", "interested", "call_again", "closed", "dead"] as LogTab[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => setLogTab(tab)}
