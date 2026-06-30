@@ -252,14 +252,10 @@ function ColdCallsPage() {
     await supabase.from("contacts").update({ stage: stageMap[outcome] }).eq("id", contact.id);
     setLogging(false);
 
-    if (outcome === "interested") {
-      setPitchSent(false);
-      setPitchSubject("Real Estate Photography — Luck Images");
-      setPitchContact(contact);
-      setShowPitch(true);
-    } else {
-      showFlash(outcome === "call_again" ? "Logged — will call again" : "Marked dead");
-    }
+    showFlash(
+      outcome === "interested" ? "Logged as interested 🔥" :
+      outcome === "call_again" ? "Logged — will call again" : "Marked dead"
+    );
 
     setNotes("");
     setAddress("");
@@ -572,7 +568,7 @@ function ColdCallsPage() {
               >
                 <span className="text-2xl">🔥</span>
                 <span>Interested</span>
-                <span className="text-[10px] text-[#4ade80]/50 font-normal tracking-normal normal-case">sends pitch email</span>
+                <span className="text-[10px] text-[#4ade80]/50 font-normal tracking-normal normal-case">log &amp; follow up later</span>
               </button>
 
               <button
@@ -656,7 +652,7 @@ function ColdCallsPage() {
                       {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
                     </p>
                     <div className="flex items-center gap-3">
-                      {log.outcome === "interested" && log.contact && (
+                      {log.contact && (
                         <button
                           onClick={e => {
                             e.stopPropagation();
@@ -665,9 +661,9 @@ function ColdCallsPage() {
                             setPitchSubject("Real Estate Photography — Luck Images");
                             setShowPitch(true);
                           }}
-                          className="text-[10px] text-[#4ade80] hover:underline"
+                          className="text-[10px] tracking-[1px] uppercase font-semibold px-2.5 py-1 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/10 transition-colors"
                         >
-                          ✉ pitch
+                          ✉ Email Follow-up
                         </button>
                       )}
                       {log.outcome === "call_again" && log.contact?.phone && (
