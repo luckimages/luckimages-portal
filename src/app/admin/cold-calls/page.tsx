@@ -920,27 +920,33 @@ function ColdCallsPage() {
           <div className="bg-[#111] border border-white/10 p-5 space-y-4">
             <p className="text-xs tracking-[2px] uppercase text-[#555]">Service / Pricing</p>
 
-            {/* Primary packages — mutually exclusive */}
+            {/* Primary service — mutually exclusive */}
             <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#333] mb-2">Primary Package</p>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#333] mb-2">Primary Service</p>
               <div className="flex flex-wrap gap-2">
                 {([
-                  { key: "photos", label: "Photos", price: "$175" },
-                  { key: "photos_drone", label: "Photos + Drone", price: "$250" },
-                  { key: "photos_video", label: "Photos + Video", price: "$350" },
-                  { key: "full", label: "Full Package", price: "$450" },
-                ] as const).map(pkg => (
+                  { key: "photos_sm",    label: "Photos",         price: "$200–$400" },
+                  { key: "drone",        label: "Drone Photos",   price: "$200+" },
+                  { key: "video_bronze", label: "Video Bronze",   price: "$200" },
+                  { key: "video_silver", label: "Video Silver",   price: "$300" },
+                  { key: "video_gold",   label: "Video Gold",     price: "Custom" },
+                  { key: "matterport",   label: "Matterport 3D",  price: "$200–$500" },
+                  { key: "twilight",     label: "Twilight",       price: "$400" },
+                  { key: "virtual_staging", label: "Virtual Staging", price: "$25–$150" },
+                  { key: "floor_plan",   label: "Floor Plan",     price: "$50–$75" },
+                  { key: "headshots",    label: "Headshots",      price: "$200+" },
+                ] as const).map(svc => (
                   <button
-                    key={pkg.key}
-                    onClick={() => setPrimaryService(prev => prev === pkg.key ? null : pkg.key)}
+                    key={svc.key}
+                    onClick={() => setPrimaryService(prev => prev === svc.key ? null : svc.key)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                      primaryService === pkg.key
+                      primaryService === svc.key
                         ? "bg-white text-black border-white"
                         : "bg-transparent text-[#555] border-white/10 hover:border-white/30 hover:text-white"
                     }`}
                   >
-                    {pkg.label}
-                    <span className={`text-[10px] ${primaryService === pkg.key ? "text-black/50" : "text-[#333]"}`}>{pkg.price}</span>
+                    {svc.label}
+                    <span className={`text-[10px] ${primaryService === svc.key ? "text-black/50" : "text-[#333]"}`}>{svc.price}</span>
                   </button>
                 ))}
               </div>
@@ -951,12 +957,10 @@ function ColdCallsPage() {
               <p className="text-[10px] tracking-[2px] uppercase text-[#333] mb-2">Add-Ons</p>
               <div className="flex flex-wrap gap-2">
                 {([
-                  { key: "matterport", label: "Matterport", price: "+$150" },
-                  { key: "drone", label: "Drone Only", price: "+$100" },
-                  { key: "vertical_video", label: "Vertical Video", price: "+$75" },
-                  { key: "headshots", label: "Headshots", price: "+$100" },
-                  { key: "twilight", label: "Twilight", price: "+$75" },
-                  { key: "rush", label: "Rush Edit", price: "+$50" },
+                  { key: "addon_drone",      label: "Drone Photos",   price: "+$100–$150" },
+                  { key: "addon_twilight",   label: "Twilight",       price: "+$150–$200" },
+                  { key: "addon_matterport", label: "Matterport 3D",  price: "+$100–$250" },
+                  { key: "addon_floor_plan", label: "Floor Plan",     price: "+$50–$75" },
                 ] as const).map(addon => {
                   const active = selectedAddOns.has(addon.key);
                   return (
