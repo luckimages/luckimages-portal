@@ -440,8 +440,15 @@ function ColdCallsPage() {
       contactListings[l.contact_id].push({ address: l.listing_address, url: l.listing_url || null });
   });
 
+  function stagePriority(outcome: string): number {
+    if (hasTag(outcome, "interested")) return 0;
+    if (!hasTag(outcome, "closed") && !hasTag(outcome, "dead")) return 1; // call again
+    if (hasTag(outcome, "closed")) return 2;
+    return 3; // dead
+  }
+
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
-    all: latestLogs.sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
+    all: [...latestLogs].sort((a, b) => stagePriority(a.outcome) - stagePriority(b.outcome) || new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
     interested: latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")),
     call_again: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
     closed: latestLogs.filter(l => hasTag(l.outcome, "closed")),
@@ -735,6 +742,14 @@ function ColdCallsPage() {
             )}
           </div>
 
+          {/* Dead lead warning */}
+          {contact && latestByContact[contact.id] && hasTag(latestByContact[contact.id].outcome, "dead") && (
+            <div className="flex items-center gap-3 bg-[#f87171]/10 border border-[#f87171]/40 px-4 py-3">
+              <span className="text-[#f87171] text-lg">⚠️</span>
+              <p className="text-xs font-bold tracking-[1px] uppercase text-[#f87171]">Warning: this lead has been marked dead</p>
+            </div>
+          )}
+
           {/* Contact */}
           <div className="bg-[#111] border border-white/10 p-5 space-y-3">
             <p className="text-xs tracking-[2px] uppercase text-[#555]">Agent / Contact</p>
@@ -955,10 +970,17 @@ function ColdCallsPage() {
               const isExpanded = expandedLog === log.id;
               const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
               const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
+              const isInterested = hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const isCallAgain = !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const rowAccent = logTab === "all"
+                ? isInterested ? "border-l-2 border-l-[#4ade80] bg-[#4ade80]/[0.03]"
+                : isCallAgain ? "border-l-2 border-l-[#fbbf24] bg-[#fbbf24]/[0.03]"
+                : ""
+                : "";
               return (
                 <div key={log.id}
                   onClick={() => setExpandedLog(isExpanded ? null : log.id)}
-                  className={`px-4 py-3.5 cursor-pointer transition-colors ${isExpanded ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
+                  className={`px-4 py-3.5 cursor-pointer transition-colors ${rowAccent} ${isExpanded ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Avatar */}
