@@ -246,7 +246,7 @@ export default function DashboardV2Page() {
 
         {/* Middle ~2/3: Schedule / Shoot Board toggle */}
         <div className="flex-[2] min-h-0 pb-4 flex flex-col">
-          <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-white/25 shrink-0">
+          <div className="flex items-center justify-between gap-3 pb-3 mb-3 shrink-0">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) - 1 + MIDDLE_VIEWS.length) % MIDDLE_VIEWS.length])}
@@ -284,7 +284,7 @@ export default function DashboardV2Page() {
                 const dayShoots = shootsOnDay(d);
                 return (
                   <div key={i} className="flex flex-col min-h-0 px-3">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
+                    <div className="flex items-center justify-between pb-2 mb-2 shrink-0">
                       <span className="text-xs tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</span>
                       <span className={`text-sm font-bold ${isToday ? "text-white" : "text-white/50"}`}>{d.getDate()}</span>
                     </div>
@@ -339,7 +339,7 @@ export default function DashboardV2Page() {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
                   return (
                     <div key={stage.key} className="flex flex-col min-h-0 px-3">
-                      <div className="flex items-center justify-end pb-2 mb-2 border-b border-white/20 shrink-0">
+                      <div className="flex items-center justify-end pb-2 mb-2 shrink-0">
                         <span className={`text-sm font-bold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stageShoots.length}</span>
                       </div>
                       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
@@ -368,9 +368,9 @@ export default function DashboardV2Page() {
         </div>
 
         {/* Bottom third: To Do + Notifications side by side */}
-        <div className="flex-[1] min-h-0 pb-4 md:pb-6 grid grid-cols-2 divide-x divide-white/20 border-t border-white/25 pt-4">
+        <div className="flex-[1] min-h-0 pb-4 md:pb-6 grid grid-cols-2 gap-4">
           {/* To Do — tabbed */}
-          <div className="flex flex-col min-h-0 pr-4">
+          <div className="flex flex-col min-h-0 border border-white/40 px-4 pt-3">
             <div className="flex items-center gap-1 pb-2 mb-2 border-b border-white/20 shrink-0 overflow-x-auto">
               {TODO_TABS.map((tab, i) => {
                 const count = getTabTasks(tab.key).length;
@@ -410,13 +410,13 @@ export default function DashboardV2Page() {
                 </div>
               )}
             </div>
-            <a href="/dashboard/todos" className="border-t border-white/20 pt-2 mt-1 text-xs text-white/40 hover:text-white/70 transition-colors shrink-0">
+            <a href="/dashboard/todos" className="border-t border-white/20 py-2 text-xs text-white/40 hover:text-white/70 transition-colors shrink-0">
               + Add task or view all lists →
             </a>
           </div>
 
           {/* Notifications */}
-          <div className="flex flex-col min-h-0 pl-4">
+          <div className="flex flex-col min-h-0 border border-white/40 px-4 pt-3">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
               <span className="text-xs tracking-[2px] uppercase text-white/70">Notifications</span>
               <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
@@ -438,7 +438,7 @@ export default function DashboardV2Page() {
                 );
               })}
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto pb-3">
               {filteredUpdates.length === 0 ? (
                 <p className="text-xs text-white/30 italic py-4">Nothing in this category.</p>
               ) : (
