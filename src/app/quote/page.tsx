@@ -55,9 +55,9 @@ const PRIMARY_SERVICES: {
   },
   {
     id: "twilight_standalone",
-    name: "Twilight (Standalone)",
+    name: "Twilight (Standalone, 4 photos)",
     unit: "flat",
-    tiers: [{ price: 400 }],
+    tiers: [{ price: 250 }],
   },
   {
     id: "virtual_staging",

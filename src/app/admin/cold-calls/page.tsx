@@ -167,15 +167,15 @@ function buildPitchHtml(firstName: string): string {
     <div style="background:rgba(0,0,0,0.75);border:1px solid #222;padding:28px;">
       <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">Services &amp; Starting Prices</p>
       <table width="100%" cellpadding="0" cellspacing="0">
-        ${serviceRow("Listing Photos", "from $150", `${BASE}/photo`)}
-        ${serviceRow("Aerial Photography", "$100 add-on · $200 solo", `${BASE}/drone`)}
-        ${serviceRow("Matterport 3D Tour", "$150", `${BASE}/360`)}
-        ${serviceRow("Twilight Photography", "$100 add-on · $200 solo", `${BASE}/twilight`)}
-        ${serviceRow("Virtual Staging", "$30 / image", `${BASE}/virtual-staging`)}
-        ${serviceRow("Walk-Through Video", "contact for pricing", `${BASE}/reels`)}
+        ${serviceRow("Listing Photos", "from $200", `${BASE}/pricing`)}
+        ${serviceRow("Drone Photos", "$100 add-on · $200 solo", `${BASE}/pricing`)}
+        ${serviceRow("Matterport 3D Tour", "from $200", `${BASE}/pricing`)}
+        ${serviceRow("Twilight Photography", "$150 add-on · $250 solo", `${BASE}/pricing`)}
+        ${serviceRow("Virtual Staging", "$25 / photo", `${BASE}/pricing`)}
+        ${serviceRow("Video Walkthrough", "from $200", `${BASE}/pricing`)}
         <tr>
           <td style="padding:11px 0 0;font-size:13px;color:#ccc;">Floor Plan</td>
-          <td style="padding:11px 0 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">$50</td>
+          <td style="padding:11px 0 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">from $50</td>
         </tr>
       </table>
       <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>

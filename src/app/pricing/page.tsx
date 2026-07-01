@@ -43,7 +43,7 @@ const STANDALONE = [
   {
     name: "Twilight",
     description: "Dramatic golden hour photography — standalone session.",
-    tiers: [{ label: "Standalone session (2 photos)", price: "$400" }],
+    tiers: [{ label: "Standalone session (4 photos)", price: "$250" }],
   },
   {
     name: "Virtual Staging",
