@@ -157,16 +157,13 @@ export default function DashboardV2Page() {
 
       {/* Middle ~2/3: Schedule, full width */}
       <div className="relative z-10 flex-[2] min-h-0 px-4 md:px-8 pb-4 flex flex-col">
-        <div className="flex items-center gap-4 mb-3 shrink-0">
-          <p className="text-xs tracking-[4px] uppercase text-white/60 flex-1">Schedule</p>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setWeekOffset(o => o - 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">←</button>
-            <span className="text-xs tracking-[2px] uppercase text-white/70">{weekLabel}</span>
-            <button onClick={() => setWeekOffset(o => o + 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">→</button>
-            {weekOffset !== 0 && (
-              <button onClick={() => setWeekOffset(0)} className="text-xs tracking-[1px] uppercase text-white/50 hover:text-white transition-colors">Today</button>
-            )}
-          </div>
+        <div className="flex items-center justify-end gap-3 mb-3 shrink-0">
+          <button onClick={() => setWeekOffset(o => o - 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">←</button>
+          <span className="text-xs tracking-[2px] uppercase text-white/70">{weekLabel}</span>
+          <button onClick={() => setWeekOffset(o => o + 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">→</button>
+          {weekOffset !== 0 && (
+            <button onClick={() => setWeekOffset(0)} className="text-xs tracking-[1px] uppercase text-white/50 hover:text-white transition-colors">Today</button>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 grid grid-cols-7 gap-2">
@@ -176,10 +173,10 @@ export default function DashboardV2Page() {
             return (
               <div
                 key={i}
-                className={`flex flex-col min-h-0 bg-black/40 backdrop-blur-sm border ${isToday ? "border-white/40" : "border-white/10"} overflow-hidden`}
+                className={`flex flex-col min-h-0 bg-transparent border ${isToday ? "border-white" : "border-white/40"} overflow-hidden`}
               >
-                <div className={`px-3 py-2 border-b ${isToday ? "border-white/30 bg-white/10" : "border-white/10"} shrink-0`}>
-                  <p className="text-[10px] tracking-[2px] uppercase text-white/50">{DAY_NAMES[i]}</p>
+                <div className={`px-3 py-2 border-b ${isToday ? "border-white" : "border-white/40"} shrink-0`}>
+                  <p className="text-[10px] tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</p>
                   <p className={`text-lg font-bold ${isToday ? "text-white" : "text-white/80"}`}>{d.getDate()}</p>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto p-1.5 flex flex-col gap-1.5">
@@ -187,7 +184,7 @@ export default function DashboardV2Page() {
                     <a
                       key={s.id}
                       href="/dashboard/board"
-                      className="block bg-white/5 hover:bg-white/10 transition-colors border-l-2 px-2 py-1.5"
+                      className="block bg-transparent hover:bg-white/10 transition-colors border border-white/20 border-l-2 px-2 py-1.5"
                       style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
                     >
                       <p className="text-[11px] font-semibold text-white truncate">{s.client_name || s.address}</p>
@@ -206,8 +203,8 @@ export default function DashboardV2Page() {
       {/* Bottom third: To Do + Notifications side by side */}
       <div className="relative z-10 flex-[1] min-h-0 px-4 md:px-8 pb-4 md:pb-6 grid grid-cols-2 gap-4">
         {/* To Do */}
-        <div className="flex flex-col min-h-0 bg-black/40 backdrop-blur-sm border border-white/10">
-          <p className="text-xs tracking-[3px] uppercase text-white/60 px-4 py-3 border-b border-white/10 shrink-0">To Do</p>
+        <div className="flex flex-col min-h-0 bg-transparent border border-white/40">
+          <p className="text-xs tracking-[3px] uppercase text-white/70 px-4 py-3 border-b border-white/40 shrink-0">To Do</p>
           <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
             {todos.length === 0 ? (
               <p className="text-xs text-white/30 italic py-4">Nothing on the list.</p>
@@ -229,8 +226,8 @@ export default function DashboardV2Page() {
         </div>
 
         {/* Notifications */}
-        <div className="flex flex-col min-h-0 bg-black/40 backdrop-blur-sm border border-white/10">
-          <p className="text-xs tracking-[3px] uppercase text-white/60 px-4 py-3 border-b border-white/10 shrink-0">Notifications</p>
+        <div className="flex flex-col min-h-0 bg-transparent border border-white/40">
+          <p className="text-xs tracking-[3px] uppercase text-white/70 px-4 py-3 border-b border-white/40 shrink-0">Notifications</p>
           <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
             {updates.length === 0 ? (
               <p className="text-xs text-white/30 italic py-4">Nothing yet.</p>
