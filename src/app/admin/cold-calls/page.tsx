@@ -26,7 +26,41 @@ type CallLog = {
   listing_address: string | null;
   listing_url: string | null;
   called_by: string;
+  service: string | null;
+  add_ons: string[] | null;
+  linked_contact_ids: string[] | null;
 };
+
+function participantIds(log: Pick<CallLog, "contact_id" | "linked_contact_ids">): string[] {
+  return [log.contact_id, ...(log.linked_contact_ids || [])];
+}
+
+const SERVICE_OPTIONS = [
+  { key: "photos_sm",    label: "Photos",         price: "$200–$400" },
+  { key: "drone",        label: "Drone Photos",   price: "$200+" },
+  { key: "video_bronze", label: "Video Bronze",   price: "$200" },
+  { key: "video_silver", label: "Video Silver",   price: "$300" },
+  { key: "video_gold",   label: "Video Gold",     price: "Custom" },
+  { key: "matterport",   label: "Matterport 3D",  price: "$200–$500" },
+  { key: "headshots",    label: "Headshots",      price: "$200+" },
+] as const;
+
+const ADDON_OPTIONS = [
+  { key: "addon_drone",           label: "Drone Photos",    price: "+$100–$150" },
+  { key: "addon_twilight",        label: "Twilight",        price: "+$150–$200" },
+  { key: "addon_matterport",      label: "Matterport 3D",   price: "+$100–$250" },
+  { key: "addon_floor_plan",      label: "Floor Plan",      price: "+$50–$75" },
+  { key: "addon_virtual_staging", label: "Virtual Staging", price: "+$25–$150" },
+] as const;
+
+function serviceLabel(key: string | null | undefined): string | null {
+  if (!key) return null;
+  return SERVICE_OPTIONS.find(s => s.key === key)?.label || key;
+}
+
+function addonLabel(key: string): string {
+  return ADDON_OPTIONS.find(a => a.key === key)?.label || key;
+}
 
 type LogTab = "all" | "interested" | "call_again" | "closed" | "dead";
 type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "send_info" | "interested" | "closed" | "dead" | "new_address";
@@ -318,15 +352,21 @@ function ColdCallsPage() {
     setLogging(true);
     const supabase = createClient();
     const outcome = [...selectedTags].join(",");
+    const allContactsOnCall = [contact, ...additionalContacts];
+    // One shared log entry — teammates on the same call all point back to it via linked_contact_ids,
+    // so they share one history instead of getting duplicate independent logs.
     await supabase.from("cold_calls").insert({
       contact_id: contact.id,
+      linked_contact_ids: additionalContacts.length > 0 ? additionalContacts.map(c => c.id) : null,
       outcome,
       notes: notes || null,
       listing_address: address || null,
       listing_url: listingUrl || null,
       called_by: callerName,
+      service: primaryService || null,
+      add_ons: selectedAddOns.size > 0 ? [...selectedAddOns] : null,
     });
-    await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).eq("id", contact.id);
+    await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).in("id", allContactsOnCall.map(c => c.id));
     setLogging(false);
 
     showFlash(
@@ -350,23 +390,29 @@ function ColdCallsPage() {
     await loadData();
   }
 
+  // Recompute each contact's stage from their own most recent shared-or-solo call log.
+  async function recomputeStageForContacts(ids: string[]) {
+    const supabase = createClient();
+    for (const id of ids) {
+      const { data: rows } = await supabase
+        .from("cold_calls")
+        .select("outcome, called_at")
+        .or(`contact_id.eq.${id},linked_contact_ids.cs.{${id}}`)
+        .order("called_at", { ascending: false })
+        .limit(1);
+      const mostRecent = rows?.[0];
+      if (mostRecent) {
+        await supabase.from("contacts").update({ stage: stageFromOutcome(mostRecent.outcome) }).eq("id", id);
+      }
+    }
+  }
+
   async function saveEditedLog(log: CallLog) {
     if (editTags.size === 0) return;
     const supabase = createClient();
     const outcome = [...editTags].join(",");
     await supabase.from("cold_calls").update({ outcome, notes: editNotes || null }).eq("id", log.id);
-
-    // Recompute the contact's stage from their most recent call log (by date), not necessarily the edited one.
-    const { data: mostRecent } = await supabase
-      .from("cold_calls")
-      .select("outcome, called_at")
-      .eq("contact_id", log.contact_id)
-      .order("called_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (mostRecent) {
-      await supabase.from("contacts").update({ stage: stageFromOutcome(mostRecent.outcome) }).eq("id", log.contact_id);
-    }
+    await recomputeStageForContacts(participantIds(log));
 
     setEditingLogId(null);
     showFlash("Log updated");
@@ -376,17 +422,7 @@ function ColdCallsPage() {
   async function deleteLog(log: CallLog) {
     const supabase = createClient();
     await supabase.from("cold_calls").delete().eq("id", log.id);
-    // Recompute stage from remaining logs
-    const { data: remaining } = await supabase
-      .from("cold_calls")
-      .select("outcome, called_at")
-      .eq("contact_id", log.contact_id)
-      .order("called_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (remaining) {
-      await supabase.from("contacts").update({ stage: stageFromOutcome(remaining.outcome) }).eq("id", log.contact_id);
-    }
+    await recomputeStageForContacts(participantIds(log));
     setEditingLogId(null);
     showFlash("Log deleted");
     await loadData();
@@ -419,33 +455,45 @@ function ColdCallsPage() {
   }
 
   // ── Derived ────────────────────────────────────────────────────
-  const attemptCounts: Record<string, number> = {};
+  // Teammates on a shared call (linked_contact_ids) see the same log history —
+  // each still counts as their own lead/row, but pulls from the same set of raw calls.
+  const logsByContact: Record<string, CallLog[]> = {};
   callLogs.forEach(l => {
-    if (!hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead"))
-      attemptCounts[l.contact_id] = (attemptCounts[l.contact_id] || 0) + 1;
+    participantIds(l).forEach(id => {
+      if (!logsByContact[id]) logsByContact[id] = [];
+      logsByContact[id].push(l);
+    });
+  });
+
+  const attemptCounts: Record<string, number> = {};
+  Object.entries(logsByContact).forEach(([contactId, logs]) => {
+    attemptCounts[contactId] = logs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead")).length;
   });
 
   type EnrichedLog = CallLog & { contact: Contact | undefined; attempts: number };
-  const enrichedLogs: EnrichedLog[] = callLogs.map(l => ({
-    ...l,
-    contact: contacts.find(c => c.id === l.contact_id),
-    attempts: attemptCounts[l.contact_id] || 0,
-  }));
 
-  // Latest call per contact for bucketed tabs
+  // One row per contact (not per raw db row) — represents that contact's most recent shared-or-solo call.
   const latestByContact: Record<string, EnrichedLog> = {};
-  enrichedLogs.forEach(l => {
-    if (!latestByContact[l.contact_id]) latestByContact[l.contact_id] = l;
+  Object.entries(logsByContact).forEach(([contactId, logs]) => {
+    const mostRecent = logs[0]; // callLogs arrives sorted by called_at desc, so logs[] preserves that order
+    latestByContact[contactId] = {
+      ...mostRecent,
+      contact_id: contactId,
+      contact: contacts.find(c => c.id === contactId),
+      attempts: attemptCounts[contactId] || 0,
+    };
   });
   const latestLogs = Object.values(latestByContact);
 
   // All unique listing addresses per contact with their URLs (most recent first, blanks excluded)
   const contactListings: Record<string, { address: string; url: string | null }[]> = {};
-  enrichedLogs.forEach(l => {
-    if (!l.listing_address) return;
-    if (!contactListings[l.contact_id]) contactListings[l.contact_id] = [];
-    if (!contactListings[l.contact_id].find(x => x.address === l.listing_address))
-      contactListings[l.contact_id].push({ address: l.listing_address, url: l.listing_url || null });
+  Object.entries(logsByContact).forEach(([contactId, logs]) => {
+    logs.forEach(l => {
+      if (!l.listing_address) return;
+      if (!contactListings[contactId]) contactListings[contactId] = [];
+      if (!contactListings[contactId].find(x => x.address === l.listing_address))
+        contactListings[contactId].push({ address: l.listing_address, url: l.listing_url || null });
+    });
   });
 
   function stagePriority(outcome: string): number {
@@ -538,9 +586,9 @@ function ColdCallsPage() {
 
           {/* Expanded contact panel — overlays the new call block */}
           {expandedLog && (() => {
-            const log = enrichedLogs.find(l => l.id === expandedLog);
+            const log = latestByContact[expandedLog];
             if (!log) return null;
-            const allCallsForContact = enrichedLogs.filter(l => l.contact_id === log.contact_id).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime());
+            const allCallsForContact = logsByContact[log.contact_id] || [];
             const tagMeta = Object.fromEntries(CALL_TAGS.map(t => [t.key, t]));
             const mostRecent = allCallsForContact[0];
             const currentStage = mostRecent ? stageFromOutcome(mostRecent.outcome) : "new";
@@ -659,6 +707,11 @@ function ColdCallsPage() {
                           </div>
                         </div>
                         {c.listing_address && <p className="text-xs text-[#444] mt-0.5">📍 {c.listing_address}</p>}
+                        {(c.service || (c.add_ons && c.add_ons.length > 0)) && (
+                          <p className="text-xs text-[#666] mt-0.5">
+                            💰 {[serviceLabel(c.service), ...(c.add_ons || []).map(addonLabel)].filter(Boolean).join(" + ")}
+                          </p>
+                        )}
                         {c.notes && <p className="text-xs text-[#444] italic mt-0.5">&ldquo;{c.notes}&rdquo;</p>}
                       </div>
                     );
@@ -931,15 +984,7 @@ function ColdCallsPage() {
             <div>
               <p className="text-[10px] tracking-[2px] uppercase text-[#333] mb-2">Primary Service</p>
               <div className="flex flex-wrap gap-2">
-                {([
-                  { key: "photos_sm",    label: "Photos",         price: "$200–$400" },
-                  { key: "drone",        label: "Drone Photos",   price: "$200+" },
-                  { key: "video_bronze", label: "Video Bronze",   price: "$200" },
-                  { key: "video_silver", label: "Video Silver",   price: "$300" },
-                  { key: "video_gold",   label: "Video Gold",     price: "Custom" },
-                  { key: "matterport",   label: "Matterport 3D",  price: "$200–$500" },
-                  { key: "headshots",    label: "Headshots",      price: "$200+" },
-                ] as const).map(svc => (
+                {SERVICE_OPTIONS.map(svc => (
                   <button
                     key={svc.key}
                     onClick={() => setPrimaryService(prev => prev === svc.key ? null : svc.key)}
@@ -960,13 +1005,7 @@ function ColdCallsPage() {
             <div>
               <p className="text-[10px] tracking-[2px] uppercase text-[#333] mb-2">Add-Ons</p>
               <div className="flex flex-wrap gap-2">
-                {([
-                  { key: "addon_drone",           label: "Drone Photos",    price: "+$100–$150" },
-                  { key: "addon_twilight",        label: "Twilight",        price: "+$150–$200" },
-                  { key: "addon_matterport",      label: "Matterport 3D",   price: "+$100–$250" },
-                  { key: "addon_floor_plan",      label: "Floor Plan",      price: "+$50–$75" },
-                  { key: "addon_virtual_staging", label: "Virtual Staging", price: "+$25–$150" },
-                ] as const).map(addon => {
+                {ADDON_OPTIONS.map(addon => {
                   const active = selectedAddOns.has(addon.key);
                   return (
                     <button
@@ -1048,7 +1087,7 @@ function ColdCallsPage() {
             {tabLogs[logTab].length === 0 ? (
               <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>
             ) : tabLogs[logTab].map((log: EnrichedLog) => {
-              const isExpanded = expandedLog === log.id;
+              const isExpanded = expandedLog === log.contact_id;
               const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
               const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
               const isInterested = hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
@@ -1061,8 +1100,8 @@ function ColdCallsPage() {
                 : ""
                 : "";
               return (
-                <div key={log.id}
-                  onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                <div key={log.contact_id}
+                  onClick={() => setExpandedLog(isExpanded ? null : log.contact_id)}
                   className={`px-4 py-3.5 cursor-pointer transition-colors ${rowAccent} ${isExpanded ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
                 >
                   <div className="flex items-center gap-3">
