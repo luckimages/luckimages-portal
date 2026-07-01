@@ -161,7 +161,7 @@ function buildPitchHtml(firstName: string): string {
   </td></tr>
 
   <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
-    <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Ready to book or have questions? Just reply — I can usually get out within 24–48 hours.</p>
+    <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Hey, ready to book or have any questions? Reach out and a member of our team will be in contact shortly.</p>
     <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
     <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ryan@luckimages.com · luckimages.com</p>
   </td></tr>
