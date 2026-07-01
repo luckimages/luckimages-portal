@@ -341,6 +341,7 @@ function ColdCallsPage() {
       brokerage: contactForm.brokerage || null,
       stage: "lead",
       type: "lead",
+      lead_source: "cold-call",
     }).select().single();
     if (data) setContact(data as Contact);
     setContactMode("none");
