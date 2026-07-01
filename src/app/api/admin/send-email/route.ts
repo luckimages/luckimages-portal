@@ -24,17 +24,24 @@ export async function POST(req: Request) {
 
   // Send via Resend if configured
   const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey) {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: "Ryan Luck <ryan@luckimages.com>",
-        to: [to],
-        subject,
-        ...(html ? { html } : { text: body }),
-      }),
-    });
+  if (!resendKey) {
+    return NextResponse.json({ ok: false, error: "RESEND_API_KEY is not configured" }, { status: 500 });
+  }
+
+  const resendRes = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Ryan Luck <ryan@luckimages.com>",
+      to: [to],
+      subject,
+      ...(html ? { html } : { text: body }),
+    }),
+  });
+
+  if (!resendRes.ok) {
+    const errText = await resendRes.text();
+    return NextResponse.json({ ok: false, error: `Resend API error (${resendRes.status}): ${errText}` }, { status: 502 });
   }
 
   return NextResponse.json({ ok: true });
