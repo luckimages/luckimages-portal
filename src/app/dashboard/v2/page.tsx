@@ -63,6 +63,23 @@ const BOARD_STAGES: { key: string; label: string; color: string; dbStatuses: str
   { key: "paid",      label: "Paid",      color: "#4ade80", dbStatuses: ["completed"] },
 ];
 
+function TaperedColumnDividers({ count }: { count: number }) {
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {Array.from({ length: count - 1 }, (_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 bottom-0 w-[3px]"
+          style={{
+            left: `${((i + 1) / count) * 100}%`,
+            background: "linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0))",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 const TODO_TABS: { key: string; label: string; color: string }[] = [
   { key: "asap", label: "ASAP", color: "text-[#fbbf24]" },
   { key: "general", label: "General", color: "text-white/70" },
@@ -278,7 +295,8 @@ export default function DashboardV2Page() {
           </div>
 
           {middleView === "schedule" ? (
-            <div className="flex-1 min-h-0 grid grid-cols-7 divide-x-[3px] divide-white">
+            <div className="relative flex-1 min-h-0 grid grid-cols-7">
+              <TaperedColumnDividers count={7} />
               {days.map((d, i) => {
                 const isToday = d.toDateString() === today.toDateString();
                 const dayShoots = shootsOnDay(d);
@@ -334,7 +352,8 @@ export default function DashboardV2Page() {
                 })}
               </div>
 
-              <div className="flex-1 min-h-0 grid grid-cols-6 divide-x-[3px] divide-white">
+              <div className="relative flex-1 min-h-0 grid grid-cols-6">
+                <TaperedColumnDividers count={6} />
                 {BOARD_STAGES.map(stage => {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
                   return (
