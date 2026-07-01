@@ -30,6 +30,21 @@ function displayName(slug: string, services: string[]) {
   return match || slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
+const MEDIA_EXTENSIONS = [
+  "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "tif", "tiff",
+  "cr2", "cr3", "nef", "arw", "dng", "raf", "orf", "rw2",
+  "mp4", "mov", "m4v", "avi", "mkv", "webm",
+];
+
+// Drag-and-drop reports File.type from OS MIME registration, which is often blank
+// for camera RAW files (and sometimes ordinary photos) — fall back to the extension
+// so real files don't get silently dropped with zero feedback.
+function isMediaFile(f: File): boolean {
+  if (f.type.startsWith("image/") || f.type.startsWith("video/")) return true;
+  const ext = f.name.split(".").pop()?.toLowerCase() || "";
+  return MEDIA_EXTENSIONS.includes(ext);
+}
+
 export default function ShootGallery({ shootId, services = [], onMediaChange }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
@@ -161,9 +176,15 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
     function onDrop(e: React.DragEvent) {
       if (!canEdit) return;
       e.preventDefault();
+      setDraggingSection(null);
       dragCounters.current[slug] = 0;
-      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
-      if (files.length) uploadFileList(files, slug);
+      const dropped = Array.from(e.dataTransfer.files);
+      const files = dropped.filter(isMediaFile);
+      if (files.length) {
+        uploadFileList(files, slug);
+      } else if (dropped.length) {
+        setUploadError(`${dropped.length} file(s) weren't recognized as photos/videos and weren't uploaded.`);
+      }
     }
 
     return (
