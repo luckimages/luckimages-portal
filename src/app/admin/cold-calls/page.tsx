@@ -111,7 +111,6 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
 
 function buildPitchHtml(firstName: string): string {
   const BASE = "https://luckimages.com";
-  const HERO_IMG = "https://images.squarespace-cdn.com/content/v1/61213811ee51ff1fda7a3bc4/97b5ff64-2aa4-43d2-a8a1-18af3072bbee/banner-1.jpg";
 
   const serviceRow = (label: string, price: string, href: string) =>
     `<tr>
@@ -129,25 +128,20 @@ function buildPitchHtml(firstName: string): string {
 <tr><td align="center">
 <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
 
-  <tr><td style="padding:0;">
-    <div style="background-image:url(${HERO_IMG});background-size:cover;background-position:center;padding:64px 32px 56px;text-align:center;position:relative;">
-      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.55);"></div>
-      <div style="position:relative;z-index:1;">
-        <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.5);">Real Estate Media · Austin, TX</p>
-        <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#fff;line-height:1;">LUCK IMAGES</h1>
-        <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.75);max-width:400px;">Hey ${firstName}, thanks for taking the time to chat. Here's everything we offer — reach out whenever a listing comes up and we'll get you taken care of.</p>
-        <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-          <tr>
-            <td style="padding-right:10px;">
-              <a href="${BASE}/pricing" style="display:inline-block;background:#fff;color:#000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">View Pricing →</a>
-            </td>
-            <td>
-              <a href="${BASE}" style="display:inline-block;border:1px solid rgba(255,255,255,0.4);color:#fff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
-            </td>
-          </tr>
-        </table>
-      </div>
-    </div>
+  <tr><td style="padding:64px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
+    <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
+    <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#ffffff;line-height:1;">LUCK IMAGES</h1>
+    <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">Hey ${firstName}, thanks for taking the time to chat. Here's everything we offer — reach out whenever a listing comes up and we'll get you taken care of.</p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+      <tr>
+        <td style="padding-right:10px;">
+          <a href="${BASE}/pricing" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">View Pricing →</a>
+        </td>
+        <td>
+          <a href="${BASE}" style="display:inline-block;border:1px solid #999999;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
   <tr><td style="padding:32px;">
