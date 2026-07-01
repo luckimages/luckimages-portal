@@ -7,10 +7,32 @@ import { createClient } from "@/lib/supabase";
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const HERO_SRC = "/hero-1.jpg";
 
+type Shoot = {
+  id: string;
+  address: string;
+  scheduled_at: string | null;
+  status: string;
+  client_name: string;
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: "#888",
+  scheduled: "#60a5fa",
+  en_route: "#60a5fa",
+  on_site: "#fbbf24",
+  wrapping: "#fbbf24",
+  editing: "#a78bfa",
+  delivered: "#4ade80",
+  completed: "#4ade80",
+  cancelled: "#f87171",
+};
+
 export default function DashboardV2Page() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const [checked, setChecked] = useState(false);
+  const [shoots, setShoots] = useState<Shoot[]>([]);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -23,18 +45,44 @@ export default function DashboardV2Page() {
     });
   }, [router]);
 
+  useEffect(() => {
+    if (!checked) return;
+    fetch("/api/admin/shoots?all=1").then(r => r.ok ? r.json() : []).then(setShoots);
+  }, [checked]);
+
   if (!checked) return null;
 
+  // Build the visible week (Mon–Sun)
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
+  monday.setHours(0, 0, 0, 0);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+  const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+  function shootsOnDay(d: Date) {
+    const ds = d.toDateString();
+    return shoots
+      .filter(s => s.scheduled_at && new Date(s.scheduled_at).toDateString() === ds)
+      .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime());
+  }
+
   return (
-    <main className="relative min-h-screen bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
+    <main className="relative h-screen bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
       {/* Full-page hero background */}
       <div className="absolute inset-0">
         <img src={HERO_SRC} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/85" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/90" />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-6">
+      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-6 shrink-0">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
           <span className="text-[10px] tracking-[3px] uppercase text-[#a78bfa]">V2 Beta</span>
@@ -45,15 +93,57 @@ export default function DashboardV2Page() {
         </div>
       </header>
 
-      {/* Hero content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6">
-        <p className="text-xs tracking-[4px] uppercase text-white/50 mb-3">Welcome back, {userName}</p>
-        <h1 className="text-[clamp(40px,8vw,96px)] font-black tracking-tight uppercase leading-none mb-4">
-          Luck Images
-        </h1>
-        <p className="text-sm md:text-base text-white/60 max-w-md">
-          Fresh canvas — we'll build this out together.
-        </p>
+      {/* Welcome back — top left, under logo */}
+      <div className="relative z-10 px-4 md:px-8 shrink-0">
+        <p className="text-xs tracking-[4px] uppercase text-white/50">Welcome back, {userName}</p>
+      </div>
+
+      {/* Schedule — fills remaining space */}
+      <div className="relative z-10 flex-1 min-h-0 px-4 md:px-8 pt-6 pb-6 flex flex-col">
+        <div className="flex items-center gap-4 mb-4 shrink-0">
+          <p className="text-xs tracking-[4px] uppercase text-white/60 flex-1">Schedule</p>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setWeekOffset(o => o - 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">←</button>
+            <span className="text-xs tracking-[2px] uppercase text-white/70">{weekLabel}</span>
+            <button onClick={() => setWeekOffset(o => o + 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">→</button>
+            {weekOffset !== 0 && (
+              <button onClick={() => setWeekOffset(0)} className="text-xs tracking-[1px] uppercase text-white/50 hover:text-white transition-colors">Today</button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 grid grid-cols-7 gap-2">
+          {days.map((d, i) => {
+            const isToday = d.toDateString() === today.toDateString();
+            const dayShoots = shootsOnDay(d);
+            return (
+              <div
+                key={i}
+                className={`flex flex-col min-h-0 bg-black/40 backdrop-blur-sm border ${isToday ? "border-white/40" : "border-white/10"} overflow-hidden`}
+              >
+                <div className={`px-3 py-2 border-b ${isToday ? "border-white/30 bg-white/10" : "border-white/10"} shrink-0`}>
+                  <p className="text-[10px] tracking-[2px] uppercase text-white/50">{DAY_NAMES[i]}</p>
+                  <p className={`text-lg font-bold ${isToday ? "text-white" : "text-white/80"}`}>{d.getDate()}</p>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-1.5 flex flex-col gap-1.5">
+                  {dayShoots.map(s => (
+                    <a
+                      key={s.id}
+                      href="/dashboard/board"
+                      className="block bg-white/5 hover:bg-white/10 transition-colors border-l-2 px-2 py-1.5"
+                      style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
+                    >
+                      <p className="text-[11px] font-semibold text-white truncate">{s.client_name || s.address}</p>
+                      <p className="text-[10px] text-white/50 truncate">
+                        {new Date(s.scheduled_at!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </main>
   );
