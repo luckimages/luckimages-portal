@@ -109,9 +109,8 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
   return next;
 }
 
-function buildPitchHtml(firstName: string, contactId: string): string {
-  const TRACK_BASE = "https://luckimages-portal.vercel.app/api/track-link";
-  const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
+function buildPitchHtml(firstName: string): string {
+  const BASE = "https://www.luckimages.com";
 
   const serviceRow = (label: string, price: string, href: string) =>
     `<tr>
@@ -136,10 +135,10 @@ function buildPitchHtml(firstName: string, contactId: string): string {
     <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
       <tr>
         <td style="padding-right:10px;">
-          <a href="${track("pricing")}" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">View Pricing →</a>
+          <a href="${BASE}/pricing" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">View Pricing →</a>
         </td>
         <td>
-          <a href="${track("home")}" style="display:inline-block;border:1px solid #999999;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
+          <a href="${BASE}" style="display:inline-block;border:1px solid #999999;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
         </td>
       </tr>
     </table>
@@ -149,13 +148,13 @@ function buildPitchHtml(firstName: string, contactId: string): string {
     <div style="background-color:#131313;border:1px solid #222;padding:28px;">
       <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">Services &amp; Starting Prices</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#131313;" bgcolor="#131313">
-        ${serviceRow("Listing Photos", "from $200", track("photo"))}
-        ${serviceRow("Drone Photos", "$100 add-on · $200 solo", track("drone"))}
-        ${serviceRow("Matterport 3D Tour", "from $200", track("matterport"))}
-        ${serviceRow("Twilight Photography", `+$150 add-on · ${TWILIGHT_STANDALONE_PRICE} solo`, track("twilight"))}
-        ${serviceRow("Virtual Staging", VIRTUAL_STAGING_PER_PHOTO_PRICE, track("virtual-staging"))}
-        ${serviceRow("Video Walkthrough", "from $200", track("video"))}
-        ${serviceRow("Floor Plan", "from $50", track("floorplan"))}
+        ${serviceRow("Listing Photos", "from $200", `${BASE}/photo`)}
+        ${serviceRow("Drone Photos", "$100 add-on · $200 solo", `${BASE}/drone`)}
+        ${serviceRow("Matterport 3D Tour", "from $200", `${BASE}/360`)}
+        ${serviceRow("Twilight Photography", `+$150 add-on · ${TWILIGHT_STANDALONE_PRICE} solo`, `${BASE}/twilight`)}
+        ${serviceRow("Virtual Staging", VIRTUAL_STAGING_PER_PHOTO_PRICE, `${BASE}/virtual-staging`)}
+        ${serviceRow("Video Walkthrough", "from $200", `${BASE}/reels`)}
+        ${serviceRow("Floor Plan", "from $50", `${BASE}/pricing`)}
       </table>
       <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>
     </div>
@@ -435,7 +434,7 @@ function ColdCallsPage() {
         contactId: target.id,
         to: target.email,
         subject: pitchSubject,
-        html: buildPitchHtml(firstName, target.id),
+        html: buildPitchHtml(firstName),
         body: `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`,
       }),
     });
