@@ -86,7 +86,7 @@ export default function DashboardV2Page() {
 
   useEffect(() => {
     if (!checked) return;
-    fetch("/api/admin/shoots?all=1").then(r => r.ok ? r.json() : []).then(setShoots);
+    fetch("/api/admin/shoots?full=1").then(r => r.ok ? r.json() : []).then(setShoots);
     loadTodos();
     fetch("/api/admin/company-updates").then(r => r.ok ? r.json() : { posts: [], auto: [] }).then(d => {
       const all = [...(d.posts || []), ...(d.auto || [])].sort(
