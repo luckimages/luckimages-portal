@@ -148,99 +148,103 @@ export default function DashboardV2Page() {
         </div>
       </header>
 
-      {/* Welcome — big, top left */}
-      <div className="relative z-10 px-4 md:px-8 pb-4 shrink-0">
-        <h1 className="text-[clamp(32px,5vw,56px)] font-black tracking-tight uppercase leading-none">
-          Welcome {userName}
-        </h1>
-      </div>
+      {/* Centered content column — matches the classic dashboard's max-w container */}
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col max-w-7xl mx-auto w-full px-4 md:px-8">
 
-      {/* Middle ~2/3: Schedule, full width */}
-      <div className="relative z-10 flex-[2] min-h-0 px-4 md:px-8 pb-4 flex flex-col">
-        <div className="flex items-center justify-end gap-3 mb-3 shrink-0">
-          <button onClick={() => setWeekOffset(o => o - 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">←</button>
-          <span className="text-xs tracking-[2px] uppercase text-white/70">{weekLabel}</span>
-          <button onClick={() => setWeekOffset(o => o + 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">→</button>
-          {weekOffset !== 0 && (
-            <button onClick={() => setWeekOffset(0)} className="text-xs tracking-[1px] uppercase text-white/50 hover:text-white transition-colors">Today</button>
-          )}
+        {/* Welcome — big, top left */}
+        <div className="pb-4 shrink-0">
+          <h1 className="text-[clamp(32px,5vw,56px)] font-black tracking-tight uppercase leading-none">
+            Welcome {userName}
+          </h1>
         </div>
 
-        <div className="flex-1 min-h-0 grid grid-cols-7 gap-2">
-          {days.map((d, i) => {
-            const isToday = d.toDateString() === today.toDateString();
-            const dayShoots = shootsOnDay(d);
-            return (
-              <div
-                key={i}
-                className={`flex flex-col min-h-0 bg-transparent border ${isToday ? "border-white" : "border-white/40"} overflow-hidden`}
-              >
-                <div className={`px-3 py-2 border-b ${isToday ? "border-white" : "border-white/40"} shrink-0`}>
-                  <p className="text-[10px] tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</p>
-                  <p className={`text-lg font-bold ${isToday ? "text-white" : "text-white/80"}`}>{d.getDate()}</p>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto p-1.5 flex flex-col gap-1.5">
-                  {dayShoots.map(s => (
-                    <a
-                      key={s.id}
-                      href="/dashboard/board"
-                      className="block bg-transparent hover:bg-white/10 transition-colors border border-white/20 border-l-2 px-2 py-1.5"
-                      style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
-                    >
-                      <p className="text-[11px] font-semibold text-white truncate">{s.client_name || s.address}</p>
-                      <p className="text-[10px] text-white/50 truncate">
-                        {new Date(s.scheduled_at!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                      </p>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bottom third: To Do + Notifications side by side */}
-      <div className="relative z-10 flex-[1] min-h-0 px-4 md:px-8 pb-4 md:pb-6 grid grid-cols-2 gap-4">
-        {/* To Do */}
-        <div className="flex flex-col min-h-0 bg-transparent border border-white/40">
-          <p className="text-xs tracking-[3px] uppercase text-white/70 px-4 py-3 border-b border-white/40 shrink-0">To Do</p>
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
-            {todos.length === 0 ? (
-              <p className="text-xs text-white/30 italic py-4">Nothing on the list.</p>
-            ) : (
-              <div className="flex flex-col divide-y divide-white/5">
-                {todos.map(t => (
-                  <div key={t.id} className="flex items-center gap-3 py-2.5">
-                    <button
-                      onClick={() => completeTodo(t.id)}
-                      className="w-4 h-4 rounded-full border border-white/30 hover:border-[#4ade80] hover:bg-[#4ade80]/20 transition-colors shrink-0"
-                    />
-                    <span className="text-sm text-white/90 truncate flex-1">{t.title || t.text}</span>
-                    {t.is_urgent && <span className="text-[9px] tracking-[1px] uppercase text-[#f87171] shrink-0">ASAP</span>}
-                  </div>
-                ))}
-              </div>
+        {/* Middle ~2/3: Schedule, full width */}
+        <div className="flex-[2] min-h-0 pb-4 flex flex-col">
+          <div className="flex items-center justify-end gap-3 mb-3 shrink-0">
+            <button onClick={() => setWeekOffset(o => o - 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">←</button>
+            <span className="text-xs tracking-[2px] uppercase text-white/70">{weekLabel}</span>
+            <button onClick={() => setWeekOffset(o => o + 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">→</button>
+            {weekOffset !== 0 && (
+              <button onClick={() => setWeekOffset(0)} className="text-xs tracking-[1px] uppercase text-white/50 hover:text-white transition-colors">Today</button>
             )}
+          </div>
+
+          <div className="flex-1 min-h-0 grid grid-cols-7 gap-2">
+            {days.map((d, i) => {
+              const isToday = d.toDateString() === today.toDateString();
+              const dayShoots = shootsOnDay(d);
+              return (
+                <div
+                  key={i}
+                  className={`flex flex-col min-h-0 bg-transparent border ${isToday ? "border-white" : "border-white/40"} overflow-hidden`}
+                >
+                  <div className={`px-3 py-2 border-b ${isToday ? "border-white" : "border-white/40"} shrink-0`}>
+                    <p className="text-[10px] tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</p>
+                    <p className={`text-lg font-bold ${isToday ? "text-white" : "text-white/80"}`}>{d.getDate()}</p>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-1.5 flex flex-col gap-1.5">
+                    {dayShoots.map(s => (
+                      <a
+                        key={s.id}
+                        href="/dashboard/board"
+                        className="block bg-transparent hover:bg-white/10 transition-colors border border-white/20 border-l-2 px-2 py-1.5"
+                        style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
+                      >
+                        <p className="text-[11px] font-semibold text-white truncate">{s.client_name || s.address}</p>
+                        <p className="text-[10px] text-white/50 truncate">
+                          {new Date(s.scheduled_at!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        </p>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Notifications */}
-        <div className="flex flex-col min-h-0 bg-transparent border border-white/40">
-          <p className="text-xs tracking-[3px] uppercase text-white/70 px-4 py-3 border-b border-white/40 shrink-0">Notifications</p>
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
-            {updates.length === 0 ? (
-              <p className="text-xs text-white/30 italic py-4">Nothing yet.</p>
-            ) : (
-              <div className="flex flex-col divide-y divide-white/5">
-                {updates.map(u => (
-                  <a key={u.id} href={u.link || "#"} className="block py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1">
-                    <p className="text-sm text-white/90 truncate">{u.message}</p>
-                    <p className="text-[10px] text-white/40 mt-0.5">{timeAgo(u.created_at)}{u.by ? ` · ${u.by}` : ""}</p>
-                  </a>
-                ))}
-              </div>
-            )}
+        {/* Bottom third: To Do + Notifications side by side */}
+        <div className="flex-[1] min-h-0 pb-4 md:pb-6 grid grid-cols-2 gap-4">
+          {/* To Do */}
+          <div className="flex flex-col min-h-0 bg-transparent border border-white/40">
+            <p className="text-xs tracking-[3px] uppercase text-white/70 px-4 py-3 border-b border-white/40 shrink-0">To Do</p>
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+              {todos.length === 0 ? (
+                <p className="text-xs text-white/30 italic py-4">Nothing on the list.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-white/5">
+                  {todos.map(t => (
+                    <div key={t.id} className="flex items-center gap-3 py-2.5">
+                      <button
+                        onClick={() => completeTodo(t.id)}
+                        className="w-4 h-4 rounded-full border border-white/30 hover:border-[#4ade80] hover:bg-[#4ade80]/20 transition-colors shrink-0"
+                      />
+                      <span className="text-sm text-white/90 truncate flex-1">{t.title || t.text}</span>
+                      {t.is_urgent && <span className="text-[9px] tracking-[1px] uppercase text-[#f87171] shrink-0">ASAP</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Notifications */}
+          <div className="flex flex-col min-h-0 bg-transparent border border-white/40">
+            <p className="text-xs tracking-[3px] uppercase text-white/70 px-4 py-3 border-b border-white/40 shrink-0">Notifications</p>
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+              {updates.length === 0 ? (
+                <p className="text-xs text-white/30 italic py-4">Nothing yet.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-white/5">
+                  {updates.map(u => (
+                    <a key={u.id} href={u.link || "#"} className="block py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1">
+                      <p className="text-sm text-white/90 truncate">{u.message}</p>
+                      <p className="text-[10px] text-white/40 mt-0.5">{timeAgo(u.created_at)}{u.by ? ` · ${u.by}` : ""}</p>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
