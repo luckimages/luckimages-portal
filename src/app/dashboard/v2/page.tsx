@@ -70,6 +70,23 @@ const TODO_TABS: { key: string; label: string; color: string }[] = [
   { key: "leif", label: "Leif", color: "text-[#60a5fa]" },
 ];
 
+function TaperedColumnDividers({ count }: { count: number }) {
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {Array.from({ length: count - 1 }, (_, i) => (
+        <div
+          key={i}
+          className="absolute top-0 bottom-0 w-px"
+          style={{
+            left: `${((i + 1) / count) * 100}%`,
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0))",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 const NOTIF_CATS: { key: string; label: string; dot: string }[] = [
   { key: "alerts", label: "Alerts", dot: "bg-red-500" },
   { key: "shoots", label: "Shoots", dot: "bg-[#60a5fa]" },
@@ -254,7 +271,7 @@ export default function DashboardV2Page() {
               >
                 ←
               </button>
-              <span className="text-xs tracking-[2px] uppercase text-white w-32">{MIDDLE_VIEW_LABEL[middleView]}</span>
+              <span className="text-xs tracking-[2px] uppercase text-white whitespace-nowrap">{MIDDLE_VIEW_LABEL[middleView]}</span>
               <button
                 onClick={() => setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) + 1) % MIDDLE_VIEWS.length])}
                 className="text-white/50 hover:text-white transition-colors px-1 text-sm"
@@ -278,7 +295,8 @@ export default function DashboardV2Page() {
           </div>
 
           {middleView === "schedule" ? (
-            <div className="flex-1 min-h-0 grid grid-cols-7 divide-x divide-white/20">
+            <div className="relative flex-1 min-h-0 grid grid-cols-7">
+              <TaperedColumnDividers count={7} />
               {days.map((d, i) => {
                 const isToday = d.toDateString() === today.toDateString();
                 const dayShoots = shootsOnDay(d);
@@ -334,7 +352,8 @@ export default function DashboardV2Page() {
                 })}
               </div>
 
-              <div className="flex-1 min-h-0 grid grid-cols-6 divide-x divide-white/20">
+              <div className="relative flex-1 min-h-0 grid grid-cols-6">
+                <TaperedColumnDividers count={6} />
                 {BOARD_STAGES.map(stage => {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
                   return (
@@ -404,7 +423,7 @@ export default function DashboardV2Page() {
                         className="w-4 h-4 rounded-full border border-white/30 hover:border-[#4ade80] hover:bg-[#4ade80]/20 transition-colors shrink-0"
                       />
                       <span className="text-sm text-white/90 truncate flex-1">{t.title || t.text}</span>
-                      {t.is_urgent && <span className="text-[9px] tracking-[1px] uppercase text-[#f87171] shrink-0">ASAP</span>}
+                      {t.is_urgent && <span className="text-[9px] tracking-[1px] uppercase text-[#fbbf24] shrink-0">ASAP</span>}
                     </div>
                   ))}
                 </div>
