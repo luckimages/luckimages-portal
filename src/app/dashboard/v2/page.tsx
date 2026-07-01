@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-const HERO_IMAGES = ["/hero-1.jpg", "/hero-2.jpg", "/hero-3.jpg", "/hero-4.jpg"];
+const HERO_SRC = "/hero-1.jpg";
 
 export default function DashboardV2Page() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const [checked, setChecked] = useState(false);
-  const [heroSrc] = useState(() => HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -30,7 +29,7 @@ export default function DashboardV2Page() {
     <main className="relative min-h-screen bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
       {/* Full-page hero background */}
       <div className="absolute inset-0">
-        <img src={heroSrc} alt="" className="w-full h-full object-cover" />
+        <img src={HERO_SRC} alt="" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/85" />
       </div>
 
