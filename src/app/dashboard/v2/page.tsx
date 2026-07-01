@@ -76,10 +76,10 @@ function TaperedColumnDividers({ count }: { count: number }) {
       {Array.from({ length: count - 1 }, (_, i) => (
         <div
           key={i}
-          className="absolute top-0 bottom-0 w-px"
+          className="absolute top-0 bottom-0 w-[3px]"
           style={{
             left: `${((i + 1) / count) * 100}%`,
-            background: "linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0))",
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0))",
           }}
         />
       ))}
@@ -389,7 +389,7 @@ export default function DashboardV2Page() {
         {/* Bottom third: To Do + Notifications side by side */}
         <div className="flex-[1] min-h-0 pb-4 md:pb-6 grid grid-cols-2 gap-4">
           {/* To Do — tabbed */}
-          <div className="flex flex-col min-h-0 border border-white/40 px-4 pt-3">
+          <div className="flex flex-col min-h-0 border-2 border-white/40 px-4 pt-3">
             <div className="flex items-center gap-1 pb-2 mb-2 border-b border-white/20 shrink-0 overflow-x-auto">
               {TODO_TABS.map((tab, i) => {
                 const count = getTabTasks(tab.key).length;
@@ -435,7 +435,7 @@ export default function DashboardV2Page() {
           </div>
 
           {/* Notifications */}
-          <div className="flex flex-col min-h-0 border border-white/40 px-4 pt-3">
+          <div className="flex flex-col min-h-0 border-2 border-white/40 px-4 pt-3">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
               <span className="text-xs tracking-[2px] uppercase text-white/70">Notifications</span>
               <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
