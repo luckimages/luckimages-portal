@@ -312,38 +312,57 @@ export default function DashboardV2Page() {
               })}
             </div>
           ) : (
-            <div className="flex-1 min-h-0 grid grid-cols-6 divide-x divide-white/20">
-              {BOARD_STAGES.map(stage => {
-                const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
-                const hasRed = stageShoots.some(isRed);
-                return (
-                  <div key={stage.key} className="flex flex-col min-h-0 px-3">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
-                      <span className="text-xs tracking-[2px] uppercase" style={{ color: hasRed ? "#f87171" : stageShoots.length > 0 ? stage.color : "rgba(255,255,255,0.4)" }}>
-                        {stage.label}
-                      </span>
-                      <span className={`text-sm font-bold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stageShoots.length}</span>
+            <div className="flex-1 min-h-0 flex flex-col">
+              {/* Dot + line tracker, centered on each column */}
+              <div className="grid relative mb-3 shrink-0" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+                <div className="absolute top-[5px] h-px bg-white/15" style={{ left: `calc(100% / 12)`, right: `calc(100% / 12)` }} />
+                {BOARD_STAGES.map(stage => {
+                  const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
+                  const hasRed = stageShoots.some(isRed);
+                  return (
+                    <div key={stage.key} className="flex flex-col items-center gap-1.5">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border-2 relative z-10 transition-colors"
+                        style={{
+                          background: hasRed ? "#f87171" : stageShoots.length > 0 ? "#fff" : "#000",
+                          borderColor: hasRed ? "#f87171" : stageShoots.length > 0 ? "#fff" : "rgba(255,255,255,0.2)",
+                        }}
+                      />
+                      <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stage.label}</span>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-                      {stageShoots.map(sh => {
-                        const red = isRed(sh);
-                        return (
-                          <a
-                            key={sh.id}
-                            href="/dashboard/board"
-                            className={`block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1 ${red ? "animate-pulse" : ""}`}
-                            style={{ borderLeftColor: red ? "#f87171" : stage.color }}
-                          >
-                            <p className="text-xs font-semibold text-white truncate">{sh.client_name || "Client"}</p>
-                            <p className="text-[10px] text-white/60 truncate mt-0.5">{sh.address}</p>
-                            {red && <p className="text-[10px] text-red-400 mt-0.5">Needs attention</p>}
-                          </a>
-                        );
-                      })}
+                  );
+                })}
+              </div>
+
+              <div className="flex-1 min-h-0 grid grid-cols-6 divide-x divide-white/20">
+                {BOARD_STAGES.map(stage => {
+                  const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
+                  return (
+                    <div key={stage.key} className="flex flex-col min-h-0 px-3">
+                      <div className="flex items-center justify-end pb-2 mb-2 border-b border-white/20 shrink-0">
+                        <span className={`text-sm font-bold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stageShoots.length}</span>
+                      </div>
+                      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+                        {stageShoots.map(sh => {
+                          const red = isRed(sh);
+                          return (
+                            <a
+                              key={sh.id}
+                              href="/dashboard/board"
+                              className={`block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1 ${red ? "animate-pulse" : ""}`}
+                              style={{ borderLeftColor: red ? "#f87171" : stage.color }}
+                            >
+                              <p className="text-xs font-semibold text-white truncate">{sh.client_name || "Client"}</p>
+                              <p className="text-[10px] text-white/60 truncate mt-0.5">{sh.address}</p>
+                              {red && <p className="text-[10px] text-red-400 mt-0.5">Needs attention</p>}
+                            </a>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
