@@ -15,12 +15,15 @@ type Shoot = {
   client_name: string;
 };
 
+type TodoList = { id: string; name: string };
 type Todo = {
   id: string;
   text: string;
   title?: string;
   is_urgent: boolean;
   assigned_to?: string;
+  list_id?: string | null;
+  due_date?: string | null;
   completed_at: string | null;
 };
 
@@ -46,15 +49,22 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: "#f87171",
 };
 
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+const TODO_TABS: { key: string; label: string; color: string }[] = [
+  { key: "asap", label: "ASAP", color: "text-[#fbbf24]" },
+  { key: "general", label: "General", color: "text-white/70" },
+  { key: "ryan", label: "Ryan", color: "text-[#4ade80]" },
+  { key: "leif", label: "Leif", color: "text-[#60a5fa]" },
+];
+
+const NOTIF_CATS: { key: string; label: string; dot: string }[] = [
+  { key: "alerts", label: "Alerts", dot: "bg-red-500" },
+  { key: "shoots", label: "Shoots", dot: "bg-[#60a5fa]" },
+  { key: "clients", label: "Clients", dot: "bg-[#fbbf24]" },
+  { key: "marketing", label: "Marketing", dot: "bg-[#f472b6]" },
+  { key: "finance", label: "Finance", dot: "bg-[#4ade80]" },
+  { key: "team", label: "Team", dot: "bg-[#fb923c]" },
+  { key: "nocturne", label: "Nocturne", dot: "bg-[#a78bfa]" },
+];
 
 export default function DashboardV2Page() {
   const router = useRouter();
@@ -62,8 +72,13 @@ export default function DashboardV2Page() {
   const [checked, setChecked] = useState(false);
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
+
+  const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [todoTab, setTodoTab] = useState("asap");
+
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(NOTIF_CATS.map(c => c.key)));
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -80,6 +95,7 @@ export default function DashboardV2Page() {
     const res = await fetch("/api/admin/todos");
     if (res.ok) {
       const d = await res.json();
+      setTodoLists(d.lists || []);
       setTodos(d.active || []);
     }
   }, []);
@@ -92,7 +108,7 @@ export default function DashboardV2Page() {
       const all = [...(d.posts || []), ...(d.auto || [])].sort(
         (a: UpdateItem, b: UpdateItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      setUpdates(all.slice(0, 12));
+      setUpdates(all);
     });
   }, [checked, loadTodos]);
 
@@ -105,7 +121,30 @@ export default function DashboardV2Page() {
     });
   }
 
+  function toggleCat(key: string) {
+    setActiveCategories(prev => {
+      const next = new Set(prev);
+      if (next.size === NOTIF_CATS.length) return new Set([key]);
+      if (next.has(key) && next.size === 1) return new Set(NOTIF_CATS.map(c => c.key));
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
   if (!checked) return null;
+
+  const asapList = todoLists.find(l => l.name.toLowerCase().includes("asap")) || todoLists[0];
+  const generalList = todoLists.find(l => l.name.toLowerCase().includes("general"));
+  function getTabTasks(tab: string) {
+    if (tab === "asap") return asapList ? todos.filter(t => t.list_id === asapList.id) : [];
+    if (tab === "general") return generalList ? todos.filter(t => t.list_id === generalList.id) : todos.filter(t => !t.list_id || t.list_id !== asapList?.id);
+    return todos.filter(t => t.assigned_to === tab);
+  }
+  const activeTabDef = TODO_TABS.find(t => t.key === todoTab)!;
+  const tabTasks = getTabTasks(todoTab);
+
+  const filteredUpdates = updates.filter(u => activeCategories.has(u.category || "nocturne"));
+  const catDot: Record<string, string> = Object.fromEntries(NOTIF_CATS.map(c => [c.key, c.dot]));
 
   // Build the visible week (Mon–Sun)
   const today = new Date();
@@ -175,22 +214,26 @@ export default function DashboardV2Page() {
               const dayShoots = shootsOnDay(d);
               return (
                 <div key={i} className="flex flex-col min-h-0 px-3">
-                  <div className="pb-2 mb-2 border-b border-white/20 shrink-0">
-                    <p className="text-[10px] tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</p>
-                    <p className={`text-lg font-bold ${isToday ? "text-white" : "text-white/70"}`}>{d.getDate()}</p>
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
+                    <span className="text-xs tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</span>
+                    <span className={`text-sm font-bold ${isToday ? "text-white" : "text-white/50"}`}>{d.getDate()}</span>
                   </div>
                   <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
                     {dayShoots.map(s => (
                       <a
                         key={s.id}
                         href="/dashboard/board"
-                        className="block hover:bg-white/10 transition-colors border-l-2 pl-2 py-0.5"
+                        className="block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1"
                         style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
                       >
-                        <p className="text-[11px] font-semibold text-white truncate">{s.client_name || s.address}</p>
-                        <p className="text-[10px] text-white/50 truncate">
-                          {new Date(s.scheduled_at!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                        </p>
+                        <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
+                        <p className="text-[10px] text-white/60 truncate mt-0.5">{s.address}</p>
+                        {s.scheduled_at && (
+                          <p className="text-[10px] text-white/40 mt-0.5">
+                            {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                          </p>
+                        )}
+                        <p className="text-[9px] tracking-[1px] uppercase text-white/30 mt-1">View ↗</p>
                       </a>
                     ))}
                   </div>
@@ -202,15 +245,35 @@ export default function DashboardV2Page() {
 
         {/* Bottom third: To Do + Notifications side by side */}
         <div className="flex-[1] min-h-0 pb-4 md:pb-6 grid grid-cols-2 divide-x divide-white/20 border-t border-white/25 pt-4">
-          {/* To Do */}
+          {/* To Do — tabbed */}
           <div className="flex flex-col min-h-0 pr-4">
-            <p className="text-xs tracking-[3px] uppercase text-white/70 pb-2 mb-2 border-b border-white/20 shrink-0">To Do</p>
+            <div className="flex items-center gap-1 pb-2 mb-2 border-b border-white/20 shrink-0 overflow-x-auto">
+              {TODO_TABS.map((tab, i) => {
+                const count = getTabTasks(tab.key).length;
+                const isActive = tab.key === todoTab;
+                return (
+                  <div key={tab.key} className="flex items-center">
+                    {i > 0 && <span className="text-white/20 text-[10px] px-1">/</span>}
+                    <button
+                      onClick={() => setTodoTab(tab.key)}
+                      className={`py-1 px-0.5 text-[10px] tracking-[1.5px] uppercase font-semibold transition-colors whitespace-nowrap ${
+                        isActive ? tab.color : "text-white/30 hover:text-white/50"
+                      }`}
+                    >
+                      {tab.label}{count > 0 && <span className="opacity-60"> ({count})</span>}
+                    </button>
+                  </div>
+                );
+              })}
+              <span className="text-white/20 text-[10px] px-1">/</span>
+              <a href="/dashboard/todos" className="py-1 px-0.5 text-[10px] text-white/30 hover:text-white/60 transition-colors whitespace-nowrap">all</a>
+            </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
-              {todos.length === 0 ? (
-                <p className="text-xs text-white/30 italic py-4">Nothing on the list.</p>
+              {tabTasks.length === 0 ? (
+                <p className="text-xs text-white/30 italic py-4">Nothing in {activeTabDef.label}.</p>
               ) : (
                 <div className="flex flex-col divide-y divide-white/10">
-                  {todos.map(t => (
+                  {tabTasks.map(t => (
                     <div key={t.id} className="flex items-center gap-3 py-2.5">
                       <button
                         onClick={() => completeTodo(t.id)}
@@ -223,22 +286,57 @@ export default function DashboardV2Page() {
                 </div>
               )}
             </div>
+            <a href="/dashboard/todos" className="border-t border-white/20 pt-2 mt-1 text-xs text-white/40 hover:text-white/70 transition-colors shrink-0">
+              + Add task or view all lists →
+            </a>
           </div>
 
           {/* Notifications */}
           <div className="flex flex-col min-h-0 pl-4">
-            <p className="text-xs tracking-[3px] uppercase text-white/70 pb-2 mb-2 border-b border-white/20 shrink-0">Notifications</p>
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
+              <span className="text-xs tracking-[2px] uppercase text-white/70">Notifications</span>
+              <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
+            </div>
+            <div className="flex items-center gap-1.5 pb-2 mb-1 overflow-x-auto shrink-0">
+              {NOTIF_CATS.map(cat => {
+                const isActive = activeCategories.has(cat.key);
+                return (
+                  <button
+                    key={cat.key}
+                    onClick={() => toggleCat(cat.key)}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold tracking-wide whitespace-nowrap transition-all shrink-0 ${
+                      isActive ? "border-white/25 bg-white/[0.08] text-white/70" : "border-white/10 bg-transparent text-white/30 hover:text-white/50"
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cat.dot : "bg-white/20"}`} />
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
-              {updates.length === 0 ? (
-                <p className="text-xs text-white/30 italic py-4">Nothing yet.</p>
+              {filteredUpdates.length === 0 ? (
+                <p className="text-xs text-white/30 italic py-4">Nothing in this category.</p>
               ) : (
                 <div className="flex flex-col divide-y divide-white/10">
-                  {updates.map(u => (
-                    <a key={u.id} href={u.link || "#"} className="block py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1">
-                      <p className="text-sm text-white/90 truncate">{u.message}</p>
-                      <p className="text-[10px] text-white/40 mt-0.5">{timeAgo(u.created_at)}{u.by ? ` · ${u.by}` : ""}</p>
-                    </a>
-                  ))}
+                  {filteredUpdates.slice(0, 40).map(u => {
+                    const dot = catDot[u.category || "nocturne"] || "bg-white/40";
+                    const headline = u.message.split("\n---\n")[0];
+                    return (
+                      <a key={u.id} href={u.link || "#"} className="flex gap-2.5 items-start py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${dot}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-white/90 truncate">{headline}</p>
+                          <p className="text-[10px] text-white/40 mt-0.5">
+                            {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {" · "}
+                            {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                            {u.by ? ` · ${u.by}` : ""}
+                          </p>
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
               )}
             </div>
