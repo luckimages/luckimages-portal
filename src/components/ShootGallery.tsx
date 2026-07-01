@@ -61,6 +61,13 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
   const dragCounters = useRef<Record<string, number>>({});
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // Parent components often pass a new onMediaChange function identity on every
+  // render — keep it in a ref so it doesn't force load() (and therefore the
+  // fetch-on-mount effect) to re-run and re-fetch in a loop, which was causing
+  // signed URLs to regenerate constantly and thumbnails to flicker.
+  const onMediaChangeRef = useRef(onMediaChange);
+  useEffect(() => { onMediaChangeRef.current = onMediaChange; }, [onMediaChange]);
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/media?shoot_id=${shootId}`);
     if (!res.ok) { setLoading(false); return; }
@@ -68,8 +75,8 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
     setMedia(d.media || []);
     setCanEdit(d.canEdit || false);
     setLoading(false);
-    onMediaChange?.((d.media || []).length);
-  }, [shootId, onMediaChange]);
+    onMediaChangeRef.current?.((d.media || []).length);
+  }, [shootId]);
 
   useEffect(() => { load(); }, [load]);
 
