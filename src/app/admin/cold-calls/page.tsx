@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { normalizePhone } from "@/lib/format";
 import { useContactModal } from "@/context/ContactModalContext";
+import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel, TWILIGHT_STANDALONE_PRICE, VIRTUAL_STAGING_PER_PHOTO_PRICE } from "@/lib/pricing";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 
@@ -35,33 +36,6 @@ function participantIds(log: Pick<CallLog, "contact_id" | "linked_contact_ids">)
   return [log.contact_id, ...(log.linked_contact_ids || [])];
 }
 
-const SERVICE_OPTIONS = [
-  { key: "photos_sm",    label: "Photos",         price: "$200–$400" },
-  { key: "drone",        label: "Drone Photos",   price: "$200+" },
-  { key: "video_bronze", label: "Video Bronze",   price: "$200" },
-  { key: "video_silver", label: "Video Silver",   price: "$300" },
-  { key: "video_gold",   label: "Video Gold",     price: "Custom" },
-  { key: "matterport",   label: "Matterport 3D",  price: "$200–$500" },
-  { key: "headshots",    label: "Headshots",      price: "$200+" },
-] as const;
-
-const ADDON_OPTIONS = [
-  { key: "addon_drone",           label: "Drone Photos",    price: "+$100–$150" },
-  { key: "addon_twilight",        label: "Twilight",        price: "+$150–$200" },
-  { key: "addon_matterport",      label: "Matterport 3D",   price: "+$100–$250" },
-  { key: "addon_floor_plan",      label: "Floor Plan",      price: "+$50–$75" },
-  { key: "addon_virtual_staging", label: "Virtual Staging", price: "+$25–$150" },
-] as const;
-
-function serviceLabel(key: string | null | undefined): string | null {
-  if (!key) return null;
-  return SERVICE_OPTIONS.find(s => s.key === key)?.label || key;
-}
-
-function addonLabel(key: string): string {
-  return ADDON_OPTIONS.find(a => a.key === key)?.label || key;
-}
-
 type LogTab = "all" | "interested" | "call_again" | "closed" | "dead";
 type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "send_info" | "interested" | "closed" | "dead" | "new_address";
 
@@ -85,6 +59,19 @@ function stageFromOutcome(outcome: string): string {
   if (hasTag(outcome, "closed")) return "client";
   if (hasTag(outcome, "interested")) return "lead";
   return "follow-up";
+}
+
+// When to call this contact back again, based on the last outcome — dead/closed never come due.
+function nextFollowUpDate(outcome: string, calledAt: string): Date | null {
+  if (hasTag(outcome, "dead") || hasTag(outcome, "closed")) return null;
+  const due = new Date(calledAt);
+  due.setDate(due.getDate() + (hasTag(outcome, "send_info") ? 7 : 1));
+  return due;
+}
+
+function isFollowUpDue(outcome: string, calledAt: string): boolean {
+  const due = nextFollowUpDate(outcome, calledAt);
+  return !!due && due.getTime() <= Date.now();
 }
 
 function TagBubbles({ selected, onToggle, disabled }: { selected: Set<CallTag>; onToggle: (t: CallTag) => void; disabled?: boolean }) {
@@ -170,8 +157,8 @@ function buildPitchHtml(firstName: string): string {
         ${serviceRow("Listing Photos", "from $200", `${BASE}/pricing`)}
         ${serviceRow("Drone Photos", "$100 add-on · $200 solo", `${BASE}/pricing`)}
         ${serviceRow("Matterport 3D Tour", "from $200", `${BASE}/pricing`)}
-        ${serviceRow("Twilight Photography", "$150 add-on · $250 solo", `${BASE}/pricing`)}
-        ${serviceRow("Virtual Staging", "$25 / photo", `${BASE}/pricing`)}
+        ${serviceRow("Twilight Photography", `+$150 add-on · ${TWILIGHT_STANDALONE_PRICE} solo`, `${BASE}/pricing`)}
+        ${serviceRow("Virtual Staging", VIRTUAL_STAGING_PER_PHOTO_PRICE, `${BASE}/pricing`)}
         ${serviceRow("Video Walkthrough", "from $200", `${BASE}/pricing`)}
         <tr>
           <td style="padding:11px 0 0;font-size:13px;color:#ccc;">Floor Plan</td>
@@ -223,7 +210,6 @@ function ColdCallsPage() {
   const [showAddContact, setShowAddContact] = useState(false);
   const [addContactInput, setAddContactInput] = useState("");
   const [contactForm, setContactForm] = useState({ name: "", phone: "", email: "", brokerage: "" });
-  const [contactMode, setContactMode] = useState<"none" | "new" | "search">("none");
   const [searchQuery, setSearchQuery] = useState("");
   const [contactInput, setContactInput] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
@@ -243,6 +229,7 @@ function ColdCallsPage() {
   const [pitchContact, setPitchContact] = useState<Contact | null>(null);
 
   const [logTab, setLogTab] = useState<LogTab>("all");
+  const [logSearch, setLogSearch] = useState("");
   const [callerName, setCallerName] = useState("ryan");
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<Set<CallTag>>(new Set());
@@ -267,7 +254,7 @@ function ColdCallsPage() {
     weekStart.setHours(0, 0, 0, 0);
     const wl = (logs || []).filter((l: CallLog) => new Date(l.called_at) >= weekStart);
     setWeekCalls(wl.length);
-    setWeekLeads(wl.filter((l: CallLog) => l.outcome === "interested").length);
+    setWeekLeads(wl.filter((l: CallLog) => hasTag(l.outcome, "interested")).length);
 
     const pid = searchParams.get("contact");
     if (pid && cs) {
@@ -317,13 +304,25 @@ function ColdCallsPage() {
       const data = await res.json();
       if (data.address) { setAddress(data.address); setAddressFromZillow(true); setListingUrl(zillow.trim()); }
       if (data.agentName && !contact) {
-        setContactForm({
-          name: data.agentName,
-          phone: data.agentPhone || "",
-          email: "",
-          brokerage: data.brokerage || "",
-        });
-        setContactMode("new");
+        // If this agent is already a contact (matched by phone or name), just select them
+        // instead of silently populating a form nobody ever sees.
+        const normalizedAgentPhone = data.agentPhone ? normalizePhone(data.agentPhone) : null;
+        const existing = contacts.find(c =>
+          (normalizedAgentPhone && c.phone === normalizedAgentPhone) ||
+          c.name.toLowerCase() === data.agentName.toLowerCase()
+        );
+        if (existing) {
+          selectContact(existing);
+        } else {
+          setContactForm({
+            name: data.agentName,
+            phone: data.agentPhone || "",
+            email: "",
+            brokerage: data.brokerage || "",
+          });
+          setContactInput(data.agentName);
+          setCreatingNew(true);
+        }
       }
     } catch { /* ignore */ }
     setZillow("");
@@ -344,7 +343,6 @@ function ColdCallsPage() {
       lead_source: "cold-call",
     }).select().single();
     if (data) setContact(data as Contact);
-    setContactMode("none");
     await loadData();
   }
 
@@ -385,7 +383,6 @@ function ColdCallsPage() {
     setAddressFromZillow(false);
     setListingUrl("");
     setContact(null);
-    setContactMode("none");
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
     setSelectedTags(new Set());
     await loadData();
@@ -468,7 +465,7 @@ function ColdCallsPage() {
 
   const attemptCounts: Record<string, number> = {};
   Object.entries(logsByContact).forEach(([contactId, logs]) => {
-    attemptCounts[contactId] = logs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead")).length;
+    attemptCounts[contactId] = logs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead") && !hasTag(l.outcome, "closed")).length;
   });
 
   type EnrichedLog = CallLog & { contact: Contact | undefined; attempts: number };
@@ -645,6 +642,11 @@ function ColdCallsPage() {
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
                     <span className="text-xs font-bold tracking-[1px] uppercase" style={{ color: meta.color }}>{meta.label}</span>
+                    {mostRecent && isFollowUpDue(mostRecent.outcome, mostRecent.called_at) && (
+                      <span className="text-[9px] tracking-[1px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30">
+                        ⏰ Follow-up due
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-[#888]">{meta.next}</p>
                 </div>
@@ -809,11 +811,17 @@ function ColdCallsPage() {
             )}
           </div>
 
-          {/* Dead lead warning */}
+          {/* Dead lead / existing client warning */}
           {contact && latestByContact[contact.id] && hasTag(latestByContact[contact.id].outcome, "dead") && (
             <div className="flex items-center gap-3 bg-[#f87171]/10 border border-[#f87171]/40 px-4 py-3">
               <span className="text-[#f87171] text-lg">⚠️</span>
               <p className="text-xs font-bold tracking-[1px] uppercase text-[#f87171]">Warning: this lead has been marked dead</p>
+            </div>
+          )}
+          {contact && latestByContact[contact.id] && hasTag(latestByContact[contact.id].outcome, "closed") && (
+            <div className="flex items-center gap-3 bg-[#34d399]/10 border border-[#34d399]/40 px-4 py-3">
+              <span className="text-[#34d399] text-lg">✅</span>
+              <p className="text-xs font-bold tracking-[1px] uppercase text-[#34d399]">This is already a client — no need to re-pitch</p>
             </div>
           )}
 
@@ -838,7 +846,7 @@ function ColdCallsPage() {
                       </div>
                       <button
                         onClick={() => {
-                          if (idx === 0) { setContact(null); setAdditionalContacts([]); setShowAddContact(false); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); setContactMode("none"); }
+                          if (idx === 0) { setContact(null); setAdditionalContacts([]); setShowAddContact(false); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); }
                           else setAdditionalContacts(prev => prev.filter(x => x.id !== c.id));
                         }}
                         className="text-[#444] hover:text-white text-xs shrink-0"
@@ -1069,6 +1077,13 @@ function ColdCallsPage() {
             Call Log
           </p>
 
+          <input
+            value={logSearch}
+            onChange={e => setLogSearch(e.target.value)}
+            placeholder="Search by name or brokerage..."
+            className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+          />
+
           {/* Tabs */}
           <div className="flex overflow-x-auto border-b border-white/10">
             {(["all", "interested", "call_again", "closed", "dead"] as LogTab[]).map(tab => (
@@ -1085,9 +1100,17 @@ function ColdCallsPage() {
           </div>
 
           <div className="bg-[#111] border border-white/10 divide-y divide-white/5 flex-1 overflow-y-auto min-h-0">
-            {tabLogs[logTab].length === 0 ? (
-              <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>
-            ) : tabLogs[logTab].map((log: EnrichedLog) => {
+            {(() => {
+              const visibleLogs = logSearch.trim()
+                ? tabLogs[logTab].filter(l =>
+                    (l.contact?.name || "").toLowerCase().includes(logSearch.toLowerCase()) ||
+                    (l.contact?.brokerage || "").toLowerCase().includes(logSearch.toLowerCase())
+                  )
+                : tabLogs[logTab];
+              if (visibleLogs.length === 0) {
+                return <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>;
+              }
+              return visibleLogs.map((log: EnrichedLog) => {
               const isExpanded = expandedLog === log.contact_id;
               const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
               const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
@@ -1132,10 +1155,16 @@ function ColdCallsPage() {
                         {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
                       </p>
                     </div>
+                    {isFollowUpDue(log.outcome, log.called_at) && (
+                      <span className="shrink-0 text-[9px] tracking-[1px] uppercase font-bold px-2 py-1 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30">
+                        ⏰ Due
+                      </span>
+                    )}
                   </div>
                 </div>
               );
-            })}
+              });
+            })()}
           </div>
         </div>
       </div>

@@ -38,6 +38,7 @@ type Shoot = {
   contact_id: string | null;
   scheduled_at: string | null;
   status: string;
+  price: number | null;
 };
 
 type ColdCallLog = {
@@ -79,7 +80,7 @@ export default function MarketingPage() {
     const supabase = createClient();
     const [{ data: contactData }, { data: shootData }, { data: callData }] = await Promise.all([
       supabase.from("contacts").select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id").neq("stage", "deleted"),
-      supabase.from("shoots").select("id, contact_id, scheduled_at, status").in("status", ["completed", "delivered"]),
+      supabase.from("shoots").select("id, contact_id, scheduled_at, status, price").in("status", ["completed", "delivered"]),
       supabase.from("cold_calls").select("id, contact_id, outcome, called_at, called_by"),
     ]);
     setContacts(contactData || []);
@@ -112,9 +113,12 @@ export default function MarketingPage() {
   const interestedCount = latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead") && !hasTag(l.outcome, "closed")).length;
   const closedFromCalls = latestLogs.filter(l => hasTag(l.outcome, "closed")).length;
   const coldCallConversion = uniqueContactsCalled > 0 ? Math.round((closedFromCalls / uniqueContactsCalled) * 100) : 0;
-  const coldCallContacts = contacts.filter(c => c.lead_source === "cold-call");
-  const revMTD = coldCallContacts.filter(c => c.created_at >= mtdStart).reduce((s, c) => s + (c.total_revenue || 0), 0);
-  const revYTD = coldCallContacts.filter(c => c.created_at >= ytdStart).reduce((s, c) => s + (c.total_revenue || 0), 0);
+  // Revenue by when the shoot actually happened, not when the contact was created —
+  // an old cold-call contact who books this month should count toward this month's revenue.
+  const coldCallContactIds = new Set(contacts.filter(c => c.lead_source === "cold-call").map(c => c.id));
+  const coldCallShoots = shoots.filter(s => s.contact_id && coldCallContactIds.has(s.contact_id) && s.scheduled_at);
+  const revMTD = coldCallShoots.filter(s => s.scheduled_at! >= mtdStart).reduce((s, sh) => s + (sh.price || 0), 0);
+  const revYTD = coldCallShoots.filter(s => s.scheduled_at! >= ytdStart).reduce((s, sh) => s + (sh.price || 0), 0);
 
   // ── Generic channel stats ───────────────────────────────────────────────
   const genericChannels = CHANNELS.filter(ch => !ch.dedicated).map(ch => {
