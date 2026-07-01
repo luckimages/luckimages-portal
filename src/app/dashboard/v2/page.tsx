@@ -70,23 +70,6 @@ const TODO_TABS: { key: string; label: string; color: string }[] = [
   { key: "leif", label: "Leif", color: "text-[#60a5fa]" },
 ];
 
-function TaperedColumnDividers({ count }: { count: number }) {
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      {Array.from({ length: count - 1 }, (_, i) => (
-        <div
-          key={i}
-          className="absolute top-0 bottom-0 w-[3px]"
-          style={{
-            left: `${((i + 1) / count) * 100}%`,
-            background: "linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0))",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 const NOTIF_CATS: { key: string; label: string; dot: string }[] = [
   { key: "alerts", label: "Alerts", dot: "bg-red-500" },
   { key: "shoots", label: "Shoots", dot: "bg-[#60a5fa]" },
@@ -295,8 +278,7 @@ export default function DashboardV2Page() {
           </div>
 
           {middleView === "schedule" ? (
-            <div className="relative flex-1 min-h-0 grid grid-cols-7">
-              <TaperedColumnDividers count={7} />
+            <div className="flex-1 min-h-0 grid grid-cols-7 divide-x-[3px] divide-white">
               {days.map((d, i) => {
                 const isToday = d.toDateString() === today.toDateString();
                 const dayShoots = shootsOnDay(d);
@@ -311,8 +293,8 @@ export default function DashboardV2Page() {
                         <a
                           key={s.id}
                           href="/dashboard/board"
-                          className="block hover:bg-white/10 transition-colors border-2 px-2 py-1"
-                          style={{ borderColor: STATUS_COLOR[s.status] || "#888" }}
+                          className="block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1"
+                          style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
                         >
                           <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
                           <p className="text-[10px] text-white/60 truncate mt-0.5">{s.address}</p>
@@ -352,8 +334,7 @@ export default function DashboardV2Page() {
                 })}
               </div>
 
-              <div className="relative flex-1 min-h-0 grid grid-cols-6">
-                <TaperedColumnDividers count={6} />
+              <div className="flex-1 min-h-0 grid grid-cols-6 divide-x-[3px] divide-white">
                 {BOARD_STAGES.map(stage => {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
                   return (
@@ -368,8 +349,8 @@ export default function DashboardV2Page() {
                             <a
                               key={sh.id}
                               href="/dashboard/board"
-                              className={`block hover:bg-white/10 transition-colors border-2 px-2 py-1 ${red ? "animate-pulse" : ""}`}
-                              style={{ borderColor: red ? "#f87171" : stage.color }}
+                              className={`block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1 ${red ? "animate-pulse" : ""}`}
+                              style={{ borderLeftColor: red ? "#f87171" : stage.color }}
                             >
                               <p className="text-xs font-semibold text-white truncate">{sh.client_name || "Client"}</p>
                               <p className="text-[10px] text-white/60 truncate mt-0.5">{sh.address}</p>
