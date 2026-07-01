@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Luck Images Contact <onboarding@resend.dev>",
+      from: "Ryan Luck <ryan@luckimages.com>",
       to: ["ryan@luckimages.com"],
       reply_to: email,
       subject: `New inquiry — ${firstName} ${lastName} · ${address}`,

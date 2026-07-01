@@ -481,13 +481,13 @@ export default function OutreachPage() {
         const html = activeTemplate.html(contact, { ...extraFields, portalLink: portalLink || "" });
         const subject = activeTemplate.subject(contact);
 
-        const res = await fetch("/api/admin/send-email", {
+        const res = await fetch("/api/admin/create-draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contactId: contact.id, to: contact.email, subject, html }),
         });
 
-        if (!res.ok) throw new Error("Send failed");
+        if (!res.ok) throw new Error("Draft creation failed");
         setStatuses(s => ({ ...s, [contact.id]: "done" }));
         setSentCount(n => n + 1);
       } catch {
@@ -512,7 +512,7 @@ export default function OutreachPage() {
       SIG
     );
     try {
-      const res = await fetch("/api/admin/send-email", {
+      const res = await fetch("/api/admin/create-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to: qs.to, subject: qs.subject, html }),
@@ -542,7 +542,7 @@ export default function OutreachPage() {
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Beta</p>
             <h1 className="text-3xl font-black tracking-tight uppercase">Email Outreach</h1>
-            <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and send.</p>
+            <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and create Gmail drafts to review and send yourself.</p>
           </div>
           <div className="flex gap-1 shrink-0">
             <button
@@ -653,7 +653,7 @@ export default function OutreachPage() {
                   disabled={!qs.to || !qs.subject || !qs.body || qsStatus === "sending" || qsStatus === "done"}
                   className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40"
                 >
-                  {qsStatus === "sending" ? "Sending..." : qsStatus === "done" ? "✓ Sent" : qsStatus === "error" ? "Error — Retry" : "Send Email →"}
+                  {qsStatus === "sending" ? "Creating Draft..." : qsStatus === "done" ? "✓ Draft Created — Check Gmail" : qsStatus === "error" ? "Error — Retry" : "Create Draft →"}
                 </button>
                 {qsStatus === "done" && (
                   <button onClick={() => { setQs({ to: "", name: "", subject: "", body: "" }); setQsStatus("idle"); }} className="w-full text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors py-2">
@@ -689,7 +689,7 @@ export default function OutreachPage() {
               <div className="px-4 py-2.5 border-b border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-4 text-xs">
                   <span className="font-semibold">{selected.size} selected</span>
-                  {doneCount > 0 && <span className="text-[#4ade80]">{doneCount} sent</span>}
+                  {doneCount > 0 && <span className="text-[#4ade80]">{doneCount} drafted</span>}
                   {errorCount > 0 && <span className="text-red-400">{errorCount} failed</span>}
                 </div>
                 <button
@@ -697,7 +697,7 @@ export default function OutreachPage() {
                   disabled={sending}
                   className="text-xs tracking-[1px] uppercase font-semibold px-5 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40"
                 >
-                  {sending ? `Sending ${sentCount}/${selected.size}...` : `Send ${selected.size} Email${selected.size !== 1 ? "s" : ""} →`}
+                  {sending ? `Creating ${sentCount}/${selected.size}...` : `Create ${selected.size} Draft${selected.size !== 1 ? "s" : ""} →`}
                 </button>
               </div>
             )}
@@ -744,7 +744,7 @@ export default function OutreachPage() {
                         <span className={`text-[9px] tracking-wide ${
                           status === "done" ? "text-[#4ade80]" : status === "error" ? "text-red-400" : "text-[#fbbf24]"
                         }`}>
-                          {status === "done" ? "Sent" : status === "error" ? "Failed" : "Sending..."}
+                          {status === "done" ? "Drafted" : status === "error" ? "Failed" : "Creating..."}
                         </span>
                       )}
                     </div>
