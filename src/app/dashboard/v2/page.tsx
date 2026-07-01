@@ -334,14 +334,11 @@ export default function DashboardV2Page() {
                 })}
               </div>
 
-              <div className="flex-1 min-h-0 grid grid-cols-6 divide-x divide-white/10">
+              <div className="flex-1 min-h-0 grid grid-cols-6">
                 {BOARD_STAGES.map(stage => {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
                   return (
                     <div key={stage.key} className="flex flex-col min-h-0 px-5">
-                      <div className="flex items-center justify-end pb-2 mb-2 shrink-0">
-                        <span className={`text-sm font-bold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stageShoots.length}</span>
-                      </div>
                       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
                         {stageShoots.map(sh => {
                           const red = isRed(sh);
