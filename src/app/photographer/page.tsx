@@ -114,6 +114,17 @@ export default function PhotographerPage() {
     setAdvancingId(null);
   }
 
+  async function confirmDelivery(shootId: string) {
+    setAdvancingId(shootId);
+    await fetch("/api/photographer/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: shootId, status: "delivered" }),
+    });
+    setShoots(prev => prev.map(s => s.id === shootId ? { ...s, status: "delivered" } : s));
+    setAdvancingId(null);
+  }
+
   async function uploadCardFiles(e: React.ChangeEvent<HTMLInputElement>, shootId: string) {
     if (!e.target.files?.length) return;
     setCardUploading(true);
@@ -290,17 +301,7 @@ export default function PhotographerPage() {
                             </div>
                             {(cardUploadCount[s.id] || 0) > 0 && (
                               <button
-                                onClick={async () => {
-                                  // Advance to delivered (skip editing if currently at wrapping)
-                                  setAdvancingId(s.id);
-                                  await fetch("/api/photographer/shoots", {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ id: s.id, status: "delivered" }),
-                                  });
-                                  setShoots(prev => prev.map(sh => sh.id === s.id ? { ...sh, status: "delivered" } : sh));
-                                  setAdvancingId(null);
-                                }}
+                                onClick={() => confirmDelivery(s.id)}
                                 disabled={advancingId === s.id}
                                 className="w-full text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
                                 {advancingId === s.id ? "Confirming..." : "Confirm Delivery ✓"}
@@ -362,9 +363,33 @@ export default function PhotographerPage() {
               </select>
             </div>
 
-            {selectedShoot ? (
-              <ShootGallery key={selectedShoot} shootId={selectedShoot} services={shoots.find(s => s.id === selectedShoot)?.services || []} />
-            ) : (
+            {selectedShoot ? (() => {
+              const shoot = shoots.find(s => s.id === selectedShoot);
+              const canConfirm = shoot && (shoot.status === "wrapping" || shoot.status === "editing");
+              return (
+                <div className="flex flex-col gap-3">
+                  <ShootGallery
+                    key={selectedShoot}
+                    shootId={selectedShoot}
+                    services={shoot?.services || []}
+                    onMediaChange={count => setCardUploadCount(prev => ({ ...prev, [selectedShoot]: count }))}
+                  />
+                  {canConfirm && (cardUploadCount[selectedShoot] || 0) > 0 && (
+                    <button
+                      onClick={() => confirmDelivery(selectedShoot)}
+                      disabled={advancingId === selectedShoot}
+                      className="w-full text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
+                      {advancingId === selectedShoot ? "Confirming..." : "Confirm Delivery ✓"}
+                    </button>
+                  )}
+                  {shoot?.status === "delivered" && (
+                    <div className="text-center py-2">
+                      <span className="text-xs tracking-[2px] uppercase text-[#4ade80]">✓ Delivered</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
               <div className="bg-[#111] border border-white/10 p-10 text-center">
                 <p className="text-[#555] text-sm">Select a shoot above to view and upload media.</p>
               </div>
