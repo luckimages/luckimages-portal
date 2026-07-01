@@ -245,7 +245,7 @@ export default function DashboardV2Page() {
         </div>
 
         {/* Middle ~2/3: Schedule / Shoot Board toggle */}
-        <div className="flex-[2] min-h-0 pb-4 flex flex-col">
+        <div className="flex-[2] min-h-0 pb-8 flex flex-col">
           <div className="flex items-center justify-between gap-3 pb-3 mb-3 shrink-0">
             <div className="flex items-center gap-3">
               <button
@@ -368,7 +368,7 @@ export default function DashboardV2Page() {
         </div>
 
         {/* Bottom third: To Do + Notifications side by side */}
-        <div className="flex-[1] min-h-0 pb-4 md:pb-6 grid grid-cols-2 gap-4">
+        <div className="flex-[1] min-h-0 pb-8 md:pb-10 grid grid-cols-2 gap-4">
           {/* To Do — tabbed */}
           <div className="flex flex-col min-h-0 border-2 border-white px-4 pt-3">
             <div className="flex items-center gap-1 pb-2 mb-2 border-b border-white/20 shrink-0 overflow-x-auto">
