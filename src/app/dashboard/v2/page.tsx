@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
@@ -15,6 +15,25 @@ type Shoot = {
   client_name: string;
 };
 
+type Todo = {
+  id: string;
+  text: string;
+  title?: string;
+  is_urgent: boolean;
+  assigned_to?: string;
+  completed_at: string | null;
+};
+
+type UpdateItem = {
+  id: string;
+  type: string;
+  category: string;
+  message: string;
+  created_at: string;
+  by?: string;
+  link?: string;
+};
+
 const STATUS_COLOR: Record<string, string> = {
   pending: "#888",
   scheduled: "#60a5fa",
@@ -27,12 +46,24 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: "#f87171",
 };
 
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 export default function DashboardV2Page() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
   const [checked, setChecked] = useState(false);
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [updates, setUpdates] = useState<UpdateItem[]>([]);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -45,10 +76,34 @@ export default function DashboardV2Page() {
     });
   }, [router]);
 
+  const loadTodos = useCallback(async () => {
+    const res = await fetch("/api/admin/todos");
+    if (res.ok) {
+      const d = await res.json();
+      setTodos(d.active || []);
+    }
+  }, []);
+
   useEffect(() => {
     if (!checked) return;
     fetch("/api/admin/shoots?all=1").then(r => r.ok ? r.json() : []).then(setShoots);
-  }, [checked]);
+    loadTodos();
+    fetch("/api/admin/company-updates").then(r => r.ok ? r.json() : { posts: [], auto: [] }).then(d => {
+      const all = [...(d.posts || []), ...(d.auto || [])].sort(
+        (a: UpdateItem, b: UpdateItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setUpdates(all.slice(0, 12));
+    });
+  }, [checked, loadTodos]);
+
+  async function completeTodo(id: string) {
+    setTodos(prev => prev.filter(t => t.id !== id));
+    await fetch("/api/admin/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "complete", id }),
+    });
+  }
 
   if (!checked) return null;
 
@@ -78,11 +133,11 @@ export default function DashboardV2Page() {
       {/* Full-page hero background */}
       <div className="absolute inset-0">
         <img src={HERO_SRC} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/90" />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-6 shrink-0">
+      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
           <span className="text-[10px] tracking-[3px] uppercase text-[#a78bfa]">V2 Beta</span>
@@ -93,14 +148,16 @@ export default function DashboardV2Page() {
         </div>
       </header>
 
-      {/* Welcome back — top left, under logo */}
-      <div className="relative z-10 px-4 md:px-8 shrink-0">
-        <p className="text-xs tracking-[4px] uppercase text-white/50">Welcome back, {userName}</p>
+      {/* Welcome — big, top left */}
+      <div className="relative z-10 px-4 md:px-8 pb-4 shrink-0">
+        <h1 className="text-[clamp(32px,5vw,56px)] font-black tracking-tight uppercase leading-none">
+          Welcome {userName}
+        </h1>
       </div>
 
-      {/* Schedule — fills remaining space */}
-      <div className="relative z-10 flex-1 min-h-0 px-4 md:px-8 pt-6 pb-6 flex flex-col">
-        <div className="flex items-center gap-4 mb-4 shrink-0">
+      {/* Middle ~2/3: Schedule, full width */}
+      <div className="relative z-10 flex-[2] min-h-0 px-4 md:px-8 pb-4 flex flex-col">
+        <div className="flex items-center gap-4 mb-3 shrink-0">
           <p className="text-xs tracking-[4px] uppercase text-white/60 flex-1">Schedule</p>
           <div className="flex items-center gap-3">
             <button onClick={() => setWeekOffset(o => o - 1)} className="text-white/50 hover:text-white transition-colors px-2 text-sm">←</button>
@@ -143,6 +200,51 @@ export default function DashboardV2Page() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Bottom third: To Do + Notifications side by side */}
+      <div className="relative z-10 flex-[1] min-h-0 px-4 md:px-8 pb-4 md:pb-6 grid grid-cols-2 gap-4">
+        {/* To Do */}
+        <div className="flex flex-col min-h-0 bg-black/40 backdrop-blur-sm border border-white/10">
+          <p className="text-xs tracking-[3px] uppercase text-white/60 px-4 py-3 border-b border-white/10 shrink-0">To Do</p>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+            {todos.length === 0 ? (
+              <p className="text-xs text-white/30 italic py-4">Nothing on the list.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/5">
+                {todos.map(t => (
+                  <div key={t.id} className="flex items-center gap-3 py-2.5">
+                    <button
+                      onClick={() => completeTodo(t.id)}
+                      className="w-4 h-4 rounded-full border border-white/30 hover:border-[#4ade80] hover:bg-[#4ade80]/20 transition-colors shrink-0"
+                    />
+                    <span className="text-sm text-white/90 truncate flex-1">{t.title || t.text}</span>
+                    {t.is_urgent && <span className="text-[9px] tracking-[1px] uppercase text-[#f87171] shrink-0">ASAP</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="flex flex-col min-h-0 bg-black/40 backdrop-blur-sm border border-white/10">
+          <p className="text-xs tracking-[3px] uppercase text-white/60 px-4 py-3 border-b border-white/10 shrink-0">Notifications</p>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+            {updates.length === 0 ? (
+              <p className="text-xs text-white/30 italic py-4">Nothing yet.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/5">
+                {updates.map(u => (
+                  <a key={u.id} href={u.link || "#"} className="block py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1">
+                    <p className="text-sm text-white/90 truncate">{u.message}</p>
+                    <p className="text-[10px] text-white/40 mt-0.5">{timeAgo(u.created_at)}{u.by ? ` · ${u.by}` : ""}</p>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </main>
