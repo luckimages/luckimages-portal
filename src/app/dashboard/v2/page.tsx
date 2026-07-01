@@ -72,7 +72,7 @@ function TaperedColumnDividers({ count }: { count: number }) {
           className="absolute top-0 bottom-0 w-[3px]"
           style={{
             left: `${((i + 1) / count) * 100}%`,
-            background: "linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0))",
+            background: "linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0))",
           }}
         />
       ))}
@@ -301,7 +301,7 @@ export default function DashboardV2Page() {
                 const isToday = d.toDateString() === today.toDateString();
                 const dayShoots = shootsOnDay(d);
                 return (
-                  <div key={i} className="flex flex-col min-h-0 px-3">
+                  <div key={i} className="flex flex-col min-h-0 px-5">
                     <div className="flex items-center justify-between pb-2 mb-2 shrink-0">
                       <span className="text-xs tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</span>
                       <span className={`text-sm font-bold ${isToday ? "text-white" : "text-white/50"}`}>{d.getDate()}</span>
@@ -357,7 +357,7 @@ export default function DashboardV2Page() {
                 {BOARD_STAGES.map(stage => {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
                   return (
-                    <div key={stage.key} className="flex flex-col min-h-0 px-3">
+                    <div key={stage.key} className="flex flex-col min-h-0 px-5">
                       <div className="flex items-center justify-end pb-2 mb-2 shrink-0">
                         <span className={`text-sm font-bold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stageShoots.length}</span>
                       </div>
