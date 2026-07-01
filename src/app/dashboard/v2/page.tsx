@@ -311,8 +311,8 @@ export default function DashboardV2Page() {
                         <a
                           key={s.id}
                           href="/dashboard/board"
-                          className="block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1"
-                          style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
+                          className="block hover:bg-white/10 transition-colors border-2 px-2 py-1"
+                          style={{ borderColor: STATUS_COLOR[s.status] || "#888" }}
                         >
                           <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
                           <p className="text-[10px] text-white/60 truncate mt-0.5">{s.address}</p>
@@ -368,8 +368,8 @@ export default function DashboardV2Page() {
                             <a
                               key={sh.id}
                               href="/dashboard/board"
-                              className={`block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1 ${red ? "animate-pulse" : ""}`}
-                              style={{ borderLeftColor: red ? "#f87171" : stage.color }}
+                              className={`block hover:bg-white/10 transition-colors border-2 px-2 py-1 ${red ? "animate-pulse" : ""}`}
+                              style={{ borderColor: red ? "#f87171" : stage.color }}
                             >
                               <p className="text-xs font-semibold text-white truncate">{sh.client_name || "Client"}</p>
                               <p className="text-[10px] text-white/60 truncate mt-0.5">{sh.address}</p>
