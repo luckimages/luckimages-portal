@@ -769,19 +769,18 @@ export default function OutreachPage() {
               )}
             </div>
             {mode === "quicksend" ? (
-              <div className="flex-1 overflow-y-auto bg-[#0a0a0a]">
+              <div className="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
                 {qs.subject && (
-                  <div className="px-4 py-3 border-b border-white/5">
+                  <div className="px-4 py-3 border-b border-white/5 shrink-0">
                     <p className="text-[10px] text-[#444] mb-0.5">Subject</p>
                     <p className="text-xs text-white font-medium">{qs.subject}</p>
                   </div>
                 )}
                 {qs.body ? (
-                  <div
-                    className="p-0"
-                    dangerouslySetInnerHTML={{
-                      __html: wrap(EYEBROW("") + H1(qs.subject || "Your message") + qs.body.split("\n\n").map(para => P(para)).join("") + SIG)
-                    }}
+                  <iframe
+                    title="Email preview"
+                    className="w-full flex-1 border-0 bg-[#0a0a0a]"
+                    srcDoc={wrap(EYEBROW("") + H1(qs.subject || "Your message") + qs.body.split("\n\n").map(para => P(para)).join("") + SIG)}
                   />
                 ) : (
                   <div className="flex-1 flex items-center justify-center p-8">
@@ -790,18 +789,17 @@ export default function OutreachPage() {
                 )}
               </div>
             ) : preview ? (
-              <div className="flex-1 overflow-y-auto bg-[#0a0a0a]">
+              <div className="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
                 {/* Subject line */}
-                <div className="px-4 py-3 border-b border-white/5">
+                <div className="px-4 py-3 border-b border-white/5 shrink-0">
                   <p className="text-[10px] text-[#444] mb-0.5">Subject</p>
                   <p className="text-xs text-white font-medium">{activeTemplate.subject(preview)}</p>
                 </div>
                 {/* HTML render */}
-                <div
-                  className="p-0"
-                  dangerouslySetInnerHTML={{
-                    __html: activeTemplate.html(preview, { ...extraFields, portalLink: "https://luckimages-portal.vercel.app/dashboard" })
-                  }}
+                <iframe
+                  title="Email preview"
+                  className="w-full flex-1 border-0 bg-[#0a0a0a]"
+                  srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://luckimages-portal.vercel.app/dashboard" })}
                 />
               </div>
             ) : (
