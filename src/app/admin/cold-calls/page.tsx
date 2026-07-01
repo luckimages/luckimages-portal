@@ -132,7 +132,7 @@ function buildPitchHtml(firstName: string, contactId: string): string {
   <tr><td style="padding:64px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
     <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
     <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#ffffff;line-height:1;">LUCK IMAGES</h1>
-    <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">Hey ${firstName}, thanks for taking the time to chat. Here's everything we offer — reach out whenever a listing comes up and we'll get you taken care of.</p>
+    <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">Hey ${firstName}, thanks for taking the time to chat. Below you can find a list of all of our services &amp; pricing, click on each service to view the portfolio. Look forward to working together!</p>
     <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
       <tr>
         <td style="padding-right:10px;">
