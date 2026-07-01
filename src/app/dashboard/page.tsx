@@ -2201,10 +2201,8 @@ export default function DashboardPage() {
         .filter(s => s.scheduled_at?.startsWith(thisMonth) && s.price)
         .reduce((sum, s) => sum + (s.price || 0), 0);
 
-      // DEMO: inject Jules Fernandez as a red scheduled shoot (no check-in)
-      const DEMO_RED: ShootEvent = { id: "demo-red-jules", client_name: "Jules Fernandez", client_email: "", address: "1840 Pine St, San Marcos", scheduled_at: new Date(Date.now() - 15 * 60000).toISOString(), status: "scheduled", services: [], notes: "", square_footage: null, photographer_ids: [], price: 225, package_name: "Listing Photos", contact_id: "ce202021-1564-4393-8e95-a75383a14e01", property_type: null, checked_in_at: null, delivered_at: null, paid_at: null };
-      const boardShoots = [...activeShootsForBoard, DEMO_RED];
-      const allRedShoots = [...redShoots, DEMO_RED];
+      const boardShoots = activeShootsForBoard;
+      const allRedShoots = redShoots;
 
       return (
         <section key={s} className="-mx-4 md:-mx-8 px-0">
