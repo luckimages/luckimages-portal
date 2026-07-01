@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-const HERO_SRC = "/hero-1.jpg";
+const MIDDLE_VIEWS = ["schedule", "board"] as const;
+type MiddleView = (typeof MIDDLE_VIEWS)[number];
+const MIDDLE_VIEW_LABEL: Record<MiddleView, string> = { schedule: "Weekly Schedule", board: "Shoot Board" };
 
 type Shoot = {
   id: string;
@@ -84,7 +86,7 @@ export default function DashboardV2Page() {
   const [checked, setChecked] = useState(false);
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [middleView, setMiddleView] = useState<"schedule" | "board">("schedule");
+  const [middleView, setMiddleView] = useState<MiddleView>("schedule");
 
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -136,6 +138,16 @@ export default function DashboardV2Page() {
     const id = setInterval(loadShoots, 30000);
     return () => clearInterval(id);
   }, [checked, middleView, loadShoots]);
+
+  // Arrow keys flip between Weekly Schedule / Shoot Board
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) - 1 + MIDDLE_VIEWS.length) % MIDDLE_VIEWS.length]);
+      if (e.key === "ArrowRight") setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) + 1) % MIDDLE_VIEWS.length]);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function completeTodo(id: string) {
     setTodos(prev => prev.filter(t => t.id !== id));
@@ -209,13 +221,7 @@ export default function DashboardV2Page() {
   }
 
   return (
-    <main className="relative h-screen bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
-      {/* Full-page hero background */}
-      <div className="absolute inset-0">
-        <img src={HERO_SRC} alt="" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/90" />
-      </div>
-
+    <main className="relative h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
@@ -241,18 +247,20 @@ export default function DashboardV2Page() {
         {/* Middle ~2/3: Schedule / Shoot Board toggle */}
         <div className="flex-[2] min-h-0 pb-4 flex flex-col">
           <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-white/25 shrink-0">
-            <div className="flex items-center gap-1">
-              {(["schedule", "board"] as const).map(v => (
-                <button
-                  key={v}
-                  onClick={() => setMiddleView(v)}
-                  className={`text-xs tracking-[2px] uppercase px-3 py-1 transition-colors ${
-                    middleView === v ? "text-white border-b-2 border-white" : "text-white/40 hover:text-white/70 border-b-2 border-transparent"
-                  }`}
-                >
-                  {v === "schedule" ? "Weekly Schedule" : "Shoot Board"}
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) - 1 + MIDDLE_VIEWS.length) % MIDDLE_VIEWS.length])}
+                className="text-white/50 hover:text-white transition-colors px-1 text-sm"
+              >
+                ←
+              </button>
+              <span className="text-xs tracking-[2px] uppercase text-white w-32">{MIDDLE_VIEW_LABEL[middleView]}</span>
+              <button
+                onClick={() => setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) + 1) % MIDDLE_VIEWS.length])}
+                className="text-white/50 hover:text-white transition-colors px-1 text-sm"
+              >
+                →
+              </button>
             </div>
             {middleView === "schedule" && (
               <div className="flex items-center gap-3">
