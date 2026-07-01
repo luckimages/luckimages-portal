@@ -114,19 +114,19 @@ function buildPitchHtml(firstName: string): string {
 
   const serviceRow = (label: string, price: string, href: string) =>
     `<tr>
-      <td style="padding:11px 0;font-size:13px;border-bottom:1px solid #1e1e1e;">
+      <td style="padding:11px 0;font-size:13px;border-bottom:1px solid #1e1e1e;background-color:#131313;" bgcolor="#131313">
         <a href="${href}" style="color:#ccc;text-decoration:none;">${label} <span style="font-size:10px;color:#444;">↗</span></a>
       </td>
-      <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;border-bottom:1px solid #1e1e1e;">${price}</td>
+      <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;border-bottom:1px solid #1e1e1e;background-color:#131313;" bgcolor="#131313">${price}</td>
     </tr>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#fff;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+<body style="margin:0;padding:0;background-color:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#fff;" bgcolor="#0c0c0c">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0c0c;" bgcolor="#0c0c0c">
+<tr><td align="center" style="background-color:#0c0c0c;" bgcolor="#0c0c0c">
+<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#0c0c0c;" bgcolor="#0c0c0c">
 
   <tr><td style="padding:64px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
     <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
@@ -144,10 +144,10 @@ function buildPitchHtml(firstName: string): string {
     </table>
   </td></tr>
 
-  <tr><td style="padding:32px;">
-    <div style="background:rgba(0,0,0,0.75);border:1px solid #222;padding:28px;">
+  <tr><td style="padding:32px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <div style="background-color:#131313;border:1px solid #222;padding:28px;">
       <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">Services &amp; Starting Prices</p>
-      <table width="100%" cellpadding="0" cellspacing="0">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#131313;" bgcolor="#131313">
         ${serviceRow("Listing Photos", "from $200", `${BASE}/pricing`)}
         ${serviceRow("Drone Photos", "$100 add-on · $200 solo", `${BASE}/pricing`)}
         ${serviceRow("Matterport 3D Tour", "from $200", `${BASE}/pricing`)}
@@ -155,15 +155,15 @@ function buildPitchHtml(firstName: string): string {
         ${serviceRow("Virtual Staging", VIRTUAL_STAGING_PER_PHOTO_PRICE, `${BASE}/pricing`)}
         ${serviceRow("Video Walkthrough", "from $200", `${BASE}/pricing`)}
         <tr>
-          <td style="padding:11px 0 0;font-size:13px;color:#ccc;">Floor Plan</td>
-          <td style="padding:11px 0 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;">from $50</td>
+          <td style="padding:11px 0 0;font-size:13px;color:#ccc;background-color:#131313;" bgcolor="#131313">Floor Plan</td>
+          <td style="padding:11px 0 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;background-color:#131313;" bgcolor="#131313">from $50</td>
         </tr>
       </table>
       <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>
     </div>
   </td></tr>
 
-  <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;">
+  <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
     <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Ready to book or have questions? Just reply — I can usually get out within 24–48 hours.</p>
     <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
     <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ryan@luckimages.com · luckimages.com</p>
