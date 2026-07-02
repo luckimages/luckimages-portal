@@ -14,45 +14,62 @@ export default function VirtualStagingCarousel({
   function next() { setIndex((i) => (i + 1) % pairs.length); }
 
   return (
-    <div className="relative">
-      <BeforeAfterSlider
-        key={index}
-        before={pairs[index].before}
-        after={pairs[index].after}
-        heightClassName="h-[75vh]"
-      />
+    <div>
+      <div className="relative">
+        <BeforeAfterSlider
+          key={index}
+          before={pairs[index].before}
+          after={pairs[index].after}
+          heightClassName="h-[75vh]"
+        />
 
-      {/* Prev / Next */}
-      <button
-        onClick={prev}
-        aria-label="Previous"
-        className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
-      >
-        ←
-      </button>
-      <button
-        onClick={next}
-        aria-label="Next"
-        className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
-      >
-        →
-      </button>
+        {/* Prev / Next */}
+        <button
+          onClick={prev}
+          aria-label="Previous"
+          className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+        >
+          ←
+        </button>
+        <button
+          onClick={next}
+          aria-label="Next"
+          className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+        >
+          →
+        </button>
 
-      {/* Dots + counter */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          {pairs.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              aria-label={`Go to ${i + 1}`}
-              className={`w-2 h-2 rounded-full transition-all ${i === index ? "bg-white w-6" : "bg-white/40 hover:bg-white/70"}`}
-            />
-          ))}
+        {/* Dots + counter */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {pairs.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setIndex(i)}
+                aria-label={`Go to ${i + 1}`}
+                className={`w-2 h-2 rounded-full transition-all ${i === index ? "bg-white w-6" : "bg-white/40 hover:bg-white/70"}`}
+              />
+            ))}
+          </div>
+          <span className="text-[10px] tracking-[2px] uppercase text-white/60 bg-black/50 px-2 py-1">
+            {index + 1} / {pairs.length}
+          </span>
         </div>
-        <span className="text-[10px] tracking-[2px] uppercase text-white/60 bg-black/50 px-2 py-1">
-          {index + 1} / {pairs.length}
-        </span>
+      </div>
+
+      {/* Thumbnail reel */}
+      <div className="flex gap-3 mt-4">
+        {pairs.map((pair, i) => (
+          <button
+            key={i}
+            onClick={() => setIndex(i)}
+            aria-label={`View room ${i + 1}`}
+            className={`relative flex-1 overflow-hidden transition-all ${i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80 ring-1 ring-white/10"}`}
+            style={{ aspectRatio: "16/9" }}
+          >
+            <img src={pair.after} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+          </button>
+        ))}
       </div>
     </div>
   );

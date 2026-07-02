@@ -80,9 +80,8 @@ export default function BeforeAfterSlider({
         <line
           x1={`${topX}%`} y1="0"
           x2={`${bottomX}%`} y2="100%"
-          stroke="white"
-          strokeWidth="2"
-          style={{ filter: "drop-shadow(0 0 6px rgba(0,0,0,0.8))" }}
+          stroke="#0c0c0c"
+          strokeWidth="3"
         />
       </svg>
 
