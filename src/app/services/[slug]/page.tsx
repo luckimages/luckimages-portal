@@ -2,7 +2,6 @@ import Link from "next/link";
 import { SERVICES } from "@/lib/services";
 import { notFound } from "next/navigation";
 import PhotoGallery from "@/components/PhotoGallery";
-import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import FadeUp from "@/components/FadeUp";
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -16,24 +15,46 @@ const DESCRIPTIONS: Record<string, string> = {
   "brochures": "Print-ready and digital property brochures that make a lasting impression at open houses.",
 };
 
-// Placeholder counts per service — swap src strings for real paths when ready
+// Real photos pulled from the original luckimages.com service pages,
+// matched back to their source files on disk.
+const GALLERY_PHOTOS: Record<string, string[]> = {
+  "listing-photos": [
+    "315RingtailStreamDr-13.jpg", "104WesthavenDrive-33.jpg", "6701BackBayLn-10.jpg",
+    "2506CarlowDr-10.jpg", "315RingtailStreamDr-17.jpg", "1008ConcordiaDr-27.jpg",
+    "593CrosswaterLn-31.jpg", "5409Hitcherbend-18.jpg", "6701BackBayLn-15.jpg",
+    "1005PartidaTrail-19.jpg", "2506CarlowDr-11.jpg", "6701BackBayLn-17.jpg",
+  ],
+  "drone": [
+    "drone-1.jpg", "1802MapleDrone-2.jpg", "1136CountyRoad484Drone-5.jpg",
+    "1107CountryRoad322Drone-3.jpg", "197BristleconeDr-Drone-15.jpg",
+    "104WesthavenDrone-5.jpg", "116MallardDrone-2.jpg",
+    "bernia_interior-3.jpg", "bernia_interior-4.jpg", "bernia_interior-5.jpg",
+    "bernia_interior-6.jpg", "bernia_interior-7.jpg",
+  ],
+  "twilight": ["WebTwilight-2.jpg", "WebTwilight-3.jpg"],
+  "virtual-staging": [
+    "webVS-1.jpg", "webVS-2.jpg", "webVS-5.jpg", "webVS-6.jpg",
+    "webVS-7.jpg", "webVS-8.jpg", "webVS-11.jpg", "webVS-12.jpg",
+  ],
+};
+
+// Placeholder counts for services with no source photos recovered yet.
 const GALLERY_COUNTS: Record<string, number> = {
-  "listing-photos": 12,
-  "twilight": 8,
-  "drone": 8,
   "floorplans": 6,
   "brochures": 6,
 };
 
-const GALLERY_SERVICES = new Set(Object.keys(GALLERY_COUNTS));
+const GALLERY_SERVICES = new Set([...Object.keys(GALLERY_PHOTOS), ...Object.keys(GALLERY_COUNTS)]);
 
 export default async function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const service = SERVICES.find((s) => s.slug === slug);
   if (!service) notFound();
 
-  const placeholderCount = GALLERY_COUNTS[slug] || 0;
-  const photos = Array.from({ length: placeholderCount }, () => ({ src: "" }));
+  const realPhotos = GALLERY_PHOTOS[slug];
+  const photos = realPhotos
+    ? realPhotos.map((f) => ({ src: `/portfolio/${slug}/${f}`, alt: `${service.name} — Luck Images` }))
+    : Array.from({ length: GALLERY_COUNTS[slug] || 0 }, () => ({ src: "" }));
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -55,22 +76,6 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           </div>
         </FadeUp>
       </div>
-
-      {/* Virtual Staging — before/after sliders */}
-      {slug === "virtual-staging" && (
-        <section className="px-8 pb-24 max-w-5xl mx-auto w-full">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            Before & After
-          </p>
-          <p className="text-xs text-[#555] mb-8 tracking-wide">Drag the slider to compare.</p>
-          <div className="flex flex-col gap-6">
-            {/* Placeholder pairs — swap src values for real before/after images */}
-            <BeforeAfterSlider before="/staging-before-1.jpg" after="/staging-after-1.jpg" />
-            <BeforeAfterSlider before="/staging-before-2.jpg" after="/staging-after-2.jpg" />
-            <BeforeAfterSlider before="/staging-before-3.jpg" after="/staging-after-3.jpg" />
-          </div>
-        </section>
-      )}
 
       {/* Gallery */}
       {GALLERY_SERVICES.has(slug) && (
