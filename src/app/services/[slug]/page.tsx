@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SERVICES } from "@/lib/services";
 import { notFound } from "next/navigation";
 import PhotoGallery from "@/components/PhotoGallery";
-import BeforeAfterSlider from "@/components/BeforeAfterSlider";
+import VirtualStagingCarousel from "@/components/VirtualStagingCarousel";
 import FadeUp from "@/components/FadeUp";
 
 // Real before/after virtual-staging pairs (same room, same angle).
@@ -96,23 +96,20 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         </FadeUp>
       </div>
 
-      {/* Virtual Staging — before/after sliders */}
+      {/* Virtual Staging — before/after carousel */}
       {slug === "virtual-staging" && (
-        <section className="px-8 pb-24 max-w-5xl mx-auto w-full">
+        <section className="px-4 md:px-8 pb-24 max-w-[1600px] mx-auto w-full">
           <FadeUp>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
               Before & After
             </p>
-            <p className="text-xs text-[#555] mb-8 tracking-wide">Drag the slider to compare.</p>
-            <div className="flex flex-col gap-6">
-              {VIRTUAL_STAGING_PAIRS.map((pair) => (
-                <BeforeAfterSlider
-                  key={pair.before}
-                  before={`/portfolio/virtual-staging/${pair.before}`}
-                  after={`/portfolio/virtual-staging/${pair.after}`}
-                />
-              ))}
-            </div>
+            <p className="text-xs text-[#555] mb-8 tracking-wide">Drag the slider to compare. Click the arrows to see more rooms.</p>
+            <VirtualStagingCarousel
+              pairs={VIRTUAL_STAGING_PAIRS.map((p) => ({
+                before: `/portfolio/virtual-staging/${p.before}`,
+                after: `/portfolio/virtual-staging/${p.after}`,
+              }))}
+            />
           </FadeUp>
         </section>
       )}

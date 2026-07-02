@@ -10,11 +10,14 @@ export default function BeforeAfterSlider({
   after,
   beforeLabel = "Before",
   afterLabel = "After",
+  heightClassName,
 }: {
   before: string;
   after: string;
   beforeLabel?: string;
   afterLabel?: string;
+  /** Tailwind height class (e.g. "h-[80vh]"). Falls back to a 16/9 aspect ratio when omitted. */
+  heightClassName?: string;
 }) {
   const [position, setPosition] = useState(50);
   const [dragging, setDragging] = useState(false);
@@ -56,8 +59,8 @@ export default function BeforeAfterSlider({
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden select-none cursor-ew-resize"
-      style={{ aspectRatio: "16/9" }}
+      className={`relative w-full overflow-hidden select-none cursor-ew-resize ${heightClassName || ""}`}
+      style={heightClassName ? undefined : { aspectRatio: "16/9" }}
       onMouseDown={e => { setDragging(true); updatePosition(e.clientX); }}
       onTouchStart={e => { setDragging(true); updatePosition(e.touches[0].clientX); }}
     >
