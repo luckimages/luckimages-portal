@@ -9,6 +9,7 @@ export default function ServicesGrid() {
       {SERVICES.map((s, i) => (
         <motion.div
           key={s.slug}
+          className="bg-[#0c0c0c]"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-40px" }}
