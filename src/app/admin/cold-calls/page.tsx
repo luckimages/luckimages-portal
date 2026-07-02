@@ -30,21 +30,24 @@ type CallLog = {
   service: string | null;
   add_ons: string[] | null;
   linked_contact_ids: string[] | null;
+  follow_up_date: string | null;
 };
 
 function participantIds(log: Pick<CallLog, "contact_id" | "linked_contact_ids">): string[] {
   return [log.contact_id, ...(log.linked_contact_ids || [])];
 }
 
-type LogTab = "all" | "interested" | "call_again" | "closed" | "dead";
-type CallTag = "no_answer" | "left_voicemail" | "sent_text" | "send_info" | "interested" | "closed" | "dead" | "new_address";
+type LogTab = "all" | "interested" | "nurture" | "call_again" | "closed" | "dead";
+type CallTag = "answered" | "no_answer" | "left_voicemail" | "sent_text" | "send_info" | "interested" | "nurture" | "closed" | "dead" | "new_address";
 
 const CALL_TAGS: { key: CallTag; label: string; emoji: string; color: string; sub: string }[] = [
+  { key: "answered", label: "Answered", emoji: "📞", color: "#38bdf8", sub: "someone picked up" },
   { key: "no_answer", label: "No Answer", emoji: "📵", color: "#a78bfa", sub: "didn't pick up" },
   { key: "left_voicemail", label: "Left Voicemail", emoji: "🎙️", color: "#fbbf24", sub: "call back tomorrow" },
   { key: "sent_text", label: "Sent Text", emoji: "💬", color: "#60a5fa", sub: "texted from your phone" },
   { key: "send_info", label: "Send Info", emoji: "📨", color: "#c084fc", sub: "wants pricing + portfolio" },
   { key: "interested", label: "Interested", emoji: "🔥", color: "#4ade80", sub: "marks as lead" },
+  { key: "nurture", label: "Nurture", emoji: "🌱", color: "#fb923c", sub: "has photog — check back monthly" },
   { key: "closed", label: "Closed", emoji: "✅", color: "#34d399", sub: "registered in portal" },
   { key: "dead", label: "Dead", emoji: "💀", color: "#f87171", sub: "not interested" },
   { key: "new_address", label: "New Address", emoji: "📍", color: "#94a3b8", sub: "save address, no contact made" },
@@ -65,11 +68,13 @@ function stageFromOutcome(outcome: string): string {
 function nextFollowUpDate(outcome: string, calledAt: string): Date | null {
   if (hasTag(outcome, "dead") || hasTag(outcome, "closed")) return null;
   const due = new Date(calledAt);
-  due.setDate(due.getDate() + (hasTag(outcome, "send_info") ? 7 : 1));
+  if (hasTag(outcome, "nurture")) due.setDate(due.getDate() + 45); // ~6 weeks for nurture leads
+  else due.setDate(due.getDate() + (hasTag(outcome, "send_info") ? 7 : 1));
   return due;
 }
 
-function isFollowUpDue(outcome: string, calledAt: string): boolean {
+function isFollowUpDue(outcome: string, calledAt: string, followUpDate?: string | null): boolean {
+  if (followUpDate) return new Date(followUpDate).getTime() <= Date.now();
   const due = nextFollowUpDate(outcome, calledAt);
   return !!due && due.getTime() <= Date.now();
 }
@@ -102,9 +107,10 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
   if (next.has(key)) next.delete(key);
   else {
     next.add(key);
-    if (key === "interested") { next.delete("dead"); next.delete("closed"); }
-    if (key === "closed") { next.delete("dead"); next.delete("interested"); }
-    if (key === "dead") { next.delete("interested"); next.delete("closed"); }
+    if (key === "interested") { next.delete("dead"); next.delete("closed"); next.delete("nurture"); }
+    if (key === "nurture") { next.delete("dead"); next.delete("closed"); next.delete("interested"); }
+    if (key === "closed") { next.delete("dead"); next.delete("interested"); next.delete("nurture"); }
+    if (key === "dead") { next.delete("interested"); next.delete("closed"); next.delete("nurture"); }
   }
   return next;
 }
@@ -228,6 +234,8 @@ function ColdCallsPage() {
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editTags, setEditTags] = useState<Set<CallTag>>(new Set());
   const [editNotes, setEditNotes] = useState("");
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [editFollowUpDate, setEditFollowUpDate] = useState("");
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -356,6 +364,7 @@ function ColdCallsPage() {
       called_by: callerName,
       service: primaryService || null,
       add_ons: selectedAddOns.size > 0 ? [...selectedAddOns] : null,
+      follow_up_date: followUpDate || null,
     });
     await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).in("id", allContactsOnCall.map(c => c.id));
     setLogging(false);
@@ -363,8 +372,10 @@ function ColdCallsPage() {
     showFlash(
       selectedTags.has("dead") ? "Marked dead" :
       selectedTags.has("interested") ? "Logged as interested 🔥 — remember to follow up tomorrow" :
+      selectedTags.has("nurture") ? "Added to nurture 🌱 — check back in 1–2 months" :
       selectedTags.has("send_info") ? "Info sent — follow up in ~1 week 📨" :
       selectedTags.has("left_voicemail") ? "Voicemail logged — call back tomorrow" :
+      followUpDate ? `Logged — call back ${new Date(followUpDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} 📅` :
       "Logged"
     );
 
@@ -377,6 +388,7 @@ function ColdCallsPage() {
     setContact(null);
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
     setSelectedTags(new Set());
+    setFollowUpDate("");
     await loadData();
   }
 
@@ -401,7 +413,7 @@ function ColdCallsPage() {
     if (editTags.size === 0) return;
     const supabase = createClient();
     const outcome = [...editTags].join(",");
-    await supabase.from("cold_calls").update({ outcome, notes: editNotes || null }).eq("id", log.id);
+    await supabase.from("cold_calls").update({ outcome, notes: editNotes || null, follow_up_date: editFollowUpDate || null }).eq("id", log.id);
     await recomputeStageForContacts(participantIds(log));
 
     setEditingLogId(null);
@@ -488,15 +500,17 @@ function ColdCallsPage() {
 
   function stagePriority(outcome: string): number {
     if (hasTag(outcome, "interested")) return 0;
-    if (!hasTag(outcome, "closed") && !hasTag(outcome, "dead")) return 1; // call again
-    if (hasTag(outcome, "closed")) return 2;
-    return 3; // dead
+    if (hasTag(outcome, "nurture")) return 1;
+    if (!hasTag(outcome, "closed") && !hasTag(outcome, "dead")) return 2; // call again
+    if (hasTag(outcome, "closed")) return 3;
+    return 4; // dead
   }
 
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
     all: [...latestLogs].sort((a, b) => stagePriority(a.outcome) - stagePriority(b.outcome) || new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
     interested: latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")),
-    call_again: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
+    nurture: latestLogs.filter(l => hasTag(l.outcome, "nurture") && !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(a.follow_up_date || b.called_at).getTime() - new Date(b.follow_up_date || a.called_at).getTime()),
+    call_again: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "nurture") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
     closed: latestLogs.filter(l => hasTag(l.outcome, "closed")),
     dead: latestLogs.filter(l => hasTag(l.outcome, "dead")),
   };
@@ -504,6 +518,7 @@ function ColdCallsPage() {
   const TAB_LABELS: Record<LogTab, string> = {
     all: "All",
     interested: `Interested (${tabLogs.interested.length})`,
+    nurture: `Nurture (${tabLogs.nurture.length})`,
     call_again: `Call Again (${tabLogs.call_again.length})`,
     closed: `Closed (${tabLogs.closed.length})`,
     dead: `Dead (${tabLogs.dead.length})`,
@@ -583,12 +598,15 @@ function ColdCallsPage() {
             const mostRecent = allCallsForContact[0];
             const currentStage = mostRecent ? stageFromOutcome(mostRecent.outcome) : "new";
             const recentOutcome = mostRecent?.outcome || "";
-            const isSendInfo = hasTag(recentOutcome, "send_info") && !hasTag(recentOutcome, "interested") && !hasTag(recentOutcome, "dead");
+            const isSendInfo = hasTag(recentOutcome, "send_info") && !hasTag(recentOutcome, "interested") && !hasTag(recentOutcome, "nurture") && !hasTag(recentOutcome, "dead");
+            const isNurture = hasTag(recentOutcome, "nurture") && !hasTag(recentOutcome, "interested") && !hasTag(recentOutcome, "dead");
             const STAGE_META: Record<string, { label: string; color: string; next: string }> = {
               dead: { label: "Dead", color: "#f87171", next: "Marked dead — no action needed unless they reach back out." },
               client: { label: "Closed", color: "#34d399", next: "Registered in the portal as a client." },
               lead: { label: "Interested", color: "#4ade80", next: "Call back tomorrow to follow up. Once they're ready to book, send a Portal Invite to convert them to a client." },
-              "follow-up": isSendInfo
+              "follow-up": isNurture
+                ? { label: "Nurture", color: "#fb923c", next: "Has a photographer — they showed interest but aren't ready. Check back every 1–2 months. Stay top of mind." }
+                : isSendInfo
                 ? { label: "Info Sent", color: "#c084fc", next: "Pricing + portfolio sent — wait ~1 week then call back. Ask what they thought of the work and tell them about the new client portal." }
                 : { label: "No Response", color: "#a78bfa", next: "Hasn't given a verdict yet — keep calling back." },
               new: { label: "New", color: "#888", next: "No calls logged yet." },
@@ -634,7 +652,7 @@ function ColdCallsPage() {
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
                     <span className="text-xs font-bold tracking-[1px] uppercase" style={{ color: meta.color }}>{meta.label}</span>
-                    {mostRecent && isFollowUpDue(mostRecent.outcome, mostRecent.called_at) && (
+                    {mostRecent && isFollowUpDue(mostRecent.outcome, mostRecent.called_at, mostRecent.follow_up_date) && (
                       <span className="text-[9px] tracking-[1px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30">
                         ⏰ Follow-up due
                       </span>
@@ -659,6 +677,15 @@ function ColdCallsPage() {
                             placeholder="Notes..."
                             className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 resize-none placeholder:text-[#333]"
                           />
+                          <div>
+                            <p className="text-[10px] tracking-[1px] uppercase text-[#444] mb-1">Call-Back Date</p>
+                            <input
+                              type="date"
+                              value={editFollowUpDate}
+                              onChange={e => setEditFollowUpDate(e.target.value)}
+                              className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 [color-scheme:dark]"
+                            />
+                          </div>
                           <div className="flex gap-2">
                             <button onClick={() => setEditingLogId(null)} className="text-xs px-3 py-1.5 border border-white/10 text-[#555] hover:text-white transition-colors">
                               Cancel
@@ -694,7 +721,7 @@ function ColdCallsPage() {
                               {new Date(c.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {c.called_by}
                             </span>
                             <button
-                              onClick={() => { setEditingLogId(c.id); setEditTags(new Set(c.outcome.split(",") as CallTag[])); setEditNotes(c.notes || ""); }}
+                              onClick={() => { setEditingLogId(c.id); setEditTags(new Set(c.outcome.split(",") as CallTag[])); setEditNotes(c.notes || ""); setEditFollowUpDate(c.follow_up_date || ""); }}
                               className="text-[#444] hover:text-white text-xs transition-colors"
                             >
                               ✎
@@ -707,6 +734,7 @@ function ColdCallsPage() {
                             💰 {[serviceLabel(c.service), ...(c.add_ons || []).map(addonLabel)].filter(Boolean).join(" + ")}
                           </p>
                         )}
+                        {c.follow_up_date && <p className="text-xs text-[#38bdf8] mt-0.5">📅 Call back {new Date(c.follow_up_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>}
                         {c.notes && <p className="text-xs text-[#444] italic mt-0.5">&ldquo;{c.notes}&rdquo;</p>}
                       </div>
                     );
@@ -1045,6 +1073,26 @@ function ColdCallsPage() {
             />
           </div>
 
+          {/* Call-back date */}
+          <div className="bg-[#111] border border-white/10 p-5">
+            <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">
+              Call-Back Date <span className="normal-case tracking-normal text-[#333]">(optional)</span>
+            </p>
+            <input
+              type="date"
+              value={followUpDate}
+              onChange={e => setFollowUpDate(e.target.value)}
+              min={new Date().toISOString().split("T")[0]}
+              className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 [color-scheme:dark]"
+            />
+            {followUpDate && (
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-[#38bdf8]">📅 Scheduled: {new Date(followUpDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>
+                <button onClick={() => setFollowUpDate("")} className="text-[#444] hover:text-white text-xs">✕</button>
+              </div>
+            )}
+          </div>
+
           {/* Outcome tags — multi-select */}
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-3">Log Outcome <span className="normal-case tracking-normal text-[#333]">(select all that apply)</span></p>
@@ -1078,7 +1126,7 @@ function ColdCallsPage() {
 
           {/* Tabs */}
           <div className="flex overflow-x-auto border-b border-white/10">
-            {(["all", "interested", "call_again", "closed", "dead"] as LogTab[]).map(tab => (
+            {(["all", "interested", "nurture", "call_again", "closed", "dead"] as LogTab[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => setLogTab(tab)}
@@ -1107,10 +1155,12 @@ function ColdCallsPage() {
               const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
               const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
               const isInterested = hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
-              const isSendInfoRow = hasTag(log.outcome, "send_info") && !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
-              const isCallAgain = !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "send_info") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const isNurtureRow = hasTag(log.outcome, "nurture") && !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const isSendInfoRow = hasTag(log.outcome, "send_info") && !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "nurture") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
+              const isCallAgain = !hasTag(log.outcome, "interested") && !hasTag(log.outcome, "nurture") && !hasTag(log.outcome, "send_info") && !hasTag(log.outcome, "closed") && !hasTag(log.outcome, "dead");
               const rowAccent = logTab === "all"
                 ? isInterested ? "border-l-2 border-l-[#4ade80] bg-[#4ade80]/[0.03]"
+                : isNurtureRow ? "border-l-2 border-l-[#fb923c] bg-[#fb923c]/[0.03]"
                 : isSendInfoRow ? "border-l-2 border-l-[#c084fc] bg-[#c084fc]/[0.03]"
                 : isCallAgain ? "border-l-2 border-l-[#fbbf24] bg-[#fbbf24]/[0.03]"
                 : ""
@@ -1146,8 +1196,13 @@ function ColdCallsPage() {
                       <p className="text-[10px] text-[#333] mt-1">
                         {new Date(log.called_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {log.called_by}
                       </p>
+                      {log.follow_up_date && (
+                        <p className="text-[10px] text-[#38bdf8] mt-0.5">
+                          📅 Call back {new Date(log.follow_up_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                        </p>
+                      )}
                     </div>
-                    {isFollowUpDue(log.outcome, log.called_at) && (
+                    {isFollowUpDue(log.outcome, log.called_at, log.follow_up_date) && (
                       <span className="shrink-0 text-[9px] tracking-[1px] uppercase font-bold px-2 py-1 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30">
                         ⏰ Due
                       </span>
