@@ -83,17 +83,26 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
       </nav>
 
       {/* Hero */}
-      <div className="flex flex-col items-center justify-center text-center px-6 py-24">
-        <FadeUp delay={0.05} className="text-[#444] mb-8 [&>svg]:w-12 [&>svg]:h-12">{service.icon}</FadeUp>
-        <FadeUp delay={0.15}><p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Services</p></FadeUp>
-        <FadeUp delay={0.25}><h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">{service.name}</h1></FadeUp>
-        <FadeUp delay={0.35}><p className="text-[#666] text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p></FadeUp>
-        <FadeUp delay={0.45}>
-          <div className="flex gap-4">
-            <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
-            <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
-          </div>
-        </FadeUp>
+      <div className="relative flex flex-col items-center justify-center text-center px-6 py-32 overflow-hidden">
+        <img
+          src="/hero-1.jpg"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/70 via-[#0c0c0c]/80 to-[#0c0c0c]" />
+
+        <div className="relative z-10 flex flex-col items-center">
+          <FadeUp delay={0.05} className="text-white/70 mb-8 [&>svg]:w-12 [&>svg]:h-12">{service.icon}</FadeUp>
+          <FadeUp delay={0.15}><p className="text-xs tracking-[4px] uppercase text-white/70 mb-4">Services</p></FadeUp>
+          <FadeUp delay={0.25}><h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8" style={{ textShadow: "0 4px 24px rgba(0,0,0,0.6)" }}>{service.name}</h1></FadeUp>
+          <FadeUp delay={0.35}><p className="text-white/80 text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p></FadeUp>
+          <FadeUp delay={0.45}>
+            <div className="flex gap-4">
+              <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
+              <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/40 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
+            </div>
+          </FadeUp>
+        </div>
       </div>
 
       {/* Virtual Staging — before/after carousel */}
