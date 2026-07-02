@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient, requireAdmin, ADMIN_EMAILS } from "@/lib/supabase-server";
 
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const ADMIN_NAMES: Record<string, string> = {
   "ryan@luckimages.com": "Ryan",
   "leif@luckimages.com": "Leif",
 };
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createAdminClient();
 
   const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const allUsers = users?.users ?? [];

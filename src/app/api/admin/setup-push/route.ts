@@ -1,11 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 
 export async function POST() {
-  const db = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const db = createAdminClient();
 
   const { error } = await db.rpc("exec_sql" as never, {
     sql: `

@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const ADMIN_EMAILS = ['ryan@luckimages.com', 'leif@luckimages.com']
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request })
   const supabase = createServerClient(
@@ -18,6 +20,19 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
+  const isAdmin = !!user && ADMIN_EMAILS.includes(user.email || '')
+
+  // Admin API routes — 401 JSON, not a redirect (these are fetch() calls, not page loads)
+  if (path.startsWith('/api/admin')) {
+    if (!isAdmin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return response
+  }
+
+  // Admin pages — redirect non-admins away
+  if (path.startsWith('/admin')) {
+    if (!isAdmin) return NextResponse.redirect(new URL(user ? '/dashboard' : '/login', request.url))
+    return response
+  }
 
   // Not logged in — redirect to login except for public pages
   if (!user && (path.startsWith('/dashboard') || path.startsWith('/client') || path.startsWith('/photographer') || path === '/choose-portal')) {
@@ -28,5 +43,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/client/:path*', '/photographer/:path*', '/choose-portal'],
+  matcher: ['/dashboard/:path*', '/client/:path*', '/photographer/:path*', '/choose-portal', '/admin/:path*', '/api/admin/:path*'],
 }

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const contactId = formData.get("contactId") as string | null;
@@ -10,10 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing file or contactId" }, { status: 400 });
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = createAdminClient();
 
   const bytes = await file.arrayBuffer();
   const { error } = await supabase.storage

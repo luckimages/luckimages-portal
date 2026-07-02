@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 
 function db() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createAdminClient();
 }
 
 export async function GET() {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { data, error } = await db()
     .from("web_leads")
     .select("*")
@@ -15,6 +17,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id, name, email } = await req.json();
   if (!id || !name) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 

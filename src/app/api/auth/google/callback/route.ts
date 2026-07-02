@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { requireAdmin } from "@/lib/supabase-server";
 
 export async function GET(req: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const code = req.nextUrl.searchParams.get("code");
   if (!code) return NextResponse.json({ error: "No code" }, { status: 400 });
 
@@ -13,10 +16,11 @@ export async function GET(req: NextRequest) {
 
   const { tokens } = await auth.getToken(code);
 
-  // Show the refresh token so it can be saved as a Vercel env var
+  // Log server-side only (Vercel function logs) rather than rendering in the
+  // response — refresh tokens shouldn't sit in a browser tab or history.
+  console.log("GOOGLE_REFRESH_TOKEN:", tokens.refresh_token);
+
   return NextResponse.json({
-    message: "Copy the refresh_token below and add it to Vercel as GOOGLE_REFRESH_TOKEN",
-    refresh_token: tokens.refresh_token,
-    access_token: tokens.access_token,
+    message: "Token generated. Check Vercel function logs for the refresh_token value, then add it as GOOGLE_REFRESH_TOKEN.",
   });
 }

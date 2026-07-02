@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 
 function db() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createAdminClient();
 }
 
 export async function GET(req: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const contactId = searchParams.get("contact_id");
   const all = searchParams.get("all") === "1";
@@ -30,6 +32,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { contact_id, address, sqft, primary_service, primary_price, addons, total, sent } = await req.json();
   if (!primary_service) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   const { data, error } = await db()

@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase-server";
+import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { createShootEvent } from "@/lib/googleCalendar";
 import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
 
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-
 function service() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createAdminClient();
 }
 
 export async function GET(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createAdminClient();
 
   const { searchParams } = new URL(req.url);
   const all = searchParams.get("all") === "1";
@@ -73,9 +69,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || !ADMIN_EMAILS.includes(user.email || "")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { address, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name, property_type } = await req.json();
   if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
@@ -150,10 +144,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createAdminClient();
 
   const { id, status, photographer_ids, price, package_name, contact_id, address, scheduled_at, services, notes, square_footage, property_type } = await req.json();
 
