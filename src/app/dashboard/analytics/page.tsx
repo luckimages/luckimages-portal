@@ -123,7 +123,7 @@ export default function AnalyticsPage() {
                 <p className="text-sm text-[#444] py-10 text-center border border-white/10">No traffic recorded yet in this range.</p>
               ) : (
                 <div className="border border-white/10 p-6">
-                  <div className="flex items-end gap-1 h-40">
+                  <div className="flex gap-1 h-40">
                     {data.dailyTraffic.map((d) => (
                       <div key={d.date} className="flex-1 flex flex-col items-center justify-end gap-1 group relative">
                         <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white whitespace-nowrap bg-[#1a1a1a] px-2 py-1 border border-white/10 z-10">
