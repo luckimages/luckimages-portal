@@ -31,7 +31,7 @@ export default function IntroAnimation() {
             exit={{ opacity: 0, scale: 1.06 }}
             transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const }}
           >
-            <Image src="/logo.png" alt="Luck Images" width={160} height={160} className="w-40 h-40" priority />
+            <Image src="/logo.png" alt="Luck Images" width={280} height={280} className="w-64 h-64" priority />
           </motion.div>
         </motion.div>
       )}
