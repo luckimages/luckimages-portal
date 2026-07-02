@@ -15,6 +15,12 @@ type AnalyticsData = {
   topReferrers: { source: string; count: number }[];
   dailyTraffic: { date: string; visitors: number; views: number }[];
   newRegistrations: number;
+  funnel: { visitors: number; quoteRequests: number; registrations: number };
+  devices: { key: string; count: number }[];
+  browsers: { key: string; count: number }[];
+  topCountries: { key: string; count: number }[];
+  topCities: { key: string; count: number }[];
+  servicePerformance: { name: string; slug: string; count: number }[];
 };
 
 const RANGE_OPTIONS = [7, 30, 90];
@@ -71,7 +77,7 @@ export default function AnalyticsPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <p className="text-xs tracking-[4px] uppercase text-[#a78bfa]">Website</p>
-              <HelpTip title="Website Analytics" content="Tracks visits to luckimages.com's public pages (home, services, pricing, about, contact) — not the portal or admin tools. Unique visitors are counted per browser session. Time on page is measured until the visitor leaves or switches tabs." />
+              <HelpTip title="Website Analytics" content="Tracks visits to luckimages.com's public pages (home, services, pricing, about, contact) — not the portal or admin tools. Unique visitors are counted per browser session. Time on page is measured until the visitor leaves or switches tabs. Location (country/city) comes from Vercel's edge network, not stored IP addresses. The funnel connects visitors → quote requests → portal registrations so you can see where the drop-off is." />
             </div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Traffic Analytics</h1>
           </div>
@@ -172,6 +178,136 @@ export default function AnalyticsPage() {
                       <div key={r.source} className="flex items-center justify-between border-b border-white/5 pb-2">
                         <span className="text-sm text-white/80">{r.source}</span>
                         <span className="text-sm font-semibold text-[#a78bfa]">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+
+            {/* Funnel */}
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Funnel
+              </p>
+              <div className="border border-white/10 p-6 flex flex-col md:flex-row items-stretch gap-4">
+                {[
+                  { label: "Visitors", value: data.funnel.visitors, color: "#a78bfa" },
+                  { label: "Quote Requests", value: data.funnel.quoteRequests, color: "#f472b6" },
+                  { label: "Registrations", value: data.funnel.registrations, color: "#4ade80" },
+                ].map((stage, i, arr) => {
+                  const prev = i > 0 ? arr[i - 1].value : null;
+                  const rate = prev && prev > 0 ? Math.round((stage.value / prev) * 100) : null;
+                  return (
+                    <div key={stage.label} className="flex items-center gap-4 flex-1">
+                      <div className="flex-1 text-center">
+                        <p className="text-3xl font-black" style={{ color: stage.color }}>{stage.value.toLocaleString()}</p>
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">{stage.label}</p>
+                        {rate !== null && <p className="text-[10px] text-[#444] mt-1">{rate}% of previous</p>}
+                      </div>
+                      {i < arr.length - 1 && <span className="text-[#333] text-lg">→</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Service page performance */}
+            <section>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                Service Page Performance
+              </p>
+              {data.servicePerformance.every((s) => s.count === 0) ? (
+                <p className="text-sm text-[#444]">No service page visits yet.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {data.servicePerformance.map((s) => {
+                    const max = Math.max(1, ...data.servicePerformance.map((x) => x.count));
+                    return (
+                      <div key={s.slug} className="flex items-center gap-4">
+                        <span className="text-sm text-white/80 w-40 shrink-0">{s.name}</span>
+                        <div className="flex-1 bg-white/5 h-2">
+                          <div className="h-full bg-[#a78bfa]" style={{ width: `${(s.count / max) * 100}%` }} />
+                        </div>
+                        <span className="text-sm font-semibold text-[#a78bfa] w-8 text-right shrink-0">{s.count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* Devices + Browsers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <section>
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                  Devices
+                </p>
+                {data.devices.length === 0 ? (
+                  <p className="text-sm text-[#444]">No data yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {data.devices.map((d) => (
+                      <div key={d.key} className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <span className="text-sm text-white/80">{d.key}</span>
+                        <span className="text-sm font-semibold text-[#a78bfa]">{d.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                  Browsers
+                </p>
+                {data.browsers.length === 0 ? (
+                  <p className="text-sm text-[#444]">No data yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {data.browsers.map((b) => (
+                      <div key={b.key} className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <span className="text-sm text-white/80">{b.key}</span>
+                        <span className="text-sm font-semibold text-[#a78bfa]">{b.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+
+            {/* Geographic */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <section>
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                  Top Countries
+                </p>
+                {data.topCountries.length === 0 ? (
+                  <p className="text-sm text-[#444]">No location data yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {data.topCountries.map((c) => (
+                      <div key={c.key} className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <span className="text-sm text-white/80">{c.key}</span>
+                        <span className="text-sm font-semibold text-[#a78bfa]">{c.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                  Top Cities
+                </p>
+                {data.topCities.length === 0 ? (
+                  <p className="text-sm text-[#444]">No location data yet.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {data.topCities.map((c) => (
+                      <div key={c.key} className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <span className="text-sm text-white/80">{c.key}</span>
+                        <span className="text-sm font-semibold text-[#a78bfa]">{c.count}</span>
                       </div>
                     ))}
                   </div>
