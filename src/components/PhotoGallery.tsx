@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type Photo = { src: string; alt?: string };
+type Photo = { src: string; alt?: string; missingLabel?: string };
 
 export default function PhotoGallery({ photos }: { photos: Photo[] }) {
   const [lightbox, setLightbox] = useState<number | null>(null);
@@ -27,8 +27,9 @@ export default function PhotoGallery({ photos }: { photos: Photo[] }) {
                 className="w-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="w-full bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-[#333] text-xs tracking-[2px] uppercase" style={{ aspectRatio: "16/9" }}>
-                Photo
+              <div className="w-full bg-[#1a1a1a] border border-white/5 flex flex-col items-center justify-center gap-1 text-[#333] text-xs tracking-[2px] uppercase px-4 text-center" style={{ aspectRatio: "16/9" }}>
+                <span>Missing</span>
+                {p.missingLabel && <span className="text-[10px] tracking-normal normal-case text-[#444] font-mono lowercase">{p.missingLabel}</span>}
               </div>
             )}
           </div>

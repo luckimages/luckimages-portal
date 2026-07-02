@@ -38,7 +38,17 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
   ],
 };
 
-// Placeholder counts for services with no source photos recovered yet.
+// Filenames confirmed to have existed on the original site but not found
+// on disk -- shown as labeled placeholders so it's obvious what to look for.
+const MISSING_PHOTOS: Record<string, string[]> = {
+  "listing-photos": [
+    "800EmbassyDr212-8.jpg", "5908backbay_exterior-5.jpg",
+    "10305channelisland-9.jpg", "website_redo_small-9.jpg",
+  ],
+  "twilight": ["WebTwilight-1.jpg", "WebTwilight-4.jpg", "WebTwilight-11.jpg", "WebTwilight-12.jpg"],
+};
+
+// Placeholder counts for services with no source photos recovered at all.
 const GALLERY_COUNTS: Record<string, number> = {
   "floorplans": 6,
   "brochures": 6,
@@ -52,8 +62,12 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
   if (!service) notFound();
 
   const realPhotos = GALLERY_PHOTOS[slug];
+  const missing = MISSING_PHOTOS[slug] ?? [];
   const photos = realPhotos
-    ? realPhotos.map((f) => ({ src: `/portfolio/${slug}/${f}`, alt: `${service.name} — Luck Images` }))
+    ? [
+        ...realPhotos.map((f) => ({ src: `/portfolio/${slug}/${f}`, alt: `${service.name} — Luck Images` })),
+        ...missing.map((f) => ({ src: "", missingLabel: f })),
+      ]
     : Array.from({ length: GALLERY_COUNTS[slug] || 0 }, () => ({ src: "" }));
 
   return (
