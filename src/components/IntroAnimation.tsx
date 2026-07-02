@@ -4,11 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 export default function IntroAnimation() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (sessionStorage.getItem("intro_seen")) return;
-    setVisible(true);
+    if (sessionStorage.getItem("intro_seen")) {
+      setVisible(false);
+      return;
+    }
     sessionStorage.setItem("intro_seen", "1");
     const t = setTimeout(() => setVisible(false), 2000);
     return () => clearTimeout(t);
@@ -29,7 +31,7 @@ export default function IntroAnimation() {
             exit={{ opacity: 0, scale: 1.06 }}
             transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const }}
           >
-            <Image src="/logo.png" alt="Luck Images" width={72} height={72} className="w-18 h-18" priority />
+            <Image src="/logo.png" alt="Luck Images" width={160} height={160} className="w-40 h-40" priority />
           </motion.div>
         </motion.div>
       )}
