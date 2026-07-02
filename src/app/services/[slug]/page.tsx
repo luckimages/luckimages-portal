@@ -2,7 +2,16 @@ import Link from "next/link";
 import { SERVICES } from "@/lib/services";
 import { notFound } from "next/navigation";
 import PhotoGallery from "@/components/PhotoGallery";
+import BeforeAfterSlider from "@/components/BeforeAfterSlider";
 import FadeUp from "@/components/FadeUp";
+
+// Real before/after virtual-staging pairs (same room, same angle).
+const VIRTUAL_STAGING_PAIRS = [
+  { before: "webVS-1.jpg", after: "webVS-2.jpg" },
+  { before: "webVS-5.jpg", after: "webVS-6.jpg" },
+  { before: "webVS-7.jpg", after: "webVS-8.jpg" },
+  { before: "webVS-11.jpg", after: "webVS-12.jpg" },
+];
 
 const DESCRIPTIONS: Record<string, string> = {
   "listing-photos": "Professional photography that makes every listing stand out. Sharp, well-lit images that move properties faster.",
@@ -32,10 +41,6 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
     "bernia_interior-6.jpg", "bernia_interior-7.jpg",
   ],
   "twilight": ["WebTwilight-2.jpg", "WebTwilight-3.jpg"],
-  "virtual-staging": [
-    "webVS-1.jpg", "webVS-2.jpg", "webVS-5.jpg", "webVS-6.jpg",
-    "webVS-7.jpg", "webVS-8.jpg", "webVS-11.jpg", "webVS-12.jpg",
-  ],
 };
 
 // Filenames confirmed to have existed on the original site but not found
@@ -90,6 +95,27 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           </div>
         </FadeUp>
       </div>
+
+      {/* Virtual Staging — before/after sliders */}
+      {slug === "virtual-staging" && (
+        <section className="px-8 pb-24 max-w-5xl mx-auto w-full">
+          <FadeUp>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              Before & After
+            </p>
+            <p className="text-xs text-[#555] mb-8 tracking-wide">Drag the slider to compare.</p>
+            <div className="flex flex-col gap-6">
+              {VIRTUAL_STAGING_PAIRS.map((pair) => (
+                <BeforeAfterSlider
+                  key={pair.before}
+                  before={`/portfolio/virtual-staging/${pair.before}`}
+                  after={`/portfolio/virtual-staging/${pair.after}`}
+                />
+              ))}
+            </div>
+          </FadeUp>
+        </section>
+      )}
 
       {/* Gallery */}
       {GALLERY_SERVICES.has(slug) && (

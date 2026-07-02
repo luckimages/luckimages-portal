@@ -2,6 +2,9 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 
+// How far the divider slants from top to bottom, in % of container width.
+const SKEW_PCT = 5;
+
 export default function BeforeAfterSlider({
   before,
   after,
@@ -47,6 +50,9 @@ export default function BeforeAfterSlider({
     };
   }, [onMouseMove, onTouchMove, stopDrag]);
 
+  const topX = Math.min(100, Math.max(0, position + SKEW_PCT));
+  const bottomX = Math.min(100, Math.max(0, position - SKEW_PCT));
+
   return (
     <div
       ref={containerRef}
@@ -58,13 +64,24 @@ export default function BeforeAfterSlider({
       {/* After (bottom layer, full width) */}
       <img src={after} alt={afterLabel} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
 
-      {/* Before (clipped to left side) */}
-      <div className="absolute inset-0 overflow-hidden" style={{ width: `${position}%` }}>
-        <img src={before} alt={beforeLabel} className="absolute inset-0 w-full h-full object-cover" style={{ width: containerRef.current?.offsetWidth ?? "100%" }} draggable={false} />
+      {/* Before (clipped to a diagonal edge) */}
+      <div
+        className="absolute inset-0 overflow-hidden"
+        style={{ clipPath: `polygon(0 0, ${topX}% 0, ${bottomX}% 100%, 0 100%)` }}
+      >
+        <img src={before} alt={beforeLabel} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
       </div>
 
-      {/* Divider line */}
-      <div className="absolute top-0 bottom-0 w-px bg-white shadow-[0_0_8px_rgba(0,0,0,0.8)]" style={{ left: `${position}%` }} />
+      {/* Diagonal divider line */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+        <line
+          x1={`${topX}%`} y1="0"
+          x2={`${bottomX}%`} y2="100%"
+          stroke="white"
+          strokeWidth="2"
+          style={{ filter: "drop-shadow(0 0 6px rgba(0,0,0,0.8))" }}
+        />
+      </svg>
 
       {/* Handle */}
       <div
