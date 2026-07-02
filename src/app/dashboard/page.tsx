@@ -6,6 +6,7 @@ import ShootGallery from "@/components/ShootGallery";
 import { normalizePhone } from "@/lib/format";
 import HelpTip from "@/components/HelpTip";
 import TaskBoard from "./TaskBoard";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -170,9 +171,6 @@ export default function DashboardPage() {
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(["shoots","clients","marketing","finance","team","nocturne","alerts"]));
   const [expandedNotifId, setExpandedNotifId] = useState<string | null>(null);
   const [todoTab, setTodoTab] = useState("asap");
-
-  const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {

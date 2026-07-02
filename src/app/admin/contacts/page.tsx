@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 import ContactAvatar from "@/components/ContactAvatar";
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 type Contact = {
   id: string;

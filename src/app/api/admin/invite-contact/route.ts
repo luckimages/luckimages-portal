@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
 export async function POST(req: Request) {

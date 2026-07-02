@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { ADMIN_EMAILS } from './constants'
+
+export { ADMIN_EMAILS }
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -25,8 +28,6 @@ export function createAdminClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 }
-
-export const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"]
 
 // Verifies the request comes from a logged-in admin. Returns the user on
 // success, or null if unauthorized (caller should return a 401 response).

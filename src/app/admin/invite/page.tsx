@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 export default function InvitePage() {
   const router = useRouter();

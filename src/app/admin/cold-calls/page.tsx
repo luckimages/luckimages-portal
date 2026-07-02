@@ -6,8 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { normalizePhone } from "@/lib/format";
 import { useContactModal } from "@/context/ContactModalContext";
 import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel, TWILIGHT_STANDALONE_PRICE, VIRTUAL_STAGING_PER_PHOTO_PRICE } from "@/lib/pricing";
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 type Contact = {
   id: string;

@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 const CHANNEL_LABELS: Record<string, string> = {
   "referral":          "Referral",

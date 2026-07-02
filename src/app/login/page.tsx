@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,8 +17,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-
-    const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
     const supabase = createClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 

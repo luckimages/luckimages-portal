@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const MIDDLE_VIEWS = ["schedule", "board"] as const;
 type MiddleView = (typeof MIDDLE_VIEWS)[number];
 const MIDDLE_VIEW_LABEL: Record<MiddleView, string> = { schedule: "Weekly Schedule", board: "Shoot Board" };

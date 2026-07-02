@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
 const ASAP_LIST_ID = "f910a06f-cb9a-4c50-987e-ec85fc5754f4";
 
 function service() {

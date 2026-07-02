@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 type Contact = {
   id: string;
@@ -221,9 +222,6 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
     setUploadingAvatar(false);
     if (avatarFileRef.current) avatarFileRef.current.value = "";
   }
-
-  const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-
   function portalStatus(): { label: string; color: string } {
     if (!contact) return { label: "No Account", color: "text-[#444] bg-white/5" };
     if (contact.email && ADMIN_EMAILS.includes(contact.email)) return { label: "Admin", color: "text-[#a78bfa] bg-[#a78bfa]/10" };

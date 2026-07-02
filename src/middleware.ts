@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-
-const ADMIN_EMAILS = ['ryan@luckimages.com', 'leif@luckimages.com']
+import { ADMIN_EMAILS } from './lib/constants'
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request })

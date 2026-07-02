@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
 import ShootGallery from "@/components/ShootGallery";
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 type Shoot = {
   id: string;

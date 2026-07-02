@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 type CallLog = { id: string; contact_id: string | null; called_at: string; outcome: string; notes: string | null };
 type Contact = { id: string; name: string; stage: string };

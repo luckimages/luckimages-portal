@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 import { formatPhone } from "@/lib/format";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 const CHANNEL_LABELS: Record<string, string> = {
   "referral":          "Referral",
@@ -62,9 +63,6 @@ const STATUS_COLORS: Record<string, string> = {
   pending: "text-[#fbbf24] bg-[#fbbf24]/10",
   cancelled: "text-[#555] bg-white/5",
 };
-
-const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-
 type Contact = {
   id: string;
   name: string;
