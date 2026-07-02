@@ -3,7 +3,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 
 const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://luckimages-portal.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
 export async function POST(req: Request) {
   const supabase = await createClient();

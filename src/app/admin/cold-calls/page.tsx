@@ -116,7 +116,7 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
 }
 
 function buildPitchHtml(firstName: string, contactId: string): string {
-  const TRACK_BASE = "https://luckimages-portal.vercel.app/api/track-link";
+  const TRACK_BASE = "https://www.luckimages.com/api/track-link";
   const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
 
   const serviceRow = (label: string, price: string, href: string) =>

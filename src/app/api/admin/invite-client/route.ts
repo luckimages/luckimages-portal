@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     type: "magiclink",
     email,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://luckimages-portal.vercel.app"}/client`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com"}/client`,
       data: { full_name: name || "" },
     },
   });

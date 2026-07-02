@@ -32,7 +32,7 @@ type Template = {
 };
 
 const GOOGLE_REVIEW_URL = "https://g.page/r/CdYourReviewLink/review"; // TODO: replace with real URL
-const PORTAL_URL = "https://luckimages-portal.vercel.app";
+const PORTAL_URL = "https://www.luckimages.com";
 
 const BASE = `background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto`;
 const EYEBROW = (label: string) => `<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images${label ? ` — ${label}` : ""}</p>`;
@@ -799,7 +799,7 @@ export default function OutreachPage() {
                 <iframe
                   title="Email preview"
                   className="w-full flex-1 border-0 bg-[#0a0a0a]"
-                  srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://luckimages-portal.vercel.app/dashboard" })}
+                  srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://www.luckimages.com/dashboard" })}
                 />
               </div>
             ) : (

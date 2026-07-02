@@ -68,7 +68,7 @@ const SERVICE_LABELS: Record<string, string> = {
   home: "Homepage / Portfolio",
 };
 
-const BASE_URL = "https://luckimages-portal.vercel.app";
+const BASE_URL = "https://www.luckimages.com";
 
 function hasTag(outcome: string, tag: string) {
   return outcome.split(",").includes(tag);
