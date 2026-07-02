@@ -15,6 +15,7 @@ type AnalyticsData = {
   topReferrers: { source: string; count: number }[];
   dailyTraffic: { date: string; visitors: number; views: number }[];
   newRegistrations: number;
+  newRegistrationDetails: { id: string; name: string; email: string; contactId: string | null; createdAt: string }[];
   funnel: { visitors: number; quoteRequests: number; registrations: number };
   devices: { key: string; count: number }[];
   browsers: { key: string; count: number }[];
@@ -41,6 +42,7 @@ export default function AnalyticsPage() {
   const [range, setRange] = useState(30);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showRegistrations, setShowRegistrations] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -114,11 +116,49 @@ export default function AnalyticsPage() {
                 <p className="text-3xl font-black">{formatDuration(data.avgDurationSeconds)}</p>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Avg. Time on Page</p>
               </div>
-              <div className="border border-[#4ade80]/20 bg-[#4ade80]/5 p-5">
-                <p className="text-3xl font-black text-[#4ade80]">{data.newRegistrations.toLocaleString()}</p>
+              <button
+                type="button"
+                onClick={() => setShowRegistrations((v) => !v)}
+                disabled={data.newRegistrations === 0}
+                className="border border-[#4ade80]/20 bg-[#4ade80]/5 p-5 text-left hover:border-[#4ade80]/40 hover:bg-[#4ade80]/10 transition-colors disabled:cursor-default disabled:hover:border-[#4ade80]/20 disabled:hover:bg-[#4ade80]/5"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-3xl font-black text-[#4ade80]">{data.newRegistrations.toLocaleString()}</p>
+                  {data.newRegistrations > 0 && <span className="text-[#4ade80]/60 text-xs">{showRegistrations ? "▾" : "▸"}</span>}
+                </div>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#4ade80]/70 mt-1">New Portal Registrations</p>
-              </div>
+              </button>
             </div>
+
+            {/* Registrations dropdown */}
+            {showRegistrations && data.newRegistrationDetails.length > 0 && (
+              <div className="border border-[#4ade80]/20 divide-y divide-[#4ade80]/10 -mt-6">
+                {data.newRegistrationDetails.map((r) => {
+                  const dt = new Date(r.createdAt);
+                  const inner = (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white">{r.name}</p>
+                        {r.email && <p className="text-xs text-[#666]">{r.email}</p>}
+                      </div>
+                      <span className="text-[10px] text-[#444] shrink-0">
+                        {dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </span>
+                      {r.contactId && <span className="text-[10px] tracking-[1.5px] uppercase text-[#4ade80] shrink-0">View →</span>}
+                    </>
+                  );
+                  return r.contactId ? (
+                    <a key={r.id} href={`/admin/contacts/${r.contactId}`} className="flex items-center gap-4 px-5 py-3 hover:bg-[#4ade80]/5 transition-colors">
+                      {inner}
+                    </a>
+                  ) : (
+                    <div key={r.id} className="flex items-center gap-4 px-5 py-3 opacity-60">
+                      {inner}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Traffic chart */}
             <section>

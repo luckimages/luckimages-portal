@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       .select("path, referrer, session_id, duration_seconds, user_agent, country, region, city, created_at")
       .gte("created_at", since)
       .order("created_at", { ascending: false }),
-    db.from("profiles").select("id, role, created_at").gte("created_at", since),
+    db.from("profiles").select("id, role, full_name, created_at").gte("created_at", since),
     db.from("web_leads").select("id, created_at").gte("created_at", since),
   ]);
 
@@ -73,8 +73,34 @@ export async function GET(req: Request) {
     .map(([date, v]) => ({ date, visitors: v.visitors.size, views: v.views }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const newRegistrations = (profiles ?? []).filter((p) => p.role !== "admin").length;
+  const newProfiles = (profiles ?? []).filter((p) => p.role !== "admin");
+  const newRegistrations = newProfiles.length;
   const quoteRequests = (leads ?? []).length;
+
+  // Resolve each new registration to its contact card (contacts.user_id -> profiles.id)
+  // and its email (auth.users), so the dashboard can link straight to the contact.
+  let newRegistrationDetails: { id: string; name: string; email: string; contactId: string | null; createdAt: string }[] = [];
+  if (newProfiles.length > 0) {
+    const profileIds = newProfiles.map((p) => p.id);
+    const [{ data: contacts }, { data: users }] = await Promise.all([
+      db.from("contacts").select("id, user_id").in("user_id", profileIds),
+      db.auth.admin.listUsers({ perPage: 1000 }),
+    ]);
+    const contactIdByUserId: Record<string, string> = {};
+    for (const c of contacts ?? []) if (c.user_id) contactIdByUserId[c.user_id] = c.id;
+    const emailById: Record<string, string> = {};
+    for (const u of users?.users ?? []) emailById[u.id] = u.email ?? "";
+
+    newRegistrationDetails = newProfiles
+      .map((p) => ({
+        id: p.id,
+        name: p.full_name || emailById[p.id] || "Unnamed",
+        email: emailById[p.id] || "",
+        contactId: contactIdByUserId[p.id] || null,
+        createdAt: p.created_at,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
 
   // Device / browser breakdown
   const deviceCounts: Record<string, number> = {};
@@ -120,6 +146,7 @@ export async function GET(req: Request) {
     topReferrers,
     dailyTraffic,
     newRegistrations,
+    newRegistrationDetails,
     funnel: { visitors: uniqueVisitors, quoteRequests, registrations: newRegistrations },
     devices,
     browsers,
