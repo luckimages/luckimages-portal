@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { parseDevice, parseBrowser } from "@/lib/userAgent";
 import { SERVICES } from "@/lib/services";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 function topN<T extends string>(counts: Record<T, number>, n: number) {
   return Object.entries(counts)
@@ -31,7 +32,13 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = views ?? [];
+  // Safety net: exclude any admin-attributed rows even if they slipped through
+  // (e.g. captured before client-side tracking skipped admins).
+  const { data: allUsers } = await db.auth.admin.listUsers({ perPage: 1000 });
+  const adminUserIds = new Set(
+    (allUsers?.users ?? []).filter((u) => u.email && ADMIN_EMAILS.includes(u.email)).map((u) => u.id)
+  );
+  const rows = (views ?? []).filter((r) => !r.user_id || !adminUserIds.has(r.user_id));
 
   const uniqueVisitors = new Set(rows.map((r) => r.session_id)).size;
   const pageviews = rows.length;

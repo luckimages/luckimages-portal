@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 // Only track public marketing pages — not the portal, admin tools, or auth flows.
 const EXCLUDED_PREFIXES = ["/dashboard", "/admin", "/client", "/photographer", "/login", "/register", "/choose-portal", "/api", "/auth"];
@@ -37,10 +38,14 @@ export default function PageTracker() {
 
     createClient()
       .auth.getUser()
-      .then(({ data }) => data.user?.id ?? null)
+      .then(({ data }) => data.user ?? null)
       .catch(() => null)
-      .then((userId) =>
-        fetch("/api/track-pageview", {
+      .then((user) => {
+        // Don't track Ryan/Leif's own visits at all -- skips both the
+        // analytics noise and any need to filter it out after the fact.
+        if (user?.email && ADMIN_EMAILS.includes(user.email)) return null;
+
+        return fetch("/api/track-pageview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -48,11 +53,11 @@ export default function PageTracker() {
             referrer: document.referrer,
             sessionId: getSessionId(),
             userAgent: navigator.userAgent,
-            userId,
+            userId: user?.id ?? null,
           }),
-        })
-      )
-      .then((r) => (r.ok ? r.json() : null))
+        });
+      })
+      .then((r) => (r?.ok ? r.json() : null))
       .then((d) => { if (d?.id) current.current = { id: d.id, start: Date.now() }; })
       .catch(() => {});
 
