@@ -1,8 +1,7 @@
-import Link from "next/link";
 import HeroParallax from "@/components/HeroParallax";
 import HomeNav from "@/components/HomeNav";
-import HeroCTA from "@/components/HeroCTA";
-import { SERVICES } from "@/lib/services";
+import HeroContent from "@/components/HeroContent";
+import ServicesGrid from "@/components/ServicesGrid";
 
 export default function Home() {
   return (
@@ -20,39 +19,14 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <p className="text-xs tracking-[4px] uppercase text-white mb-6" style={{textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>Austin, TX — Real Estate Media</p>
-          <h1 className="text-[clamp(48px,8vw,96px)] font-black tracking-tight leading-none uppercase mb-8" style={{textShadow:"0 4px 24px rgba(0,0,0,0.7)"}}>
-            LUCK IMAGES
-          </h1>
-          <p className="text-white text-lg max-w-md mb-12 leading-relaxed" style={{textShadow:"0 2px 12px rgba(0,0,0,0.8)"}}>
-            Photography. Drone. Matterport. Video.
-            <br />
-            Built for agents who move fast.
-          </p>
-          <HeroCTA />
-        </div>
+        <HeroContent />
       </section>
 
 
       {/* SERVICES */}
 
       <section id="services" className="px-8 pb-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 max-w-4xl mx-auto border border-white/50 gap-px bg-white/50">
-          {SERVICES.map((s) => (
-            <Link
-              key={s.slug}
-              href={`/services/${s.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group"
-            >
-              <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
-              <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
-              <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
-            </Link>
-          ))}
-        </div>
+        <ServicesGrid />
       </section>
 
       {/* LOGO MARQUEE */}

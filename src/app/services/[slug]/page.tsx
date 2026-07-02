@@ -3,6 +3,7 @@ import { SERVICES } from "@/lib/services";
 import { notFound } from "next/navigation";
 import PhotoGallery from "@/components/PhotoGallery";
 import BeforeAfterSlider from "@/components/BeforeAfterSlider";
+import FadeUp from "@/components/FadeUp";
 
 const DESCRIPTIONS: Record<string, string> = {
   "listing-photos": "Professional photography that makes every listing stand out. Sharp, well-lit images that move properties faster.",
@@ -43,14 +44,16 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
       {/* Hero */}
       <div className="flex flex-col items-center justify-center text-center px-6 py-24">
-        <div className="text-[#444] mb-8 [&>svg]:w-12 [&>svg]:h-12">{service.icon}</div>
-        <p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Services</p>
-        <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">{service.name}</h1>
-        <p className="text-[#666] text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p>
-        <div className="flex gap-4">
-          <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
-          <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
-        </div>
+        <FadeUp delay={0.05} className="text-[#444] mb-8 [&>svg]:w-12 [&>svg]:h-12">{service.icon}</FadeUp>
+        <FadeUp delay={0.15}><p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Services</p></FadeUp>
+        <FadeUp delay={0.25}><h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">{service.name}</h1></FadeUp>
+        <FadeUp delay={0.35}><p className="text-[#666] text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p></FadeUp>
+        <FadeUp delay={0.45}>
+          <div className="flex gap-4">
+            <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
+            <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/25 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
+          </div>
+        </FadeUp>
       </div>
 
       {/* Virtual Staging — before/after sliders */}
@@ -72,10 +75,12 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
       {/* Gallery */}
       {GALLERY_SERVICES.has(slug) && (
         <section className="px-8 pb-24 max-w-6xl mx-auto w-full">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            Portfolio
-          </p>
-          <PhotoGallery photos={photos} />
+          <FadeUp>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              Portfolio
+            </p>
+            <PhotoGallery photos={photos} />
+          </FadeUp>
         </section>
       )}
 
