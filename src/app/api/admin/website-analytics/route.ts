@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const [{ data: views, error }, { data: profiles }, { data: leads }] = await Promise.all([
     db
       .from("page_views")
-      .select("path, referrer, session_id, duration_seconds, user_agent, country, region, city, created_at")
+      .select("path, referrer, session_id, duration_seconds, user_agent, country, region, city, user_id, created_at")
       .gte("created_at", since)
       .order("created_at", { ascending: false }),
     db.from("profiles").select("id, role, full_name, created_at").gte("created_at", since),
@@ -35,6 +35,12 @@ export async function GET(req: Request) {
 
   const uniqueVisitors = new Set(rows.map((r) => r.session_id)).size;
   const pageviews = rows.length;
+
+  // A session counts as "registered" if any of its page views happened
+  // while logged in -- otherwise it's an anonymous visitor.
+  const registeredSessionIds = new Set(rows.filter((r) => r.user_id).map((r) => r.session_id));
+  const registeredVisitors = registeredSessionIds.size;
+  const anonymousVisitors = uniqueVisitors - registeredVisitors;
 
   const durations = rows.map((r) => r.duration_seconds).filter((d): d is number => typeof d === "number" && d > 0);
   const avgDurationSeconds = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
@@ -69,9 +75,15 @@ export async function GET(req: Request) {
     dailyCounts[day].visitors.add(r.session_id);
     dailyCounts[day].views += 1;
   }
-  const dailyTraffic = Object.entries(dailyCounts)
-    .map(([date, v]) => ({ date, visitors: v.visitors.size, views: v.views }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  // Fill every day in the range (including zero-traffic days) so the chart
+  // renders as a real series of daily bars instead of one solid block.
+  const dailyTraffic: { date: string; visitors: number; views: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const date = d.toISOString().slice(0, 10);
+    const v = dailyCounts[date];
+    dailyTraffic.push({ date, visitors: v ? v.visitors.size : 0, views: v ? v.views : 0 });
+  }
 
   const newProfiles = (profiles ?? []).filter((p) => p.role !== "admin");
   const newRegistrations = newProfiles.length;
@@ -140,6 +152,8 @@ export async function GET(req: Request) {
   return NextResponse.json({
     days,
     uniqueVisitors,
+    registeredVisitors,
+    anonymousVisitors,
     pageviews,
     avgDurationSeconds,
     topPages,

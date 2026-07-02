@@ -114,9 +114,25 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
   return next;
 }
 
-function buildPitchHtml(firstName: string, contactId: string): string {
+const PITCH_SERVICES = [
+  { key: "photo", label: "Listing Photos", price: "from $200" },
+  { key: "drone", label: "Drone Photos", price: "$100 add-on · $200 solo" },
+  { key: "matterport", label: "Matterport 3D Tour", price: "from $200" },
+  { key: "twilight", label: "Twilight Photography", price: `+$150 add-on · ${TWILIGHT_STANDALONE_PRICE} solo` },
+  { key: "virtual-staging", label: "Virtual Staging", price: VIRTUAL_STAGING_PER_PHOTO_PRICE },
+  { key: "video", label: "Video Walkthrough", price: "from $200" },
+  { key: "floorplan", label: "Floor Plan", price: "from $50" },
+] as const;
+
+function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[]): string {
   const TRACK_BASE = "https://www.luckimages.com/api/track-link";
   const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
+
+  const services = selectedKeys.length > 0
+    ? PITCH_SERVICES.filter(s => selectedKeys.includes(s.key))
+    : PITCH_SERVICES;
+  const isSingle = services.length === 1;
+  const isAll = services.length === PITCH_SERVICES.length;
 
   const serviceRow = (label: string, price: string, href: string) =>
     `<tr>
@@ -125,6 +141,15 @@ function buildPitchHtml(firstName: string, contactId: string): string {
       </td>
       <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;border-bottom:1px solid #1e1e1e;background-color:#131313;" bgcolor="#131313">${price}</td>
     </tr>`;
+
+  const introText = isAll
+    ? `Hey ${firstName}, thanks for taking the time to chat. Below you can find a list of all of our services &amp; pricing, click on each service to view the portfolio. Look forward to working together!`
+    : isSingle
+      ? `Hey ${firstName}, thanks for taking the time to chat. Here's a closer look at our ${services[0].label.toLowerCase()} — pricing and a link to the portfolio below.`
+      : `Hey ${firstName}, thanks for taking the time to chat. Here's pricing and portfolio links for what we talked about.`;
+
+  const heroHref = isSingle ? track(services[0].key) : track("pricing");
+  const heroLabel = isSingle ? `View ${services[0].label} Portfolio →` : "View Pricing →";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -137,11 +162,11 @@ function buildPitchHtml(firstName: string, contactId: string): string {
   <tr><td style="padding:64px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
     <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
     <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#ffffff;line-height:1;">LUCK IMAGES</h1>
-    <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">Hey ${firstName}, thanks for taking the time to chat. Below you can find a list of all of our services &amp; pricing, click on each service to view the portfolio. Look forward to working together!</p>
+    <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">${introText}</p>
     <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
       <tr>
         <td style="padding-right:10px;">
-          <a href="${track("pricing")}" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">View Pricing →</a>
+          <a href="${heroHref}" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">${heroLabel}</a>
         </td>
         <td>
           <a href="${track("home")}" style="display:inline-block;border:1px solid #999999;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
@@ -152,15 +177,9 @@ function buildPitchHtml(firstName: string, contactId: string): string {
 
   <tr><td style="padding:32px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
     <div style="background-color:#131313;border:1px solid #222;padding:28px;">
-      <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">Services &amp; Starting Prices</p>
+      <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">${isAll ? "Services &amp; Starting Prices" : "Pricing"}</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#131313;" bgcolor="#131313">
-        ${serviceRow("Listing Photos", "from $200", track("photo"))}
-        ${serviceRow("Drone Photos", "$100 add-on · $200 solo", track("drone"))}
-        ${serviceRow("Matterport 3D Tour", "from $200", track("matterport"))}
-        ${serviceRow("Twilight Photography", `+$150 add-on · ${TWILIGHT_STANDALONE_PRICE} solo`, track("twilight"))}
-        ${serviceRow("Virtual Staging", VIRTUAL_STAGING_PER_PHOTO_PRICE, track("virtual-staging"))}
-        ${serviceRow("Video Walkthrough", "from $200", track("video"))}
-        ${serviceRow("Floor Plan", "from $50", track("floorplan"))}
+        ${services.map(s => serviceRow(s.label, s.price, track(s.key))).join("")}
       </table>
       <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>
     </div>
@@ -224,6 +243,7 @@ function ColdCallsPage() {
   const [sendingPitch, setSendingPitch] = useState(false);
   const [pitchSent, setPitchSent] = useState(false);
   const [pitchContact, setPitchContact] = useState<Contact | null>(null);
+  const [pitchServices, setPitchServices] = useState<Set<string>>(new Set(PITCH_SERVICES.map(s => s.key)));
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
@@ -434,11 +454,23 @@ function ColdCallsPage() {
     setTimeout(() => setFlash(null), 2500);
   }
 
+  function togglePitchService(key: string) {
+    setPitchServices(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   async function sendPitch() {
     const target = pitchContact;
     if (!target?.email) return;
     setSendingPitch(true);
     const firstName = target.name.split(" ")[0];
+    const selected = Array.from(pitchServices);
+    const selectedLabels = PITCH_SERVICES.filter(s => selected.includes(s.key)).map(s => s.label);
+    const isAll = selected.length === PITCH_SERVICES.length;
     await fetch("/api/admin/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -446,8 +478,10 @@ function ColdCallsPage() {
         contactId: target.id,
         to: target.email,
         subject: pitchSubject,
-        html: buildPitchHtml(firstName, target.id),
-        body: `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`,
+        html: buildPitchHtml(firstName, target.id, selected),
+        body: isAll
+          ? `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`
+          : `Hi ${firstName},\n\nThanks for the call. Sending pricing + portfolio for ${selectedLabels.join(", ")} at luckimages.com.\n\nRyan Luck\nLuck Images`,
       }),
     });
     setSendingPitch(false);
@@ -762,6 +796,7 @@ function ColdCallsPage() {
                         setPitchContact(log.contact!);
                         setPitchSent(false);
                         setPitchSubject("Real Estate Photography — Luck Images");
+                        setPitchServices(new Set(PITCH_SERVICES.map(s => s.key)));
                         setShowPitch(true);
                         setExpandedLog(null);
                         setEditingLogId(null);
@@ -1252,17 +1287,40 @@ function ColdCallsPage() {
                   <input value={pitchSubject} onChange={e => setPitchSubject(e.target.value)}
                     className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
                 </div>
-                <div className="bg-[#0d0d0d] border border-white/5 p-4 space-y-1.5">
-                  {[
-                    "Full pricing table (all services)",
-                    "Portfolio link — luckimages.com",
-                    "Client portal overview + link",
-                    "Personal sign-off from Ryan",
-                  ].map(item => (
-                    <p key={item} className="text-xs text-[#777] flex items-center gap-2">
-                      <span className="text-[#4ade80]">✓</span>{item}
-                    </p>
-                  ))}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs text-[#555] tracking-[1px] uppercase">Services to Pitch</p>
+                    <button
+                      type="button"
+                      onClick={() => setPitchServices(
+                        pitchServices.size === PITCH_SERVICES.length ? new Set() : new Set(PITCH_SERVICES.map(s => s.key))
+                      )}
+                      className="text-[10px] tracking-[1px] uppercase text-[#4ade80] hover:text-white transition-colors"
+                    >
+                      {pitchServices.size === PITCH_SERVICES.length ? "Clear all" : "Select all"}
+                    </button>
+                  </div>
+                  <div className="bg-[#0d0d0d] border border-white/5 p-3 flex flex-wrap gap-2">
+                    {PITCH_SERVICES.map(s => {
+                      const active = pitchServices.has(s.key);
+                      return (
+                        <button
+                          key={s.key}
+                          type="button"
+                          onClick={() => togglePitchService(s.key)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all ${active ? "border-[#4ade80] text-[#4ade80] bg-[#4ade80]/10" : "border-white/15 text-[#555] hover:border-white/30 hover:text-white/70"}`}
+                        >
+                          {s.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {pitchServices.size === 0 && (
+                    <p className="text-[10px] text-[#fbbf24] mt-1.5">Select at least one service, or the full lineup gets sent.</p>
+                  )}
+                  {pitchServices.size === 1 && (
+                    <p className="text-[10px] text-[#555] mt-1.5">Email links straight to the {PITCH_SERVICES.find(s => pitchServices.has(s.key))?.label} portfolio page.</p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setShowPitch(false)}

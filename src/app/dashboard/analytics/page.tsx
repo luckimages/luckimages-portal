@@ -9,6 +9,8 @@ import HelpTip from "@/components/HelpTip";
 type AnalyticsData = {
   days: number;
   uniqueVisitors: number;
+  registeredVisitors: number;
+  anonymousVisitors: number;
   pageviews: number;
   avgDurationSeconds: number;
   topPages: { path: string; count: number }[];
@@ -107,6 +109,9 @@ export default function AnalyticsPage() {
               <div className="border border-white/10 p-5">
                 <p className="text-3xl font-black">{data.uniqueVisitors.toLocaleString()}</p>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Unique Visitors</p>
+                <p className="text-[10px] text-[#444] mt-1.5">
+                  <span className="text-[#4ade80]">{data.registeredVisitors}</span> registered · <span className="text-white/50">{data.anonymousVisitors}</span> anonymous
+                </p>
               </div>
               <div className="border border-white/10 p-5">
                 <p className="text-3xl font-black">{data.pageviews.toLocaleString()}</p>
@@ -165,22 +170,43 @@ export default function AnalyticsPage() {
               <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
                 Daily Traffic
               </p>
-              {data.dailyTraffic.length === 0 ? (
+              {data.pageviews === 0 ? (
                 <p className="text-sm text-[#444] py-10 text-center border border-white/10">No traffic recorded yet in this range.</p>
               ) : (
                 <div className="border border-white/10 p-6">
-                  <div className="flex gap-1 h-40">
-                    {data.dailyTraffic.map((d) => (
-                      <div key={d.date} className="flex-1 flex flex-col items-center justify-end gap-1 group relative">
-                        <div className="absolute -top-6 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white whitespace-nowrap bg-[#1a1a1a] px-2 py-1 border border-white/10 z-10">
-                          {d.date} — {d.views} views, {d.visitors} visitors
+                  <div className="flex gap-[2px] h-40">
+                    {data.dailyTraffic.map((d, i) => {
+                      const isToday = i === data.dailyTraffic.length - 1;
+                      const dt = new Date(d.date + "T00:00:00");
+                      return (
+                        <div key={d.date} className="flex-1 flex flex-col items-end justify-end group relative">
+                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-white whitespace-nowrap bg-[#1a1a1a] px-2 py-1 border border-white/10 z-10 pointer-events-none">
+                            {dt.toLocaleDateString("en-US", { month: "short", day: "numeric" })} — {d.views} views, {d.visitors} visitors
+                          </div>
+                          <div
+                            className={`w-full transition-colors ${isToday ? "bg-[#4ade80]/60 group-hover:bg-[#4ade80]" : "bg-[#a78bfa]/40 group-hover:bg-[#a78bfa]"}`}
+                            style={{ height: `${Math.max(3, (d.views / maxViews) * 100)}%` }}
+                          />
                         </div>
-                        <div
-                          className="w-full bg-[#a78bfa]/40 group-hover:bg-[#a78bfa] transition-colors"
-                          style={{ height: `${Math.max(4, (d.views / maxViews) * 100)}%` }}
-                        />
-                      </div>
-                    ))}
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-[2px] mt-2">
+                    {data.dailyTraffic.map((d, i) => {
+                      const labelEvery = Math.ceil(data.dailyTraffic.length / 8);
+                      const isToday = i === data.dailyTraffic.length - 1;
+                      const showLabel = i % labelEvery === 0 || isToday;
+                      const dt = new Date(d.date + "T00:00:00");
+                      return (
+                        <div key={d.date} className="flex-1 text-center">
+                          {showLabel && (
+                            <span className="text-[9px] text-[#444] whitespace-nowrap">
+                              {dt.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

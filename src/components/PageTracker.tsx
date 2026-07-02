@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { createClient } from "@/lib/supabase";
 
 // Only track public marketing pages — not the portal, admin tools, or auth flows.
 const EXCLUDED_PREFIXES = ["/dashboard", "/admin", "/client", "/photographer", "/login", "/register", "/choose-portal", "/api", "/auth"];
@@ -34,16 +35,23 @@ export default function PageTracker() {
       current.current = null;
     }
 
-    fetch("/api/track-pageview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: pathname,
-        referrer: document.referrer,
-        sessionId: getSessionId(),
-        userAgent: navigator.userAgent,
-      }),
-    })
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => data.user?.id ?? null)
+      .catch(() => null)
+      .then((userId) =>
+        fetch("/api/track-pageview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: pathname,
+            referrer: document.referrer,
+            sessionId: getSessionId(),
+            userAgent: navigator.userAgent,
+            userId,
+          }),
+        })
+      )
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.id) current.current = { id: d.id, start: Date.now() }; })
       .catch(() => {});

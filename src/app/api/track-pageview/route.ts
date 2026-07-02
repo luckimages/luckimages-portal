@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 
 export async function POST(req: Request) {
-  const { path, referrer, sessionId, userAgent } = await req.json();
+  const { path, referrer, sessionId, userAgent, userId } = await req.json();
   if (!path || !sessionId) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
   // Vercel's edge network adds these geo headers automatically -- no IP
@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       country: country || null,
       region: region || null,
       city: city ? decodeURIComponent(city) : null,
+      user_id: userId || null,
     })
     .select("id")
     .single();
