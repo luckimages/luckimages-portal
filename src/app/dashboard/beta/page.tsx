@@ -180,6 +180,17 @@ export default function BetaPage() {
               </div>
               <p className="text-[11px] text-[#555] leading-snug">Unified calendar — shoots, deliveries, payments, contacts, calls, updates, timesheets.</p>
             </a>
+            <a href="/dashboard/analytics" className="border border-[#a78bfa]/20 bg-[#a78bfa]/5 rounded-sm p-4 flex flex-col gap-2 hover:border-[#a78bfa]/40 hover:bg-[#a78bfa]/10 transition-all group">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] tracking-[2px] uppercase text-[#a78bfa] font-semibold">New</span>
+                <span className="text-[10px] text-[#444] group-hover:text-[#a78bfa] transition-colors">→</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-black uppercase tracking-tight text-white">Traffic Analytics</p>
+                <HelpTip title="Traffic Analytics" content="Tracks visits to luckimages.com's public pages: unique visitors, page views, average time on page, top pages, and traffic sources (referrers). Also shows new portal registrations in the same window so you can see visits alongside conversions. Doesn't track the portal or admin tools — only public marketing pages." />
+              </div>
+              <p className="text-[11px] text-[#555] leading-snug">Visitors, time on page, top pages, referral sources, and new registrations.</p>
+            </a>
           </div>
         </section>
 

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ClientProviders from "@/components/ClientProviders";
 import IntroAnimation from "@/components/IntroAnimation";
+import PageTracker from "@/components/PageTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +30,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><IntroAnimation /><ClientProviders>{children}</ClientProviders></body>
+      <body className="min-h-full flex flex-col"><IntroAnimation /><PageTracker /><ClientProviders>{children}</ClientProviders></body>
     </html>
   );
 }
