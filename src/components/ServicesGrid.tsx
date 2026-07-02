@@ -17,8 +17,6 @@ export default function ServicesGrid() {
         >
           <Link
             href={`/services/${s.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
             className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group h-full"
           >
             <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>

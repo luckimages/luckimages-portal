@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import HomeNav from "@/components/HomeNav";
+import FadeUp from "@/components/FadeUp";
 
 const SERVICES = [
   "Listing photos", "Twilight photos", "Walk through video",
@@ -48,7 +49,7 @@ export default function ContactPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <HomeNav />
 
-      <div className="pt-32 pb-16 text-center px-6">
+      <FadeUp className="pt-32 pb-16 text-center px-6">
         <p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Get In Touch</p>
         <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-6">Let's Work Together</h1>
         <p className="text-[#666] text-lg whitespace-nowrap">Fill out the form below and a member of our team will reach out shortly.</p>
@@ -56,9 +57,9 @@ export default function ContactPage() {
           Or call <a href="tel:5123751585" className="text-white/70 hover:text-white transition-colors">(512) 375-1585</a>
           {" "}or email <a href="mailto:ryan@luckimages.com" className="text-white/70 hover:text-white transition-colors">ryan@luckimages.com</a>
         </p>
-      </div>
+      </FadeUp>
 
-      <div className="flex-1 px-6 pb-24 max-w-3xl mx-auto w-full">
+      <FadeUp delay={0.1} className="flex-1 px-6 pb-24 max-w-3xl mx-auto w-full">
         <div className="border-[3px] border-white/50 p-8 md:p-12">
         {status === "sent" ? (
           <div className="bg-[#0c0c0c] border border-white/20 p-12 text-center flex flex-col items-center gap-6">
@@ -163,7 +164,7 @@ export default function ContactPage() {
           </form>
         )}
         </div>
-      </div>
+      </FadeUp>
 
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">
         <span className="text-xs tracking-[3px] uppercase text-[#444]">© 2026 Luck Images</span>

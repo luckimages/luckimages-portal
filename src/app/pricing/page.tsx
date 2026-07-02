@@ -1,5 +1,6 @@
 import Link from "next/link";
 import HomeNav from "@/components/HomeNav";
+import FadeUp from "@/components/FadeUp";
 
 const STANDALONE = [
   {
@@ -116,76 +117,82 @@ export default function PricingPage() {
       <HomeNav />
 
       {/* Header */}
-      <div className="pt-32 pb-16 text-center px-6">
+      <FadeUp className="pt-32 pb-16 text-center px-6">
         <p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Transparent Pricing</p>
         <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-6">Pricing</h1>
         <p className="text-[#666] text-lg max-w-lg mx-auto leading-relaxed">
           No hidden fees. No surprises. Just great media delivered fast.
         </p>
-      </div>
+      </FadeUp>
 
       {/* Standalone Services */}
-      <section className="px-6 pb-20 max-w-5xl mx-auto w-full">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-          Services
-        </p>
-        <p className="text-xs text-[#444] mb-8">Standalone shoot pricing</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
-          {STANDALONE.map((s) => (
-            <div key={s.name} className="bg-[#0c0c0c] p-8">
-              <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{s.name}</h3>
-              <p className="text-xs text-[#555] mb-5">{s.description}</p>
-              <div className="flex flex-col gap-2">
-                {s.tiers.map((t) => (
-                  <div key={t.label} className="flex items-center justify-between">
-                    <span className="text-xs text-[#666]">{t.label}</span>
-                    <span className="text-sm font-semibold">{t.price}</span>
-                  </div>
-                ))}
+      <FadeUp>
+        <section className="px-6 pb-20 max-w-5xl mx-auto w-full">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Services
+          </p>
+          <p className="text-xs text-[#444] mb-8">Standalone shoot pricing</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
+            {STANDALONE.map((s) => (
+              <div key={s.name} className="bg-[#0c0c0c] p-8">
+                <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{s.name}</h3>
+                <p className="text-xs text-[#555] mb-5">{s.description}</p>
+                <div className="flex flex-col gap-2">
+                  {s.tiers.map((t) => (
+                    <div key={t.label} className="flex items-center justify-between">
+                      <span className="text-xs text-[#666]">{t.label}</span>
+                      <span className="text-sm font-semibold">{t.price}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      </FadeUp>
 
       {/* Add-Ons */}
-      <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-          Add-Ons
-        </p>
-        <p className="text-xs text-[#444] mb-8">Bolt these onto any existing shoot</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
-          {ADDONS.map((a) => (
-            <div key={a.name} className="bg-[#0c0c0c] p-8">
-              <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{a.name}</h3>
-              <p className="text-xs text-[#555] mb-5">{a.description}</p>
-              <div className="flex flex-col gap-2">
-                {a.tiers.map((t) => (
-                  <div key={t.label} className="flex items-center justify-between">
-                    <span className="text-xs text-[#666]">{t.label}</span>
-                    <span className="text-sm font-semibold">{t.price}</span>
-                  </div>
-                ))}
+      <FadeUp>
+        <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Add-Ons
+          </p>
+          <p className="text-xs text-[#444] mb-8">Bolt these onto any existing shoot</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
+            {ADDONS.map((a) => (
+              <div key={a.name} className="bg-[#0c0c0c] p-8">
+                <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{a.name}</h3>
+                <p className="text-xs text-[#555] mb-5">{a.description}</p>
+                <div className="flex flex-col gap-2">
+                  {a.tiers.map((t) => (
+                    <div key={t.label} className="flex items-center justify-between">
+                      <span className="text-xs text-[#666]">{t.label}</span>
+                      <span className="text-sm font-semibold">{t.price}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      </FadeUp>
 
       {/* CTA */}
-      <section className="px-6 pb-32 text-center">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6">Not sure what you need?</p>
-        <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-4">Get a Quote</h2>
-        <p className="text-[#666] text-sm mb-10 max-w-sm mx-auto leading-relaxed">
-          Tell us about your listing and we&apos;ll put together the perfect package.
-        </p>
-        <Link
-          href="/quote"
-          className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 hover:bg-white/90 transition-all inline-block"
-        >
-          Quote Now
-        </Link>
-      </section>
+      <FadeUp>
+        <section className="px-6 pb-32 text-center">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6">Not sure what you need?</p>
+          <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-4">Get a Quote</h2>
+          <p className="text-[#666] text-sm mb-10 max-w-sm mx-auto leading-relaxed">
+            Tell us about your listing and we&apos;ll put together the perfect package.
+          </p>
+          <Link
+            href="/quote"
+            className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 hover:bg-white/90 transition-all inline-block"
+          >
+            Quote Now
+          </Link>
+        </section>
+      </FadeUp>
 
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">
         <span className="text-xs tracking-[3px] uppercase text-[#444]">© 2026 Luck Images</span>

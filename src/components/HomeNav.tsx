@@ -53,8 +53,6 @@ export default function HomeNav() {
                   <Link
                     key={s.slug}
                     href={`/services/${s.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="flex items-center gap-3 px-4 py-2.5 text-xs tracking-[2px] uppercase text-white/50 hover:text-white hover:bg-white/5 transition-colors"
                   >
                     <span className="text-sm">{s.icon}</span>
@@ -117,7 +115,7 @@ export default function HomeNav() {
           {mobileServicesOpen && (
             <div className="border-t border-white/5">
               {SERVICES.map((s) => (
-                <Link key={s.slug} href={`/services/${s.slug}`} target="_blank" onClick={() => setMenuOpen(false)}
+                <Link key={s.slug} href={`/services/${s.slug}`} onClick={() => setMenuOpen(false)}
                   className="px-10 py-2.5 text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors flex items-center gap-3">
                   <span>{s.icon}</span>{s.name}
                 </Link>
