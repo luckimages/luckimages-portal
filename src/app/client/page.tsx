@@ -692,14 +692,14 @@ export default function ClientPage() {
               {/* Password */}
               <div>
                 <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Password</p>
-                <Link href="/set-password" className="block text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors">
+                <Link href="/set-password" className="block text-center border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/5 transition-colors">
                   Change Password →
                 </Link>
               </div>
 
               {/* Sign out */}
               <div>
-                <button onClick={signOut} className="w-full text-center border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/5 transition-colors">
+                <button onClick={signOut} className="w-full text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors">
                   Log Out →
                 </button>
               </div>
