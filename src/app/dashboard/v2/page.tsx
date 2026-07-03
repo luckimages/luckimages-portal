@@ -1,9 +1,24 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
+
+const APPS = [
+  { label: "Contacts",     icon: "👥", href: "/admin/contacts",        color: "#60a5fa" },
+  { label: "Shoots",       icon: "📸", href: "/admin/shoots",           color: "#fbbf24" },
+  { label: "Calendar",     icon: "📅", href: "/dashboard/calendar",     color: "#4ade80" },
+  { label: "Shoot Board",  icon: "🗂️", href: "/dashboard/board",        color: "#a78bfa" },
+  { label: "Todos",        icon: "✅", href: "/admin/todos",            color: "#f472b6" },
+  { label: "Marketing",    icon: "📈", href: "/dashboard/marketing",    color: "#fb923c" },
+  { label: "Outreach",     icon: "✉️", href: "/dashboard/outreach",     color: "#34d399" },
+  { label: "Analytics",    icon: "📊", href: "/dashboard/analytics",    color: "#60a5fa" },
+  { label: "Quotes",       icon: "💬", href: "/dashboard/quotes",       color: "#fbbf24" },
+  { label: "Time Tracker", icon: "⏱️", href: "/admin/time-tracker",    color: "#a78bfa" },
+  { label: "Cold Calls",   icon: "📞", href: "/admin/cold-calls",       color: "#f87171" },
+  { label: "Updates",      icon: "📣", href: "/admin/updates",          color: "#4ade80" },
+];
 
 const MIDDLE_VIEWS = ["schedule", "board"] as const;
 type MiddleView = (typeof MIDDLE_VIEWS)[number];
@@ -94,6 +109,8 @@ export default function DashboardV2Page() {
 
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(NOTIF_CATS.map(c => c.key)));
+  const [swipePage, setSwipePage] = useState(0);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -221,6 +238,31 @@ export default function DashboardV2Page() {
   }
 
   return (
+    <div
+      className="relative h-screen w-screen overflow-hidden bg-black"
+      onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+      onTouchEnd={e => {
+        if (touchStartX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        if (Math.abs(dx) > 50) setSwipePage(dx < 0 ? 1 : 0);
+        touchStartX.current = null;
+      }}
+    >
+      {/* Dot indicators */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50 pointer-events-none">
+        {[0, 1].map(i => (
+          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${swipePage === i ? "bg-white" : "bg-white/25"}`} />
+        ))}
+      </div>
+
+      {/* Sliding track — two pages side by side */}
+      <div
+        className="flex h-full transition-transform duration-300 ease-out"
+        style={{ width: "200vw", transform: `translateX(${swipePage === 0 ? 0 : -50}%)` }}
+      >
+
+      {/* PAGE 1 — Dashboard */}
+      <div className="w-screen h-full flex-shrink-0">
     <main className="relative h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
@@ -465,5 +507,39 @@ export default function DashboardV2Page() {
         </div>
       </div>
     </main>
+      </div>{/* end page 1 */}
+
+      {/* PAGE 2 — App Grid */}
+      <div className="w-screen h-full flex-shrink-0 bg-black flex flex-col overflow-hidden">
+        {/* Header row matches page 1 */}
+        <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
+          <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
+          <span className="text-[10px] tracking-[3px] uppercase text-[#a78bfa]">Tools</span>
+        </header>
+
+        <div className="flex-1 flex flex-col justify-center px-8 pb-12">
+          <p className="text-xs tracking-[4px] uppercase text-white/30 mb-8 text-center">All Tools</p>
+          <div className="grid grid-cols-4 gap-x-6 gap-y-8 max-w-sm mx-auto w-full">
+            {APPS.map(app => (
+              <a
+                key={app.href}
+                href={app.href}
+                className="flex flex-col items-center gap-2 group"
+              >
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-lg transition-transform duration-150 group-active:scale-90"
+                  style={{ background: `${app.color}18`, border: `1px solid ${app.color}30` }}
+                >
+                  {app.icon}
+                </div>
+                <span className="text-[10px] tracking-[0.5px] text-white/50 text-center leading-tight group-hover:text-white transition-colors">{app.label}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>{/* end page 2 */}
+
+      </div>{/* end sliding track */}
+    </div>
   );
 }
