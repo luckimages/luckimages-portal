@@ -495,7 +495,7 @@ export default function ClientPage() {
 
         {/* BOOK / SHOOT LOG / INVOICES / PROFILE — shared persistent card */}
         {tab !== "overview" && (
-          <div className="w-full bg-[#111] border border-white/10 min-h-[680px] p-6 md:p-8">
+          <div className="w-full bg-[#111] border border-white/10 min-h-[calc(100vh-220px)] p-6 md:p-8">
 
         {/* BOOK A SHOOT */}
         {tab === "book" && (
