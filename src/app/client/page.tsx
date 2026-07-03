@@ -25,7 +25,7 @@ export default function ClientPage() {
   const [memberSince, setMemberSince] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile">("overview");
+  const [tab, setTab] = useState<"overview" | "book" | "gallery" | "invoices" | "profile">("overview");
   const [referral, setReferral] = useState({ name: "", email: "" });
   const [referralStatus, setReferralStatus] = useState<"" | "sending" | "sent" | "error">("");
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", brokerage: "", areas: "", birthday: "", mailingList: false, referralSource: "" });
@@ -282,9 +282,9 @@ export default function ClientPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["overview", "book", "invoices", "gallery", "profile"] as const).map(t => (
+          {(["overview", "book", "gallery", "invoices", "profile"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
-              {t === "overview" ? "Home" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : t === "gallery" ? "My Gallery" : "Profile"}
+              {t === "overview" ? "Home" : t === "book" ? "Book a Shoot" : t === "gallery" ? "Shoot Log" : t === "invoices" ? "Invoices" : "Profile"}
             </button>
           ))}
         </div>
@@ -600,58 +600,69 @@ export default function ClientPage() {
 
         {/* INVOICES */}
         {tab === "invoices" && (
-          <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Your Invoices</p>
-            {invoices.length === 0 ? (
-              <div className="bg-[#111] border border-white/10 p-8 text-center">
-                <p className="text-[#555] text-sm">No invoices yet</p>
-              </div>
-            ) : (
-              <div className="bg-[#111] border border-white/10 overflow-x-auto">
-                <table className="w-full text-sm min-w-[480px]">
-                  <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
-                  <tbody>
-                    {invoices.map(inv => (
-                      <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                        <td className="px-5 py-3 text-[#888]">{new Date(inv.due_date || "").toLocaleDateString()}</td>
-                        <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
-                        <td className="px-5 py-3 text-[#888]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
-                        <td className="px-5 py-3">
-                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Due"}</span>
-                        </td>
-                        <td className="px-5 py-3">
-                          {!inv.paid && <button className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors">Pay Now →</button>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <div className="w-full">
+            <div className="bg-[#111] border border-white/10 p-6 md:p-8">
+              {invoices.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-[#555] text-sm">No invoices yet</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[480px]">
+                    <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
+                    <tbody>
+                      {invoices.map(inv => (
+                        <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                          <td className="px-5 py-3 text-[#888]">{new Date(inv.due_date || "").toLocaleDateString()}</td>
+                          <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
+                          <td className="px-5 py-3 text-[#888]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
+                          <td className="px-5 py-3">
+                            <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Due"}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {!inv.paid && <button className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors">Pay Now →</button>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* GALLERY */}
+        {/* SHOOT LOG */}
         {tab === "gallery" && (
-          <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Shoot Media</p>
-            {shoots.filter(s => s.status === "delivered" || s.status === "completed").length === 0 ? (
-              <div className="bg-[#111] border border-white/10 p-8 text-center">
-                <p className="text-[#555] text-sm">Media will appear here once your shoot photos are delivered.</p>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {shoots.filter(s => s.status === "delivered" || s.status === "completed").map(s => (
-                  <Link key={s.id} href={`/client/gallery/${s.id}`} className="bg-[#111] border border-white/10 p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                    <div>
-                      <p className="font-medium mb-1">{s.address}</p>
-                      <p className="text-xs text-[#555]">{new Date(s.scheduled_at).toLocaleDateString()} · {s.services?.join(", ")}</p>
-                    </div>
-                    <span className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white">View & Download →</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+          <div className="w-full">
+            <div className="bg-[#111] border border-white/10 p-6 md:p-8">
+              {shoots.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-[#555] text-sm mb-4">No shoots yet</p>
+                  <button onClick={() => setTab("book")} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
+                </div>
+              ) : (
+                <div className="flex flex-col divide-y divide-white/5">
+                  {shoots.map(s => {
+                    const delivered = s.status === "delivered" || s.status === "completed";
+                    return (
+                      <div key={s.id} className="flex items-center justify-between py-4 gap-4">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{s.address}</p>
+                          <p className="text-xs text-[#555] mt-0.5">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${delivered ? "bg-[#4ade8018] text-[#4ade80]" : s.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : s.status === "on_site" || s.status === "en_route" || s.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{s.status.replace("_", " ")}</span>
+                          {delivered && (
+                            <Link href={`/client/gallery/${s.id}`} className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white transition-colors whitespace-nowrap">View →</Link>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
