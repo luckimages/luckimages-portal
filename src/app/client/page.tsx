@@ -25,7 +25,7 @@ export default function ClientPage() {
   const [memberSince, setMemberSince] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile" | "review" | "refer">("overview");
+  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile">("overview");
   const [referral, setReferral] = useState({ name: "", email: "" });
   const [referralStatus, setReferralStatus] = useState<"" | "sending" | "sent" | "error">("");
   const [profile, setProfile] = useState({ name: "", phone: "", brokerage: "" });
@@ -265,16 +265,18 @@ export default function ClientPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["overview", "book", "invoices", "gallery", "refer", "review", "profile"] as const).map(t => (
+          {(["overview", "book", "invoices", "gallery", "profile"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
-              {t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : t === "gallery" ? "My Gallery" : t === "refer" ? "Refer a Friend" : t === "review" ? "Leave a Review" : "Profile"}
+              {t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : t === "gallery" ? "My Gallery" : "Profile"}
             </button>
           ))}
         </div>
 
         {/* OVERVIEW */}
         {tab === "overview" && (
-          <div className="space-y-8">
+          <div className="space-y-4">
+
+            {/* Stat chips */}
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
                 <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
@@ -290,66 +292,141 @@ export default function ClientPage() {
               </div>
             </div>
 
-            {/* ACTIVE SHOOT TRACKER */}
-            {upcomingShoots.length > 0 && (
-              <div>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Active Shoots</p>
-                <div className="flex flex-col gap-4">
-                  {upcomingShoots.map(s => {
-                    const STAGES = [
-                      { key: "pending",    label: "Confirmed" },
-                      { key: "en_route",   label: "En Route" },
-                      { key: "on_site",    label: "On Site" },
-                      { key: "wrapping",   label: "Processing Media" },
-                      { key: "editing",    label: "Processing Media" },
-                      { key: "delivered",  label: "Delivered" },
-                    ];
-                    const currentIdx = STAGES.findIndex(st => st.key === s.status);
-                    const activeIdx = currentIdx === -1 ? 0 : currentIdx;
-                    const isDelivered = s.status === "delivered";
-
-                    return (
-                      <div key={s.id} className="bg-[#111] border border-white/10 p-6">
-                        <div className="flex items-start justify-between mb-6">
-                          <div>
-                            <p className="font-semibold mb-1">{s.address}</p>
-                            <p className="text-xs text-[#555]">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
+            {/* Active shoot tracker — full width if active */}
+            {upcomingShoots.length > 0 && upcomingShoots.map(s => {
+              const STAGES = [
+                { key: "pending",   label: "Confirmed" },
+                { key: "en_route",  label: "En Route" },
+                { key: "on_site",   label: "On Site" },
+                { key: "wrapping",  label: "Processing" },
+                { key: "editing",   label: "Processing" },
+                { key: "delivered", label: "Delivered" },
+              ];
+              const currentIdx = STAGES.findIndex(st => st.key === s.status);
+              const activeIdx = currentIdx === -1 ? 0 : currentIdx;
+              return (
+                <div key={s.id} className="bg-[#111] border border-white/10 p-6">
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Active Shoot</p>
+                      <p className="font-semibold mb-1">{s.address}</p>
+                      <p className="text-xs text-[#555]">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
+                    </div>
+                    {s.status === "delivered" && (
+                      <button onClick={() => setTab("gallery")} className="text-xs tracking-[2px] uppercase text-[#4ade80] border border-[#4ade80]/30 px-4 py-2 hover:bg-[#4ade80]/10 transition-colors">
+                        View Media →
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-0">
+                    {STAGES.map((stage, i) => {
+                      const done = i < activeIdx;
+                      const active = i === activeIdx;
+                      const last = i === STAGES.length - 1;
+                      return (
+                        <div key={stage.key} className="flex items-center flex-1 min-w-0">
+                          <div className="flex flex-col items-center flex-1 min-w-0">
+                            <div className={`w-3 h-3 rounded-full border-2 transition-all mb-2 ${done || active ? "border-white bg-white" : "border-white/20 bg-transparent"} ${active ? "ring-2 ring-white/20 ring-offset-2 ring-offset-[#111]" : ""}`} />
+                            <span className={`text-[9px] tracking-[1px] uppercase text-center leading-tight ${active ? "text-white" : done ? "text-white/50" : "text-white/20"}`}>{stage.label}</span>
                           </div>
-                          {isDelivered && (
-                            <button onClick={() => setTab("gallery")} className="text-xs tracking-[2px] uppercase text-[#4ade80] border border-[#4ade80]/30 px-4 py-2 hover:bg-[#4ade80]/10 transition-colors">
-                              View Media →
-                            </button>
-                          )}
+                          {!last && <div className={`h-px flex-1 mx-1 mb-5 transition-all ${done ? "bg-white/50" : "bg-white/10"}`} />}
                         </div>
-
-                        {/* Tracker bar */}
-                        <div className="flex items-center gap-0">
-                          {STAGES.map((stage, i) => {
-                            const done = i < activeIdx;
-                            const active = i === activeIdx;
-                            const last = i === STAGES.length - 1;
-                            return (
-                              <div key={stage.key} className="flex items-center flex-1 min-w-0">
-                                <div className="flex flex-col items-center flex-1 min-w-0">
-                                  <div className={`w-3 h-3 rounded-full border-2 transition-all mb-2 ${done || active ? "border-white bg-white" : "border-white/20 bg-transparent"} ${active ? "ring-2 ring-white/20 ring-offset-2 ring-offset-[#111]" : ""}`} />
-                                  <span className={`text-[9px] tracking-[1px] uppercase text-center leading-tight ${active ? "text-white" : done ? "text-white/50" : "text-white/20"}`}>{stage.label}</span>
-                                </div>
-                                {!last && (
-                                  <div className={`h-px flex-1 mx-1 mb-5 transition-all ${done ? "bg-white/50" : "bg-white/10"}`} />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
 
-            {/* PAST SHOOTS */}
-            <div>
+            {/* Action blocks grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Book a Shoot block */}
+              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Book a Shoot</p>
+                  {upcomingShoots.length > 0 ? (
+                    <p className="text-sm text-[#888]">{upcomingShoots.length} shoot{upcomingShoots.length !== 1 ? "s" : ""} upcoming</p>
+                  ) : (
+                    <p className="text-sm text-[#888]">No shoots scheduled yet.</p>
+                  )}
+                </div>
+                <button onClick={() => setTab("book")} className="mt-auto text-xs tracking-[3px] uppercase bg-white text-black font-semibold py-3 px-6 hover:bg-white/90 transition-colors">
+                  Book Now →
+                </button>
+              </div>
+
+              {/* Invoices block */}
+              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Invoices</p>
+                  {unpaidInvoices.length > 0 ? (
+                    <div>
+                      <p className="text-2xl font-bold mb-1">${(totalOwed / 100).toLocaleString()}</p>
+                      <p className="text-xs text-[#fbbf24]">{unpaidInvoices.length} unpaid invoice{unpaidInvoices.length !== 1 ? "s" : ""}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[#4ade80]">All invoices paid ✓</p>
+                  )}
+                </div>
+                <button onClick={() => setTab("invoices")} className="mt-auto text-xs tracking-[3px] uppercase border border-white/20 py-3 px-6 hover:bg-white/5 transition-colors">
+                  View Invoices →
+                </button>
+              </div>
+
+              {/* Refer a Friend block */}
+              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Refer a Friend</p>
+                  <p className="text-xs text-[#666]">Know a realtor who needs great media? Send them our way.</p>
+                </div>
+                {referralStatus === "sent" ? (
+                  <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-4 text-center">
+                    <p className="text-[#4ade80] text-xs mb-2">Referral sent!</p>
+                    <button onClick={() => { setReferralStatus(""); setReferral({ name: "", email: "" }); }} className="text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors">Refer Another</button>
+                  </div>
+                ) : (
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    setReferralStatus("sending");
+                    const res = await fetch("/api/portal/referral", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ referrerContactId: contactId, referrerName: userName, friendName: referral.name, friendEmail: referral.email }),
+                    });
+                    setReferralStatus(res.ok ? "sent" : "error");
+                  }} className="flex flex-col gap-3">
+                    <input required value={referral.name} onChange={e => setReferral(r => ({ ...r, name: e.target.value }))} placeholder="Friend's name" className={inputCls} />
+                    <input required type="email" value={referral.email} onChange={e => setReferral(r => ({ ...r, email: e.target.value }))} placeholder="Friend's email" className={inputCls} />
+                    {referralStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again.</p>}
+                    <button type="submit" disabled={referralStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                      {referralStatus === "sending" ? "Sending..." : "Send Referral →"}
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Leave a Review block */}
+              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+                <div>
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Leave a Review</p>
+                  <p className="text-xs text-[#666]">Enjoyed working with us? A Google review helps other realtors find us.</p>
+                  <p className="text-2xl mt-3 tracking-widest">★★★★★</p>
+                </div>
+                <a
+                  href="https://g.page/r/CZ9cShOb3iPUEBI/review"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-auto text-xs tracking-[3px] uppercase border border-white/20 py-3 px-6 text-center hover:bg-white/5 transition-colors"
+                >
+                  Review on Google →
+                </a>
+              </div>
+
+            </div>
+
+            {/* Shoot history */}
+            <div className="pt-2">
               <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Shoot History</p>
               {shoots.length === 0 ? (
                 <div className="bg-[#111] border border-white/10 p-8 text-center">
@@ -376,6 +453,7 @@ export default function ClientPage() {
                 </div>
               )}
             </div>
+
           </div>
         )}
 
@@ -486,61 +564,6 @@ export default function ClientPage() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* REFER A FRIEND */}
-        {tab === "refer" && (
-          <div className="max-w-lg">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Refer a Friend</p>
-            <p className="text-sm text-[#666] mb-8">Know a realtor who could use great media? Send them our way — we&apos;ll take great care of them.</p>
-            {referralStatus === "sent" ? (
-              <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-6 text-center">
-                <p className="text-[#4ade80] text-sm mb-1">Referral sent!</p>
-                <p className="text-xs text-[#555]">We&apos;ll reach out to them soon. Thank you!</p>
-                <button onClick={() => { setReferralStatus(""); setReferral({ name: "", email: "" }); }} className="mt-4 text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors">Refer Another</button>
-              </div>
-            ) : (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                setReferralStatus("sending");
-                const res = await fetch("/api/portal/referral", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ referrerContactId: contactId, referrerName: userName, friendName: referral.name, friendEmail: referral.email }),
-                });
-                setReferralStatus(res.ok ? "sent" : "error");
-              }} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className={labelCls}>Their Name</label>
-                  <input required value={referral.name} onChange={e => setReferral(r => ({ ...r, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className={labelCls}>Their Email</label>
-                  <input required type="email" value={referral.email} onChange={e => setReferral(r => ({ ...r, email: e.target.value }))} placeholder="jane@brokerage.com" className={inputCls} />
-                </div>
-                {referralStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again or email ryan@luckimages.com.</p>}
-                <button type="submit" disabled={referralStatus === "sending"} className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
-                  {referralStatus === "sending" ? "Sending..." : "Submit Referral"}
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-
-        {/* LEAVE A REVIEW */}
-        {tab === "review" && (
-          <div className="max-w-lg">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Leave a Review</p>
-            <p className="text-sm text-[#666] mb-10">Enjoyed working with us? A Google review means the world and helps other realtors find us.</p>
-            <a
-              href="https://g.page/r/CZ9cShOb3iPUEBI/review"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-5 hover:bg-white/90 transition-colors"
-            >
-              ★ Leave a Google Review
-            </a>
           </div>
         )}
 
