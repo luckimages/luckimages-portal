@@ -28,7 +28,8 @@ export default function ClientPage() {
   const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile">("overview");
   const [referral, setReferral] = useState({ name: "", email: "" });
   const [referralStatus, setReferralStatus] = useState<"" | "sending" | "sent" | "error">("");
-  const [profile, setProfile] = useState({ name: "", phone: "", brokerage: "" });
+  const [profile, setProfile] = useState({ name: "", email: "", phone: "", brokerage: "", areas: "", birthday: "", mailingList: false, referralSource: "" });
+  const [profileEditing, setProfileEditing] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"" | "saving" | "saved" | "error">("");
   const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
@@ -99,11 +100,21 @@ export default function ClientPage() {
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
       setHasPassword(data.user.user_metadata?.has_password === true);
       const uid = data.user.id;
-      const { data: contactRow } = await supabase.from("contacts").select("id, name, phone, brokerage").eq("user_id", uid).single();
+      const { data: contactRow } = await supabase.from("contacts").select("id, name, email, phone, brokerage, lead_source").eq("user_id", uid).single();
       if (contactRow?.id) {
         setContactId(contactRow.id);
         setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactRow.id}?t=${Date.now()}`);
-        setProfile({ name: contactRow.name || "", phone: contactRow.phone || "", brokerage: contactRow.brokerage || "" });
+        const meta = data.user.user_metadata || {};
+        setProfile({
+          name: contactRow.name || "",
+          email: contactRow.email || data.user.email || "",
+          phone: contactRow.phone || meta.phone || "",
+          brokerage: contactRow.brokerage || meta.brokerage || "",
+          areas: meta.areas || "",
+          birthday: meta.birthday || "",
+          mailingList: meta.mailing_list || false,
+          referralSource: contactRow.lead_source || meta.referral_source || "",
+        });
       }
       const created = new Date(data.user.created_at);
       const now = new Date();
@@ -194,13 +205,24 @@ export default function ClientPage() {
     if (!contactId) return;
     setProfileStatus("saving");
     const supabase = createClient();
-    const { error } = await supabase.from("contacts").update({
-      name: profile.name,
-      phone: profile.phone || null,
-      brokerage: profile.brokerage || null,
-    }).eq("id", contactId);
-    setProfileStatus(error ? "error" : "saved");
-    if (!error) setUserName(profile.name.toUpperCase());
+    const [{ error: contactErr }] = await Promise.all([
+      supabase.from("contacts").update({
+        name: profile.name,
+        phone: profile.phone || null,
+        brokerage: profile.brokerage || null,
+      }).eq("id", contactId),
+      supabase.auth.updateUser({ data: {
+        full_name: profile.name,
+        phone: profile.phone,
+        brokerage: profile.brokerage,
+        areas: profile.areas,
+        birthday: profile.birthday,
+        mailing_list: profile.mailingList,
+        referral_source: profile.referralSource,
+      }}),
+    ]);
+    setProfileStatus(contactErr ? "error" : "saved");
+    if (!contactErr) { setUserName(profile.name.toUpperCase()); setProfileEditing(false); }
     setTimeout(() => setProfileStatus(""), 3000);
   }
 
@@ -634,60 +656,119 @@ export default function ClientPage() {
         )}
 
         {/* PROFILE */}
-        {tab === "profile" && (
+        {tab === "profile" && (() => {
+          const CHANNEL_LABELS: Record<string, string> = {
+            referral: "Referral", "google-seo": "Google Search", "google-business": "Google Business",
+            yelp: "Yelp", instagram: "Instagram", facebook: "Facebook",
+            "linkedin-business": "LinkedIn (Luck Images)", "linkedin-personal": "LinkedIn (Ryan Luck)",
+            "cold-call": "They called me", "cold-email": "Email outreach",
+            zillow: "Zillow / Realtor.com", networking: "Networking event",
+            partnership: "Partner company", "direct-mail": "Direct mail", other: "Other",
+          };
+          const infoRows = [
+            { label: "Full Name", value: profile.name },
+            { label: "Email", value: profile.email },
+            { label: "Phone", value: profile.phone },
+            { label: "Brokerage", value: profile.brokerage },
+            { label: "Areas", value: profile.areas },
+            { label: "Birthday", value: profile.birthday },
+            { label: "How you found us", value: CHANNEL_LABELS[profile.referralSource] || profile.referralSource },
+            { label: "Mailing List", value: profile.mailingList ? "Subscribed" : "Not subscribed" },
+          ];
+          return (
           <div className="w-full">
             <div className="bg-[#111] border border-white/10 p-6 md:p-8 flex flex-col gap-8">
 
               {/* Avatar */}
-              <div>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Photo</p>
-                <div className="flex items-center gap-5">
-                  <div className="relative shrink-0">
-                    <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-2xl font-bold">
-                      {!avatarError && avatarUrl
-                        ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
-                        : <span>{userName.charAt(0)}</span>}
-                    </div>
-                    {contactId && (
-                      <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
-                        className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40">
-                        <span className="text-[11px]">📷</span>
-                      </button>
-                    )}
-                    <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+              <div className="flex items-center gap-5">
+                <div className="relative shrink-0">
+                  <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-2xl font-bold">
+                    {!avatarError && avatarUrl
+                      ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                      : <span>{userName.charAt(0)}</span>}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">{userName}</p>
+                  {contactId && (
                     <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
-                      className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors mt-1">
-                      {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                      className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40">
+                      <span className="text-[11px]">📷</span>
                     </button>
-                  </div>
+                  )}
+                  <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{userName}</p>
+                  <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
+                    className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors mt-1">
+                    {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                  </button>
                 </div>
               </div>
 
-              {/* Contact Info */}
-              <div>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Personal Info</p>
+              {/* Info — view or edit */}
+              {!profileEditing ? (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
+                    <button onClick={() => setProfileEditing(true)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-1.5 hover:border-white/30">
+                      Edit
+                    </button>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {infoRows.map(row => row.value ? (
+                      <div key={row.label} className="flex justify-between py-3 gap-4">
+                        <span className="text-xs tracking-[1px] uppercase text-[#555] shrink-0">{row.label}</span>
+                        <span className="text-sm text-white/80 text-right">{row.value}</span>
+                      </div>
+                    ) : null)}
+                  </div>
+                </div>
+              ) : (
                 <form onSubmit={saveProfile} className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between mb-0">
+                    <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
+                    <button type="button" onClick={() => setProfileEditing(false)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">Cancel</button>
+                  </div>
                   <div className="flex flex-col gap-2">
                     <label className={labelCls}>Full Name</label>
                     <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Email</label>
+                    <input type="email" value={profile.email} disabled className={inputCls + " opacity-40 cursor-not-allowed"} />
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className={labelCls}>Phone</label>
                     <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="(512) 555-0100" className={inputCls} />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Brokerage</label>
+                    <label className={labelCls}>Brokerage / Company</label>
                     <input value={profile.brokerage} onChange={e => setProfile(p => ({ ...p, brokerage: e.target.value }))} placeholder="Keller Williams" className={inputCls} />
                   </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Preferred Areas / Zip Codes</label>
+                    <input value={profile.areas} onChange={e => setProfile(p => ({ ...p, areas: e.target.value }))} placeholder="78701, 78704, South Austin..." className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Birthday</label>
+                    <input type="date" value={profile.birthday} onChange={e => setProfile(p => ({ ...p, birthday: e.target.value }))} className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>How did you hear about us?</label>
+                    <select value={profile.referralSource} onChange={e => setProfile(p => ({ ...p, referralSource: e.target.value }))} className={inputCls + " cursor-pointer"}>
+                      <option value="">Select one...</option>
+                      {Object.entries(CHANNEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={profile.mailingList} onChange={e => setProfile(p => ({ ...p, mailingList: e.target.checked }))} className="accent-white w-4 h-4" />
+                    <span className="text-xs tracking-[1px] text-[#888]">Sign me up for tips, promotions & market updates</span>
+                  </label>
                   <button type="submit" disabled={profileStatus === "saving"}
                     className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
                     {profileStatus === "saving" ? "Saving..." : profileStatus === "saved" ? "Saved ✓" : profileStatus === "error" ? "Error — try again" : "Save Changes"}
                   </button>
                 </form>
-              </div>
+              )}
 
               {/* Password */}
               <div>
@@ -706,7 +787,8 @@ export default function ClientPage() {
 
             </div>
           </div>
-        )}
+          );
+        })()}
 
       </div>
     </main>
