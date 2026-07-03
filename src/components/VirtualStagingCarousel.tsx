@@ -20,7 +20,7 @@ export default function VirtualStagingCarousel({
           key={index}
           before={pairs[index].before}
           after={pairs[index].after}
-          heightClassName="h-[75vh]"
+          heightClassName=""
         />
 
         {/* Prev / Next */}
@@ -65,7 +65,7 @@ export default function VirtualStagingCarousel({
             onClick={() => setIndex(i)}
             aria-label={`View room ${i + 1}`}
             className={`relative flex-1 overflow-hidden transition-all ${i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80 ring-1 ring-white/10"}`}
-            style={{ aspectRatio: "16/9" }}
+            style={{ aspectRatio: "3/2" }}
           >
             <img src={pair.after} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
           </button>

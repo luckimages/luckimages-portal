@@ -17,7 +17,8 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
       <div className="relative">
         {/* Main photo */}
         <div
-          className="relative w-full h-[75vh] overflow-hidden bg-[#111]"
+          className="relative w-full overflow-hidden bg-[#111]"
+          style={{ aspectRatio: "3/2" }}
           onClick={() => current.src && setLightbox(true)}
         >
           {current.src ? (
@@ -81,7 +82,7 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
               onClick={() => setIndex(i)}
               aria-label={`View photo ${i + 1}`}
               className={`relative shrink-0 w-28 overflow-hidden transition-all bg-[#111] ${i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80 ring-1 ring-white/10"}`}
-              style={{ aspectRatio: "16/9" }}
+              style={{ aspectRatio: "3/2" }}
             >
               {p.src ? (
                 <img src={p.src} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />

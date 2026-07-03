@@ -60,7 +60,7 @@ export default function BeforeAfterSlider({
     <div
       ref={containerRef}
       className={`relative w-full overflow-hidden select-none cursor-ew-resize ${heightClassName || ""}`}
-      style={heightClassName ? undefined : { aspectRatio: "16/9" }}
+      style={heightClassName ? undefined : { aspectRatio: "3/2" }}
       onMouseDown={e => { setDragging(true); updatePosition(e.clientX); }}
       onTouchStart={e => { setDragging(true); updatePosition(e.touches[0].clientX); }}
     >
