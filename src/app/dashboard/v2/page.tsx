@@ -20,6 +20,29 @@ const APPS = [
   { label: "Updates",      icon: "📣", href: "/admin/updates",          color: "#4ade80" },
 ];
 
+function APP_ICON({ name, color }: { name: string; color: string }) {
+  const s = { stroke: color, fill: "none", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const icons: Record<string, React.ReactNode> = {
+    "Contacts":     <><circle cx="9" cy="7" r="4" {...s}/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" {...s}/><path d="M16 3.13a4 4 0 0 1 0 7.75" {...s}/><path d="M21 21v-2a4 4 0 0 0-3-3.87" {...s}/></>,
+    "Shoots":       <><path d="M23 7l-7 5 7 5V7z" {...s}/><rect x="1" y="5" width="15" height="14" rx="2" ry="2" {...s}/></>,
+    "Calendar":     <><rect x="3" y="4" width="18" height="18" rx="2" {...s}/><line x1="16" y1="2" x2="16" y2="6" {...s}/><line x1="8" y1="2" x2="8" y2="6" {...s}/><line x1="3" y1="10" x2="21" y2="10" {...s}/></>,
+    "Shoot Board":  <><rect x="3" y="3" width="7" height="18" rx="1" {...s}/><rect x="14" y="3" width="7" height="10" rx="1" {...s}/><rect x="14" y="17" width="7" height="4" rx="1" {...s}/></>,
+    "Todos":        <><path d="M9 11l3 3L22 4" {...s}/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" {...s}/></>,
+    "Marketing":    <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" {...s}/><polyline points="16 7 22 7 22 13" {...s}/></>,
+    "Outreach":     <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" {...s}/><polyline points="22,6 12,13 2,6" {...s}/></>,
+    "Analytics":    <><line x1="18" y1="20" x2="18" y2="10" {...s}/><line x1="12" y1="20" x2="12" y2="4" {...s}/><line x1="6" y1="20" x2="6" y2="14" {...s}/></>,
+    "Quotes":       <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" {...s}/></>,
+    "Time Tracker": <><circle cx="12" cy="12" r="10" {...s}/><polyline points="12 6 12 12 16 14" {...s}/></>,
+    "Cold Calls":   <><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 11.8a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.54a16 16 0 0 0 6.08 6.08l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" {...s}/></>,
+    "Updates":      <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" {...s}/><path d="M13.73 21a2 2 0 0 1-3.46 0" {...s}/></>,
+  };
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" className="md:w-9 md:h-9">
+      {icons[name] ?? <circle cx="12" cy="12" r="9" stroke={color} fill="none" strokeWidth={1.5}/>}
+    </svg>
+  );
+}
+
 const MIDDLE_VIEWS = ["schedule", "board"] as const;
 type MiddleView = (typeof MIDDLE_VIEWS)[number];
 const MIDDLE_VIEW_LABEL: Record<MiddleView, string> = { schedule: "Weekly Schedule", board: "Shoot Board" };
@@ -556,28 +579,21 @@ export default function DashboardV2Page() {
 
       {/* PAGE 2 — App Grid */}
       <div className="w-screen h-full flex-shrink-0 bg-black flex flex-col overflow-hidden">
-        {/* Header row matches page 1 */}
         <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
           <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-          <span className="text-[10px] tracking-[3px] uppercase text-[#a78bfa]">Tools</span>
+          <button onClick={() => setSwipePage(0)} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">← Back</button>
         </header>
 
-        <div className="flex-1 flex flex-col justify-center px-8 pb-12">
-          <p className="text-xs tracking-[4px] uppercase text-white/30 mb-8 text-center">All Tools</p>
-          <div className="grid grid-cols-4 gap-x-6 gap-y-8 max-w-sm mx-auto w-full">
+        <div className="flex-1 flex items-center justify-center p-4 md:p-12 min-h-0">
+          <div className="w-full md:max-w-3xl border border-white/20 gap-px bg-white/10" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
             {APPS.map(app => (
               <a
                 key={app.href}
                 href={app.href}
-                className="flex flex-col items-center gap-2 group"
+                className="bg-black flex flex-col items-center justify-center gap-3 p-5 md:p-8 hover:bg-white/5 active:bg-white/10 transition-colors group"
               >
-                <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-lg transition-transform duration-150 group-active:scale-90"
-                  style={{ background: `${app.color}18`, border: `1px solid ${app.color}30` }}
-                >
-                  {app.icon}
-                </div>
-                <span className="text-[10px] tracking-[0.5px] text-white/50 text-center leading-tight group-hover:text-white transition-colors">{app.label}</span>
+                <APP_ICON name={app.label} color={app.color} />
+                <span className="text-[9px] md:text-[10px] tracking-[2px] uppercase text-white/50 group-hover:text-white transition-colors text-center leading-tight">{app.label}</span>
               </a>
             ))}
           </div>
