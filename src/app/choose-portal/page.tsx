@@ -54,12 +54,6 @@ export default function ChoosePortalPage() {
         ))}
       </div>
 
-      <button
-        onClick={() => router.push("/dashboard/v2")}
-        className="mt-16 text-[10px] tracking-[3px] uppercase text-white/20 hover:text-white/50 transition-colors"
-      >
-        Admin V2 Beta
-      </button>
     </main>
   );
 }

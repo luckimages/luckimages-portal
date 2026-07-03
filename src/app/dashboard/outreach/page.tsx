@@ -528,8 +528,7 @@ export default function OutreachPage() {
       <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
         <div className="flex items-center gap-4 flex-wrap justify-end">
-          <a href="/dashboard/beta" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Beta</a>
-          <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Dashboard</a>
+          <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</a>
           <form action="/api/auth/signout" method="post" className="inline">
             <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
           </form>
@@ -540,7 +539,6 @@ export default function OutreachPage() {
         {/* Page header */}
         <div className="px-4 md:px-8 pt-8 pb-4 shrink-0 flex items-end justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Beta</p>
             <h1 className="text-3xl font-black tracking-tight uppercase">Email Outreach</h1>
             <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and create Gmail drafts to review and send yourself.</p>
           </div>
