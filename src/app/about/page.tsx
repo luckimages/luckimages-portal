@@ -5,7 +5,7 @@ import FadeUp from "@/components/FadeUp";
 const STATS = [
   { value: "4+", label: "Years in Austin" },
   { value: "500+", label: "Properties Shot" },
-  { value: "48hr", label: "Turnaround" },
+  { value: "24hr", label: "Turnaround" },
   { value: "10+", label: "Photographers (Goal)" },
 ];
 
