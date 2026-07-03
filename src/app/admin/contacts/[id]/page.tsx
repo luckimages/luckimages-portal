@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
@@ -146,6 +146,22 @@ export default function ContactProfilePage() {
   // Invite
   const [inviting, setInviting] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
+  const [avatarTs, setAvatarTs] = useState(0);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !contact) return;
+    setUploadingAvatar(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("contactId", contact.id);
+    await fetch("/api/admin/upload-avatar", { method: "POST", body: fd });
+    setAvatarTs(Date.now());
+    setUploadingAvatar(false);
+    if (avatarFileRef.current) avatarFileRef.current.value = "";
+  }
 
   // Related contacts
   const [linkSearch, setLinkSearch] = useState("");
@@ -358,9 +374,14 @@ export default function ContactProfilePage() {
       {/* Name hero */}
       <div className="text-center pt-10 pb-6 px-4">
         <div className="flex items-center justify-center gap-4 mb-4">
-          <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 shrink-0">
+          <button
+            onClick={() => avatarFileRef.current?.click()}
+            disabled={uploadingAvatar}
+            className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 shrink-0 group cursor-pointer"
+            title="Change photo"
+          >
             <img
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}`}
+              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}${avatarTs ? `?t=${avatarTs}` : ""}`}
               alt={contact.name}
               className="w-full h-full object-cover"
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -368,7 +389,14 @@ export default function ContactProfilePage() {
             <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white/40 pointer-events-none">
               {contact.name.charAt(0).toUpperCase()}
             </div>
-          </div>
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {uploadingAvatar
+                ? <span className="text-[9px] text-white tracking-wide">...</span>
+                : <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              }
+            </div>
+          </button>
+          <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
           <h1 className="text-3xl font-bold tracking-tight text-left">{contact.name}</h1>
         </div>
         <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
