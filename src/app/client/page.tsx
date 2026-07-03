@@ -691,28 +691,10 @@ export default function ClientPage() {
 
               {/* Password */}
               <div>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-                  {hasPassword ? "Change Password" : "Set a Password"}
-                </p>
-                {passwordStatus === "success" ? (
-                  <p className="text-xs text-[#4ade80]">Password saved successfully.</p>
-                ) : (
-                  <form onSubmit={savePassword} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className={labelCls}>New Password</label>
-                      <input type="password" placeholder="8+ characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} className={inputCls} />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className={labelCls}>Confirm Password</label>
-                      <input type="password" placeholder="Confirm" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={inputCls} />
-                    </div>
-                    {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
-                    <button type="submit" disabled={passwordStatus === "saving"}
-                      className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
-                      {passwordStatus === "saving" ? "Saving..." : "Save Password"}
-                    </button>
-                  </form>
-                )}
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Password</p>
+                <Link href="/set-password" className="block text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors">
+                  Change Password →
+                </Link>
               </div>
 
               {/* Sign out */}
