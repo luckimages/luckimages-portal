@@ -144,7 +144,7 @@ export default function DashboardV2Page() {
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
       if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) {
-        router.replace("/dashboard");
+        router.replace("/choose-portal");
         return;
       }
       setUserName(data.user.user_metadata?.full_name?.split(" ")[0] || "");
