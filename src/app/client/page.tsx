@@ -179,7 +179,7 @@ export default function ClientPage() {
 
   const inputCls = "bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
   const labelCls = "text-xs tracking-[2px] uppercase text-[#666]";
-  const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-2 transition-colors cursor-pointer ${tab === t ? "text-white border-b border-white" : "text-[#555] hover:text-white"}`;
+  const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-2 transition-colors cursor-pointer whitespace-nowrap ${tab === t ? "text-white border-b border-white" : "text-[#555] hover:text-white"}`;
 
   return (
     <main className="min-h-screen text-white flex flex-col relative">
@@ -297,17 +297,17 @@ export default function ClientPage() {
 
             {/* Stat chips */}
             <div className="grid grid-cols-3 gap-2 md:gap-3">
-              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
-                <p className="text-3xl font-bold">{shoots.length}</p>
+              <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#60a5fa] overflow-hidden">
+                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#666] mb-2 md:mb-3">Shoots</p>
+                <p className="text-2xl md:text-3xl font-bold">{shoots.length}</p>
               </div>
-              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#fbbf24]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Sq Ft Captured</p>
-                <p className="text-2xl md:text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
+              <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#fbbf24] overflow-hidden">
+                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#666] mb-2 md:mb-3">Sq Ft</p>
+                <p className="text-lg md:text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
               </div>
-              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#4ade80]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Client For</p>
-                <p className="text-3xl font-bold">{memberSince || "—"}</p>
+              <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#4ade80] overflow-hidden">
+                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#666] mb-2 md:mb-3">Client For</p>
+                <p className="text-base md:text-3xl font-bold leading-tight">{memberSince || "—"}</p>
               </div>
             </div>
 
