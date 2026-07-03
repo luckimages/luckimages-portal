@@ -495,7 +495,7 @@ export default function ClientPage() {
 
         {/* BOOK / SHOOT LOG / INVOICES / PROFILE — shared persistent card */}
         {tab !== "overview" && (
-          <div className="w-full bg-[#111] border border-white/10 min-h-[520px] p-6 md:p-8">
+          <div className="w-full bg-[#111] border border-white/10 min-h-[700px] p-6 md:p-8">
 
         {/* BOOK A SHOOT */}
         {tab === "book" && (
@@ -638,9 +638,10 @@ export default function ClientPage() {
         {tab === "gallery" && (
           <div>
             {shoots.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 gap-4">
-                <p className="text-[#555] text-sm">No shoots yet</p>
-                <button onClick={() => setTab("book")} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
+              <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
+                <p className="text-white text-lg font-semibold">No shoots... Yet!</p>
+                <p className="text-[#555] text-sm">Your shoots will appear here once booked.</p>
+                <button onClick={() => setTab("book")} className="mt-2 text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
               </div>
             ) : (
               <div className="flex flex-col divide-y divide-white/5">
