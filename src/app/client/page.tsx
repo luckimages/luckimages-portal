@@ -687,20 +687,11 @@ export default function ClientPage() {
                       ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
                       : <span>{userName.charAt(0)}</span>}
                   </div>
-                  {contactId && (
-                    <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
-                      className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40">
-                      <span className="text-[11px]">📷</span>
-                    </button>
-                  )}
                   <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">{userName}</p>
-                  <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
-                    className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors mt-1">
-                    {uploadingAvatar ? "Uploading..." : "Change Photo"}
-                  </button>
+                  <p className="text-3xl font-black tracking-tight uppercase">{userName}</p>
+                  {profile.brokerage && <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">{profile.brokerage}</p>}
                 </div>
               </div>
 
@@ -728,6 +719,17 @@ export default function ClientPage() {
                     <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
                     <button type="button" onClick={() => setProfileEditing(false)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">Cancel</button>
                   </div>
+                  {contactId && (
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold shrink-0">
+                        {!avatarError && avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} /> : <span>{userName.charAt(0)}</span>}
+                      </div>
+                      <button type="button" onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
+                        className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-2 hover:border-white/30">
+                        {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                      </button>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-2">
                     <label className={labelCls}>Full Name</label>
                     <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
