@@ -591,7 +591,7 @@ export default function DashboardV2Page() {
         </header>
 
         <div className="flex-1 flex items-center justify-center p-4 md:p-12 min-h-0">
-          <div className="w-full md:max-w-3xl border border-white/20 gap-px bg-white/10" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+          <div className="w-full md:max-w-4xl border border-white/20 gap-px bg-white/10 grid grid-cols-3 md:grid-cols-5">
             {APPS.map(app => (
               <a
                 key={app.href}
