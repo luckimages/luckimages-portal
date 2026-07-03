@@ -13,14 +13,28 @@ export default function HomeNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [initials, setInitials] = useState("");
+  const [avatarError, setAvatarError] = useState(false);
+  const [portalHref, setPortalHref] = useState("/choose-portal");
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setLoggedIn(!!data.session);
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      setLoggedIn(true);
+      const user = data.session.user;
+      const name = user.user_metadata?.full_name || user.email || "";
+      setInitials(name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase());
+      const role = user.user_metadata?.role;
+      setPortalHref(role === "admin" ? "/dashboard" : role === "photographer" ? "/photographer" : "/client");
+      // Try to load avatar
+      const { data: contact } = await supabase.from("contacts").select("id").eq("user_id", user.id).single();
+      if (contact?.id) setAvatarUrl(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}`);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setLoggedIn(!!session);
+      if (!session) { setAvatarUrl(null); setInitials(""); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -69,12 +83,16 @@ export default function HomeNav() {
         <Link href="/contact" className={linkCls}>Contact</Link>
 
         {loggedIn ? (
-          <Link href="/choose-portal" className="text-xs tracking-[3px] uppercase border border-white/25 px-5 py-2.5 hover:border-white hover:bg-white/5 transition-all">
-            Portal →
+          <Link href={portalHref} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center hover:border-white/60 transition-colors flex-shrink-0">
+            {!avatarError && avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+            ) : (
+              <span className="text-[11px] font-bold text-white">{initials}</span>
+            )}
           </Link>
         ) : (
           <Link href="/login" className="text-xs tracking-[3px] uppercase border border-white/25 px-5 py-2.5 hover:border-white hover:bg-white/5 transition-all">
-            Login
+            Portal →
           </Link>
         )}
       </div>
@@ -82,12 +100,16 @@ export default function HomeNav() {
       {/* Mobile: login + hamburger */}
       <div className="flex md:hidden items-center gap-4">
         {loggedIn ? (
-          <Link href="/choose-portal" className="text-xs tracking-[3px] uppercase border border-white/25 px-4 py-2 hover:border-white transition-all">
-            Portal →
+          <Link href={portalHref} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center hover:border-white/60 transition-colors flex-shrink-0">
+            {!avatarError && avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+            ) : (
+              <span className="text-[11px] font-bold text-white">{initials}</span>
+            )}
           </Link>
         ) : (
           <Link href="/login" className="text-xs tracking-[3px] uppercase border border-white/25 px-4 py-2 hover:border-white transition-all">
-            Login
+            Portal →
           </Link>
         )}
         <button onClick={() => setMenuOpen(!menuOpen)} className="text-white/70 hover:text-white transition-colors p-1">
