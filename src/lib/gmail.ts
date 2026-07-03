@@ -4,7 +4,7 @@ function getOAuthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID!,
     process.env.GOOGLE_CLIENT_SECRET!,
-    "https://luckimages-portal.vercel.app/api/auth/google/callback"
+    "https://luckimages.com/api/auth/google/callback"
   );
 }
 
