@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
-import Image from "next/image";
+import HomeNav from "@/components/HomeNav";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -225,15 +225,8 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      {/* Portal nav */}
-      <div className="relative z-10 flex items-center justify-between px-6 py-5">
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Image src="/logo.png" alt="Luck Images" width={32} height={32} className="w-8 h-8" />
-          <span className="text-base font-black tracking-tight uppercase whitespace-nowrap">Luck Images</span>
-        </Link>
-        <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-white/40 hover:text-white transition-colors">
-          Sign Out
-        </button>
+      <div className="relative z-10 h-20">
+        <HomeNav />
       </div>
 
       <div className="relative z-10 flex-1 px-4 md:px-8 pt-10 pb-10 max-w-5xl mx-auto w-full">
@@ -480,7 +473,7 @@ export default function ClientPage() {
 
         {/* BOOK A SHOOT */}
         {tab === "book" && (
-          <div className="max-w-2xl">
+          <div className="w-full">
             {bookingStatus === "success" ? (
               <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-8 text-center">
                 <p className="text-[#4ade80] text-sm tracking-wide mb-4">Shoot request submitted! We'll confirm shortly.</p>
