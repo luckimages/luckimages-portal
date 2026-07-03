@@ -120,34 +120,10 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/70 via-[#0c0c0c]/80 to-[#0c0c0c]" />
 
         <div className="relative z-10 flex flex-col items-center">
-          <FadeUp delay={0.05} className="text-white/70 mb-8 [&>svg]:w-12 [&>svg]:h-12">{service.icon}</FadeUp>
+          <FadeUp delay={0.05} className="text-white/70 mb-8 [&>svg]:w-20 [&>svg]:h-20">{service.icon}</FadeUp>
           <FadeUp delay={0.15}><p className="text-xs tracking-[4px] uppercase text-white/70 mb-4">Services</p></FadeUp>
           <FadeUp delay={0.25}><h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8" style={{ textShadow: "0 4px 24px rgba(0,0,0,0.6)" }}>{service.name}</h1></FadeUp>
           <FadeUp delay={0.35}><p className="text-white/80 text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p></FadeUp>
-          {PRICING[slug] && (
-            <FadeUp delay={0.42}>
-              <div className="flex gap-12 mb-12 justify-center flex-wrap">
-                <div className="text-left">
-                  <p className="text-[10px] tracking-[3px] uppercase text-white/40 mb-3">Standalone</p>
-                  <ul className="flex flex-col gap-1">
-                    {PRICING[slug].standalone.map((line) => (
-                      <li key={line} className="text-sm text-white/70">{line}</li>
-                    ))}
-                  </ul>
-                </div>
-                {PRICING[slug].addon && (
-                  <div className="text-left">
-                    <p className="text-[10px] tracking-[3px] uppercase text-white/40 mb-3">Add-On</p>
-                    <ul className="flex flex-col gap-1">
-                      {PRICING[slug].addon!.map((line) => (
-                        <li key={line} className="text-sm text-white/70">{line}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </FadeUp>
-          )}
           <FadeUp delay={0.45}>
             <div className="flex gap-4">
               <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
