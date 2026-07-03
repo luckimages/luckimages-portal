@@ -76,7 +76,7 @@ const TEMPLATES: Template[] = [
     description: "Ask past clients to leave a Google review. Targets anyone who has spent money with you.",
     tag: "Reviews",
     tagColor: "text-[#fbbf24]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `Quick favor, ${c.name.split(" ")[0]}?`,
     html: c => {
       const n = c.name.split(" ")[0];
@@ -98,7 +98,7 @@ const TEMPLATES: Template[] = [
     description: "Personal follow-up after shoot delivery. Reinforces the relationship before the next listing comes up.",
     tag: "Relationship",
     tagColor: "text-[#4ade80]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `Thank you, ${c.name.split(" ")[0]}`,
     html: c => {
       const n = c.name.split(" ")[0];
@@ -118,7 +118,7 @@ const TEMPLATES: Template[] = [
     description: "Ask happy clients to refer other agents. Includes their personal referral link so the new client is automatically attributed.",
     tag: "Referral",
     tagColor: "text-[#34d399]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `${c.name.split(" ")[0]}, know any other agents?`,
     html: c => {
       const n = c.name.split(" ")[0];
@@ -140,7 +140,7 @@ const TEMPLATES: Template[] = [
     description: "Let a client know their listing photos were featured in your portfolio or Instagram. Builds loyalty and gets engagement.",
     tag: "Relationship",
     tagColor: "text-[#4ade80]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `${c.name.split(" ")[0]}, we featured your listing 📸`,
     extraFields: [
       { key: "address", label: "Property address (optional)", placeholder: "e.g. 228 Avian Dr, San Marcos", default: "" },
@@ -171,7 +171,7 @@ const TEMPLATES: Template[] = [
     description: "Send a curated selection of their shoot photos with a note. Reminds clients how great the work looked and opens the door for the next booking.",
     tag: "Relationship",
     tagColor: "text-[#4ade80]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `${c.name.split(" ")[0]}, a look back at your listing photos`,
     extraFields: [
       { key: "address", label: "Property address", placeholder: "e.g. 228 Avian Dr, San Marcos", default: "" },
@@ -203,7 +203,7 @@ const TEMPLATES: Template[] = [
     description: "Reconnect with past clients who haven't booked in a while. Great for listing season or slow periods.",
     tag: "Retention",
     tagColor: "text-[#60a5fa]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `Hey ${c.name.split(" ")[0]}, we'd love to work with you again`,
     extraFields: [
       { key: "promo", label: "Promo line (optional)", placeholder: "e.g. 10% off your next shoot through July", default: "" },
@@ -228,7 +228,7 @@ const TEMPLATES: Template[] = [
     description: "Stronger re-engagement for clients who haven't booked in 12+ months. Acknowledges the gap and makes it easy to restart.",
     tag: "Retention",
     tagColor: "text-[#60a5fa]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `Still working in real estate, ${c.name.split(" ")[0]}?`,
     extraFields: [
       { key: "offer", label: "Incentive (optional)", placeholder: "e.g. First shoot back — $25 off", default: "" },
@@ -256,7 +256,7 @@ const TEMPLATES: Template[] = [
     description: "Target clients who've only booked basic photos and introduce them to drone, video, or twilight add-ons.",
     tag: "Upsell",
     tagColor: "text-[#fb923c]",
-    filter: c => !!c.email && (c.total_revenue || 0) > 0 && c.stage !== "deleted",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `${c.name.split(" ")[0]}, have you tried our drone footage?`,
     extraFields: [
       { key: "service", label: "Service to highlight", placeholder: "e.g. Aerial Drone, Twilight Shoot, Video Tour", default: "Aerial Drone" },
@@ -323,7 +323,7 @@ const TEMPLATES: Template[] = [
     description: "Blast to all active clients for listing season, holidays, or any time-sensitive offer.",
     tag: "Promo",
     tagColor: "text-[#f472b6]",
-    filter: c => !!c.email && c.stage !== "deleted" && c.stage !== "lead",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `Listing season is here, ${c.name.split(" ")[0]} — book your shoot`,
     extraFields: [
       { key: "season", label: "Season / occasion", placeholder: "e.g. Spring Listing Season", default: "Spring Listing Season" },
@@ -349,7 +349,7 @@ const TEMPLATES: Template[] = [
     description: "Announce a new service to your existing client base. Great when adding drone, Matterport, video tours, twilight, etc.",
     tag: "Promo",
     tagColor: "text-[#f472b6]",
-    filter: c => !!c.email && c.stage !== "deleted" && c.stage !== "lead",
+    filter: c => !!c.email && c.stage !== "deleted",
     subject: c => `${c.name.split(" ")[0]}, we just launched something new`,
     extraFields: [
       { key: "service", label: "New service name", placeholder: "e.g. 3D Matterport Tours", default: "" },
