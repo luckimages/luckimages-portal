@@ -102,7 +102,7 @@ export default function TeamPage() {
     <div className="min-h-screen bg-[#0c0c0c] text-white">
       <header className="border-b border-white/10 px-6 md:px-8 py-5 flex items-center gap-6">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-        <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
+        <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
       </header>
 
       <div className="max-w-4xl mx-auto px-6 md:px-8 py-8 space-y-12">

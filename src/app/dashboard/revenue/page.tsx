@@ -90,7 +90,7 @@ export default function RevenuePage() {
       <header className="border-b border-white/10 px-6 md:px-8 py-5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-          <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
+          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
         </div>
         <div className="flex items-center gap-4">
           {snap.synced_at && (

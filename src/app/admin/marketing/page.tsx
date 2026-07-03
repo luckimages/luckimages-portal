@@ -119,7 +119,7 @@ export default function MarketingPage() {
 
       {/* Header */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center gap-4 flex-wrap">
-        <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
+        <button onClick={() => router.push("/dashboard?page=apps")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
         <h1 className="text-sm font-bold tracking-[3px] uppercase">Marketing</h1>
         <div className="flex-1" />
         <div className="flex border border-white/10 overflow-hidden">

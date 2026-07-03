@@ -60,7 +60,7 @@ export default function ImportPage() {
       <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
         <div className="flex items-center gap-6">
-          <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</a>
+          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</a>
         </div>
       </header>
 

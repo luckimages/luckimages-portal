@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -122,6 +122,7 @@ const NOTIF_CATS: { key: string; label: string; dot: string }[] = [
 
 export default function DashboardV2Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [userName, setUserName] = useState("");
   const [checked, setChecked] = useState(false);
   const [shoots, setShoots] = useState<Shoot[]>([]);
@@ -134,7 +135,7 @@ export default function DashboardV2Page() {
 
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(NOTIF_CATS.map(c => c.key)));
-  const [swipePage, setSwipePage] = useState(0);
+  const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
   const touchStartX = useRef<number | null>(null);
 
   const DEFAULT_ORDER = APPS.map(a => a.label);

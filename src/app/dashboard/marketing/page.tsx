@@ -206,7 +206,7 @@ export default function MarketingPage() {
       <header className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-6">
           <a href="/" className="text-lg font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-          <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
+          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
         </div>
       </header>
 
