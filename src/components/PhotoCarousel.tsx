@@ -67,8 +67,8 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
           >
             ←
           </button>
-          <div onClick={(e) => e.stopPropagation()} className="max-w-6xl max-h-[90vh] px-16">
-            <img src={current.src} alt="" className="max-h-[90vh] max-w-full object-contain" />
+          <div onClick={(e) => e.stopPropagation()} className="w-[90vw] max-h-[90vh] px-8">
+            <img src={current.src} alt="" className="w-full max-h-[90vh] object-contain" />
             <p className="text-center text-xs tracking-[2px] text-white/30 uppercase mt-4">
               {lightboxIndex! + 1} / {photos.length}
             </p>
