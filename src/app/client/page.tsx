@@ -51,10 +51,7 @@ export default function ClientPage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push("/login"); return; }
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
-      // Redirect invite-link users (no password set) to set one before entering the portal
-      const hp = data.user.user_metadata?.has_password === true;
-      setHasPassword(hp);
-      if (!hp) { router.push("/set-password"); return; }
+      setHasPassword(data.user.user_metadata?.has_password === true);
       const uid = data.user.id;
       const { data: contactRow } = await supabase.from("contacts").select("id, name, phone, brokerage").eq("user_id", uid).single();
       if (contactRow?.id) {
