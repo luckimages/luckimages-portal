@@ -276,6 +276,25 @@ export default function ClientPage() {
         {tab === "overview" && (
           <div className="space-y-4">
 
+            {/* Photos ready banner */}
+            {shoots.some(s => s.status === "delivered" || s.status === "completed") && (
+              <button
+                onClick={() => setTab("gallery")}
+                className="w-full flex items-center justify-between px-6 py-5 bg-[#4ade80]/10 border border-[#4ade80]/30 hover:bg-[#4ade80]/15 transition-colors group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-2 h-2 rounded-full bg-[#4ade80] animate-pulse" />
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-[#4ade80]">Your photos are ready</p>
+                    <p className="text-xs text-[#4ade80]/60 mt-0.5">
+                      {shoots.filter(s => s.status === "delivered" || s.status === "completed").length} shoot{shoots.filter(s => s.status === "delivered" || s.status === "completed").length !== 1 ? "s" : ""} delivered — tap to view & download
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[#4ade80]/60 group-hover:text-[#4ade80] transition-colors text-lg">→</span>
+              </button>
+            )}
+
             {/* Stat chips */}
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
