@@ -25,7 +25,9 @@ export default function ClientPage() {
   const [memberSince, setMemberSince] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile">("overview");
+  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile" | "review" | "refer">("overview");
+  const [referral, setReferral] = useState({ name: "", email: "" });
+  const [referralStatus, setReferralStatus] = useState<"" | "sending" | "sent" | "error">("");
   const [profile, setProfile] = useState({ name: "", phone: "", brokerage: "" });
   const [profileStatus, setProfileStatus] = useState<"" | "saving" | "saved" | "error">("");
   const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
@@ -263,9 +265,9 @@ export default function ClientPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["overview", "book", "invoices", "gallery", "profile"] as const).map(t => (
+          {(["overview", "book", "invoices", "gallery", "refer", "review", "profile"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
-              {t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : t === "gallery" ? "My Gallery" : "Profile"}
+              {t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : t === "gallery" ? "My Gallery" : t === "refer" ? "Refer a Friend" : t === "review" ? "Leave a Review" : "Profile"}
             </button>
           ))}
         </div>
@@ -484,6 +486,61 @@ export default function ClientPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* REFER A FRIEND */}
+        {tab === "refer" && (
+          <div className="max-w-lg">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Refer a Friend</p>
+            <p className="text-sm text-[#666] mb-8">Know a realtor who could use great media? Send them our way — we&apos;ll take great care of them.</p>
+            {referralStatus === "sent" ? (
+              <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-6 text-center">
+                <p className="text-[#4ade80] text-sm mb-1">Referral sent!</p>
+                <p className="text-xs text-[#555]">We&apos;ll reach out to them soon. Thank you!</p>
+                <button onClick={() => { setReferralStatus(""); setReferral({ name: "", email: "" }); }} className="mt-4 text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors">Refer Another</button>
+              </div>
+            ) : (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setReferralStatus("sending");
+                const res = await fetch("/api/portal/referral", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ referrerName: userName, referrerEmail: "", friendName: referral.name, friendEmail: referral.email }),
+                });
+                setReferralStatus(res.ok ? "sent" : "error");
+              }} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Their Name</label>
+                  <input required value={referral.name} onChange={e => setReferral(r => ({ ...r, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Their Email</label>
+                  <input required type="email" value={referral.email} onChange={e => setReferral(r => ({ ...r, email: e.target.value }))} placeholder="jane@brokerage.com" className={inputCls} />
+                </div>
+                {referralStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again or email ryan@luckimages.com.</p>}
+                <button type="submit" disabled={referralStatus === "sending"} className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
+                  {referralStatus === "sending" ? "Sending..." : "Submit Referral"}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* LEAVE A REVIEW */}
+        {tab === "review" && (
+          <div className="max-w-lg">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Leave a Review</p>
+            <p className="text-sm text-[#666] mb-10">Enjoyed working with us? A Google review means the world and helps other realtors find us.</p>
+            <a
+              href="https://g.page/r/CZ9cShOb3iPUEBI/review"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-5 hover:bg-white/90 transition-colors"
+            >
+              ★ Leave a Google Review
+            </a>
           </div>
         )}
 
