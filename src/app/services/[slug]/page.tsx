@@ -25,6 +25,37 @@ const DESCRIPTIONS: Record<string, string> = {
   "brochures": "Print-ready and digital property brochures that make a lasting impression at open houses.",
 };
 
+const PRICING: Record<string, { standalone: string[]; addon?: string[] }> = {
+  "listing-photos": {
+    standalone: ["Up to 1,500 sq ft — $200", "Up to 2,000 sq ft — $250", "Up to 2,500 sq ft — $300", "Up to 3,000 sq ft — $350", "3,500+ sq ft — $400"],
+  },
+  "drone": {
+    standalone: ["20 photos — $200", "Each additional 5 photos — +$50"],
+    addon: ["Added to existing shoot — $100–$150"],
+  },
+  "video": {
+    standalone: ["Bronze — $200", "Silver (includes drone) — $300", "Gold — Custom"],
+  },
+  "twilight": {
+    standalone: ["4 photos — $250"],
+    addon: ["Added to existing shoot — $150–$200"],
+  },
+  "matterport": {
+    standalone: ["Up to 2,000 sq ft — $200", "Up to 3,000 sq ft — $300", "Up to 4,000 sq ft — $400", "5,000+ sq ft — $500"],
+    addon: ["Added to existing shoot — $100–$250"],
+  },
+  "virtual-staging": {
+    standalone: ["Per photo — $25", "5 photos — $100", "10 photos — $150"],
+  },
+  "floorplans": {
+    standalone: ["Under 2,500 sq ft — $50", "2,500+ sq ft — $75"],
+    addon: ["Added to existing shoot — $50–$75"],
+  },
+  "brochures": {
+    standalone: ["Contact for pricing"],
+  },
+};
+
 // Real photos pulled from the original luckimages.com service pages,
 // matched back to their source files on disk.
 const GALLERY_PHOTOS: Record<string, string[]> = {
@@ -93,6 +124,30 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           <FadeUp delay={0.15}><p className="text-xs tracking-[4px] uppercase text-white/70 mb-4">Services</p></FadeUp>
           <FadeUp delay={0.25}><h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8" style={{ textShadow: "0 4px 24px rgba(0,0,0,0.6)" }}>{service.name}</h1></FadeUp>
           <FadeUp delay={0.35}><p className="text-white/80 text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p></FadeUp>
+          {PRICING[slug] && (
+            <FadeUp delay={0.42}>
+              <div className="flex gap-12 mb-12 justify-center flex-wrap">
+                <div className="text-left">
+                  <p className="text-[10px] tracking-[3px] uppercase text-white/40 mb-3">Standalone</p>
+                  <ul className="flex flex-col gap-1">
+                    {PRICING[slug].standalone.map((line) => (
+                      <li key={line} className="text-sm text-white/70">{line}</li>
+                    ))}
+                  </ul>
+                </div>
+                {PRICING[slug].addon && (
+                  <div className="text-left">
+                    <p className="text-[10px] tracking-[3px] uppercase text-white/40 mb-3">Add-On</p>
+                    <ul className="flex flex-col gap-1">
+                      {PRICING[slug].addon!.map((line) => (
+                        <li key={line} className="text-sm text-white/70">{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </FadeUp>
+          )}
           <FadeUp delay={0.45}>
             <div className="flex gap-4">
               <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
