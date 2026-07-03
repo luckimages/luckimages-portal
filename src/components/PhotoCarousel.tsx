@@ -81,7 +81,7 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
               key={i}
               onClick={() => setIndex(i)}
               aria-label={`View photo ${i + 1}`}
-              className={`relative shrink-0 w-28 overflow-hidden transition-all bg-[#111] ${i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80 ring-1 ring-white/10"}`}
+              className={`relative shrink-0 w-14 overflow-hidden transition-all bg-[#111] ${i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80 ring-1 ring-white/10"}`}
               style={{ aspectRatio: "3/2" }}
             >
               {p.src ? (

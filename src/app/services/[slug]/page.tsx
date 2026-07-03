@@ -104,7 +104,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
       {/* Virtual Staging — before/after carousel */}
       {slug === "virtual-staging" && (
-        <section className="px-4 md:px-8 pb-24 max-w-[1600px] mx-auto w-full">
+        <section className="px-6 md:px-16 lg:px-24 pb-24 max-w-[1600px] mx-auto w-full">
           <FadeUp>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
               Before & After
@@ -122,7 +122,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
       {/* Gallery */}
       {GALLERY_SERVICES.has(slug) && (
-        <section className="px-4 md:px-8 pb-24 max-w-[1600px] mx-auto w-full">
+        <section className="px-6 md:px-16 lg:px-24 pb-24 max-w-[1600px] mx-auto w-full">
           <FadeUp>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
               Portfolio
