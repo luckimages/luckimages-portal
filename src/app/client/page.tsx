@@ -25,7 +25,9 @@ export default function ClientPage() {
   const [memberSince, setMemberSince] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery">("overview");
+  const [tab, setTab] = useState<"overview" | "book" | "invoices" | "gallery" | "profile">("overview");
+  const [profile, setProfile] = useState({ name: "", phone: "", brokerage: "" });
+  const [profileStatus, setProfileStatus] = useState<"" | "saving" | "saved" | "error">("");
   const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,10 +56,11 @@ export default function ClientPage() {
       // If they have no password, their only identity will be via OTP/magic link
       setHasPassword(data.user.user_metadata?.has_password === true || (!lastSignIn.includes("otp") && hasEmailPassword));
       const uid = data.user.id;
-      const { data: contactRow } = await supabase.from("contacts").select("id").eq("user_id", uid).single();
+      const { data: contactRow } = await supabase.from("contacts").select("id, name, phone, brokerage").eq("user_id", uid).single();
       if (contactRow?.id) {
         setContactId(contactRow.id);
         setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactRow.id}?t=${Date.now()}`);
+        setProfile({ name: contactRow.name || "", phone: contactRow.phone || "", brokerage: contactRow.brokerage || "" });
       }
       const created = new Date(data.user.created_at);
       const now = new Date();
@@ -144,6 +147,21 @@ export default function ClientPage() {
     }
     setUploadingAvatar(false);
     if (avatarFileRef.current) avatarFileRef.current.value = "";
+  }
+
+  async function saveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    if (!contactId) return;
+    setProfileStatus("saving");
+    const supabase = createClient();
+    const { error } = await supabase.from("contacts").update({
+      name: profile.name,
+      phone: profile.phone || null,
+      brokerage: profile.brokerage || null,
+    }).eq("id", contactId);
+    setProfileStatus(error ? "error" : "saved");
+    if (!error) setUserName(profile.name.toUpperCase());
+    setTimeout(() => setProfileStatus(""), 3000);
   }
 
   function signOut() {
@@ -245,8 +263,10 @@ export default function ClientPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["overview", "book", "invoices", "gallery"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>{t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : "My Gallery"}</button>
+          {(["overview", "book", "invoices", "gallery", "profile"] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
+              {t === "overview" ? "Overview" : t === "book" ? "Book a Shoot" : t === "invoices" ? "Invoices" : t === "gallery" ? "My Gallery" : "Profile"}
+            </button>
           ))}
         </div>
 
@@ -464,6 +484,95 @@ export default function ClientPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* PROFILE */}
+        {tab === "profile" && (
+          <div className="max-w-lg space-y-8">
+
+            {/* Avatar */}
+            <div>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Photo</p>
+              <div className="flex items-center gap-5">
+                <div className="relative shrink-0">
+                  <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-2xl font-bold">
+                    {!avatarError && avatarUrl
+                      ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                      : <span>{userName.charAt(0)}</span>}
+                  </div>
+                  {contactId && (
+                    <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
+                      className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40">
+                      <span className="text-[11px]">📷</span>
+                    </button>
+                  )}
+                  <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{userName}</p>
+                  <button onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
+                    className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors mt-1">
+                    {uploadingAvatar ? "Uploading..." : "Change Photo"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Personal Info</p>
+              <form onSubmit={saveProfile} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Full Name</label>
+                  <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Phone</label>
+                  <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="(512) 555-0100" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Brokerage</label>
+                  <input value={profile.brokerage} onChange={e => setProfile(p => ({ ...p, brokerage: e.target.value }))} placeholder="Keller Williams" className={inputCls} />
+                </div>
+                <button type="submit" disabled={profileStatus === "saving"}
+                  className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
+                  {profileStatus === "saving" ? "Saving..." : profileStatus === "saved" ? "Saved ✓" : profileStatus === "error" ? "Error — try again" : "Save Changes"}
+                </button>
+              </form>
+            </div>
+
+            {/* Password */}
+            <div>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+                {hasPassword ? "Change Password" : "Set a Password"}
+              </p>
+              {passwordStatus === "success" ? (
+                <p className="text-xs text-[#4ade80]">Password saved successfully.</p>
+              ) : (
+                <form onSubmit={savePassword} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>New Password</label>
+                    <input type="password" placeholder="8+ characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} className={inputCls} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Confirm Password</label>
+                    <input type="password" placeholder="Confirm" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={inputCls} />
+                  </div>
+                  {passwordError && <p className="text-xs text-red-400">{passwordError}</p>}
+                  <button type="submit" disabled={passwordStatus === "saving"}
+                    className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
+                    {passwordStatus === "saving" ? "Saving..." : "Save Password"}
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Sign out */}
+            <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#555] hover:text-white transition-colors">
+              Sign Out →
+            </button>
+
           </div>
         )}
 
