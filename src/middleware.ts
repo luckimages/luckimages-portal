@@ -27,14 +27,15 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Admin pages — redirect non-admins away
-  if (path.startsWith('/admin')) {
-    if (!isAdmin) return NextResponse.redirect(new URL(user ? '/dashboard' : '/login', request.url))
+  // Dashboard + admin pages — admin only
+  if (path.startsWith('/dashboard') || path.startsWith('/admin')) {
+    if (!user) return NextResponse.redirect(new URL('/login', request.url))
+    if (!isAdmin) return NextResponse.redirect(new URL('/client', request.url))
     return response
   }
 
   // Not logged in — redirect to login except for public pages
-  if (!user && (path.startsWith('/dashboard') || path.startsWith('/client') || path.startsWith('/photographer') || path === '/choose-portal')) {
+  if (!user && (path.startsWith('/client') || path.startsWith('/photographer') || path === '/choose-portal')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
