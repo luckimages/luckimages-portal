@@ -57,6 +57,7 @@ export default function RegisterPage() {
         data: {
           full_name: form.fullName,
           role: "realtor",
+          has_password: true,
           phone: form.phone,
           brokerage: form.brokerage,
           areas: form.areas,

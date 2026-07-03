@@ -51,11 +51,8 @@ export default function ClientPage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push("/login"); return; }
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
-      // Redirect magic-link users to set a password before entering the portal
-      const identities = data.user.identities ?? [];
-      const hasEmailPassword = identities.some(i => i.provider === "email" && i.identity_data?.email_verified);
-      const lastSignIn = data.user.last_sign_in_at ?? "";
-      const hp = data.user.user_metadata?.has_password === true || (!lastSignIn.includes("otp") && hasEmailPassword);
+      // Redirect invite-link users (no password set) to set one before entering the portal
+      const hp = data.user.user_metadata?.has_password === true;
       setHasPassword(hp);
       if (!hp) { router.push("/set-password"); return; }
       const uid = data.user.id;
