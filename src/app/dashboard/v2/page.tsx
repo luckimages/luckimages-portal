@@ -6,21 +6,21 @@ import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 const APPS = [
-  { label: "Contacts",     href: "/admin/contacts",        color: "#60a5fa" },
-  { label: "Shoots",       href: "/admin/shoots",           color: "#fbbf24" },
-  { label: "Calendar",     href: "/dashboard/calendar",     color: "#4ade80" },
-  { label: "Shoot Board",  href: "/dashboard/board",        color: "#a78bfa" },
-  { label: "Todos",        href: "/admin/todos",            color: "#f472b6" },
-  { label: "Marketing",    href: "/dashboard/marketing",    color: "#fb923c" },
-  { label: "Outreach",     href: "/dashboard/outreach",     color: "#34d399" },
-  { label: "Analytics",    href: "/dashboard/analytics",    color: "#60a5fa" },
-  { label: "Quotes",       href: "/dashboard/quotes",       color: "#fbbf24" },
-  { label: "Time Tracker", href: "/admin/time-tracker",     color: "#a78bfa" },
-  { label: "Cold Calls",   href: "/admin/cold-calls",       color: "#f87171" },
-  { label: "Updates",      href: "/admin/updates",          color: "#4ade80" },
-  { label: "Revenue",      href: "/dashboard",              color: "#34d399" },
-  { label: "Shoot Log",    href: "/dashboard",              color: "#fbbf24" },
-  { label: "Employees",    href: "/dashboard",              color: "#fb923c" },
+  { label: "Contacts",     href: "/admin/contacts",        color: "#888" },
+  { label: "Shoots",       href: "/admin/shoots",           color: "#888" },
+  { label: "Calendar",     href: "/dashboard/calendar",     color: "#888" },
+  { label: "Shoot Board",  href: "/dashboard/board",        color: "#888" },
+  { label: "Todos",        href: "/admin/todos",            color: "#888" },
+  { label: "Marketing",    href: "/dashboard/marketing",    color: "#888" },
+  { label: "Outreach",     href: "/dashboard/outreach",     color: "#888" },
+  { label: "Analytics",    href: "/dashboard/analytics",    color: "#888" },
+  { label: "Quotes",       href: "/dashboard/quotes",       color: "#888" },
+  { label: "Time Tracker", href: "/admin/time-tracker",     color: "#888" },
+  { label: "Cold Calls",   href: "/admin/cold-calls",       color: "#888" },
+  { label: "Updates",      href: "/admin/updates",          color: "#888" },
+  { label: "Revenue",      href: "/dashboard",              color: "#888" },
+  { label: "Shoot Log",    href: "/dashboard",              color: "#888" },
+  { label: "Employees",    href: "/dashboard",              color: "#888" },
 ];
 
 function APP_ICON({ name, color }: { name: string; color: string }) {
