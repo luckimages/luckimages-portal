@@ -95,6 +95,7 @@ export default function MarketingPage() {
   const [referralSearch, setReferralSearch] = useState("");
   const [callsToggle, setCallsToggle] = useState<"week" | "all">("week");
   const [revenueToggle, setRevenueToggle] = useState<"mtd" | "ytd">("mtd");
+  const [channelTableOpen, setChannelTableOpen] = useState(false);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -314,8 +315,15 @@ export default function MarketingPage() {
                 </div>
               </div>
 
-              {/* Generic channels table */}
-              <div className="border border-white/5 overflow-x-auto">
+              {/* Generic channels table — collapsible */}
+              <button
+                onClick={() => setChannelTableOpen(o => !o)}
+                className="flex items-center gap-2 text-[10px] tracking-[2px] uppercase text-[#444] hover:text-white transition-colors mb-2"
+              >
+                <span className={`transition-transform duration-200 ${channelTableOpen ? "rotate-90" : ""}`}>▶</span>
+                Channel Breakdown {channelTableOpen ? "" : `(${genericChannels.length} channels)`}
+              </button>
+              {channelTableOpen && <div className="border border-white/5 overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-white/5">
@@ -380,7 +388,7 @@ export default function MarketingPage() {
                     )}
                   </tbody>
                 </table>
-              </div>
+              </div>}
             </div>
 
             {/* Email engagement — who opened/clicked pitch email links */}
