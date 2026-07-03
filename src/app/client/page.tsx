@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
+import HomeNav from "@/components/HomeNav";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -166,15 +167,11 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
-        <div className="flex items-center gap-3 md:gap-6">
-          <span className="text-xs tracking-[2px] uppercase text-[#666] hidden sm:inline">Client Portal</span>
-          <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
-        </div>
-      </header>
+      <div className="relative z-10">
+        <HomeNav />
+      </div>
 
-      <div className="relative z-10 flex-1 px-4 md:px-8 py-8 md:py-10 max-w-5xl mx-auto w-full">
+      <div className="relative z-10 flex-1 px-4 md:px-8 pt-32 pb-10 max-w-5xl mx-auto w-full">
 
         {/* Set password prompt — shown to magic-link users who haven't set one yet */}
         {!hasPassword && passwordStatus !== "success" && (
