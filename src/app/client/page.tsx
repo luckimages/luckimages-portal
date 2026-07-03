@@ -156,8 +156,8 @@ export default function ClientPage() {
   const upcomingShoots = shoots.filter(s => s.status !== "cancelled");
   const totalSqFt = shoots.reduce((s, sh) => s + (sh.square_footage || 0), 0);
 
-  const inputCls = "bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
-  const labelCls = "text-xs tracking-[2px] uppercase text-[#666]";
+  const inputCls = "bg-black/10 border border-black/20 text-black text-sm px-4 py-3 outline-none focus:border-black/40 transition-colors placeholder:text-black/40 w-full";
+  const labelCls = "text-xs tracking-[2px] uppercase text-black/50";
   const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-2 transition-colors cursor-pointer ${tab === t ? "text-white border-b border-white" : "text-[#555] hover:text-white"}`;
 
   return (
@@ -241,8 +241,8 @@ export default function ClientPage() {
             <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
           </div>
           <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-2">Welcome back</p>
-            <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase">{userName}</h1>
+            <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-2">Welcome Back</h1>
+            <p className="text-sm tracking-[3px] uppercase text-white/60">{userName}</p>
           </div>
         </div>
 
@@ -257,16 +257,16 @@ export default function ClientPage() {
         {tab === "overview" && (
           <div className="space-y-8">
             <div className="grid grid-cols-3 gap-2 md:gap-3">
-              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Total Shoots</p>
+              <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-4 md:p-6 border-b-2 border-b-[#60a5fa]">
+                <p className="text-xs tracking-[2px] uppercase text-black/50 mb-3">Total Shoots</p>
                 <p className="text-3xl font-bold">{shoots.length}</p>
               </div>
-              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#fbbf24]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Sq Ft Captured</p>
+              <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-4 md:p-6 border-b-2 border-b-[#fbbf24]">
+                <p className="text-xs tracking-[2px] uppercase text-black/50 mb-3">Sq Ft Captured</p>
                 <p className="text-2xl md:text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
               </div>
-              <div className="bg-[#111] border border-white/10 p-4 md:p-6 border-b-2 border-b-[#4ade80]">
-                <p className="text-xs tracking-[2px] uppercase text-[#666] mb-3">Client For</p>
+              <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-4 md:p-6 border-b-2 border-b-[#4ade80]">
+                <p className="text-xs tracking-[2px] uppercase text-black/50 mb-3">Client For</p>
                 <p className="text-3xl font-bold">{memberSince || "—"}</p>
               </div>
             </div>
@@ -290,7 +290,7 @@ export default function ClientPage() {
                     const isDelivered = s.status === "delivered";
 
                     return (
-                      <div key={s.id} className="bg-[#111] border border-white/10 p-6">
+                      <div key={s.id} className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-6">
                         <div className="flex items-start justify-between mb-6">
                           <div>
                             <p className="font-semibold mb-1">{s.address}</p>
@@ -312,7 +312,7 @@ export default function ClientPage() {
                             return (
                               <div key={stage.key} className="flex items-center flex-1 min-w-0">
                                 <div className="flex flex-col items-center flex-1 min-w-0">
-                                  <div className={`w-3 h-3 rounded-full border-2 transition-all mb-2 ${done || active ? "border-white bg-white" : "border-white/20 bg-transparent"} ${active ? "ring-2 ring-white/20 ring-offset-2 ring-offset-[#111]" : ""}`} />
+                                  <div className={`w-3 h-3 rounded-full border-2 transition-all mb-2 ${done || active ? "border-white bg-white" : "border-white/20 bg-transparent"} ${active ? "ring-2 ring-white/20 ring-offset-2 ring-offset-white" : ""}`} />
                                   <span className={`text-[9px] tracking-[1px] uppercase text-center leading-tight ${active ? "text-white" : done ? "text-white/50" : "text-white/20"}`}>{stage.label}</span>
                                 </div>
                                 {!last && (
@@ -333,12 +333,12 @@ export default function ClientPage() {
             <div>
               <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Shoot History</p>
               {shoots.length === 0 ? (
-                <div className="bg-[#111] border border-white/10 p-8 text-center">
-                  <p className="text-[#555] text-sm mb-4">No shoots yet</p>
+                <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-8 text-center">
+                  <p className="text-black/50 text-sm mb-4">No shoots yet</p>
                   <button onClick={() => setTab("book")} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
                 </div>
               ) : (
-                <div className="bg-[#111] border border-white/10 overflow-x-auto">
+                <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black overflow-x-auto">
                   <table className="w-full text-sm min-w-[520px]">
                     <thead><tr className="border-b border-white/10">{["Address", "Date", "Services", "Status"].map(h => <th key={h} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                     <tbody>
@@ -418,11 +418,11 @@ export default function ClientPage() {
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Your Invoices</p>
             {invoices.length === 0 ? (
-              <div className="bg-[#111] border border-white/10 p-8 text-center">
-                <p className="text-[#555] text-sm">No invoices yet</p>
+              <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-8 text-center">
+                <p className="text-black/50 text-sm">No invoices yet</p>
               </div>
             ) : (
-              <div className="bg-[#111] border border-white/10 overflow-x-auto">
+              <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black overflow-x-auto">
                 <table className="w-full text-sm min-w-[480px]">
                   <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                   <tbody>
@@ -451,13 +451,13 @@ export default function ClientPage() {
           <div>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Shoot Media</p>
             {shoots.filter(s => s.status === "delivered" || s.status === "completed").length === 0 ? (
-              <div className="bg-[#111] border border-white/10 p-8 text-center">
-                <p className="text-[#555] text-sm">Media will appear here once your shoot photos are delivered.</p>
+              <div className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-8 text-center">
+                <p className="text-black/50 text-sm">Media will appear here once your shoot photos are delivered.</p>
               </div>
             ) : (
               <div className="grid gap-3">
                 {shoots.filter(s => s.status === "delivered" || s.status === "completed").map(s => (
-                  <Link key={s.id} href={`/client/gallery/${s.id}`} className="bg-[#111] border border-white/10 p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                  <Link key={s.id} href={`/client/gallery/${s.id}`} className="bg-white/80 backdrop-blur-sm border border-white/60 text-black p-5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                     <div>
                       <p className="font-medium mb-1">{s.address}</p>
                       <p className="text-xs text-[#555]">{new Date(s.scheduled_at).toLocaleDateString()} · {s.services?.join(", ")}</p>
