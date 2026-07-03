@@ -507,7 +507,7 @@ export default function ClientPage() {
                 const res = await fetch("/api/portal/referral", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ referrerName: userName, referrerEmail: "", friendName: referral.name, friendEmail: referral.email }),
+                  body: JSON.stringify({ referrerContactId: contactId, referrerName: userName, friendName: referral.name, friendEmail: referral.email }),
                 });
                 setReferralStatus(res.ok ? "sent" : "error");
               }} className="flex flex-col gap-4">
