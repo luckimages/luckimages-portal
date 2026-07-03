@@ -266,14 +266,8 @@ export default function DashboardV2Page() {
     <main className="relative h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-        <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
-          <span className="text-[10px] tracking-[3px] uppercase text-[#a78bfa]">V2 Beta</span>
-          <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-white/60 hover:text-white transition-colors">Classic Dashboard</a>
-          <form action="/api/auth/signout" method="post" className="inline">
-            <button type="submit" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Sign Out</button>
-          </form>
-        </div>
+        <a href="/" className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase hover:opacity-70 transition-opacity whitespace-nowrap leading-none">Luck Images</a>
+        <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
       </header>
 
       {/* Centered content column — matches the classic dashboard's max-w container */}
@@ -281,7 +275,7 @@ export default function DashboardV2Page() {
 
         {/* Welcome — big, top left */}
         <div className="pb-4 shrink-0">
-          <h1 className="text-[clamp(32px,5vw,56px)] font-black tracking-tight uppercase leading-none">
+          <h1 className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase leading-none">
             Welcome {userName}
           </h1>
         </div>
@@ -320,32 +314,37 @@ export default function DashboardV2Page() {
           </div>
 
           {middleView === "schedule" ? (
-            <div className="flex-1 min-h-0 grid grid-cols-7 divide-x divide-white/10">
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col divide-y divide-white/10">
               {days.map((d, i) => {
                 const isToday = d.toDateString() === today.toDateString();
                 const dayShoots = shootsOnDay(d);
                 return (
-                  <div key={i} className="flex flex-col min-h-0 px-5">
-                    <div className="flex items-center justify-between pb-2 mb-2 shrink-0">
-                      <span className="text-xs tracking-[2px] uppercase text-white/60">{DAY_NAMES[i]}</span>
-                      <span className={`text-sm font-bold ${isToday ? "text-white" : "text-white/50"}`}>{d.getDate()}</span>
+                  <div key={i} className={`flex gap-4 py-3 px-1 ${isToday ? "bg-white/[0.02]" : ""}`}>
+                    {/* Day label */}
+                    <div className="w-14 shrink-0 flex flex-col items-start justify-start pt-0.5">
+                      <span className={`text-[10px] tracking-[2px] uppercase ${isToday ? "text-white" : "text-white/40"}`}>{DAY_NAMES[i]}</span>
+                      <span className={`text-lg font-bold leading-none mt-0.5 ${isToday ? "text-white" : "text-white/30"}`}>{d.getDate()}</span>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-                      {dayShoots.map(s => (
+                    {/* Shoots */}
+                    <div className="flex-1 flex flex-col gap-2 min-w-0">
+                      {dayShoots.length === 0 ? (
+                        <p className="text-[10px] text-white/20 pt-1">—</p>
+                      ) : dayShoots.map(s => (
                         <a
                           key={s.id}
                           href="/dashboard/board"
-                          className="block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1"
-                          style={{ borderLeftColor: STATUS_COLOR[s.status] || "#888" }}
+                          className="flex items-start gap-2 hover:bg-white/5 transition-colors rounded-sm py-1"
                         >
-                          <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
-                          <p className="text-[10px] text-white/60 truncate mt-0.5">{s.address}</p>
-                          {s.scheduled_at && (
-                            <p className="text-[10px] text-white/40 mt-0.5">
-                              {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                            </p>
-                          )}
-                          <p className="text-[9px] tracking-[1px] uppercase text-white/30 mt-1">View ↗</p>
+                          <div className="w-1 h-full min-h-[32px] rounded-full shrink-0 mt-1" style={{ background: STATUS_COLOR[s.status] || "#888" }} />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
+                            <p className="text-[10px] text-white/50 truncate">{s.address}</p>
+                            {s.scheduled_at && (
+                              <p className="text-[10px] text-white/30">
+                                {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                              </p>
+                            )}
+                          </div>
                         </a>
                       ))}
                     </div>
