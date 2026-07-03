@@ -247,7 +247,7 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      <div className="relative z-10 h-20">
+      <div className="relative z-10 h-16">
         <HomeNav />
       </div>
 

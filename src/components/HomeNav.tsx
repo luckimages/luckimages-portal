@@ -40,7 +40,7 @@ export default function HomeNav() {
   }, []);
 
   return (
-    <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-5">
+    <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-6">
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
         <Image src="/logo.png" alt="Luck Images" width={32} height={32} className="w-8 h-8" />
         <span className="text-base font-black tracking-tight uppercase whitespace-nowrap">Luck Images</span>
