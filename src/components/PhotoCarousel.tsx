@@ -92,10 +92,10 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
             ←
           </button>
 
-          {/* Image — fills screen at 3:2 ratio, whichever dimension is tighter */}
+          {/* Image — full screen width, 3:2 ratio always */}
           <div
-            className="relative"
-            style={{ width: "min(95vw, calc(90vh * 1.5))", aspectRatio: "3/2" }}
+            className="relative w-screen"
+            style={{ aspectRatio: "3/2" }}
             onClick={(e) => e.stopPropagation()}
           >
             <img src={current.src} alt="" className="w-full h-full object-cover" draggable={false} />
