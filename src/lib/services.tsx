@@ -107,19 +107,4 @@ export const SERVICES = [
       </svg>
     ),
   },
-  {
-    name: "Brochures",
-    slug: "brochures",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        {/* page with dog-ear */}
-        <path d="M14 2 H6 a2 2 0 0 0-2 2 v16 a2 2 0 0 0 2 2 h12 a2 2 0 0 0 2-2 V8 Z" />
-        {/* dog-ear fold */}
-        <polyline points="14 2 14 8 20 8" />
-        {/* lines suggesting content */}
-        <line x1="8" y1="13" x2="16" y2="13" />
-        <line x1="8" y1="17" x2="13" y2="17" />
-      </svg>
-    ),
-  },
 ];
