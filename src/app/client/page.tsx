@@ -251,7 +251,7 @@ export default function ClientPage() {
         <HomeNav />
       </div>
 
-      <div className="relative z-10 flex-1 px-4 md:px-8 pt-10 pb-10 max-w-5xl mx-auto w-full">
+      <div className="relative z-10 flex-1 px-4 md:px-8 pt-4 pb-10 max-w-5xl mx-auto w-full">
 
 
         <div className="mb-8 flex items-center gap-5">
