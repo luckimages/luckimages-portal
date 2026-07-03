@@ -141,16 +141,61 @@ export default function DashboardV2Page() {
   const [swipePage, setSwipePage] = useState(0);
   const touchStartX = useRef<number | null>(null);
 
+  const DEFAULT_ORDER = APPS.map(a => a.label);
+  const [appOrder, setAppOrder] = useState<string[]>(DEFAULT_ORDER);
+  const [hiddenApps, setHiddenApps] = useState<Set<string>>(new Set());
+  const [editMode, setEditMode] = useState(false);
+  const [editOrder, setEditOrder] = useState<string[]>(DEFAULT_ORDER);
+  const [editHidden, setEditHidden] = useState<Set<string>>(new Set());
+  const dragIndex = useRef<number | null>(null);
+
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
       if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) {
         router.replace("/choose-portal");
         return;
       }
       setUserName(data.user.user_metadata?.full_name?.split(" ")[0] || "");
+      const meta = data.user.user_metadata || {};
+      if (meta.app_order) setAppOrder(meta.app_order);
+      if (meta.hidden_apps) setHiddenApps(new Set(meta.hidden_apps));
       setChecked(true);
     });
   }, [router]);
+
+  function openEditMode() {
+    setEditOrder([...appOrder]);
+    setEditHidden(new Set(hiddenApps));
+    setEditMode(true);
+  }
+
+  async function saveLayout() {
+    setAppOrder(editOrder);
+    setHiddenApps(new Set(editHidden));
+    setEditMode(false);
+    await createClient().auth.updateUser({ data: { app_order: editOrder, hidden_apps: [...editHidden] } });
+  }
+
+  function onDragStart(i: number) { dragIndex.current = i; }
+  function onDragOver(e: React.DragEvent, i: number) {
+    e.preventDefault();
+    if (dragIndex.current === null || dragIndex.current === i) return;
+    const next = [...editOrder];
+    const [moved] = next.splice(dragIndex.current, 1);
+    next.splice(i, 0, moved);
+    dragIndex.current = i;
+    setEditOrder(next);
+  }
+  function onDragEnd() { dragIndex.current = null; }
+
+  function toggleHide(label: string) {
+    setEditHidden(prev => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
+  }
 
   const loadTodos = useCallback(async () => {
     const res = await fetch("/api/admin/todos");
@@ -587,21 +632,66 @@ export default function DashboardV2Page() {
       <div className="w-screen h-full flex-shrink-0 bg-black flex flex-col overflow-hidden">
         <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
           <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-          <button onClick={() => setSwipePage(0)} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">← Back</button>
+          <div className="flex items-center gap-3">
+            {editMode ? (
+              <>
+                <button onClick={() => setEditMode(false)} className="text-xs tracking-[3px] uppercase text-white/40 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Cancel</button>
+                <button onClick={saveLayout} className="text-xs tracking-[3px] uppercase text-black bg-white px-4 py-2 hover:bg-white/90 transition-colors font-semibold">Save</button>
+              </>
+            ) : (
+              <>
+                <button onClick={openEditMode} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Edit</button>
+                <button onClick={() => setSwipePage(0)} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">← Back</button>
+              </>
+            )}
+          </div>
         </header>
+
+        {editMode && (
+          <p className="text-center text-[10px] tracking-[2px] uppercase text-white/30 pb-2 shrink-0">Drag to reorder · tap eye to hide</p>
+        )}
 
         <div className="flex-1 flex items-center justify-center p-4 md:p-12 min-h-0">
           <div className="w-full md:max-w-4xl border border-white/20 gap-px bg-white/10 grid grid-cols-3 md:grid-cols-5">
-            {APPS.map(app => (
-              <a
-                key={app.href}
-                href={app.href}
-                className="bg-black flex flex-col items-center justify-center gap-3 p-5 md:p-8 hover:bg-white/5 active:bg-white/10 transition-colors group"
-              >
-                <APP_ICON name={app.label} color={app.color} />
-                <span className="text-[9px] md:text-[10px] tracking-[2px] uppercase text-white/50 group-hover:text-white transition-colors text-center leading-tight">{app.label}</span>
-              </a>
-            ))}
+            {(editMode ? editOrder : appOrder).map((label, i) => {
+              const app = APPS.find(a => a.label === label);
+              if (!app) return null;
+              const isHidden = editMode ? editHidden.has(label) : hiddenApps.has(label);
+              if (!editMode && isHidden) return null;
+              return editMode ? (
+                <div
+                  key={label}
+                  draggable
+                  onDragStart={() => onDragStart(i)}
+                  onDragOver={e => onDragOver(e, i)}
+                  onDragEnd={onDragEnd}
+                  className={`bg-black flex flex-col items-center justify-center gap-3 p-5 md:p-8 cursor-grab active:cursor-grabbing relative transition-opacity ${isHidden ? "opacity-30" : "opacity-100"}`}
+                >
+                  <APP_ICON name={app.label} color={app.color} />
+                  <span className="text-[9px] md:text-[10px] tracking-[2px] uppercase text-white/50 text-center leading-tight">{app.label}</span>
+                  <button
+                    onClick={() => toggleHide(label)}
+                    className="absolute top-2 right-2 text-white/30 hover:text-white transition-colors"
+                    title={isHidden ? "Show" : "Hide"}
+                  >
+                    {isHidden ? (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth={1.5}/></svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <a
+                  key={label}
+                  href={app.href}
+                  className="bg-black flex flex-col items-center justify-center gap-3 p-5 md:p-8 hover:bg-white/5 active:bg-white/10 transition-colors group"
+                >
+                  <APP_ICON name={app.label} color={app.color} />
+                  <span className="text-[9px] md:text-[10px] tracking-[2px] uppercase text-white/50 group-hover:text-white transition-colors text-center leading-tight">{app.label}</span>
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>{/* end page 2 */}
