@@ -6,21 +6,19 @@ import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 const APPS = [
-  { label: "Contacts",     href: "/admin/contacts",        color: "#888" },
-  { label: "Shoots",       href: "/admin/shoots",           color: "#888" },
-  { label: "Calendar",     href: "/dashboard/calendar",     color: "#888" },
-  { label: "Shoot Board",  href: "/dashboard/board",        color: "#888" },
-  { label: "Todos",        href: "/admin/todos",            color: "#888" },
-  { label: "Marketing",    href: "/dashboard/marketing",    color: "#888" },
-  { label: "Outreach",     href: "/dashboard/outreach",     color: "#888" },
-  { label: "Analytics",    href: "/dashboard/analytics",    color: "#888" },
-  { label: "Quotes",       href: "/dashboard/quotes",       color: "#888" },
-  { label: "Time Tracker", href: "/admin/time-tracker",     color: "#888" },
-  { label: "Cold Calls",   href: "/admin/cold-calls",       color: "#888" },
-  { label: "Updates",      href: "/admin/updates",          color: "#888" },
-  { label: "Revenue",      href: "/dashboard",              color: "#888" },
-  { label: "Shoot Log",    href: "/dashboard",              color: "#888" },
-  { label: "Employees",    href: "/dashboard",              color: "#888" },
+  { label: "Contacts",    href: "/admin/contacts",        color: "#888" },
+  { label: "Shoots",      href: "/admin/shoots",           color: "#888" },
+  { label: "Calendar",    href: "/dashboard/calendar",     color: "#888" },
+  { label: "Shoot Board", href: "/dashboard/board",        color: "#888" },
+  { label: "Todos",       href: "/admin/todos",            color: "#888" },
+  { label: "Marketing",   href: "/dashboard/marketing",    color: "#888" },
+  { label: "Outreach",    href: "/dashboard/outreach",     color: "#888" },
+  { label: "Analytics",   href: "/dashboard/analytics",    color: "#888" },
+  { label: "Quotes",      href: "/dashboard/quotes",       color: "#888" },
+  { label: "Revenue",     href: "/dashboard/revenue",      color: "#888" },
+  { label: "Shoot Log",   href: "/dashboard",              color: "#888" },
+  { label: "Team",        href: "/admin/team",             color: "#888" },
+  { label: "Updates",     href: "/admin/updates",          color: "#888" },
 ];
 
 function APP_ICON({ name, color }: { name: string; color: string }) {
@@ -35,12 +33,10 @@ function APP_ICON({ name, color }: { name: string; color: string }) {
     "Outreach":     <><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" {...s}/><polyline points="22,6 12,13 2,6" {...s}/></>,
     "Analytics":    <><line x1="18" y1="20" x2="18" y2="10" {...s}/><line x1="12" y1="20" x2="12" y2="4" {...s}/><line x1="6" y1="20" x2="6" y2="14" {...s}/></>,
     "Quotes":       <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" {...s}/></>,
-    "Time Tracker": <><circle cx="12" cy="12" r="10" {...s}/><polyline points="12 6 12 12 16 14" {...s}/></>,
-    "Cold Calls":   <><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 11.8a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.54a16 16 0 0 0 6.08 6.08l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" {...s}/></>,
     "Updates":      <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" {...s}/><path d="M13.73 21a2 2 0 0 1-3.46 0" {...s}/></>,
     "Revenue":      <><line x1="12" y1="1" x2="12" y2="23" {...s}/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" {...s}/></>,
     "Shoot Log":    <><rect x="3" y="3" width="18" height="18" rx="2" {...s}/><path d="M3 9h18" {...s}/><path d="M9 21V9" {...s}/></>,
-    "Employees":    <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" {...s}/><circle cx="9" cy="7" r="4" {...s}/><path d="M23 21v-2a4 4 0 0 0-3-3.87" {...s}/><path d="M16 3.13a4 4 0 0 1 0 7.75" {...s}/></>,
+    "Team":         <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" {...s}/><circle cx="9" cy="7" r="4" {...s}/><path d="M23 21v-2a4 4 0 0 0-3-3.87" {...s}/><path d="M16 3.13a4 4 0 0 1 0 7.75" {...s}/></>,
   };
   return (
     <svg viewBox="0 0 24 24" width="28" height="28" className="md:w-9 md:h-9">

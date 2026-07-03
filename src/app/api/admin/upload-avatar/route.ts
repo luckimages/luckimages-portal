@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import sharp from "sharp";
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -30,9 +31,16 @@ export async function POST(req: NextRequest) {
   );
 
   const bytes = await file.arrayBuffer();
-  const { error } = await supabaseAdmin.storage
-    .from("avatars")
-    .upload(contactId, bytes, { contentType: file.type, upsert: true });
+  const compressed = await sharp(Buffer.from(bytes))
+    .resize(400, 400, { fit: "cover", position: "center" })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  const { error } = await supabaseAdmin.storage.from("avatars").upload(contactId, compressed, {
+    contentType: "image/jpeg",
+    upsert: true,
+    cacheControl: "public, max-age=86400",
+  });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
