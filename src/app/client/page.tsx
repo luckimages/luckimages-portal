@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
-import HomeNav from "@/components/HomeNav";
+import Image from "next/image";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -51,12 +51,13 @@ export default function ClientPage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push("/login"); return; }
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
-      // Detect if user signed in via magic link (no password set yet)
+      // Redirect magic-link users to set a password before entering the portal
       const identities = data.user.identities ?? [];
       const hasEmailPassword = identities.some(i => i.provider === "email" && i.identity_data?.email_verified);
       const lastSignIn = data.user.last_sign_in_at ?? "";
-      // If they have no password, their only identity will be via OTP/magic link
-      setHasPassword(data.user.user_metadata?.has_password === true || (!lastSignIn.includes("otp") && hasEmailPassword));
+      const hp = data.user.user_metadata?.has_password === true || (!lastSignIn.includes("otp") && hasEmailPassword);
+      setHasPassword(hp);
+      if (!hp) { router.push("/set-password"); return; }
       const uid = data.user.id;
       const { data: contactRow } = await supabase.from("contacts").select("id, name, phone, brokerage").eq("user_id", uid).single();
       if (contactRow?.id) {
@@ -187,55 +188,19 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      <div className="relative z-10 h-20">
-        <HomeNav />
+      {/* Portal nav */}
+      <div className="relative z-10 flex items-center justify-between px-6 py-5">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Image src="/logo.png" alt="Luck Images" width={32} height={32} className="w-8 h-8" />
+          <span className="text-base font-black tracking-tight uppercase whitespace-nowrap">Luck Images</span>
+        </Link>
+        <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-white/40 hover:text-white transition-colors">
+          Sign Out
+        </button>
       </div>
 
       <div className="relative z-10 flex-1 px-4 md:px-8 pt-10 pb-10 max-w-5xl mx-auto w-full">
 
-        {/* Set password prompt — shown to magic-link users who haven't set one yet */}
-        {!hasPassword && passwordStatus !== "success" && (
-          <div className="mb-6 bg-[#fbbf2408] border border-[#fbbf24]/20 p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <p className="text-xs tracking-[2px] uppercase text-[#fbbf24] mb-1">Set a Password</p>
-                <p className="text-xs text-[#666] mb-4">You signed in with a magic link. Set a password so you can log in directly next time.</p>
-                <form onSubmit={savePassword} className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="password"
-                    placeholder="New password (8+ chars)"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] flex-1"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] flex-1"
-                  />
-                  <button
-                    type="submit"
-                    disabled={passwordStatus === "saving"}
-                    className="bg-[#fbbf24] text-black text-xs tracking-[2px] uppercase font-semibold px-6 py-2.5 hover:bg-[#fbbf24]/90 transition-colors disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {passwordStatus === "saving" ? "Saving..." : "Save Password"}
-                  </button>
-                </form>
-                {passwordError && <p className="text-xs text-red-400 mt-2">{passwordError}</p>}
-              </div>
-              <button onClick={() => setHasPassword(true)} className="text-[#444] hover:text-white transition-colors text-lg leading-none flex-shrink-0">✕</button>
-            </div>
-          </div>
-        )}
-
-        {passwordStatus === "success" && (
-          <div className="mb-6 bg-[#4ade8008] border border-[#4ade80]/20 p-4 flex items-center justify-between">
-            <p className="text-xs text-[#4ade80] tracking-[1px]">✓ Password set — you can now log in with your email and password.</p>
-            <button onClick={() => setPasswordStatus("")} className="text-[#444] hover:text-white transition-colors text-sm">✕</button>
-          </div>
-        )}
 
         <div className="mb-8 flex items-center gap-5">
           <div className="relative shrink-0">
