@@ -182,8 +182,8 @@ export default function DashboardV2Page() {
   // Arrow keys flip between Weekly Schedule / Shoot Board
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) - 1 + MIDDLE_VIEWS.length) % MIDDLE_VIEWS.length]);
-      if (e.key === "ArrowRight") setMiddleView(v => MIDDLE_VIEWS[(MIDDLE_VIEWS.indexOf(v) + 1) % MIDDLE_VIEWS.length]);
+      if (e.key === "ArrowLeft") setSwipePage(0);
+      if (e.key === "ArrowRight") setSwipePage(1);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
