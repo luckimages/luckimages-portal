@@ -53,35 +53,35 @@ export default function LoginPage() {
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-16">
-        <div className="w-full max-w-md" style={{textShadow:"0 2px 12px rgba(0,0,0,1)"}}>
+        <div className="w-full max-w-md bg-[#0c0c0c]/90 border border-white/10 p-8 md:p-10">
 
           <div className="mb-10 text-center">
-            <p className="text-sm tracking-[6px] uppercase text-white/60 mb-3">Portal Access</p>
+            <p className="text-sm tracking-[6px] uppercase text-white/40 mb-3">Portal Access</p>
             <h1 className="text-5xl font-black tracking-tight uppercase text-white">Sign In</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <label className="text-xs tracking-[2px] uppercase text-white/70">Email</label>
+              <label className="text-xs tracking-[2px] uppercase text-[#666]">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="bg-white/5 border border-white text-white text-sm px-4 py-4 outline-none focus:bg-white/10 transition-colors placeholder:text-white/30"
+                className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs tracking-[2px] uppercase text-white/70">Password</label>
+              <label className="text-xs tracking-[2px] uppercase text-[#666]">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="bg-white/5 border border-white text-white text-sm px-4 py-4 outline-none focus:bg-white/10 transition-colors placeholder:text-white/30"
+                className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
               />
             </div>
 
@@ -95,23 +95,21 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{textShadow:"none", boxShadow:"0 4px 24px rgba(0,0,0,0.6)"}}
             >
               {loading ? "Signing in..." : "Sign In →"}
             </button>
           </form>
 
-          <div className="mt-8 flex flex-col gap-3">
+          <div className="mt-6 flex flex-col gap-3">
             <Link
               href="/register"
-              className="block text-center border-2 border-white text-white text-sm tracking-[3px] uppercase font-bold py-4 hover:bg-white hover:text-black transition-all"
-              style={{boxShadow:"0 4px 24px rgba(0,0,0,0.5)"}}
+              className="block text-center border-2 border-white/30 text-white text-sm tracking-[3px] uppercase font-bold py-4 hover:border-white hover:bg-white/5 transition-all"
             >
               New? Create a Free Account →
             </Link>
-            <p className="text-center text-xs text-white/40 tracking-[1px] pt-2">
+            <p className="text-center text-xs text-[#444] tracking-[1px] pt-2">
               Luck Images photographer?{" "}
-              <Link href="/photographer-register" className="text-white/60 hover:text-white transition-colors underline underline-offset-4">
+              <Link href="/photographer-register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
                 Join the team
               </Link>
             </p>
