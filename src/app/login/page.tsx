@@ -38,7 +38,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 z-0">
-        <img src="/hero-1.jpg" alt="" className="w-full h-full object-cover opacity-65" />
+        <img src="/hero-4.jpg" alt="" className="w-full h-full object-cover opacity-65" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />
       </div>
       <div className="relative z-10 flex flex-col min-h-screen">
