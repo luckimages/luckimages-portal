@@ -18,7 +18,7 @@ export default function ContactAvatar({ contactId, name, size = 28 }: Props) {
   if (contactId && !imgError) {
     return (
       <img
-        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${contactId}?t=0`}
+        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${contactId}`}
         alt={name}
         width={size}
         height={size}

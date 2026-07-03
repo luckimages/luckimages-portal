@@ -147,6 +147,7 @@ export default function ContactProfilePage() {
   const [inviting, setInviting] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
   const [avatarTs, setAvatarTs] = useState(0);
+  const [avatarError, setAvatarError] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
 
@@ -380,15 +381,19 @@ export default function ContactProfilePage() {
             className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 shrink-0 group cursor-pointer"
             title="Change photo"
           >
-            <img
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}${avatarTs ? `?t=${avatarTs}` : ""}`}
-              alt={contact.name}
-              className="w-full h-full object-cover"
-              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white/40 pointer-events-none">
-              {contact.name.charAt(0).toUpperCase()}
-            </div>
+            {!avatarError && (
+              <img
+                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}${avatarTs ? `?t=${avatarTs}` : ""}`}
+                alt={contact.name}
+                className="w-full h-full object-cover"
+                onError={() => setAvatarError(true)}
+              />
+            )}
+            {avatarError && (
+              <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white/40 pointer-events-none">
+                {contact.name.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               {uploadingAvatar
                 ? <span className="text-[9px] text-white tracking-wide">...</span>
