@@ -314,85 +314,89 @@ export default function DashboardV2Page() {
           </div>
 
           {middleView === "schedule" ? (
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col divide-y divide-white/10">
-              {days.map((d, i) => {
-                const isToday = d.toDateString() === today.toDateString();
-                const dayShoots = shootsOnDay(d);
-                return (
-                  <div key={i} className={`flex gap-4 py-3 px-1 ${isToday ? "bg-white/[0.02]" : ""}`}>
-                    {/* Day label */}
-                    <div className="w-14 shrink-0 flex flex-col items-start justify-start pt-0.5">
-                      <span className={`text-[10px] tracking-[2px] uppercase ${isToday ? "text-white" : "text-white/40"}`}>{DAY_NAMES[i]}</span>
-                      <span className={`text-lg font-bold leading-none mt-0.5 ${isToday ? "text-white" : "text-white/30"}`}>{d.getDate()}</span>
-                    </div>
-                    {/* Shoots */}
-                    <div className="flex-1 flex flex-col gap-2 min-w-0">
-                      {dayShoots.length === 0 ? (
-                        <p className="text-[10px] text-white/20 pt-1">—</p>
-                      ) : dayShoots.map(s => (
-                        <a
-                          key={s.id}
-                          href="/dashboard/board"
-                          className="flex items-start gap-2 hover:bg-white/5 transition-colors rounded-sm py-1"
-                        >
-                          <div className="w-1 h-full min-h-[32px] rounded-full shrink-0 mt-1" style={{ background: STATUS_COLOR[s.status] || "#888" }} />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
-                            <p className="text-[10px] text-white/50 truncate">{s.address}</p>
-                            {s.scheduled_at && (
-                              <p className="text-[10px] text-white/30">
-                                {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                              </p>
-                            )}
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex-1 min-h-0 flex flex-col">
-              {/* Dot + line tracker, centered on each column */}
-              <div className="grid relative mb-3 shrink-0" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
-                <div className="absolute top-[5px] h-px bg-white/15" style={{ left: `calc(100% / 12)`, right: `calc(100% / 12)` }} />
-                {BOARD_STAGES.map(stage => {
-                  const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
-                  const hasRed = stageShoots.some(isRed);
+            /* Mobile: rows. Desktop: 7 columns */
+            <div className="flex-1 min-h-0 overflow-auto">
+              {/* Mobile rows */}
+              <div className="md:hidden flex flex-col divide-y divide-white/10 h-full overflow-y-auto">
+                {days.map((d, i) => {
+                  const isToday = d.toDateString() === today.toDateString();
+                  const dayShoots = shootsOnDay(d);
                   return (
-                    <div key={stage.key} className="flex flex-col items-center gap-1.5">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full border-2 relative z-10 transition-colors"
-                        style={{
-                          background: hasRed ? "#f87171" : stageShoots.length > 0 ? "#fff" : "#000",
-                          borderColor: hasRed ? "#f87171" : stageShoots.length > 0 ? "#fff" : "rgba(255,255,255,0.2)",
-                        }}
-                      />
-                      <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stage.label}</span>
+                    <div key={i} className={`flex gap-4 py-3 px-1 ${isToday ? "bg-white/[0.02]" : ""}`}>
+                      <div className="w-14 shrink-0 flex flex-col items-start justify-start pt-0.5">
+                        <span className={`text-[10px] tracking-[2px] uppercase ${isToday ? "text-white" : "text-white/40"}`}>{DAY_NAMES[i]}</span>
+                        <span className={`text-lg font-bold leading-none mt-0.5 ${isToday ? "text-white" : "text-white/30"}`}>{d.getDate()}</span>
+                      </div>
+                      <div className="flex-1 flex flex-col gap-2 min-w-0">
+                        {dayShoots.length === 0 ? (
+                          <p className="text-[10px] text-white/20 pt-1">—</p>
+                        ) : dayShoots.map(s => (
+                          <a key={s.id} href="/dashboard/board" className="flex items-start gap-2 hover:bg-white/5 transition-colors rounded-sm py-1">
+                            <div className="w-1 h-full min-h-[32px] rounded-full shrink-0 mt-1" style={{ background: STATUS_COLOR[s.status] || "#888" }} />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
+                              <p className="text-[10px] text-white/50 truncate">{s.address}</p>
+                              {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-
-              <div className="flex-1 min-h-0 grid grid-cols-6">
+              {/* Desktop columns */}
+              <div className="hidden md:grid h-full" style={{ gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
+                {days.map((d, i) => {
+                  const isToday = d.toDateString() === today.toDateString();
+                  const dayShoots = shootsOnDay(d);
+                  return (
+                    <div key={i} className={`flex flex-col min-h-0 border-l border-white/10 px-2 pt-2 ${isToday ? "bg-white/[0.02]" : ""}`}>
+                      <div className="shrink-0 mb-2">
+                        <span className={`text-[10px] tracking-[2px] uppercase block ${isToday ? "text-white" : "text-white/40"}`}>{DAY_NAMES[i]}</span>
+                        <span className={`text-lg font-bold leading-none ${isToday ? "text-white" : "text-white/30"}`}>{d.getDate()}</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0">
+                        {dayShoots.length === 0 ? (
+                          <p className="text-[10px] text-white/20">—</p>
+                        ) : dayShoots.map(s => (
+                          <a key={s.id} href="/dashboard/board" className="flex items-start gap-1.5 hover:bg-white/5 transition-colors rounded-sm py-1">
+                            <div className="w-1 min-h-[28px] rounded-full shrink-0 mt-0.5" style={{ background: STATUS_COLOR[s.status] || "#888" }} />
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold text-white truncate">{s.client_name || "Client"}</p>
+                              <p className="text-[10px] text-white/50 truncate">{s.address}</p>
+                              {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 flex flex-col overflow-auto">
+              {/* Mobile: rows */}
+              <div className="md:hidden flex flex-col divide-y divide-white/10 overflow-y-auto">
                 {BOARD_STAGES.map(stage => {
                   const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
+                  const hasRed = stageShoots.some(isRed);
                   return (
-                    <div key={stage.key} className="flex flex-col min-h-0 px-5">
-                      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
-                        {stageShoots.map(sh => {
+                    <div key={stage.key} className="py-3 px-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: hasRed ? "#f87171" : stage.color }} />
+                        <span className="text-[10px] tracking-[1.5px] uppercase font-semibold text-white/60">{stage.label}</span>
+                        <span className="text-[10px] text-white/30">({stageShoots.length})</span>
+                      </div>
+                      <div className="flex flex-col gap-2 pl-4">
+                        {stageShoots.length === 0 ? <p className="text-[10px] text-white/20">—</p> : stageShoots.map(sh => {
                           const red = isRed(sh);
                           return (
-                            <a
-                              key={sh.id}
-                              href="/dashboard/board"
-                              className={`block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1 ${red ? "animate-pulse" : ""}`}
-                              style={{ borderLeftColor: red ? "#f87171" : stage.color }}
-                            >
+                            <a key={sh.id} href="/dashboard/board" className={`block border-l-2 pl-2 py-1 hover:bg-white/5 ${red ? "animate-pulse" : ""}`} style={{ borderLeftColor: red ? "#f87171" : stage.color }}>
                               <p className="text-xs font-semibold text-white truncate">{sh.client_name || "Client"}</p>
-                              <p className="text-[10px] text-white/60 truncate mt-0.5">{sh.address}</p>
-                              {red && <p className="text-[10px] text-red-400 mt-0.5">Needs attention</p>}
+                              <p className="text-[10px] text-white/60 truncate">{sh.address}</p>
+                              {red && <p className="text-[10px] text-red-400">Needs attention</p>}
                             </a>
                           );
                         })}
@@ -400,6 +404,43 @@ export default function DashboardV2Page() {
                     </div>
                   );
                 })}
+              </div>
+              {/* Desktop: columns */}
+              <div className="hidden md:flex md:flex-col flex-1 min-h-0">
+                <div className="grid relative mb-3 shrink-0" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+                  <div className="absolute top-[5px] h-px bg-white/15" style={{ left: `calc(100% / 12)`, right: `calc(100% / 12)` }} />
+                  {BOARD_STAGES.map(stage => {
+                    const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
+                    const hasRed = stageShoots.some(isRed);
+                    return (
+                      <div key={stage.key} className="flex flex-col items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full border-2 relative z-10 transition-colors" style={{ background: hasRed ? "#f87171" : stageShoots.length > 0 ? "#fff" : "#000", borderColor: hasRed ? "#f87171" : stageShoots.length > 0 ? "#fff" : "rgba(255,255,255,0.2)" }} />
+                        <span className={`text-[9px] tracking-[1.5px] uppercase font-semibold ${stageShoots.length > 0 ? "text-white" : "text-white/30"}`}>{stage.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex-1 min-h-0 grid grid-cols-6">
+                  {BOARD_STAGES.map(stage => {
+                    const stageShoots = boardShoots.filter(sh => stage.dbStatuses.includes(sh.status));
+                    return (
+                      <div key={stage.key} className="flex flex-col min-h-0 px-5">
+                        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
+                          {stageShoots.map(sh => {
+                            const red = isRed(sh);
+                            return (
+                              <a key={sh.id} href="/dashboard/board" className={`block hover:bg-white/10 transition-colors border-l-2 pl-2 py-1 ${red ? "animate-pulse" : ""}`} style={{ borderLeftColor: red ? "#f87171" : stage.color }}>
+                                <p className="text-xs font-semibold text-white truncate">{sh.client_name || "Client"}</p>
+                                <p className="text-[10px] text-white/60 truncate mt-0.5">{sh.address}</p>
+                                {red && <p className="text-[10px] text-red-400 mt-0.5">Needs attention</p>}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
