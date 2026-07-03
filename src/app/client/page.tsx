@@ -167,11 +167,11 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      <div className="relative z-10">
+      <div className="relative z-10 h-20">
         <HomeNav />
       </div>
 
-      <div className="relative z-10 flex-1 px-4 md:px-8 pt-32 pb-10 max-w-5xl mx-auto w-full">
+      <div className="relative z-10 flex-1 px-4 md:px-8 pt-10 pb-10 max-w-5xl mx-auto w-full">
 
         {/* Set password prompt — shown to magic-link users who haven't set one yet */}
         {!hasPassword && passwordStatus !== "success" && (
