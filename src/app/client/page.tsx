@@ -44,7 +44,53 @@ export default function ClientPage() {
   const [passwordStatus, setPasswordStatus] = useState<"" | "saving" | "success" | "error">("");
   const [passwordError, setPasswordError] = useState("");
 
-  const SERVICES = ["Listing Photos", "Drone", "Matterport", "Video", "Headshots"];
+  const PRIMARY_SERVICES = [
+    { key: "Listing Photos", label: "Listing Photos", from: 200 },
+    { key: "Video Walkthrough", label: "Video Walkthrough", from: 200 },
+    { key: "Matterport 3D Tour", label: "Matterport 3D Tour", from: 200 },
+    { key: "Twilight", label: "Twilight", from: 250 },
+    { key: "Drone Photos", label: "Drone Photos", from: 200 },
+    { key: "Headshots", label: "Headshots", from: 200 },
+  ];
+  const ADDON_SERVICES = [
+    { key: "Drone Add-on", label: "+ Drone Photos", from: 100 },
+    { key: "Twilight Add-on", label: "+ Twilight", from: 150 },
+    { key: "Floor Plan", label: "+ Floor Plan", from: 50 },
+    { key: "Virtual Staging", label: "+ Virtual Staging", from: 25 },
+  ];
+
+  function listingPhotosPrice(sqft: number) {
+    if (sqft <= 1500) return 200;
+    if (sqft <= 2000) return 250;
+    if (sqft <= 2500) return 300;
+    if (sqft <= 3000) return 350;
+    return 400;
+  }
+  function matterportPrice(sqft: number) {
+    if (sqft <= 2000) return 200;
+    if (sqft <= 3000) return 300;
+    if (sqft <= 4000) return 400;
+    return 500;
+  }
+  function floorPlanPrice(sqft: number) { return sqft < 2500 ? 50 : 75; }
+
+  function calcQuote(services: string[], sqft: string): { low: number; exact: boolean } {
+    const sf = parseInt(sqft) || 0;
+    let total = 0;
+    for (const s of services) {
+      if (s === "Listing Photos") total += sf ? listingPhotosPrice(sf) : 200;
+      else if (s === "Matterport 3D Tour") total += sf ? matterportPrice(sf) : 200;
+      else if (s === "Floor Plan") total += sf ? floorPlanPrice(sf) : 50;
+      else if (s === "Twilight") total += 250;
+      else if (s === "Video Walkthrough") total += 200;
+      else if (s === "Drone Photos") total += 200;
+      else if (s === "Headshots") total += 200;
+      else if (s === "Drone Add-on") total += 100;
+      else if (s === "Twilight Add-on") total += 150;
+      else if (s === "Virtual Staging") total += 25;
+    }
+    return { low: total, exact: !!sf };
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -80,10 +126,7 @@ export default function ClientPage() {
   }, [router]);
 
   function toggleService(s: string) {
-    setBooking(b => ({
-      ...b,
-      services: b.services.includes(s) ? b.services.filter(x => x !== s) : [...b.services, s]
-    }));
+    setBooking(b => ({ ...b, services: b.services.includes(s) ? b.services.filter(x => x !== s) : [...b.services, s] }));
   }
 
   async function submitBooking(e: React.FormEvent) {
@@ -437,52 +480,104 @@ export default function ClientPage() {
 
         {/* BOOK A SHOOT */}
         {tab === "book" && (
-          <div className="max-w-lg">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Book a Shoot</p>
+          <div className="max-w-2xl">
             {bookingStatus === "success" ? (
-              <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-6 text-center">
+              <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-8 text-center">
                 <p className="text-[#4ade80] text-sm tracking-wide mb-4">Shoot request submitted! We'll confirm shortly.</p>
                 <button onClick={() => { setBookingStatus(""); setTab("overview"); }} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Back to Overview</button>
               </div>
             ) : (
-              <form onSubmit={submitBooking} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className={labelCls}>Property Address</label>
-                  <input type="text" required placeholder="123 Main St, Austin, TX 78701" value={booking.address} onChange={e => setBooking(b => ({ ...b, address: e.target.value }))} className={inputCls} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={submitBooking}>
+                <div className="bg-[#111] border border-white/10 p-6 md:p-8 flex flex-col gap-6">
+
+                  {/* Address */}
                   <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Preferred Date</label>
-                    <input type="date" required value={booking.date} onChange={e => setBooking(b => ({ ...b, date: e.target.value }))} className={inputCls} />
+                    <label className={labelCls}>Property Address</label>
+                    <input type="text" required placeholder="123 Main St, Austin, TX 78701" value={booking.address} onChange={e => setBooking(b => ({ ...b, address: e.target.value }))} className={inputCls} />
                   </div>
+
+                  {/* Date + Time */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className={labelCls}>Preferred Date</label>
+                      <input type="date" required value={booking.date} onChange={e => setBooking(b => ({ ...b, date: e.target.value }))} className={inputCls} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className={labelCls}>Preferred Time</label>
+                      <input type="time" value={booking.time} onChange={e => setBooking(b => ({ ...b, time: e.target.value }))} className={inputCls} />
+                    </div>
+                  </div>
+
+                  {/* Square footage */}
                   <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Preferred Time</label>
-                    <input type="time" value={booking.time} onChange={e => setBooking(b => ({ ...b, time: e.target.value }))} className={inputCls} />
+                    <label className={labelCls}>Square Footage <span className="text-[#444]">(optional — used for quote)</span></label>
+                    <input type="number" placeholder="2400" min="0" value={booking.square_footage} onChange={e => setBooking(b => ({ ...b, square_footage: e.target.value }))} className={inputCls} />
                   </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className={labelCls}>Square Footage <span className="text-[#444]">(optional)</span></label>
-                  <input type="number" placeholder="2400" min="0" value={booking.square_footage} onChange={e => setBooking(b => ({ ...b, square_footage: e.target.value }))} className={inputCls} />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className={labelCls}>Services Needed</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {SERVICES.map(s => (
-                      <label key={s} className="flex items-center gap-3 bg-[#181818] border border-white/10 px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors">
-                        <input type="checkbox" checked={booking.services.includes(s)} onChange={() => toggleService(s)} className="accent-white w-3 h-3" />
-                        <span className="text-xs tracking-[1px] uppercase text-white">{s}</span>
-                      </label>
-                    ))}
+
+                  {/* Primary services */}
+                  <div className="flex flex-col gap-3">
+                    <label className={labelCls}>Services</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {PRIMARY_SERVICES.map(s => {
+                        const checked = booking.services.includes(s.key);
+                        return (
+                          <label key={s.key} className={`flex items-center justify-between px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
+                            <div className="flex items-center gap-3">
+                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3" />
+                              <span className="text-xs tracking-[1px] uppercase text-white">{s.label}</span>
+                            </div>
+                            <span className="text-[10px] text-[#555] whitespace-nowrap">from ${s.from}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {/* Add-ons */}
+                  <div className="flex flex-col gap-3">
+                    <label className={labelCls + " text-[#444]"}>Add-ons</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ADDON_SERVICES.map(s => {
+                        const checked = booking.services.includes(s.key);
+                        return (
+                          <label key={s.key} className={`flex items-center justify-between px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                            <div className="flex items-center gap-3">
+                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3" />
+                              <span className="text-xs tracking-[1px] uppercase text-[#aaa]">{s.label}</span>
+                            </div>
+                            <span className="text-[10px] text-[#444] whitespace-nowrap">from ${s.from}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Live quote */}
+                  {booking.services.length > 0 && (() => {
+                    const { low, exact } = calcQuote(booking.services, booking.square_footage);
+                    return (
+                      <div className="border-t border-white/10 pt-4 flex items-center justify-between">
+                        <p className="text-xs tracking-[2px] uppercase text-[#555]">Estimated Total</p>
+                        <p className="text-xl font-bold">
+                          {exact ? `$${low.toLocaleString()}` : `From $${low.toLocaleString()}`}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Notes */}
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Notes <span className="text-[#444]">(optional)</span></label>
+                    <textarea placeholder="Gate code, special instructions, parking info..." value={booking.notes} onChange={e => setBooking(b => ({ ...b, notes: e.target.value }))} className={inputCls + " resize-none h-24"} />
+                  </div>
+
+                  {bookingStatus && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">{bookingStatus}</p>}
+
+                  <button type="submit" disabled={loading || booking.services.length === 0} className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    {loading ? "Submitting..." : "Submit Booking Request →"}
+                  </button>
+
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className={labelCls}>Notes <span className="text-[#444]">(optional)</span></label>
-                  <textarea placeholder="Gate code, special instructions, parking info..." value={booking.notes} onChange={e => setBooking(b => ({ ...b, notes: e.target.value }))} className={inputCls + " resize-none h-24"} />
-                </div>
-                {bookingStatus && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">{bookingStatus}</p>}
-                <button type="submit" disabled={loading || booking.services.length === 0} className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                  {loading ? "Submitting..." : "Submit Booking Request"}
-                </button>
               </form>
             )}
           </div>
