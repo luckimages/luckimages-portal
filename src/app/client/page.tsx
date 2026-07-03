@@ -241,8 +241,8 @@ export default function ClientPage() {
             <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
           </div>
           <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-1">Welcome back</p>
-            <h1 className="text-3xl font-black tracking-tight uppercase">{userName}</h1>
+            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-2">Welcome back</p>
+            <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase">{userName}</h1>
           </div>
         </div>
 
