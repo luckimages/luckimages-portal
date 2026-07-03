@@ -161,10 +161,12 @@ export default function ClientPage() {
   const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-2 transition-colors cursor-pointer ${tab === t ? "text-white border-b border-white" : "text-[#555] hover:text-white"}`;
 
   return (
-    <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
+    <main className="min-h-screen text-white flex flex-col relative">
+      <img src="/hero-1.jpg" alt="" className="fixed inset-0 w-full h-full object-cover z-0" />
+      <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
+      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
         <div className="flex items-center gap-3 md:gap-6">
           <span className="text-xs tracking-[2px] uppercase text-[#666] hidden sm:inline">Client Portal</span>
@@ -172,7 +174,7 @@ export default function ClientPage() {
         </div>
       </header>
 
-      <div className="flex-1 px-4 md:px-8 py-8 md:py-10 max-w-5xl mx-auto w-full">
+      <div className="relative z-10 flex-1 px-4 md:px-8 py-8 md:py-10 max-w-5xl mx-auto w-full">
 
         {/* Set password prompt — shown to magic-link users who haven't set one yet */}
         {!hasPassword && passwordStatus !== "success" && (
