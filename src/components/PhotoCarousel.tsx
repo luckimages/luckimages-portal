@@ -1,22 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 type Photo = { src: string; alt?: string; missingLabel?: string };
 
 export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
 
   const isOpen = lightboxIndex !== null;
   const current = isOpen ? photos[lightboxIndex!] : null;
 
-  function prev() { setLightboxIndex((i) => ((i ?? 0) - 1 + photos.length) % photos.length); }
-  function next() { setLightboxIndex((i) => ((i ?? 0) + 1) % photos.length); }
+  const prev = useCallback(() => setLightboxIndex((i) => ((i ?? 0) - 1 + photos.length) % photos.length), [photos.length]);
+  const next = useCallback(() => setLightboxIndex((i) => ((i ?? 0) + 1) % photos.length), [photos.length]);
+
+  useEffect(() => {
+    if (isOpen) lightboxRef.current?.focus();
+  }, [isOpen]);
 
   function handleKey(e: React.KeyboardEvent) {
     if (e.key === "ArrowLeft") prev();
     if (e.key === "ArrowRight") next();
     if (e.key === "Escape") setLightboxIndex(null);
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    if (delta < -50) next();
+    else if (delta > 50) prev();
+    touchStartX.current = null;
   }
 
   return (
@@ -50,31 +68,45 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
       {/* Lightbox */}
       {isOpen && current?.src && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+          ref={lightboxRef}
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center outline-none"
           onClick={() => setLightboxIndex(null)}
           onKeyDown={handleKey}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
           tabIndex={-1}
         >
+          {/* Close */}
           <button
-            className="absolute top-6 right-8 text-white/50 hover:text-white text-xs tracking-[3px] uppercase transition-colors z-10"
+            className="absolute top-5 right-6 text-white/50 hover:text-white text-xs tracking-[3px] uppercase transition-colors z-10"
             onClick={() => setLightboxIndex(null)}
           >
             Close ✕
           </button>
+
+          {/* Prev */}
           <button
-            className="absolute left-6 text-white/40 hover:text-white text-2xl transition-colors px-4 py-8 z-10"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-2xl transition-colors px-3 py-6 z-10"
             onClick={(e) => { e.stopPropagation(); prev(); }}
           >
             ←
           </button>
-          <div onClick={(e) => e.stopPropagation()} className="w-[90vw] max-h-[90vh] px-8">
-            <img src={current.src} alt="" className="w-full max-h-[90vh] object-contain" />
-            <p className="text-center text-xs tracking-[2px] text-white/30 uppercase mt-4">
+
+          {/* Image — fills screen at 3:2 ratio, whichever dimension is tighter */}
+          <div
+            className="relative"
+            style={{ width: "min(95vw, calc(90vh * 1.5))", aspectRatio: "3/2" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={current.src} alt="" className="w-full h-full object-cover" draggable={false} />
+            <p className="absolute -bottom-7 left-0 right-0 text-center text-xs tracking-[2px] text-white/30 uppercase">
               {lightboxIndex! + 1} / {photos.length}
             </p>
           </div>
+
+          {/* Next */}
           <button
-            className="absolute right-6 text-white/40 hover:text-white text-2xl transition-colors px-4 py-8 z-10"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-2xl transition-colors px-3 py-6 z-10"
             onClick={(e) => { e.stopPropagation(); next(); }}
           >
             →

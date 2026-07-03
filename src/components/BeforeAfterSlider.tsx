@@ -80,18 +80,19 @@ export default function BeforeAfterSlider({
         <line
           x1={`${topX}%`} y1="0"
           x2={`${bottomX}%`} y2="100%"
-          stroke="#0c0c0c"
-          strokeWidth="3"
+          stroke="rgba(255,255,255,0.9)"
+          strokeWidth="5"
         />
       </svg>
 
-      {/* Handle */}
+      {/* Handle — RL logo circle */}
       <div
-        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white shadow-[0_2px_12px_rgba(0,0,0,0.5)] flex items-center justify-center gap-1 z-10"
+        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-12 h-12 rounded-full shadow-[0_2px_16px_rgba(0,0,0,0.6)] z-10 overflow-hidden"
         style={{ left: `${position}%` }}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M5 8L2 5M2 5L5 2M2 5h12M11 8l3 3m-3-3l3-3M14 8H2" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="24" fill="#0c0c0c"/>
+          <text x="24" y="30" textAnchor="middle" fill="white" fontSize="15" fontWeight="900" fontFamily="Arial, sans-serif" letterSpacing="1">RL</text>
         </svg>
       </div>
 
