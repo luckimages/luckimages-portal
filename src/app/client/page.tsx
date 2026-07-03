@@ -698,9 +698,9 @@ export default function ClientPage() {
               </div>
 
               {/* Sign out */}
-              <div className="border-t border-white/10 pt-4">
-                <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#555] hover:text-white transition-colors">
-                  Sign Out →
+              <div>
+                <button onClick={signOut} className="w-full text-center border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/5 transition-colors">
+                  Log Out →
                 </button>
               </div>
 

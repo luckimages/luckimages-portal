@@ -84,9 +84,6 @@ export default function HomeNav() {
 
         {loggedIn ? (
           <div className="flex items-center gap-3">
-            <form method="post" action="/api/auth/signout">
-              <button type="submit" className="text-xs tracking-[3px] uppercase text-white/30 hover:text-white transition-colors">Sign Out</button>
-            </form>
             <Link href={portalHref} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center hover:border-white/60 transition-colors flex-shrink-0">
               {!avatarError && avatarUrl ? (
                 <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
@@ -152,11 +149,6 @@ export default function HomeNav() {
           <Link href="/pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</Link>
           <Link href="/about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</Link>
           <Link href="/contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</Link>
-          {loggedIn && (
-            <form method="post" action="/api/auth/signout" className="px-6 pt-2 pb-1 border-t border-white/10 mt-1">
-              <button type="submit" className="text-xs tracking-[3px] uppercase text-white/30 hover:text-white transition-colors">Sign Out</button>
-            </form>
-          )}
         </div>
       )}
     </nav>
