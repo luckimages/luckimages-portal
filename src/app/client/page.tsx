@@ -493,9 +493,13 @@ export default function ClientPage() {
           </div>
         )}
 
+        {/* BOOK / SHOOT LOG / INVOICES / PROFILE — shared persistent card */}
+        {tab !== "overview" && (
+          <div className="w-full bg-[#111] border border-white/10 min-h-[680px] p-6 md:p-8">
+
         {/* BOOK A SHOOT */}
         {tab === "book" && (
-          <div className="w-full">
+          <div>
             {bookingStatus === "success" ? (
               <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-8 text-center">
                 <p className="text-[#4ade80] text-sm tracking-wide mb-4">Shoot request submitted! We'll confirm shortly.</p>
@@ -503,7 +507,7 @@ export default function ClientPage() {
               </div>
             ) : (
               <form onSubmit={submitBooking}>
-                <div className="bg-[#111] border border-white/10 p-6 md:p-8 flex flex-col gap-6">
+                <div className="flex flex-col gap-6">
 
                   {/* Address */}
                   <div className="flex flex-col gap-2">
@@ -600,69 +604,65 @@ export default function ClientPage() {
 
         {/* INVOICES */}
         {tab === "invoices" && (
-          <div className="w-full">
-            <div className="bg-[#111] border border-white/10 p-6 md:p-8">
-              {invoices.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-[#555] text-sm">No invoices yet</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm min-w-[480px]">
-                    <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
-                    <tbody>
-                      {invoices.map(inv => (
-                        <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                          <td className="px-5 py-3 text-[#888]">{new Date(inv.due_date || "").toLocaleDateString()}</td>
-                          <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
-                          <td className="px-5 py-3 text-[#888]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
-                          <td className="px-5 py-3">
-                            <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Due"}</span>
-                          </td>
-                          <td className="px-5 py-3">
-                            {!inv.paid && <button className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors">Pay Now →</button>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+          <div>
+            {invoices.length === 0 ? (
+              <div className="flex items-center justify-center h-48">
+                <p className="text-[#555] text-sm">No invoices yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[480px]">
+                  <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
+                  <tbody>
+                    {invoices.map(inv => (
+                      <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                        <td className="px-5 py-3 text-[#888]">{new Date(inv.due_date || "").toLocaleDateString()}</td>
+                        <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
+                        <td className="px-5 py-3 text-[#888]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
+                        <td className="px-5 py-3">
+                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Due"}</span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {!inv.paid && <button className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors">Pay Now →</button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
         {/* SHOOT LOG */}
         {tab === "gallery" && (
-          <div className="w-full">
-            <div className="bg-[#111] border border-white/10 p-6 md:p-8">
-              {shoots.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-[#555] text-sm mb-4">No shoots yet</p>
-                  <button onClick={() => setTab("book")} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
-                </div>
-              ) : (
-                <div className="flex flex-col divide-y divide-white/5">
-                  {shoots.map(s => {
-                    const delivered = s.status === "delivered" || s.status === "completed";
-                    return (
-                      <div key={s.id} className="flex items-center justify-between py-4 gap-4">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{s.address}</p>
-                          <p className="text-xs text-[#555] mt-0.5">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${delivered ? "bg-[#4ade8018] text-[#4ade80]" : s.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : s.status === "on_site" || s.status === "en_route" || s.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{s.status.replace("_", " ")}</span>
-                          {delivered && (
-                            <Link href={`/client/gallery/${s.id}`} className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white transition-colors whitespace-nowrap">View →</Link>
-                          )}
-                        </div>
+          <div>
+            {shoots.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 gap-4">
+                <p className="text-[#555] text-sm">No shoots yet</p>
+                <button onClick={() => setTab("book")} className="text-xs tracking-[3px] uppercase text-white border border-white/20 px-6 py-3 hover:bg-white/5 transition-colors">Book Your First Shoot</button>
+              </div>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/5">
+                {shoots.map(s => {
+                  const delivered = s.status === "delivered" || s.status === "completed";
+                  return (
+                    <div key={s.id} className="flex items-center justify-between py-4 gap-4">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{s.address}</p>
+                        <p className="text-xs text-[#555] mt-0.5">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${delivered ? "bg-[#4ade8018] text-[#4ade80]" : s.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : s.status === "on_site" || s.status === "en_route" || s.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{s.status.replace("_", " ")}</span>
+                        {delivered && (
+                          <Link href={`/client/gallery/${s.id}`} className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white transition-colors whitespace-nowrap">View →</Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -687,121 +687,122 @@ export default function ClientPage() {
             { label: "Mailing List", value: profile.mailingList ? "Subscribed" : "Not subscribed" },
           ];
           return (
-          <div className="w-full">
-            <div className="bg-[#111] border border-white/10 p-6 md:p-8 flex flex-col gap-8">
+          <div className="flex flex-col gap-8">
 
-              {/* Avatar */}
-              <div className="flex items-center gap-5">
-                <div className="relative shrink-0">
-                  <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-2xl font-bold">
-                    {!avatarError && avatarUrl
-                      ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
-                      : <span>{userName.charAt(0)}</span>}
-                  </div>
-                  <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+            {/* Avatar */}
+            <div className="flex items-center gap-5">
+              <div className="relative shrink-0">
+                <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-2xl font-bold">
+                  {!avatarError && avatarUrl
+                    ? <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
+                    : <span>{userName.charAt(0)}</span>}
                 </div>
-                <div>
-                  <p className="text-3xl font-black tracking-tight uppercase">{userName}</p>
-                  {profile.brokerage && <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">{profile.brokerage}</p>}
+                <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+              </div>
+              <div>
+                <p className="text-3xl font-black tracking-tight uppercase">{userName}</p>
+                {profile.brokerage && <p className="text-xs tracking-[2px] uppercase text-[#555] mt-1">{profile.brokerage}</p>}
+              </div>
+            </div>
+
+            {/* Info — view or edit */}
+            {!profileEditing ? (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
+                  <button onClick={() => setProfileEditing(true)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-1.5 hover:border-white/30">
+                    Edit
+                  </button>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {infoRows.map(row => row.value ? (
+                    <div key={row.label} className="flex justify-between py-3 gap-4">
+                      <span className="text-xs tracking-[1px] uppercase text-[#555] shrink-0">{row.label}</span>
+                      <span className="text-sm text-white/80 text-right">{row.value}</span>
+                    </div>
+                  ) : null)}
                 </div>
               </div>
-
-              {/* Info — view or edit */}
-              {!profileEditing ? (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
-                    <button onClick={() => setProfileEditing(true)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-1.5 hover:border-white/30">
-                      Edit
+            ) : (
+              <form onSubmit={saveProfile} className="flex flex-col gap-4">
+                <div className="flex items-center justify-between mb-0">
+                  <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
+                  <button type="button" onClick={() => setProfileEditing(false)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">Cancel</button>
+                </div>
+                {contactId && (
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold shrink-0">
+                      {!avatarError && avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} /> : <span>{userName.charAt(0)}</span>}
+                    </div>
+                    <button type="button" onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
+                      className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-2 hover:border-white/30">
+                      {uploadingAvatar ? "Uploading..." : "Change Photo"}
                     </button>
                   </div>
-                  <div className="divide-y divide-white/5">
-                    {infoRows.map(row => row.value ? (
-                      <div key={row.label} className="flex justify-between py-3 gap-4">
-                        <span className="text-xs tracking-[1px] uppercase text-[#555] shrink-0">{row.label}</span>
-                        <span className="text-sm text-white/80 text-right">{row.value}</span>
-                      </div>
-                    ) : null)}
-                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Full Name</label>
+                  <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
                 </div>
-              ) : (
-                <form onSubmit={saveProfile} className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between mb-0">
-                    <p className="text-xs tracking-[4px] uppercase text-[#555]">Personal Info</p>
-                    <button type="button" onClick={() => setProfileEditing(false)} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">Cancel</button>
-                  </div>
-                  {contactId && (
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold shrink-0">
-                        {!avatarError && avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" onError={() => setAvatarError(true)} /> : <span>{userName.charAt(0)}</span>}
-                      </div>
-                      <button type="button" onClick={() => avatarFileRef.current?.click()} disabled={uploadingAvatar}
-                        className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-2 hover:border-white/30">
-                        {uploadingAvatar ? "Uploading..." : "Change Photo"}
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Full Name</label>
-                    <input value={profile.name} onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} placeholder="Jane Smith" className={inputCls} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Email</label>
-                    <input type="email" value={profile.email} disabled className={inputCls + " opacity-40 cursor-not-allowed"} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Phone</label>
-                    <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="(512) 555-0100" className={inputCls} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Brokerage / Company</label>
-                    <input value={profile.brokerage} onChange={e => setProfile(p => ({ ...p, brokerage: e.target.value }))} placeholder="Keller Williams" className={inputCls} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Preferred Areas / Zip Codes</label>
-                    <input value={profile.areas} onChange={e => setProfile(p => ({ ...p, areas: e.target.value }))} placeholder="78701, 78704, South Austin..." className={inputCls} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Birthday</label>
-                    <input type="date" value={profile.birthday} onChange={e => setProfile(p => ({ ...p, birthday: e.target.value }))} className={inputCls} />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>How did you hear about us?</label>
-                    <select value={profile.referralSource} onChange={e => setProfile(p => ({ ...p, referralSource: e.target.value }))} className={inputCls + " cursor-pointer"}>
-                      <option value="">Select one...</option>
-                      {Object.entries(CHANNEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                  </div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={profile.mailingList} onChange={e => setProfile(p => ({ ...p, mailingList: e.target.checked }))} className="accent-white w-4 h-4" />
-                    <span className="text-xs tracking-[1px] text-[#888]">Sign me up for tips, promotions & market updates</span>
-                  </label>
-                  <button type="submit" disabled={profileStatus === "saving"}
-                    className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
-                    {profileStatus === "saving" ? "Saving..." : profileStatus === "saved" ? "Saved ✓" : profileStatus === "error" ? "Error — try again" : "Save Changes"}
-                  </button>
-                </form>
-              )}
-
-              {/* Password */}
-              <div>
-                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Password</p>
-                <Link href="/set-password" className="block text-center border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/5 transition-colors">
-                  Change Password →
-                </Link>
-              </div>
-
-              {/* Sign out */}
-              <div>
-                <button onClick={signOut} className="w-full text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors">
-                  Log Out →
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Email</label>
+                  <input type="email" value={profile.email} disabled className={inputCls + " opacity-40 cursor-not-allowed"} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Phone</label>
+                  <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="(512) 555-0100" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Brokerage / Company</label>
+                  <input value={profile.brokerage} onChange={e => setProfile(p => ({ ...p, brokerage: e.target.value }))} placeholder="Keller Williams" className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Preferred Areas / Zip Codes</label>
+                  <input value={profile.areas} onChange={e => setProfile(p => ({ ...p, areas: e.target.value }))} placeholder="78701, 78704, South Austin..." className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>Birthday</label>
+                  <input type="date" value={profile.birthday} onChange={e => setProfile(p => ({ ...p, birthday: e.target.value }))} className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className={labelCls}>How did you hear about us?</label>
+                  <select value={profile.referralSource} onChange={e => setProfile(p => ({ ...p, referralSource: e.target.value }))} className={inputCls + " cursor-pointer"}>
+                    <option value="">Select one...</option>
+                    {Object.entries(CHANNEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={profile.mailingList} onChange={e => setProfile(p => ({ ...p, mailingList: e.target.checked }))} className="accent-white w-4 h-4" />
+                  <span className="text-xs tracking-[1px] text-[#888]">Sign me up for tips, promotions & market updates</span>
+                </label>
+                <button type="submit" disabled={profileStatus === "saving"}
+                  className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
+                  {profileStatus === "saving" ? "Saving..." : profileStatus === "saved" ? "Saved ✓" : profileStatus === "error" ? "Error — try again" : "Save Changes"}
                 </button>
-              </div>
+              </form>
+            )}
 
+            {/* Password */}
+            <div>
+              <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Password</p>
+              <Link href="/set-password" className="block text-center border border-white/20 text-white text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/5 transition-colors">
+                Change Password →
+              </Link>
             </div>
+
+            {/* Sign out */}
+            <div>
+              <button onClick={signOut} className="w-full text-center bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors">
+                Log Out →
+              </button>
+            </div>
+
           </div>
           );
         })()}
+
+          </div>
+        )}
 
       </div>
     </main>
