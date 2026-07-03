@@ -217,7 +217,7 @@ export default function ClientPage() {
 
   const inputCls = "bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
   const labelCls = "text-xs tracking-[2px] uppercase text-[#666]";
-  const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors cursor-pointer whitespace-nowrap ${tab === t ? "bg-white text-black font-semibold" : "text-[#555] hover:text-white"}`;
+  const tabCls = (t: string) => `text-xs tracking-[2px] uppercase px-4 py-1.5 transition-colors cursor-pointer whitespace-nowrap ${tab === t ? "text-white border border-white/60" : "text-[#555] hover:text-white border border-transparent"}`;
 
   return (
     <main className="min-h-screen text-white flex flex-col relative">
