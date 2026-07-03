@@ -248,10 +248,10 @@ export default function DashboardV2Page() {
         touchStartX.current = null;
       }}
     >
-      {/* Dot indicators */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-50 pointer-events-none">
+      {/* Dot indicators — clickable on all screens */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3 z-50">
         {[0, 1].map(i => (
-          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${swipePage === i ? "bg-white" : "bg-white/25"}`} />
+          <button key={i} onClick={() => setSwipePage(i)} className={`w-2 h-2 rounded-full transition-all duration-300 ${swipePage === i ? "bg-white scale-125" : "bg-white/25 hover:bg-white/50"}`} />
         ))}
       </div>
 
@@ -267,7 +267,12 @@ export default function DashboardV2Page() {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
         <a href="/" className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase hover:opacity-70 transition-opacity whitespace-nowrap leading-none">Luck Images</a>
-        <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSwipePage(p => p === 0 ? 1 : 0)} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">
+            {swipePage === 0 ? "Apps →" : "← Back"}
+          </button>
+          <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
+        </div>
       </header>
 
       {/* Centered content column — matches the classic dashboard's max-w container */}
