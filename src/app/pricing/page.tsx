@@ -1,6 +1,7 @@
 import Link from "next/link";
 import HomeNav from "@/components/HomeNav";
 import FadeUp from "@/components/FadeUp";
+import QuoteGenerator from "@/components/QuoteGenerator";
 
 const STANDALONE = [
   {
@@ -125,6 +126,16 @@ export default function PricingPage() {
         </p>
       </FadeUp>
 
+      {/* Quote Generator */}
+      <FadeUp>
+        <section className="px-6 pb-20 max-w-2xl mx-auto w-full">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Get a Quote
+          </p>
+          <QuoteGenerator />
+        </section>
+      </FadeUp>
+
       {/* Standalone Services */}
       <FadeUp>
         <section className="px-6 pb-20 max-w-5xl mx-auto w-full">
@@ -174,23 +185,6 @@ export default function PricingPage() {
               </div>
             ))}
           </div>
-        </section>
-      </FadeUp>
-
-      {/* CTA */}
-      <FadeUp>
-        <section className="px-6 pb-32 text-center">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-6">Not sure what you need?</p>
-          <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-4">Get a Quote</h2>
-          <p className="text-[#666] text-sm mb-10 max-w-sm mx-auto leading-relaxed">
-            Tell us about your listing and we&apos;ll put together the perfect package.
-          </p>
-          <Link
-            href="/quote"
-            className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 hover:bg-white/90 transition-all inline-block"
-          >
-            Quote Now
-          </Link>
         </section>
       </FadeUp>
 
