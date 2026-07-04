@@ -39,22 +39,12 @@ function formatPath(path: string) {
   return path === "/" ? "Homepage" : path;
 }
 
-type AdsData = {
-  configured: boolean;
-  error?: string;
-  totals?: { impressions: number; clicks: number; spend: number; conversions: number; ctr: number; avgCpc: number };
-  campaigns?: { name: string; impressions: number; clicks: number; spend: number; conversions: number; ctr: number; avgCpc: number }[];
-  keywords?: { text: string; matchType: string; impressions: number; clicks: number; spend: number; conversions: number; ctr: number; avgCpc: number }[];
-  searchTerms?: { term: string; impressions: number; clicks: number; spend: number; conversions: number; ctr: number }[];
-};
-
 export default function AnalyticsPage() {
   const router = useRouter();
   const [range, setRange] = useState(30);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRegistrations, setShowRegistrations] = useState(false);
-  const [ads, setAds] = useState<AdsData | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -69,13 +59,6 @@ export default function AnalyticsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { setData(d); setLoading(false); });
   }, [range]);
-
-  useEffect(() => {
-    fetch("/api/google-ads")
-      .then((r) => r.json())
-      .then(setAds)
-      .catch(() => setAds({ configured: false }));
-  }, []);
 
   const maxViews = data ? Math.max(1, ...data.dailyTraffic.map((d) => d.views)) : 1;
 
@@ -391,132 +374,6 @@ export default function AnalyticsPage() {
           </>
         )}
 
-        {/* ── Google Ads ── */}
-        <section className="space-y-6">
-          <div>
-            <p className="text-xs tracking-[4px] uppercase text-[#facc15] mb-1">Google Ads</p>
-            <h2 className="text-xl font-black tracking-tight uppercase">Paid Search</h2>
-          </div>
-
-          {!ads ? (
-            <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
-          ) : !ads.configured ? (
-            <div className="border border-white/10 bg-[#111] p-8 text-center space-y-3">
-              <p className="text-sm text-white/50">Google Ads not connected yet.</p>
-              <p className="text-xs text-white/30">Add credentials to <code className="text-[#facc15]">.env.local</code> to see your campaign data here.</p>
-            </div>
-          ) : ads.error ? (
-            <div className="border border-red-900/40 bg-red-950/20 p-6">
-              <p className="text-xs text-red-400">{ads.error}</p>
-            </div>
-          ) : ads.totals ? (
-            <>
-              {/* Totals row */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-white/5 border border-white/5">
-                {[
-                  { label: "Impressions", value: ads.totals.impressions.toLocaleString(), color: "text-white" },
-                  { label: "Clicks", value: ads.totals.clicks.toLocaleString(), color: "text-[#facc15]" },
-                  { label: "Spend", value: `$${ads.totals.spend.toFixed(2)}`, color: "text-[#f87171]" },
-                  { label: "Conversions", value: ads.totals.conversions.toFixed(1), color: "text-[#4ade80]" },
-                  { label: "CTR", value: `${(ads.totals.ctr * 100).toFixed(2)}%`, color: "text-[#60a5fa]" },
-                  { label: "Avg CPC", value: `$${ads.totals.avgCpc.toFixed(2)}`, color: "text-[#c084fc]" },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-[#111] px-5 py-4">
-                    <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
-                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Last 30d · {label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Campaigns */}
-              {ads.campaigns && ads.campaigns.length > 0 && (
-                <div>
-                  <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Campaigns</p>
-                  <div className="border border-white/5 overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-white/5">
-                          {["Campaign", "Impressions", "Clicks", "CTR", "Spend", "Conv."].map(h => (
-                            <th key={h} className="px-4 py-2 text-left text-[10px] tracking-[2px] uppercase text-[#444]">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ads.campaigns.map((c) => (
-                          <tr key={c.name} className="border-b border-white/5 hover:bg-white/[0.02]">
-                            <td className="px-4 py-2.5 text-white/80 max-w-[200px] truncate">{c.name}</td>
-                            <td className="px-4 py-2.5 text-white/60">{c.impressions.toLocaleString()}</td>
-                            <td className="px-4 py-2.5 text-[#facc15]">{c.clicks.toLocaleString()}</td>
-                            <td className="px-4 py-2.5 text-[#60a5fa]">{(c.ctr * 100).toFixed(2)}%</td>
-                            <td className="px-4 py-2.5 text-[#f87171]">${c.spend.toFixed(2)}</td>
-                            <td className="px-4 py-2.5 text-[#4ade80]">{c.conversions.toFixed(1)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Top keywords */}
-              {ads.keywords && ads.keywords.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Top Keywords</p>
-                    <div className="border border-white/5 overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-white/5">
-                            {["Keyword", "Clicks", "CTR", "CPC"].map(h => (
-                              <th key={h} className="px-4 py-2 text-left text-[10px] tracking-[2px] uppercase text-[#444]">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ads.keywords.slice(0, 10).map((k) => (
-                            <tr key={k.text} className="border-b border-white/5 hover:bg-white/[0.02]">
-                              <td className="px-4 py-2 text-white/80 max-w-[160px] truncate">{k.text}</td>
-                              <td className="px-4 py-2 text-[#facc15]">{k.clicks.toLocaleString()}</td>
-                              <td className="px-4 py-2 text-[#60a5fa]">{(k.ctr * 100).toFixed(2)}%</td>
-                              <td className="px-4 py-2 text-[#c084fc]">${k.avgCpc.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Top search terms */}
-                  {ads.searchTerms && ads.searchTerms.length > 0 && (
-                    <div>
-                      <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Search Terms</p>
-                      <div className="border border-white/5 overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="border-b border-white/5">
-                              {["Term", "Clicks", "CTR"].map(h => (
-                                <th key={h} className="px-4 py-2 text-left text-[10px] tracking-[2px] uppercase text-[#444]">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {ads.searchTerms.slice(0, 10).map((t) => (
-                              <tr key={t.term} className="border-b border-white/5 hover:bg-white/[0.02]">
-                                <td className="px-4 py-2 text-white/80 max-w-[180px] truncate">{t.term}</td>
-                                <td className="px-4 py-2 text-[#facc15]">{t.clicks.toLocaleString()}</td>
-                                <td className="px-4 py-2 text-[#60a5fa]">{(t.ctr * 100).toFixed(2)}%</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          ) : null}
-        </section>
       </div>
     </main>
   );
