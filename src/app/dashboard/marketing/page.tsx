@@ -251,7 +251,8 @@ export default function MarketingPage() {
             <div>
               <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Channel Breakdown</p>
 
-              <div className="border border-white/10 bg-[#111] p-5 space-y-4 mb-px">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-px mb-px">
+              <div className="border border-white/10 bg-[#111] p-5 space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -322,7 +323,7 @@ export default function MarketingPage() {
               </div>
 
               {/* Email Outreach — dedicated card */}
-              <div className="border border-white/10 bg-[#111] p-5 space-y-4 mb-px">
+              <div className="border border-white/10 bg-[#111] p-5 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">📧</span>
@@ -371,6 +372,7 @@ export default function MarketingPage() {
                   <p className="text-xs font-bold text-[#60a5fa] tabular-nums shrink-0">{emailConvRate}% conversion</p>
                 </div>
               </div>
+              </div>{/* end 2-col grid */}
 
               {/* Generic channels table — collapsible */}
               <button
