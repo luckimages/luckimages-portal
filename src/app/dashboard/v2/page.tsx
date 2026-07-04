@@ -406,7 +406,7 @@ function DashboardV2Page() {
                   const isToday = d.toDateString() === today.toDateString();
                   const dayShoots = shootsOnDay(d);
                   return (
-                    <div key={i} className={`flex gap-4 py-3 px-1 ${isToday ? "bg-white/[0.02]" : ""}`}>
+                    <div key={i} className={`flex-1 flex gap-4 px-1 min-h-0 ${isToday ? "bg-white/[0.02]" : ""}`}>
                       <div className="w-14 shrink-0 flex flex-col items-start justify-start pt-0.5">
                         <span className={`text-[10px] tracking-[2px] uppercase ${isToday ? "text-white" : "text-white/40"}`}>{DAY_NAMES[i]}</span>
                         <span className={`text-lg font-bold leading-none mt-0.5 ${isToday ? "text-white" : "text-white/30"}`}>{d.getDate()}</span>
