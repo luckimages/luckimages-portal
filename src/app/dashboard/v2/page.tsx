@@ -310,7 +310,7 @@ export default function DashboardV2Page() {
 
   return (
     <div
-      className="relative h-screen w-screen overflow-hidden bg-black"
+      className="relative h-screen w-screen overflow-hidden bg-black flex flex-col"
       onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
       onTouchEnd={e => {
         if (touchStartX.current === null) return;
@@ -319,7 +319,25 @@ export default function DashboardV2Page() {
         touchStartX.current = null;
       }}
     >
-      {/* Dot indicators — clickable on all screens */}
+      {/* Shared header — stays fixed while pages slide */}
+      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
+        <a href="/" className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase hover:opacity-70 transition-opacity whitespace-nowrap leading-none">Luck Images</a>
+        <div className="flex items-center gap-3">
+          {swipePage === 1 && (
+            editMode ? (
+              <>
+                <button onClick={() => setEditMode(false)} className="text-xs tracking-[3px] uppercase text-white/40 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Cancel</button>
+                <button onClick={saveLayout} className="text-xs tracking-[3px] uppercase text-black bg-white px-4 py-2 hover:bg-white/90 transition-colors font-semibold">Save</button>
+              </>
+            ) : (
+              <button onClick={openEditMode} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Edit</button>
+            )
+          )}
+          <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
+        </div>
+      </header>
+
+      {/* Dot indicators */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3 z-50">
         {[0, 1].map(i => (
           <button key={i} onClick={() => setSwipePage(i)} className={`w-2 h-2 rounded-full transition-all duration-300 ${swipePage === i ? "bg-white scale-125" : "bg-white/25 hover:bg-white/50"}`} />
@@ -328,23 +346,13 @@ export default function DashboardV2Page() {
 
       {/* Sliding track — two pages side by side */}
       <div
-        className="flex h-full transition-transform duration-300 ease-out"
+        className="flex flex-1 min-h-0 transition-transform duration-300 ease-out"
         style={{ width: "200vw", transform: `translateX(${swipePage === 0 ? 0 : -50}%)` }}
       >
 
       {/* PAGE 1 — Dashboard */}
       <div className="w-screen h-full flex-shrink-0">
-    <main className="relative h-screen bg-black text-white flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
-        <a href="/" className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase hover:opacity-70 transition-opacity whitespace-nowrap leading-none">Luck Images</a>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSwipePage(p => p === 0 ? 1 : 0)} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">
-            {swipePage === 0 ? "Apps →" : "← Back"}
-          </button>
-          <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
-        </div>
-      </header>
+    <main className="relative h-full bg-black text-white flex flex-col overflow-hidden">
 
       {/* Centered content column — matches the classic dashboard's max-w container */}
       <div className="relative z-10 flex-1 min-h-0 flex flex-col max-w-7xl mx-auto w-full px-4 md:px-8">
@@ -627,22 +635,6 @@ export default function DashboardV2Page() {
 
       {/* PAGE 2 — App Grid */}
       <div className="w-screen h-full flex-shrink-0 bg-black flex flex-col overflow-hidden">
-        <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
-          <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-          <div className="flex items-center gap-3">
-            {editMode ? (
-              <>
-                <button onClick={() => setEditMode(false)} className="text-xs tracking-[3px] uppercase text-white/40 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Cancel</button>
-                <button onClick={saveLayout} className="text-xs tracking-[3px] uppercase text-black bg-white px-4 py-2 hover:bg-white/90 transition-colors font-semibold">Save</button>
-              </>
-            ) : (
-              <>
-                <button onClick={openEditMode} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Edit</button>
-                <button onClick={() => setSwipePage(0)} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">← Back</button>
-              </>
-            )}
-          </div>
-        </header>
 
         {editMode && (
           <p className="text-center text-[10px] tracking-[2px] uppercase text-white/30 pb-2 shrink-0">Drag to reorder · tap eye to hide</p>
