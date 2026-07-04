@@ -129,6 +129,7 @@ export default function DashboardV2Page() {
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(NOTIF_CATS.map(c => c.key)));
   const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
   const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   const DEFAULT_ORDER = APPS.map(a => a.label);
   const [appOrder, setAppOrder] = useState<string[]>(DEFAULT_ORDER);
@@ -219,11 +220,13 @@ export default function DashboardV2Page() {
     return () => clearInterval(id);
   }, [checked, middleView, loadShoots]);
 
-  // Arrow keys flip between Weekly Schedule / Shoot Board
+  // Arrow keys: left/right = swipe pages, up/down = toggle middle view on page 1
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") setSwipePage(0);
       if (e.key === "ArrowRight") setSwipePage(1);
+      if (e.key === "ArrowUp" || e.key === "ArrowDown")
+        setMiddleView(v => v === "schedule" ? "board" : "schedule");
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -303,12 +306,17 @@ export default function DashboardV2Page() {
   return (
     <div
       className="relative h-screen w-screen overflow-hidden bg-black flex flex-col"
-      onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+      onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }}
       onTouchEnd={e => {
-        if (touchStartX.current === null) return;
-        const dx = e.changedTouches[0].clientX - touchStartX.current;
-        if (Math.abs(dx) > 50) setSwipePage(dx < 0 ? 1 : 0);
+        const dx = touchStartX.current !== null ? e.changedTouches[0].clientX - touchStartX.current : 0;
+        const dy = touchStartY.current !== null ? e.changedTouches[0].clientY - touchStartY.current : 0;
         touchStartX.current = null;
+        touchStartY.current = null;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+          setSwipePage(dx < 0 ? 1 : 0);
+        } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50 && swipePage === 0) {
+          setMiddleView(v => v === "schedule" ? "board" : "schedule");
+        }
       }}
     >
       {/* Shared header — stays fixed while pages slide */}
