@@ -53,11 +53,11 @@ export default function LoginPage() {
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6 py-16">
-        <div className="w-full max-w-md md:max-w-lg bg-black border border-white/10 p-8 md:p-12">
+        <div className="w-full max-w-sm bg-black border border-white/10 p-8">
 
-          <div className="mb-10 text-center">
-            <p className="text-sm tracking-[6px] uppercase text-white/40 mb-3">Portal Access</p>
-            <h1 className="text-5xl font-black tracking-tight uppercase text-white">Sign In</h1>
+          <div className="mb-8 text-center">
+            <p className="text-xs tracking-[6px] uppercase text-white/40 mb-2">Portal Access</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase text-white">Sign In</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
