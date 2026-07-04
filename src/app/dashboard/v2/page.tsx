@@ -330,7 +330,7 @@ function DashboardV2Page() {
 
   return (
     <div
-      className="relative h-screen w-screen overflow-hidden bg-black flex flex-col"
+      className="relative h-screen w-full overflow-hidden bg-black flex flex-col"
       onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }}
       onTouchEnd={e => {
         const dx = touchStartX.current !== null ? e.changedTouches[0].clientX - touchStartX.current : 0;
@@ -372,11 +372,11 @@ function DashboardV2Page() {
       {/* Sliding track — two pages side by side */}
       <div
         className="flex flex-1 min-h-0 transition-transform duration-300 ease-out"
-        style={{ width: "200vw", transform: `translateX(${swipePage === 0 ? 0 : -50}%)` }}
+        style={{ width: "200%", transform: `translateX(${swipePage === 0 ? 0 : -50}%)` }}
       >
 
       {/* PAGE 1 — Dashboard */}
-      <div className="w-screen h-full flex-shrink-0">
+      <div className="w-full h-full flex-shrink-0">
     <main className="relative h-full bg-black text-white flex flex-col overflow-hidden">
 
       {/* Centered content column — matches the classic dashboard's max-w container */}
