@@ -777,8 +777,6 @@ function ShootsPage() {
     >
       {/* Nav */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-        <button onClick={() => router.push("/dashboard?page=apps")} className="text-[#555] text-sm hover:text-white transition-colors shrink-0">← Dashboard</button>
-
         {/* 3-tab toggle */}
         <div className="flex border border-white/10 overflow-hidden">
           {VIEWS.map(v => (

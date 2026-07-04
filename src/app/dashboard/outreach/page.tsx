@@ -525,15 +525,7 @@ export default function OutreachPage() {
 
   return (
     <main className="h-screen w-full bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
-      <header className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-white/10 gap-4">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
-        <div className="flex items-center gap-4 flex-wrap justify-end">
-          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</a>
-          <form action="/api/auth/signout" method="post" className="inline">
-            <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
-          </form>
-        </div>
-      </header>
+
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Page header */}

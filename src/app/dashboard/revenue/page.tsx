@@ -87,31 +87,26 @@ export default function RevenuePage() {
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
-      <header className="border-b border-white/10 px-6 md:px-8 py-5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-6">
-          <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">← Dashboard</a>
-        </div>
-        <div className="flex items-center gap-4">
-          {snap.synced_at && (
-            <span className="text-[10px] text-[#444] hidden md:block">
-              Synced {new Date(snap.synced_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-            </span>
-          )}
-          <button
-            onClick={syncNow}
-            disabled={syncing}
-            className="text-[10px] tracking-[2px] uppercase border border-white/20 px-3 py-1.5 text-[#666] hover:text-white hover:border-white/50 transition-all disabled:opacity-40"
-          >
-            {syncing ? "Syncing..." : "↻ Sync QB"}
-          </button>
-        </div>
-      </header>
-
       <div className="max-w-5xl mx-auto px-6 md:px-8 py-8 space-y-10">
-        <div>
-          <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">QuickBooks</p>
-          <h1 className="text-3xl font-black tracking-tight uppercase">Revenue</h1>
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">QuickBooks</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">Revenue</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            {snap.synced_at && (
+              <span className="text-[10px] text-[#444] hidden md:block">
+                Synced {new Date(snap.synced_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
+            <button
+              onClick={syncNow}
+              disabled={syncing}
+              className="text-[10px] tracking-[2px] uppercase border border-white/20 px-3 py-1.5 text-[#666] hover:text-white hover:border-white/50 transition-all disabled:opacity-40"
+            >
+              {syncing ? "Syncing..." : "↻ Sync QB"}
+            </button>
+          </div>
         </div>
 
         {/* Top KPI row */}

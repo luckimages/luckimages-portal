@@ -178,28 +178,25 @@ function ContactsPageInner() {
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
 
-      {/* Nav */}
-      <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-        <button onClick={() => router.push("/dashboard?page=apps")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/admin/cold-calls")}
-            className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
-          >
-            Cold Calls
-          </button>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="text-xs tracking-[1px] uppercase bg-white text-black px-4 py-2 font-bold hover:bg-[#ddd] transition-colors"
-          >
-            + New Contact
-          </button>
-        </div>
-      </div>
-
       {/* Page title + stats */}
       <div className="max-w-4xl mx-auto px-4 pt-10 pb-6">
-        <h1 className="text-4xl font-black tracking-tight leading-none uppercase mb-8">Contacts</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-black tracking-tight leading-none uppercase">Contacts</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push("/admin/cold-calls")}
+              className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
+            >
+              Cold Calls
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="text-xs tracking-[1px] uppercase bg-white text-black px-4 py-2 font-bold hover:bg-[#ddd] transition-colors"
+            >
+              + New Contact
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Leads */}
           <button

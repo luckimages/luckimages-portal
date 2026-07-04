@@ -75,12 +75,7 @@ export default function UpdatesHistoryPage() {
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/10 flex-shrink-0">
-        <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity">Luck Images</a>
-        <div className="flex items-center gap-6">
-          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</a>
-        </div>
-      </header>
+
 
       <div className="flex-1 flex flex-col px-8 py-8 max-w-5xl w-full mx-auto">
         <div className="flex items-center justify-between mb-8">

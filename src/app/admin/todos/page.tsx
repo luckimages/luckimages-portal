@@ -63,10 +63,7 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
-      <div className="border-b border-white/10 px-8 py-5 flex items-center gap-6">
-        <button onClick={() => router.push("/dashboard?page=apps")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
-        <h1 className="text-sm font-bold tracking-[3px] uppercase">✓ To Do</h1>
-      </div>
+
 
       <div className="max-w-2xl mx-auto px-8 py-8 space-y-8">
         {loading ? <p className="text-xs text-[#555] italic">Loading...</p> : (
