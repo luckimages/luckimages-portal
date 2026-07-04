@@ -385,6 +385,9 @@ export default function ShootsPage() {
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
         <button onClick={() => router.push("/dashboard?page=apps")} className="text-[#555] text-sm hover:text-white transition-colors">← Dashboard</button>
         <div className="flex items-center gap-3">
+          <a href="/dashboard/quotes" className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">
+            + New Quote
+          </a>
           <button onClick={syncSheet} disabled={syncing}
             className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
             {syncing ? "Syncing..." : "↑ Sync Sheet"}
