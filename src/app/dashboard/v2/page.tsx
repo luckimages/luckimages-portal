@@ -240,7 +240,7 @@ function DashboardV2Page() {
           } else {
             // cycle selected app on apps page
             setSelectedAppLabel(cur => {
-              const visible = APPS.filter(a => !hiddenApps.has(a.label));
+              const visible = appOrder.map(l => APPS.find(a => a.label === l)).filter((a): a is typeof APPS[0] => !!a && !hiddenApps.has(a.label));
               if (visible.length === 0) return cur;
               const idx = visible.findIndex(a => a.label === (cur ?? visible[0].label));
               const next = e.key === "ArrowDown"
@@ -255,7 +255,7 @@ function DashboardV2Page() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [hiddenApps]);
+  }, [hiddenApps, appOrder]);
 
   async function completeTodo(id: string) {
     setTodos(prev => prev.filter(t => t.id !== id));
