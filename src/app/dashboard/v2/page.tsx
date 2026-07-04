@@ -139,6 +139,7 @@ function DashboardV2Page() {
   const [editOrder, setEditOrder] = useState<string[]>(DEFAULT_ORDER);
   const [editHidden, setEditHidden] = useState<Set<string>>(new Set());
   const dragIndex = useRef<number | null>(null);
+  const [selectedAppLabel, setSelectedAppLabel] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -227,17 +228,34 @@ function DashboardV2Page() {
     return () => clearInterval(id);
   }, []);
 
-  // Arrow keys: left/right = swipe pages, up/down = toggle middle view on page 1
+  // Arrow keys: left/right = swipe pages; up/down = context-aware
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "ArrowLeft") setSwipePage(0);
       if (e.key === "ArrowRight") setSwipePage(1);
-      if (e.key === "ArrowUp" || e.key === "ArrowDown")
-        setMiddleView(v => v === "schedule" ? "board" : "schedule");
+      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+        setSwipePage(page => {
+          if (page === 0) {
+            setMiddleView(v => v === "schedule" ? "board" : "schedule");
+          } else {
+            // cycle selected app on apps page
+            setSelectedAppLabel(cur => {
+              const visible = APPS.filter(a => !hiddenApps.has(a.label));
+              if (visible.length === 0) return cur;
+              const idx = visible.findIndex(a => a.label === (cur ?? visible[0].label));
+              const next = e.key === "ArrowDown"
+                ? visible[Math.min(visible.length - 1, idx + 1)].label
+                : visible[Math.max(0, idx - 1)].label;
+              return next;
+            });
+          }
+          return page;
+        });
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [hiddenApps]);
 
   async function completeTodo(id: string) {
     setTodos(prev => prev.filter(t => t.id !== id));
@@ -645,56 +663,81 @@ function DashboardV2Page() {
     </main>
       </div>{/* end page 1 */}
 
-      {/* PAGE 2 — App Grid */}
+      {/* PAGE 2 — Apps */}
       <div className="w-screen h-full flex-shrink-0 bg-black flex flex-col overflow-hidden">
-
         {editMode && (
           <p className="text-center text-[10px] tracking-[2px] uppercase text-white/30 pb-2 shrink-0">Drag to reorder · tap eye to hide</p>
         )}
 
-        <div className="flex-1 flex items-center justify-center p-4 md:p-12 min-h-0">
-          <div className="w-full md:max-w-4xl border border-white/20 gap-px bg-white/10 grid grid-cols-2 md:grid-cols-4">
+        {/* MOBILE: 4×2 grid (or edit mode on any screen) */}
+        <div className={`${editMode ? "flex" : "flex md:hidden"} flex-1 items-center justify-center p-4 min-h-0`}>
+          <div className="w-full border border-white/20 gap-px bg-white/10 grid grid-cols-2">
             {(editMode ? editOrder : appOrder).map((label, i) => {
               const app = APPS.find(a => a.label === label);
               if (!app) return null;
               const isHidden = editMode ? editHidden.has(label) : hiddenApps.has(label);
               if (!editMode && isHidden) return null;
               return editMode ? (
-                <div
-                  key={label}
-                  draggable
-                  onDragStart={() => onDragStart(i)}
-                  onDragOver={e => onDragOver(e, i)}
-                  onDragEnd={onDragEnd}
-                  className={`bg-black flex flex-col items-center justify-center gap-3 p-5 md:p-8 cursor-grab active:cursor-grabbing relative transition-opacity ${isHidden ? "opacity-30" : "opacity-100"}`}
-                >
+                <div key={label} draggable onDragStart={() => onDragStart(i)} onDragOver={e => onDragOver(e, i)} onDragEnd={onDragEnd}
+                  className={`bg-black flex flex-col items-center justify-center gap-3 p-5 cursor-grab active:cursor-grabbing relative transition-opacity ${isHidden ? "opacity-30" : "opacity-100"}`}>
                   <APP_ICON name={app.label} color={app.color} />
-                  <span className="text-[9px] md:text-[10px] tracking-[2px] uppercase text-white/50 text-center leading-tight">{app.label}</span>
-                  <button
-                    onClick={() => toggleHide(label)}
-                    className="absolute top-2 right-2 text-white/30 hover:text-white transition-colors"
-                    title={isHidden ? "Show" : "Hide"}
-                  >
-                    {isHidden ? (
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth={1.5}/></svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    )}
+                  <span className="text-[9px] tracking-[2px] uppercase text-white/50 text-center leading-tight">{app.label}</span>
+                  <button onClick={() => toggleHide(label)} className="absolute top-2 right-2 text-white/30 hover:text-white transition-colors">
+                    {isHidden
+                      ? <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth={1.5}/></svg>
+                      : <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.5}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
                   </button>
                 </div>
               ) : (
-                <a
-                  key={label}
-                  href={app.href}
-                  className="bg-black flex flex-col items-center justify-center gap-3 p-5 md:p-8 hover:bg-white/5 active:bg-white/10 transition-colors group"
-                >
+                <a key={label} href={app.href} className="bg-black flex flex-col items-center justify-center gap-3 p-5 hover:bg-white/5 active:bg-white/10 transition-colors group">
                   <APP_ICON name={app.label} color={app.color} />
-                  <span className="text-[9px] md:text-[10px] tracking-[2px] uppercase text-white/50 group-hover:text-white transition-colors text-center leading-tight">{app.label}</span>
+                  <span className="text-[9px] tracking-[2px] uppercase text-white/50 group-hover:text-white transition-colors text-center leading-tight">{app.label}</span>
                 </a>
               );
             })}
           </div>
         </div>
+
+        {/* DESKTOP: sidebar + iframe */}
+        {!editMode && (() => {
+          const visibleApps = appOrder.map(l => APPS.find(a => a.label === l)).filter((a): a is typeof APPS[0] => !!a && !hiddenApps.has(a.label));
+          const activeLabel = selectedAppLabel && visibleApps.find(a => a.label === selectedAppLabel) ? selectedAppLabel : visibleApps[0]?.label ?? null;
+          const activeApp = visibleApps.find(a => a.label === activeLabel) ?? null;
+          return (
+            <div className="hidden md:flex flex-1 min-h-0">
+              {/* Sidebar */}
+              <div className="w-20 flex flex-col border-r border-white/10 overflow-y-auto shrink-0">
+                {visibleApps.map(app => {
+                  const isActive = app.label === activeLabel;
+                  return (
+                    <button key={app.label} onClick={() => setSelectedAppLabel(app.label)}
+                      className={`flex flex-col items-center justify-center gap-1.5 py-4 px-1 transition-all border-l-2 ${isActive ? "border-white bg-white/5" : "border-transparent hover:bg-white/[0.03] hover:border-white/20"}`}>
+                      <APP_ICON name={app.label} color={isActive ? "#fff" : "#555"} />
+                      <span className={`text-[7px] tracking-[1.5px] uppercase text-center leading-tight transition-colors ${isActive ? "text-white" : "text-white/30"}`}>{app.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* App panel */}
+              <div className="flex-1 min-w-0 relative">
+                {activeApp ? (
+                  <iframe
+                    key={activeApp.href}
+                    src={activeApp.href}
+                    className="w-full h-full border-0 bg-[#0c0c0c]"
+                    title={activeApp.label}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs tracking-[3px] uppercase text-white/20">Select an app</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>{/* end page 2 */}
 
       </div>{/* end sliding track */}
