@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import HomeNav from "@/components/HomeNav";
+import { SERVICES } from "@/lib/services";
 
 export const metadata: Metadata = {
   title: "Real Estate Photography Austin TX | Luck Images",
@@ -13,33 +15,57 @@ export const metadata: Metadata = {
   },
 };
 
-const services = [
-  {
-    name: "Listing Photography",
-    icon: "📸",
-    description: "HDR photography that makes every room look its best. We shoot with professional lighting and process every image to magazine quality. Standard turnaround is 24 hours.",
-  },
-  {
-    name: "Drone Photography & Video",
-    icon: "🚁",
-    description: "FAA Part 107 certified aerial photography and video. Show the neighborhood, lot size, proximity to amenities, and the full exterior from angles no ground camera can reach.",
-  },
-  {
-    name: "Matterport 3D Tours",
-    icon: "🏠",
-    description: "Interactive 3D virtual tours that let buyers walk through a home online before booking a showing. Proven to increase listing views and reduce days on market.",
-  },
-  {
-    name: "Real Estate Video",
-    icon: "🎬",
-    description: "Cinematic walkthrough videos for listings, developments, and luxury properties. Social-ready cuts included for Instagram and YouTube.",
-  },
-  {
-    name: "Headshots",
-    icon: "🤝",
-    description: "Professional headshots for real estate agents who want to look sharp on business cards, social media, and the MLS.",
-  },
-];
+// Photos available per service slug
+const servicePhotos: Record<string, string[]> = {
+  "listing-photos": [
+    "/portfolio/listing-photos/1005PartidaTrail-19.jpg",
+    "/portfolio/listing-photos/1008ConcordiaDr-27.jpg",
+    "/portfolio/listing-photos/104WesthavenDrive-33.jpg",
+    "/portfolio/listing-photos/2506CarlowDr-10.jpg",
+    "/portfolio/listing-photos/2506CarlowDr-11.jpg",
+    "/portfolio/listing-photos/315RingtailStreamDr-13.jpg",
+    "/portfolio/listing-photos/315RingtailStreamDr-17.jpg",
+    "/portfolio/listing-photos/5409Hitcherbend-18.jpg",
+    "/portfolio/listing-photos/593CrosswaterLn-31.jpg",
+    "/portfolio/listing-photos/6701BackBayLn-10.jpg",
+    "/portfolio/listing-photos/6701BackBayLn-15.jpg",
+    "/portfolio/listing-photos/6701BackBayLn-17.jpg",
+  ],
+  "drone": [
+    "/portfolio/drone/104WesthavenDrone-5.jpg",
+    "/portfolio/drone/1107CountryRoad322Drone-3.jpg",
+    "/portfolio/drone/1136CountyRoad484Drone-5.jpg",
+    "/portfolio/drone/116MallardDrone-2.jpg",
+    "/portfolio/drone/1802MapleDrone-2.jpg",
+    "/portfolio/drone/197BristleconeDr-Drone-15.jpg",
+    "/portfolio/drone/drone-1.jpg",
+  ],
+  "twilight": [
+    "/portfolio/twilight/WebTwilight-2.jpg",
+    "/portfolio/twilight/WebTwilight-3.jpg",
+  ],
+  "virtual-staging": [
+    "/portfolio/virtual-staging/webVS-1.jpg",
+    "/portfolio/virtual-staging/webVS-2.jpg",
+    "/portfolio/virtual-staging/webVS-5.jpg",
+    "/portfolio/virtual-staging/webVS-6.jpg",
+    "/portfolio/virtual-staging/webVS-7.jpg",
+    "/portfolio/virtual-staging/webVS-8.jpg",
+    "/portfolio/virtual-staging/webVS-11.jpg",
+    "/portfolio/virtual-staging/webVS-12.jpg",
+  ],
+};
+
+const serviceDescriptions: Record<string, string> = {
+  "listing-photos": "HDR photography processed to magazine quality with professional lighting. Standard 24-hour delivery. Every image sky-replaced and color-corrected.",
+  "video": "Cinematic walkthrough videos for listings, developments, and luxury properties. Social-ready cuts for Instagram and YouTube included.",
+  "twilight": "Twilight and golden-hour shoots that make a listing unforgettable. Scheduled around optimal light — no extra planning required.",
+  "drone": "FAA Part 107 certified aerial photography and video. Show the neighborhood, lot size, and full exterior from angles no ground camera can reach.",
+  "matterport": "Interactive 3D virtual tours that let buyers walk through a home online before booking a showing. Proven to increase listing views.",
+  "virtual-staging": "AI-powered virtual staging that fills empty rooms with high-end furniture — delivered in 24 hours at a fraction of the cost of physical staging.",
+  "floorplans": "Accurate, professionally drawn floorplans that give buyers the spatial context they need. Delivered alongside listing photos.",
+  "brochures": "Print-ready listing brochures designed to match your brand. High-resolution PDFs ready for print or digital distribution.",
+};
 
 const areas = [
   "Austin", "Round Rock", "Cedar Park", "Georgetown", "Pflugerville",
@@ -72,52 +98,112 @@ const faqs = [
 export default function AustinRealEstatePhotographyPage() {
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white">
+      <HomeNav />
 
-      {/* Hero */}
-      <section className="px-6 md:px-16 py-24 max-w-5xl mx-auto">
-        <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-4">Austin, Texas</p>
-        <h1 className="text-4xl md:text-6xl font-black tracking-tight uppercase leading-none mb-6">
-          Real Estate<br />Photography<br />Austin TX
-        </h1>
-        <p className="text-lg text-white/60 max-w-2xl mb-10">
-          Luck Images provides professional real estate photography, drone, Matterport 3D tours, and video for Austin&apos;s top agents and developers. We guarantee 24-hour photo delivery on every shoot.
-        </p>
-        <div className="flex flex-wrap gap-4">
-          <Link
-            href="/quote"
-            className="px-8 py-3 bg-white text-black text-sm font-bold tracking-[2px] uppercase hover:bg-white/90 transition-colors"
-          >
-            Book a Shoot
-          </Link>
-          <a
-            href="tel:+15123751585"
-            className="px-8 py-3 border border-white/20 text-sm font-bold tracking-[2px] uppercase hover:border-white/50 transition-colors"
-          >
-            (512) 375-1585
-          </a>
+      {/* Hero — Austin skyline full bleed */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <img
+          src="/hero-1.jpg"
+          alt="Austin TX skyline — Luck Images real estate photography"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-black/60" />
+        <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
+          <p className="text-xs tracking-[5px] uppercase text-white/50 mb-6">Austin, Texas</p>
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight uppercase leading-none mb-8">
+            Real Estate<br />Photography<br />Austin TX
+          </h1>
+          <p className="text-lg text-white/60 max-w-xl mx-auto mb-10">
+            Professional photography, drone, Matterport 3D tours, and video for Austin&apos;s top agents and developers. 24-hour delivery guaranteed.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <Link
+              href="/register"
+              className="px-10 py-4 bg-white text-black text-xs font-bold tracking-[3px] uppercase hover:bg-white/90 transition-colors"
+            >
+              Create Portal Account →
+            </Link>
+            <a
+              href="tel:+15123751585"
+              className="px-10 py-4 border border-white/30 text-xs font-bold tracking-[3px] uppercase hover:border-white hover:bg-white/5 transition-all"
+            >
+              (512) 375-1585
+            </a>
+          </div>
+        </div>
+        {/* Scroll hint */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30">
+          <span className="text-[10px] tracking-[3px] uppercase">Scroll</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4 animate-bounce">
+            <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+          </svg>
         </div>
       </section>
 
-      {/* Services */}
-      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-10 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+      {/* Client Portal callout */}
+      <section className="border-b border-white/10 px-6 md:px-16 py-12 max-w-5xl mx-auto">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-2">Luck Images Client Portal</p>
+            <h2 className="text-xl font-black uppercase tracking-tight">Your shoots, galleries, and invoices — all in one place.</h2>
+            <p className="text-sm text-white/50 mt-2 max-w-xl">
+              Book shoots, download your delivered photos, pay invoices, and track your order status from any device. Built for Austin agents who move fast.
+            </p>
+          </div>
+          <div className="flex gap-3 shrink-0">
+            <Link href="/register" className="px-6 py-3 bg-white text-black text-xs font-bold tracking-[2px] uppercase hover:bg-white/90 transition-colors whitespace-nowrap">
+              Register Free
+            </Link>
+            <Link href="/login" className="px-6 py-3 border border-white/20 text-xs font-bold tracking-[2px] uppercase hover:border-white/60 transition-colors whitespace-nowrap">
+              Sign In
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Services — all 8 with carousels where photos exist */}
+      <section className="px-6 md:px-16 py-20 max-w-5xl mx-auto">
+        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-16 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
           Services
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {services.map((s) => (
-            <div key={s.name} className="border border-white/10 p-6 space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{s.icon}</span>
-                <h2 className="text-base font-bold tracking-wide uppercase">{s.name}</h2>
+        <div className="space-y-20">
+          {SERVICES.map((s) => {
+            const photos = servicePhotos[s.slug] ?? [];
+            return (
+              <div key={s.slug} className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+                {/* Text */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-[#a78bfa]">{s.icon}</span>
+                    <h2 className="text-sm font-bold tracking-[3px] uppercase">{s.name}</h2>
+                  </div>
+                  <p className="text-sm text-white/50 leading-relaxed mb-6">
+                    {serviceDescriptions[s.slug] ?? "Available in Austin and the greater metro area."}
+                  </p>
+                  <Link
+                    href={`/services/${s.slug}`}
+                    className="text-xs tracking-[2px] uppercase text-white/40 hover:text-white border-b border-white/10 hover:border-white/40 pb-0.5 transition-colors"
+                  >
+                    View gallery →
+                  </Link>
+                </div>
+
+                {/* Photos or placeholder */}
+                {photos.length > 0 ? (
+                  <ServiceCarousel photos={photos} alt={s.name} />
+                ) : (
+                  <div className="aspect-[4/3] bg-[#111] border border-white/5 flex items-center justify-center">
+                    <span className="text-xs tracking-[2px] uppercase text-white/20">Photos coming soon</span>
+                  </div>
+                )}
               </div>
-              <p className="text-sm text-white/50 leading-relaxed">{s.description}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
       {/* Why Luck Images */}
-      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto">
+      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto border-t border-white/5">
         <p className="text-xs tracking-[4px] uppercase text-[#555] mb-10 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
           Why Luck Images
         </p>
@@ -136,8 +222,8 @@ export default function AustinRealEstatePhotographyPage() {
         </div>
       </section>
 
-      {/* Service areas */}
-      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto">
+      {/* Areas served */}
+      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto border-t border-white/5">
         <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
           Areas Served
         </p>
@@ -152,7 +238,7 @@ export default function AustinRealEstatePhotographyPage() {
       </section>
 
       {/* FAQ */}
-      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto">
+      <section className="px-6 md:px-16 py-16 max-w-5xl mx-auto border-t border-white/5">
         <p className="text-xs tracking-[4px] uppercase text-[#555] mb-10 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
           FAQ
         </p>
@@ -166,18 +252,48 @@ export default function AustinRealEstatePhotographyPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="px-6 md:px-16 py-20 max-w-5xl mx-auto text-center">
-        <h2 className="text-2xl md:text-4xl font-black uppercase mb-4">Ready to book?</h2>
-        <p className="text-white/50 mb-8 text-sm">Get a quote in under 2 minutes. 24-hour turnaround guaranteed.</p>
-        <Link
-          href="/quote"
-          className="inline-block px-10 py-4 bg-white text-black text-sm font-bold tracking-[2px] uppercase hover:bg-white/90 transition-colors"
-        >
-          Get a Quote
-        </Link>
+      {/* Bottom CTA */}
+      <section className="px-6 md:px-16 py-24 border-t border-white/5">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+          <div>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight mb-2">Ready to book?</h2>
+            <p className="text-white/50 text-sm">Create your free portal account and book your first shoot in under 2 minutes.</p>
+          </div>
+          <div className="flex gap-4 shrink-0">
+            <Link
+              href="/register"
+              className="px-10 py-4 bg-white text-black text-xs font-bold tracking-[3px] uppercase hover:bg-white/90 transition-colors whitespace-nowrap"
+            >
+              Get Started →
+            </Link>
+            <Link
+              href="/pricing"
+              className="px-10 py-4 border border-white/20 text-xs font-bold tracking-[3px] uppercase hover:border-white/60 transition-colors whitespace-nowrap"
+            >
+              View Pricing
+            </Link>
+          </div>
+        </div>
       </section>
-
     </main>
+  );
+}
+
+// Client-side carousel component (inline to keep file self-contained)
+function ServiceCarousel({ photos, alt }: { photos: string[]; alt: string }) {
+  "use client";
+  // SSR-safe: render as static grid on server, enhance on client
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {photos.slice(0, 4).map((src, i) => (
+        <div key={i} className="relative overflow-hidden bg-[#111]" style={{ aspectRatio: "3/2" }}>
+          <img
+            src={src}
+            alt={`${alt} — Luck Images Austin TX`}
+            className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+          />
+        </div>
+      ))}
+    </div>
   );
 }
