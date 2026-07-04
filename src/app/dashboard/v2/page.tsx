@@ -560,56 +560,10 @@ function DashboardV2Page() {
           )}
         </div>
 
-        {/* Bottom third: To Do + Notifications side by side */}
-        <div className="flex-[1] min-h-0 pb-8 md:pb-10 grid grid-cols-2 gap-4">
-          {/* To Do — tabbed */}
-          <div className="flex flex-col min-h-0 border-2 border-white px-4 pt-3">
-            <div className="flex items-center gap-1 pb-2 mb-2 border-b border-white/20 shrink-0 overflow-x-auto">
-              {TODO_TABS.map((tab, i) => {
-                const count = getTabTasks(tab.key).length;
-                const isActive = tab.key === todoTab;
-                return (
-                  <div key={tab.key} className="flex items-center">
-                    {i > 0 && <span className="text-white/20 text-[10px] px-1">/</span>}
-                    <button
-                      onClick={() => setTodoTab(tab.key)}
-                      className={`py-1 px-0.5 text-[10px] tracking-[1.5px] uppercase font-semibold transition-colors whitespace-nowrap ${
-                        isActive ? tab.color : "text-white/30 hover:text-white/50"
-                      }`}
-                    >
-                      {tab.label}{count > 0 && <span className="opacity-60"> ({count})</span>}
-                    </button>
-                  </div>
-                );
-              })}
-              <span className="text-white/20 text-[10px] px-1">/</span>
-              <a href="/dashboard/todos" className="py-1 px-0.5 text-[10px] text-white/30 hover:text-white/60 transition-colors whitespace-nowrap">all</a>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              {tabTasks.length === 0 ? (
-                <p className="text-xs text-white/30 italic py-4">Nothing in {activeTabDef.label}.</p>
-              ) : (
-                <div className="flex flex-col divide-y divide-white/10">
-                  {tabTasks.map(t => (
-                    <div key={t.id} className="flex items-center gap-3 py-2.5">
-                      <button
-                        onClick={() => completeTodo(t.id)}
-                        className="w-4 h-4 rounded-full border border-white/30 hover:border-[#4ade80] hover:bg-[#4ade80]/20 transition-colors shrink-0"
-                      />
-                      <span className="text-sm text-white/90 truncate flex-1">{t.title || t.text}</span>
-                      {t.is_urgent && <span className="text-[9px] tracking-[1px] uppercase text-[#fbbf24] shrink-0">ASAP</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <a href="/dashboard/todos" className="border-t border-white/20 py-2 text-xs text-white/40 hover:text-white/70 transition-colors shrink-0">
-              + Add task or view all lists →
-            </a>
-          </div>
-
+        {/* Bottom third: Notifications full width */}
+        <div className="flex-[1] min-h-0 pb-8 md:pb-10">
           {/* Notifications */}
-          <div className="flex flex-col min-h-0 border-2 border-white px-4 pt-3">
+          <div className="flex flex-col min-h-0 h-full border-2 border-white px-4 pt-3">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
               <span className="text-xs tracking-[2px] uppercase text-white/70">Notifications</span>
               <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
