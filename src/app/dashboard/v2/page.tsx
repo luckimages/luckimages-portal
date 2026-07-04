@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
@@ -112,7 +112,7 @@ const NOTIF_CATS: { key: string; label: string; dot: string }[] = [
   { key: "nocturne", label: "Nocturne", dot: "bg-[#a78bfa]" },
 ];
 
-export default function DashboardV2Page() {
+function DashboardV2Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [userName, setUserName] = useState("");
@@ -687,5 +687,13 @@ export default function DashboardV2Page() {
 
       </div>{/* end sliding track */}
     </div>
+  );
+}
+
+export default function DashboardV2PageWrapper() {
+  return (
+    <Suspense>
+      <DashboardV2Page />
+    </Suspense>
   );
 }
