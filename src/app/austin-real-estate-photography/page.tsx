@@ -107,7 +107,7 @@ export default function AustinRealEstatePhotographyPage() {
           alt="Austin TX skyline — Luck Images real estate photography"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
           <p className="text-xs tracking-[5px] uppercase text-white/50 mb-6">Austin, Texas</p>
           <h1 className="text-5xl md:text-7xl font-black tracking-tight uppercase leading-none mb-8">
