@@ -128,6 +128,7 @@ function DashboardV2Page() {
   const [updates, setUpdates] = useState<UpdateItem[]>([]);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(NOTIF_CATS.map(c => c.key)));
   const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
+  const [headerFlip, setHeaderFlip] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -219,6 +220,12 @@ function DashboardV2Page() {
     const id = setInterval(loadShoots, 30000);
     return () => clearInterval(id);
   }, [checked, middleView, loadShoots]);
+
+  // Header fade cycle every 15s
+  useEffect(() => {
+    const id = setInterval(() => setHeaderFlip(f => !f), 15000);
+    return () => clearInterval(id);
+  }, []);
 
   // Arrow keys: left/right = swipe pages, up/down = toggle middle view on page 1
   useEffect(() => {
@@ -357,9 +364,14 @@ function DashboardV2Page() {
       {/* Centered content column — matches the classic dashboard's max-w container */}
       <div className="relative z-10 flex-1 min-h-0 flex flex-col max-w-7xl mx-auto w-full px-4 md:px-8">
 
-        {/* Welcome — big, top left */}
-        <div className="pb-4 shrink-0">
-          <h1 className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase leading-none">
+        {/* Fading header — alternates between "Luck Images" and "Welcome Ryan" */}
+        <div className="pb-4 shrink-0 relative" style={{ height: "clamp(32px,5vw,52px)" }}>
+          <h1 className="absolute inset-0 text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase leading-none transition-opacity duration-[2000ms]"
+            style={{ opacity: headerFlip ? 0 : 1 }}>
+            Luck Images
+          </h1>
+          <h1 className="absolute inset-0 text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase leading-none transition-opacity duration-[2000ms]"
+            style={{ opacity: headerFlip ? 1 : 0 }}>
             Welcome {userName}
           </h1>
         </div>
