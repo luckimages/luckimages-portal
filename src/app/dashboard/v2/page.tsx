@@ -150,7 +150,13 @@ function DashboardV2Page() {
       }
       setUserName(data.user.user_metadata?.full_name?.split(" ")[0] || "");
       const meta = data.user.user_metadata || {};
-      if (meta.app_order) setAppOrder(meta.app_order);
+      if (meta.app_order) {
+        // Merge: keep saved order but append any new apps not yet in it
+        const saved: string[] = meta.app_order;
+        const allLabels = APPS.map(a => a.label);
+        const merged = [...saved.filter(l => allLabels.includes(l)), ...allLabels.filter(l => !saved.includes(l))];
+        setAppOrder(merged);
+      }
       if (meta.hidden_apps) setHiddenApps(new Set(meta.hidden_apps));
       setChecked(true);
     });
