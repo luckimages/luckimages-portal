@@ -13,7 +13,7 @@ const APPS = [
   { label: "Marketing",   href: "/dashboard/marketing",    color: "#888" },
   { label: "Traffic",      href: "/dashboard/analytics",    color: "#888" },
   { label: "Revenue",     href: "/dashboard/revenue",      color: "#888" },
-  { label: "Team",        href: "/admin/team",             color: "#888" },
+
   { label: "Updates",     href: "/admin/updates",          color: "#888" },
 ];
 
