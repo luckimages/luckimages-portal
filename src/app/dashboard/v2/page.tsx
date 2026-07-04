@@ -330,7 +330,7 @@ function DashboardV2Page() {
 
   return (
     <div
-      className="relative h-screen w-screen overflow-hidden bg-black flex flex-col"
+      className="fixed inset-0 overflow-hidden bg-black flex flex-col"
       onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchStartY.current = e.touches[0].clientY; }}
       onTouchEnd={e => {
         const dx = touchStartX.current !== null ? e.changedTouches[0].clientX - touchStartX.current : 0;
