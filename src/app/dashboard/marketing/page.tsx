@@ -95,6 +95,7 @@ export default function MarketingPage() {
   const [referralSearch, setReferralSearch] = useState("");
   const [callsToggle, setCallsToggle] = useState<"week" | "all">("week");
   const [revenueToggle, setRevenueToggle] = useState<"mtd" | "ytd">("mtd");
+  const [emailRevenueToggle, setEmailRevenueToggle] = useState<"mtd" | "ytd">("mtd");
   const [channelTableOpen, setChannelTableOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -142,6 +143,16 @@ export default function MarketingPage() {
   const coldCallShoots = shoots.filter(s => s.contact_id && coldCallContactIds.has(s.contact_id) && s.scheduled_at);
   const revMTD = coldCallShoots.filter(s => s.scheduled_at! >= mtdStart).reduce((s, sh) => s + (sh.price || 0), 0);
   const revYTD = coldCallShoots.filter(s => s.scheduled_at! >= ytdStart).reduce((s, sh) => s + (sh.price || 0), 0);
+
+  // ── Email outreach stats ────────────────────────────────────────────────
+  const coldEmailContactIds = new Set(contacts.filter(c => c.lead_source === "cold-email").map(c => c.id));
+  const emailEngagedCount = Object.keys(
+    linkClicks.reduce((acc, c) => { if (c.contact_id) acc[c.contact_id] = true; return acc; }, {} as Record<string, boolean>)
+  ).length;
+  const emailConverted = contacts.filter(c => coldEmailContactIds.has(c.id) && (c.total_revenue || 0) > 0).length;
+  const emailRevMTD = shoots.filter(s => s.contact_id && coldEmailContactIds.has(s.contact_id) && s.scheduled_at && s.scheduled_at >= mtdStart).reduce((s, sh) => s + (sh.price || 0), 0);
+  const emailRevYTD = shoots.filter(s => s.contact_id && coldEmailContactIds.has(s.contact_id) && s.scheduled_at && s.scheduled_at >= ytdStart).reduce((s, sh) => s + (sh.price || 0), 0);
+  const emailConvRate = coldEmailContactIds.size > 0 ? Math.round((emailConverted / coldEmailContactIds.size) * 100) : 0;
 
   // ── Generic channel stats ───────────────────────────────────────────────
   const genericChannels = CHANNELS.filter(ch => !ch.dedicated).map(ch => {
@@ -312,6 +323,57 @@ export default function MarketingPage() {
                     <div className="h-full bg-[#4ade80] transition-all" style={{ width: `${coldCallConversion}%` }} />
                   </div>
                   <p className="text-xs font-bold text-[#4ade80] tabular-nums shrink-0">{coldCallConversion}% conversion</p>
+                </div>
+              </div>
+
+              {/* Email Outreach — dedicated card */}
+              <div className="border border-white/10 bg-[#111] p-5 space-y-4 mb-px">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📧</span>
+                    <div>
+                      <p className="text-sm font-bold tracking-wide">Email Outreach</p>
+                      <p className="text-[10px] text-[#444] mt-0.5">Campaigns, templates & pitch email engagement</p>
+                    </div>
+                  </div>
+                  <a
+                    href="/dashboard/outreach"
+                    className="text-[10px] tracking-[1.5px] uppercase border border-white/20 px-3 py-1.5 text-[#888] hover:text-white hover:border-white/40 transition-all shrink-0"
+                  >
+                    Open Tool →
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-3 gap-px bg-white/5">
+                  <StatBox label="Contacts Reached" value={coldEmailContactIds.size.toString()} />
+                  <StatBox label="Link Clicks" value={emailEngagedCount.toString()} accent="#60a5fa" />
+                  <div className="bg-[#0f0f0f] border border-white/5 px-4 py-3 flex flex-col gap-0.5">
+                    <p className="text-xl font-black tabular-nums text-[#4ade80]">
+                      {(emailRevenueToggle === "mtd" ? emailRevMTD : emailRevYTD) > 0
+                        ? `$${(emailRevenueToggle === "mtd" ? emailRevMTD : emailRevYTD).toLocaleString()}`
+                        : "—"}
+                    </p>
+                    <p className="text-[10px] tracking-[1.5px] uppercase text-[#444]">Revenue Generated</p>
+                    <div className="flex gap-2 mt-1">
+                      {(["mtd", "ytd"] as const).map(t => (
+                        <button key={t} onClick={() => setEmailRevenueToggle(t)}
+                          className={`text-[9px] tracking-[1px] uppercase px-1.5 py-0.5 border transition-all ${emailRevenueToggle === t ? "border-white/30 text-white" : "border-white/5 text-[#333] hover:text-[#555]"}`}>
+                          {t.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-px bg-white/5">
+                  <StatBox label="Converted" value={emailConverted.toString()} accent="#4ade80" />
+                  <StatBox label="Conversion Rate" value={coldEmailContactIds.size > 0 ? `${emailConvRate}%` : "—"} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-white/5 overflow-hidden rounded-full">
+                    <div className="h-full bg-[#60a5fa] transition-all" style={{ width: `${emailConvRate}%` }} />
+                  </div>
+                  <p className="text-xs font-bold text-[#60a5fa] tabular-nums shrink-0">{emailConvRate}% conversion</p>
                 </div>
               </div>
 
