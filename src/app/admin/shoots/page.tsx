@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
@@ -454,7 +454,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
 const VIEWS = ["log", "schedule", "board"] as const;
 type View = (typeof VIEWS)[number];
 
-export default function ShootsPage() {
+function ShootsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [shoots, setShoots] = useState<Shoot[]>([]);
@@ -1144,5 +1144,13 @@ export default function ShootsPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ShootsPageWrapper() {
+  return (
+    <Suspense>
+      <ShootsPage />
+    </Suspense>
   );
 }
