@@ -4,6 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
+type SCData = {
+  configured: boolean;
+  error?: string;
+  totals?: { clicks: number; impressions: number; ctr: string; position: string };
+  queries?: { query: string; clicks: number; impressions: number; ctr: string; position: string }[];
+  pages?: { page: string; clicks: number; impressions: number; ctr: string; position: string }[];
+};
+
 const CHANNELS: { key: string; label: string; icon: string; dedicated?: boolean }[] = [
   { key: "cold-call",         label: "Cold Calling",              icon: "📞", dedicated: true },
   { key: "referral",          label: "Referral",                  icon: "👥" },
@@ -97,6 +105,8 @@ export default function MarketingPage() {
   const [revenueToggle, setRevenueToggle] = useState<"mtd" | "ytd">("mtd");
   const [emailRevenueToggle, setEmailRevenueToggle] = useState<"mtd" | "ytd">("mtd");
   const [channelTableOpen, setChannelTableOpen] = useState(false);
+  const [scData, setScData] = useState<SCData | null>(null);
+  const [scTab, setScTab] = useState<"queries" | "pages">("queries");
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -114,6 +124,7 @@ export default function MarketingPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { fetch("/api/search-console").then(r => r.json()).then(setScData); }, []);
 
   function copyLink(text: string, key: string) {
     navigator.clipboard.writeText(text);
@@ -371,6 +382,77 @@ export default function MarketingPage() {
                   </div>
                   <p className="text-xs font-bold text-[#60a5fa] tabular-nums shrink-0">{emailConvRate}% conversion</p>
                 </div>
+              </div>
+
+              {/* Google Search Console — organic SEO block */}
+              <div className="border border-white/10 bg-[#111] p-5 space-y-4 md:col-span-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">🔍</span>
+                    <div>
+                      <p className="text-sm font-bold tracking-wide">Google SEO</p>
+                      <p className="text-[10px] text-[#444] mt-0.5">Organic search performance — last 28 days</p>
+                    </div>
+                  </div>
+                  {scData?.configured && !scData.error && (
+                    <div className="flex gap-1">
+                      {(["queries", "pages"] as const).map(t => (
+                        <button key={t} onClick={() => setScTab(t)}
+                          className={`text-[9px] tracking-[1px] uppercase px-2.5 py-1 border transition-all ${scTab === t ? "border-white/30 text-white" : "border-white/5 text-[#333] hover:text-[#555]"}`}>
+                          {t === "queries" ? "Keywords" : "Pages"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {!scData ? (
+                  <p className="text-xs text-[#444] italic">Loading...</p>
+                ) : !scData.configured ? (
+                  <p className="text-xs text-[#444] italic">Google Search Console not connected yet.</p>
+                ) : scData.error ? (
+                  <p className="text-xs text-[#f87171] italic">Error: {scData.error}</p>
+                ) : (
+                  <>
+                    {/* KPI row */}
+                    <div className="grid grid-cols-4 gap-px bg-white/5">
+                      <StatBox label="Clicks (28d)" value={scData.totals!.clicks.toLocaleString()} accent="#60a5fa" />
+                      <StatBox label="Impressions" value={scData.totals!.impressions.toLocaleString()} />
+                      <StatBox label="Avg CTR" value={`${scData.totals!.ctr}%`} />
+                      <StatBox label="Avg Position" value={`#${scData.totals!.position}`} />
+                    </div>
+
+                    {/* Keywords or pages table */}
+                    <div className="border border-white/5 overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/5">
+                            <th className="px-4 py-2.5 text-left text-[10px] tracking-[1.5px] uppercase text-[#333] font-semibold">
+                              {scTab === "queries" ? "Keyword" : "Page"}
+                            </th>
+                            <th className="px-4 py-2.5 text-right text-[10px] tracking-[1.5px] uppercase text-[#333] font-semibold">Clicks</th>
+                            <th className="px-4 py-2.5 text-right text-[10px] tracking-[1.5px] uppercase text-[#333] font-semibold">Impr.</th>
+                            <th className="px-4 py-2.5 text-right text-[10px] tracking-[1.5px] uppercase text-[#333] font-semibold">CTR</th>
+                            <th className="px-4 py-2.5 text-right text-[10px] tracking-[1.5px] uppercase text-[#333] font-semibold">Pos.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {(scTab === "queries" ? scData.queries! : scData.pages!).map((row, i) => (
+                            <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-4 py-2.5 text-white/80 max-w-xs truncate">
+                                {"query" in row ? row.query : row.page || "/"}
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#60a5fa] font-semibold">{row.clicks}</td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#888]">{row.impressions.toLocaleString()}</td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#888]">{row.ctr}%</td>
+                              <td className="px-4 py-2.5 text-right tabular-nums text-[#888]">#{row.position}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
               </div>{/* end 2-col grid */}
 
