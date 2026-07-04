@@ -534,7 +534,8 @@ function ShootsPage() {
   // Arrow key navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
       if (e.key === "ArrowLeft") setView(v => { const i = VIEWS.indexOf(v); return VIEWS[Math.max(0, i - 1)]; });
       if (e.key === "ArrowRight") setView(v => { const i = VIEWS.indexOf(v); return VIEWS[Math.min(VIEWS.length - 1, i + 1)]; });
     }
