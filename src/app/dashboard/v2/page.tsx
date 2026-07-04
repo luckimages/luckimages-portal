@@ -641,7 +641,7 @@ function DashboardV2Page() {
         )}
 
         <div className="flex-1 flex items-center justify-center p-4 md:p-12 min-h-0">
-          <div className="w-full md:max-w-4xl border border-white/20 gap-px bg-white/10 grid grid-cols-3 md:grid-cols-5">
+          <div className="w-full md:max-w-4xl border border-white/20 gap-px bg-white/10 grid grid-cols-2 md:grid-cols-4">
             {(editMode ? editOrder : appOrder).map((label, i) => {
               const app = APPS.find(a => a.label === label);
               if (!app) return null;
