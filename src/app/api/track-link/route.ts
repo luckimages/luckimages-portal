@@ -8,7 +8,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com
 const SERVICE_URLS: Record<string, string> = {
   photo: `${SITE_URL}/services/listing-photos`,
   "listing-photos": `${SITE_URL}/services/listing-photos`,
-  drone: `${SITE_URL}/services/drone`,
+  drone: `${SITE_URL}/drone`,
   matterport: `${SITE_URL}/services/matterport`,
   twilight: `${SITE_URL}/services/twilight`,
   "virtual-staging": `${SITE_URL}/services/virtual-staging`,
