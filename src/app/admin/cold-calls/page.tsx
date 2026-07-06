@@ -134,7 +134,7 @@ const CLICK_LABEL: Record<string, string> = {
   pricing: "Pricing", home: "Our Work",
 };
 
-function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string): string {
+function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string, quoteNote?: string): string {
   const TRACK_BASE = "https://www.luckimages.com/api/track-link";
   const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
 
@@ -201,6 +201,7 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
     <div style="background-color:#0d1f0d;border:1px solid #1a3d1a;padding:20px 24px;">
       <p style="margin:0 0 4px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#4ade80;">Your Quote</p>
       <p style="margin:0;font-size:28px;font-weight:900;color:#ffffff;">$${quoteAmount}</p>
+      ${quoteNote ? `<p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:#9ca3af;">${quoteNote}</p>` : ""}
       <p style="margin:4px 0 0;font-size:11px;color:#444;">Based on what we discussed on the call.</p>
     </div>
   </td></tr>` : ""}
@@ -280,6 +281,7 @@ function ColdCallsPage() {
   const [pitchContact, setPitchContact] = useState<Contact | null>(null);
   const [pitchServices, setPitchServices] = useState<Set<string>>(new Set(PITCH_SERVICES.map(s => s.key)));
   const [pitchQuote, setPitchQuote] = useState("");
+  const [pitchQuoteNote, setPitchQuoteNote] = useState("");
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
@@ -539,7 +541,7 @@ function ColdCallsPage() {
         contactId: target.id,
         to: target.email,
         subject: pitchSubject,
-        html: buildPitchHtml(firstName, target.id, selected, pitchQuote || undefined),
+        html: buildPitchHtml(firstName, target.id, selected, pitchQuote || undefined, pitchQuoteNote || undefined),
         body: isAll
           ? `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`
           : `Hi ${firstName},\n\nThanks for the call. Sending pricing + portfolio for ${selectedLabels.join(", ")} at luckimages.com.\n\nRyan Luck\nLuck Images`,
@@ -909,6 +911,7 @@ function ColdCallsPage() {
                         setPitchSubject("Real Estate Photography — Luck Images");
                         setPitchServices(new Set(PITCH_SERVICES.map(s => s.key)));
                         setPitchQuote(log.quote_amount || "");
+                        setPitchQuoteNote("");
                         setShowPitch(true);
                         setExpandedLog(null);
                         setEditingLogId(null);
@@ -1430,6 +1433,19 @@ function ColdCallsPage() {
                   </div>
                   {pitchQuote && <p className="text-[10px] text-[#4ade80] mt-1">Quote block will appear in the email.</p>}
                 </div>
+                {pitchQuote && (
+                  <div>
+                    <p className="text-xs text-[#555] mb-1.5 tracking-[1px] uppercase">Quote Details <span className="normal-case tracking-normal text-[#333]">(optional)</span></p>
+                    <input
+                      type="text"
+                      value={pitchQuoteNote}
+                      onChange={e => setPitchQuoteNote(e.target.value)}
+                      placeholder="e.g. 2 lots · 10 photos each"
+                      className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-[#4ade80]/40 placeholder:text-[#333]"
+                    />
+                    <p className="text-[10px] text-[#444] mt-1">Shows under the dollar amount to explain what the quote covers.</p>
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-xs text-[#555] tracking-[1px] uppercase">Services to Pitch</p>
