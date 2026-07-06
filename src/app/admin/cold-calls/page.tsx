@@ -125,6 +125,15 @@ const PITCH_SERVICES = [
   { key: "floorplan", label: "Floor Plan", price: "from $50", desc: "" },
 ] as const;
 
+// Pretty labels for the service keys stored in link_clicks
+const CLICK_LABEL: Record<string, string> = {
+  photo: "Listing Photos", "listing-photos": "Listing Photos",
+  drone: "Drone", matterport: "Matterport", twilight: "Twilight",
+  "virtual-staging": "Virtual Staging", video: "Video",
+  floorplan: "Floor Plan", floorplans: "Floor Plan", brochures: "Brochures",
+  pricing: "Pricing", home: "Our Work",
+};
+
 function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string): string {
   const TRACK_BASE = "https://www.luckimages.com/api/track-link";
   const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
@@ -231,6 +240,8 @@ function ColdCallsPage() {
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const [emailLog, setEmailLog] = useState<{ contact_id: string | null; subject: string | null; sent_at: string | null }[]>([]);
+  const [linkClicks, setLinkClicks] = useState<{ contact_id: string | null; service: string; clicked_at: string }[]>([]);
 
   const [weekCalls, setWeekCalls] = useState(0);
   const [weekLeads, setWeekLeads] = useState(0);
@@ -283,12 +294,16 @@ function ColdCallsPage() {
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: cs }, { data: logs }] = await Promise.all([
+    const [{ data: cs }, { data: logs }, { data: emails }, { data: clicks }] = await Promise.all([
       supabase.from("contacts").select("id,name,email,phone,brokerage,stage").order("name"),
       supabase.from("cold_calls").select("*").order("called_at", { ascending: false }),
+      supabase.from("email_log").select("contact_id, subject, sent_at").not("contact_id", "is", null).order("sent_at", { ascending: false }),
+      supabase.from("link_clicks").select("contact_id, service, clicked_at").not("contact_id", "is", null).order("clicked_at", { ascending: false }),
     ]);
     setContacts(cs || []);
     setCallLogs(logs || []);
+    setEmailLog(emails || []);
+    setLinkClicks(clicks || []);
 
     const today = new Date().toISOString().split("T")[0];
     setTodayCount((logs || []).filter((l: CallLog) => l.called_at.startsWith(today)).length);
@@ -551,6 +566,18 @@ function ColdCallsPage() {
     attemptCounts[contactId] = logs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "dead") && !hasTag(l.outcome, "closed")).length;
   });
 
+  // Email follow-ups + link clicks per contact (for the Lead History panel)
+  const emailsByContact: Record<string, typeof emailLog> = {};
+  emailLog.forEach(e => {
+    if (!e.contact_id) return;
+    (emailsByContact[e.contact_id] ||= []).push(e);
+  });
+  const clicksByContact: Record<string, typeof linkClicks> = {};
+  linkClicks.forEach(c => {
+    if (!c.contact_id) return;
+    (clicksByContact[c.contact_id] ||= []).push(c);
+  });
+
   type EnrichedLog = CallLog & { contact: Contact | undefined; attempts: number };
 
   // One row per contact (not per raw db row) — represents that contact's most recent shared-or-solo call.
@@ -673,6 +700,8 @@ function ColdCallsPage() {
             const log = latestByContact[expandedLog];
             if (!log) return null;
             const allCallsForContact = logsByContact[log.contact_id] || [];
+            const emailsForContact = emailsByContact[log.contact_id] || [];
+            const clicksForContact = clicksByContact[log.contact_id] || [];
             const tagMeta = Object.fromEntries(CALL_TAGS.map(t => [t.key, t]));
             const mostRecent = allCallsForContact[0];
             const currentStage = mostRecent ? stageFromOutcome(mostRecent.outcome) : "new";
@@ -820,6 +849,41 @@ function ColdCallsPage() {
                     );
                   })}
                 </div>
+
+                {/* Email follow-ups + reactions */}
+                {emailsForContact.length > 0 && (
+                  <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
+                    <p className="px-4 py-2 text-[10px] tracking-[2px] uppercase text-[#555]">
+                      Email Follow-ups ({emailsForContact.length})
+                    </p>
+                    {emailsForContact.map((e, i) => (
+                      <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                        <span className="text-xs text-[#ccc] truncate">📨 {(e.subject || "Email").replace(/^\[DRAFT\]\s*/, "")}</span>
+                        <span className="text-[10px] text-[#333] shrink-0">
+                          {e.sent_at ? new Date(e.sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                        </span>
+                      </div>
+                    ))}
+                    {/* Reaction row */}
+                    <div className="px-4 py-2.5">
+                      {clicksForContact.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] tracking-[1px] uppercase text-[#4ade80] mr-1">🔗 Clicked</span>
+                          {clicksForContact.slice(0, 6).map((c, i) => (
+                            <span key={i}
+                              title={new Date(c.clicked_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                              className="text-[10px] text-[#60a5fa] bg-[#60a5fa]/10 px-2 py-0.5 rounded-full">
+                              {CLICK_LABEL[c.service] || c.service} ↗
+                            </span>
+                          ))}
+                          {clicksForContact.length > 6 && <span className="text-[10px] text-[#444]">+{clicksForContact.length - 6}</span>}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-[#3a3a3a] italic">Sent · no link clicks yet</span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="space-y-2">
