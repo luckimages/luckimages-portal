@@ -34,7 +34,8 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  await db.from("link_clicks").insert({ contact_id: contactId || null, service });
+  const { error } = await db.from("link_clicks").insert({ contact_id: contactId || null, service });
+  if (error) console.error("track-link: failed to record click", { service, contactId, error: error.message });
 
   return NextResponse.redirect(destination, { status: 302 });
 }
