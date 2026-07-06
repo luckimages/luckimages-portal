@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { contactId, to, subject, html } = await req.json();
+  const { contactId, to, subject, html, category } = await req.json();
   if (!to || !subject || !html) {
     return NextResponse.json({ error: "to, subject, and html are required" }, { status: 400 });
   }
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       contact_id: contactId || null,
       subject: `[DRAFT] ${subject}`,
       body: null,
+      category: category || null,
       sent_by: user.email?.split("@")[0] || "ryan",
     });
 

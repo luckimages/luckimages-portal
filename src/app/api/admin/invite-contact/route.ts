@@ -106,6 +106,7 @@ export async function POST(req: Request) {
     contact_id: contactId,
     subject: `${firstName}, your Luck Images portal is ready`,
     body: `Portal invite sent to ${contact.email}`,
+    category: "Portal Invite",
     sent_by: user.email?.split("@")[0] || "ryan",
     sent_at: new Date().toISOString(),
   });

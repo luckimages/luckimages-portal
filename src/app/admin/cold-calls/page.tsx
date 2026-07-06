@@ -541,6 +541,7 @@ function ColdCallsPage() {
         contactId: target.id,
         to: target.email,
         subject: pitchSubject,
+        category: "Cold Call Follow-up",
         html: buildPitchHtml(firstName, target.id, selected, pitchQuote || undefined, pitchQuoteNote || undefined),
         body: isAll
           ? `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`

@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { contactId, to, subject, body, html } = await req.json();
+  const { contactId, to, subject, body, html, category } = await req.json();
 
   const service = createAdminClient();
 
@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     contact_id: contactId,
     subject,
     body,
+    category: category || null,
     sent_by: admin.email?.split("@")[0] || "ryan",
   });
 
