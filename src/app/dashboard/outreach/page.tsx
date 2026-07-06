@@ -18,6 +18,32 @@ type Contact = {
 
 type SendStatus = "idle" | "pending" | "done" | "error";
 
+type EmailLogRow = { contact_id: string | null; subject: string | null; sent_at: string | null };
+type LinkClickRow = { contact_id: string | null; service: string; clicked_at: string };
+
+type Mode = "campaign" | "quicksend" | "engagement";
+const MODES: Mode[] = ["campaign", "quicksend", "engagement"];
+
+// Pretty labels for the service keys stored in link_clicks
+const CLICK_LABEL: Record<string, string> = {
+  photo: "Listing Photos", "listing-photos": "Listing Photos",
+  drone: "Drone", matterport: "Matterport", twilight: "Twilight",
+  "virtual-staging": "Virtual Staging", video: "Video",
+  floorplan: "Floor Plan", floorplans: "Floor Plan", brochures: "Brochures",
+  pricing: "Pricing", home: "Our Work",
+};
+
+// Pipeline stage → friendly label + color for the engagement status pill
+const STAGE_PILL: Record<string, { label: string; color: string }> = {
+  lead: { label: "Lead", color: "#4ade80" },
+  client: { label: "Client", color: "#34d399" },
+  registered: { label: "Registered", color: "#34d399" },
+  "follow-up": { label: "Follow-up", color: "#fbbf24" },
+  nurture: { label: "Nurture", color: "#fb923c" },
+  active: { label: "Active", color: "#60a5fa" },
+  dead: { label: "Dead", color: "#f87171" },
+};
+
 type Template = {
   id: string;
   label: string;
@@ -514,7 +540,9 @@ export default function OutreachPage() {
   const [extraFields, setExtraFields] = useState<Record<string, string>>({});
   const [previewContact, setPreviewContact] = useState<Contact | null>(null);
   const [search, setSearch] = useState("");
-  const [mode, setMode] = useState<"campaign" | "quicksend">("campaign");
+  const [mode, setMode] = useState<Mode>("campaign");
+  const [emailLog, setEmailLog] = useState<EmailLogRow[]>([]);
+  const [linkClicks, setLinkClicks] = useState<LinkClickRow[]>([]);
   const [qs, setQs] = useState({ to: "", name: "", subject: "", body: "" });
   const [qsStatus, setQsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
 
@@ -542,9 +570,32 @@ export default function OutreachPage() {
         const c = list.find(x => x.id === contactParam);
         if (c) { setSelected(new Set([c.id])); setPreviewContact(c); }
       }
+
+      // Engagement data — who was emailed + how they reacted
+      const [{ data: logs }, { data: clicks }] = await Promise.all([
+        supabase.from("email_log").select("contact_id, subject, sent_at").not("contact_id", "is", null).order("sent_at", { ascending: false }),
+        supabase.from("link_clicks").select("contact_id, service, clicked_at").not("contact_id", "is", null).order("clicked_at", { ascending: false }),
+      ]);
+      setEmailLog(logs || []);
+      setLinkClicks(clicks || []);
     }
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ←/→ arrow keys move between the tool's pages (ignored while typing)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      setMode(m => {
+        const i = MODES.indexOf(m);
+        return MODES[e.key === "ArrowRight" ? Math.min(i + 1, MODES.length - 1) : Math.max(i - 1, 0)];
+      });
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // When template changes, reset selection + extra fields
   function selectTemplate(t: Template) {
@@ -664,6 +715,45 @@ export default function OutreachPage() {
     setExtraFields(prev => ({ ...prev, services: isAll ? "all" : [...next].join(",") }));
   }
 
+  // ── Engagement: one row per lead that was emailed or clicked a link ──
+  const engagement = (() => {
+    const byContact = new Map<string, { emails: EmailLogRow[]; clicks: LinkClickRow[] }>();
+    const bucket = (id: string) => {
+      if (!byContact.has(id)) byContact.set(id, { emails: [], clicks: [] });
+      return byContact.get(id)!;
+    };
+    for (const l of emailLog) if (l.contact_id) bucket(l.contact_id).emails.push(l);
+    for (const c of linkClicks) if (c.contact_id) bucket(c.contact_id).clicks.push(c);
+
+    const rows = [];
+    for (const [cid, { emails, clicks }] of byContact) {
+      const contact = contacts.find(c => c.id === cid);
+      if (!contact) continue; // skip deleted / unknown
+      const lastEmail = emails[0]?.sent_at ? new Date(emails[0].sent_at).getTime() : 0;
+      const lastClick = clicks[0]?.clicked_at ? new Date(clicks[0].clicked_at).getTime() : 0;
+      rows.push({ contact, emails, clicks, lastActivity: Math.max(lastEmail, lastClick) });
+    }
+    return rows.sort((a, b) => b.lastActivity - a.lastActivity);
+  })();
+
+  const engFiltered = engagement.filter(r =>
+    !search || r.contact.name.toLowerCase().includes(search.toLowerCase()) || r.contact.email?.toLowerCase().includes(search.toLowerCase())
+  );
+  const leadsEmailed = engagement.filter(r => r.emails.length > 0).length;
+  const leadsClicked = engagement.filter(r => r.clicks.length > 0).length;
+  const clickRate = leadsEmailed > 0 ? Math.round((leadsClicked / leadsEmailed) * 100) : 0;
+
+  const fmtDate = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+  function reactionBadge(row: { contact: Contact; clicks: LinkClickRow[] }) {
+    if (["client", "registered", "closed"].includes(row.contact.stage)) return { label: "Converted", color: "#34d399" };
+    if (row.clicks.length > 0) return { label: "Clicked", color: "#60a5fa" };
+    return { label: "Sent", color: "#666" };
+  }
+
   return (
     <main className="h-screen w-full bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
 
@@ -682,10 +772,108 @@ export default function OutreachPage() {
             className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "quicksend" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}>
             Quick Send
           </button>
+          <button onClick={() => setMode("engagement")}
+            className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "engagement" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}>
+            Engagement
+          </button>
         </div>
       </div>
 
-      {/* Two-column body */}
+      {/* ══ ENGAGEMENT PAGE ══ */}
+      {mode === "engagement" ? (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {/* Summary bar */}
+          <div className="px-6 md:px-8 py-4 border-b border-white/10 shrink-0 flex items-center gap-8 flex-wrap">
+            <div>
+              <p className="text-2xl font-black tabular-nums">{leadsEmailed}</p>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Leads Emailed</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black tabular-nums text-[#60a5fa]">{leadsClicked}</p>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Clicked a Link</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black tabular-nums text-[#4ade80]">{clickRate}%</p>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Click Rate</p>
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search leads..."
+                className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+            </div>
+          </div>
+
+          {/* Opens note */}
+          <div className="px-6 md:px-8 py-2 border-b border-white/5 shrink-0">
+            <p className="text-[10px] text-[#444]">
+              Tracking link clicks &amp; pipeline status live. <span className="text-[#555]">Email opens aren&apos;t tracked yet — ask Claude to turn on Resend open tracking.</span>
+            </p>
+          </div>
+
+          {/* Lead activity list */}
+          <div className="flex-1 overflow-y-auto">
+            {loading && <p className="text-xs text-[#444] italic p-8">Loading engagement...</p>}
+            {!loading && engFiltered.length === 0 && (
+              <div className="p-12 text-center">
+                <p className="text-sm text-[#444]">No email activity yet.</p>
+                <p className="text-xs text-[#333] mt-2">Once you send a follow-up email, each lead and how they react will show up here.</p>
+              </div>
+            )}
+            <div className="divide-y divide-white/5">
+              {engFiltered.map(row => {
+                const badge = reactionBadge(row);
+                const stage = STAGE_PILL[row.contact.stage] || { label: row.contact.stage, color: "#666" };
+                return (
+                  <div key={row.contact.id} className="px-6 md:px-8 py-4 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <a href={`/admin/contacts/${row.contact.id}`} className="text-sm font-semibold hover:underline truncate">{row.contact.name}</a>
+                          <span className="text-[9px] tracking-[1px] uppercase px-1.5 py-0.5 rounded-full font-semibold"
+                            style={{ color: badge.color, backgroundColor: `${badge.color}1a` }}>{badge.label}</span>
+                          <span className="text-[9px] tracking-[1px] uppercase px-1.5 py-0.5 rounded-full"
+                            style={{ color: stage.color, border: `1px solid ${stage.color}55` }}>{stage.label}</span>
+                        </div>
+                        <p className="text-[11px] text-[#555] mt-0.5 truncate">{row.contact.email}</p>
+
+                        {/* Emails sent */}
+                        {row.emails.length > 0 && (
+                          <p className="text-[11px] text-[#666] mt-2">
+                            <span className="text-[#888]">📨 {row.emails.length} email{row.emails.length > 1 ? "s" : ""}</span>
+                            <span className="text-[#444]"> · last {fmtDate(row.emails[0].sent_at)}</span>
+                            {row.emails[0].subject && <span className="text-[#444]"> · &ldquo;{row.emails[0].subject.replace(/^\[DRAFT\]\s*/, "")}&rdquo;</span>}
+                          </p>
+                        )}
+
+                        {/* Clicks */}
+                        {row.clicks.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {row.clicks.slice(0, 6).map((c, i) => (
+                              <span key={i} title={fmtDateTime(c.clicked_at)}
+                                className="text-[10px] text-[#60a5fa] bg-[#60a5fa]/10 px-2 py-0.5 rounded-full">
+                                {CLICK_LABEL[c.service] || c.service} ↗
+                              </span>
+                            ))}
+                            {row.clicks.length > 6 && <span className="text-[10px] text-[#444] self-center">+{row.clicks.length - 6} more</span>}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-[#3a3a3a] mt-2 italic">No link clicks yet</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] text-[#444]">{row.lastActivity ? fmtDate(new Date(row.lastActivity).toISOString()) : "—"}</p>
+                        <p className="text-[9px] tracking-[1px] uppercase text-[#333] mt-0.5">last activity</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : (
+
+      /* Two-column body */
       <div className="flex-1 min-h-0 flex overflow-hidden">
 
         {/* ── LEFT PANEL ── */}
@@ -909,6 +1097,7 @@ export default function OutreachPage() {
         </div>
 
       </div>
+      )}
     </main>
   );
 }
