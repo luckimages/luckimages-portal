@@ -862,24 +862,24 @@ function ColdCallsPage() {
                     {emailsForContact.map((e, i) => (
                       <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
                         <span className="text-xs text-[#ccc] truncate">📨 {(e.subject || "Email").replace(/^\[DRAFT\]\s*/, "")}</span>
-                        <span className="text-[10px] text-[#333] shrink-0">
-                          {e.sent_at ? new Date(e.sent_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                        <span className="text-[10px] text-[#555] shrink-0 tabular-nums">
+                          {e.sent_at ? new Date(e.sent_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}
                         </span>
                       </div>
                     ))}
                     {/* Reaction row */}
                     <div className="px-4 py-2.5">
                       {clicksForContact.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] tracking-[1px] uppercase text-[#4ade80] mr-1">🔗 Clicked</span>
-                          {clicksForContact.slice(0, 6).map((c, i) => (
-                            <span key={i}
-                              title={new Date(c.clicked_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                              className="text-[10px] text-[#60a5fa] bg-[#60a5fa]/10 px-2 py-0.5 rounded-full">
-                              {CLICK_LABEL[c.service] || c.service} ↗
-                            </span>
+                        <div className="space-y-1">
+                          {clicksForContact.slice(0, 8).map((c, i) => (
+                            <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                              <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
+                              <span className="text-[#555] shrink-0 tabular-nums">
+                                {new Date(c.clicked_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                              </span>
+                            </div>
                           ))}
-                          {clicksForContact.length > 6 && <span className="text-[10px] text-[#444]">+{clicksForContact.length - 6}</span>}
+                          {clicksForContact.length > 8 && <span className="text-[10px] text-[#444]">+{clicksForContact.length - 8} more</span>}
                         </div>
                       ) : (
                         <span className="text-[10px] text-[#3a3a3a] italic">Sent · no link clicks yet</span>
