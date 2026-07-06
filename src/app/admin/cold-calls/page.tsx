@@ -256,6 +256,7 @@ function ColdCallsPage() {
 
   const [notes, setNotes] = useState("");
   const [quoteAmount, setQuoteAmount] = useState("");
+  const [quoteManuallyEdited, setQuoteManuallyEdited] = useState(false);
   const [logging, setLogging] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -312,6 +313,24 @@ function ColdCallsPage() {
     });
     loadData();
   }, [router, loadData]);
+
+  const SERVICE_DEFAULT_QUOTES: Record<string, string> = {
+    photos_sm:    "200",
+    drone:        "200",
+    video_bronze: "200",
+    video_silver: "300",
+    matterport:   "200",
+    headshots:    "200",
+  };
+
+  useEffect(() => {
+    if (quoteManuallyEdited) return;
+    if (!primaryService) { setQuoteAmount(""); return; }
+    const defaultPrice = SERVICE_DEFAULT_QUOTES[primaryService];
+    if (defaultPrice) setQuoteAmount(defaultPrice);
+    else setQuoteAmount("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryService]);
 
   async function selectContact(c: Contact) {
     setContact(c);
@@ -423,6 +442,7 @@ function ColdCallsPage() {
 
     setNotes("");
     setQuoteAmount("");
+    setQuoteManuallyEdited(false);
     setPrimaryService(null);
     setSelectedAddOns(new Set());
     setAddress("");
@@ -1143,7 +1163,7 @@ function ColdCallsPage() {
               <input
                 type="text"
                 value={quoteAmount}
-                onChange={e => setQuoteAmount(e.target.value)}
+                onChange={e => { setQuoteManuallyEdited(true); setQuoteAmount(e.target.value); }}
                 placeholder="350"
                 className="w-full bg-[#181818] border border-white/10 text-white text-xs pl-6 pr-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
               />
