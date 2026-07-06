@@ -373,6 +373,127 @@ const TEMPLATES: Template[] = [
       );
     },
   },
+  // ── COLD LEAD PITCH ─────────────────────────────────────────────────────────
+  {
+    id: "cold_pitch",
+    label: "Services & Pricing Pitch",
+    description: "Send the full pricing + portfolio email to a cold lead. Same email as the cold-call follow-up — personalized with their name, selected services, quote, and a portal register link.",
+    tag: "Lead",
+    tagColor: "text-[#a78bfa]",
+    filter: c => !!c.email && c.stage !== "deleted",
+    subject: c => `Real Estate Photography — Luck Images`,
+    extraFields: [
+      { key: "services", label: "Services to pitch", placeholder: "all — or: photos, drone, video, matterport, twilight, virtual-staging, floorplan", default: "all" },
+      { key: "quote", label: "Quote to include (optional)", placeholder: "e.g. 350", default: "" },
+    ],
+    html: (c, extra) => {
+      const firstName = c.name.split(" ")[0];
+      const contactId = c.id;
+      const TRACK_BASE = "https://www.luckimages.com/api/track-link";
+      const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
+      const quoteAmount = extra?.quote || "";
+
+      const ALL_PITCH_SERVICES = [
+        { key: "photo",           label: "Listing Photos",      price: "from $200" },
+        { key: "drone",           label: "Drone Photos",        price: "$100 add-on · $200 solo" },
+        { key: "matterport",      label: "Matterport 3D Tour",  price: "from $200" },
+        { key: "twilight",        label: "Twilight Photography", price: "+$150 add-on · $250 solo" },
+        { key: "virtual-staging", label: "Virtual Staging",     price: "$25 / photo" },
+        { key: "video",           label: "Video Walkthrough",   price: "from $200" },
+        { key: "floorplan",       label: "Floor Plan",          price: "from $50" },
+      ];
+
+      const inputKeys = (extra?.services || "all").toLowerCase().split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+      const isAll = inputKeys.includes("all") || inputKeys.length === 0;
+      const services = isAll ? ALL_PITCH_SERVICES : ALL_PITCH_SERVICES.filter(s => inputKeys.some(k => s.key.includes(k) || s.label.toLowerCase().includes(k)));
+      const isSingle = services.length === 1;
+
+      const introText = isAll
+        ? `Hey ${firstName}, thanks for taking the time to chat. Below you can find a list of all of our services &amp; pricing — click on each to view the portfolio. Look forward to working together!`
+        : isSingle
+          ? `Hey ${firstName}, thanks for taking the time to chat. Here's a closer look at our ${services[0].label.toLowerCase()} — pricing and a link to the portfolio below.`
+          : `Hey ${firstName}, thanks for taking the time to chat. Here's pricing and portfolio links for what we talked about.`;
+
+      const heroHref = isSingle ? track(services[0].key) : track("pricing");
+      const heroLabel = isSingle ? `View ${services[0].label} Portfolio →` : "View Pricing →";
+
+      const serviceRow = (label: string, price: string, href: string) =>
+        `<tr>
+          <td style="padding:11px 0;font-size:13px;border-bottom:1px solid #1e1e1e;background-color:#131313;">
+            <a href="${href}" style="color:#ccc;text-decoration:none;">${label} <span style="font-size:10px;color:#444;">↗</span></a>
+          </td>
+          <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;border-bottom:1px solid #1e1e1e;background-color:#131313;">${price}</td>
+        </tr>`;
+
+      return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background-color:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#fff;" bgcolor="#0c0c0c">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0c0c;" bgcolor="#0c0c0c">
+<tr><td align="center" style="background-color:#0c0c0c;" bgcolor="#0c0c0c">
+<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+
+  <tr><td style="padding:0;line-height:0;font-size:0;" align="center">
+    <img src="https://www.luckimages.com/hero-1.jpg" width="560" alt="Luck Images — Austin TX" style="display:block;width:100%;max-width:560px;border:0;" />
+  </td></tr>
+
+  <tr><td style="padding:40px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
+    <img src="https://www.luckimages.com/logo.png" width="52" height="52" alt="Luck Images" style="display:block;margin:0 auto 12px;border:0;" />
+    <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
+    <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#ffffff;line-height:1;">LUCK IMAGES</h1>
+    <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">${introText}</p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+      <tr>
+        <td style="padding-right:10px;">
+          <a href="${heroHref}" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">${heroLabel}</a>
+        </td>
+        <td>
+          <a href="${track("home")}" style="display:inline-block;border:1px solid #999999;color:#ffffff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Our Work →</a>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:32px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <div style="background-color:#131313;border:1px solid #222;padding:28px;">
+      <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">${isAll ? "Services &amp; Starting Prices" : "Pricing"}</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#131313;" bgcolor="#131313">
+        ${services.map(s => serviceRow(s.label, s.price, track(s.key))).join("")}
+      </table>
+      <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>
+    </div>
+  </td></tr>
+
+  ${quoteAmount ? `<tr><td style="padding:0 32px 0;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <div style="background-color:#0d1f0d;border:1px solid #1a3d1a;padding:20px 24px;">
+      <p style="margin:0 0 4px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#4ade80;">Your Quote</p>
+      <p style="margin:0;font-size:28px;font-weight:900;color:#ffffff;">$${quoteAmount}</p>
+      <p style="margin:4px 0 0;font-size:11px;color:#444;">Based on what we discussed.</p>
+    </div>
+  </td></tr>` : ""}
+
+  <tr><td style="padding:24px 32px 16px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <table cellpadding="0" cellspacing="0">
+      <tr><td>
+        <a href="https://www.luckimages.com/register" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Create Portal Account →</a>
+      </td></tr>
+    </table>
+    <p style="margin:10px 0 0;font-size:11px;color:#333;">Create a free account to book your shoot, track delivery, and pay invoices in one place.</p>
+  </td></tr>
+
+  <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Ready to book or have questions? Reply to this email or give me a call.</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
+    <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ryan@luckimages.com · luckimages.com</p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+    },
+  },
 ];
 
 const EXAMPLE_CONTACT: Contact = {
