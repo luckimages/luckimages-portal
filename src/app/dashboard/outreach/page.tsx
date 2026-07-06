@@ -738,12 +738,12 @@ export default function OutreachPage() {
             </div>
           ) : (
             <>
-              {/* Template list */}
-              <div className="shrink-0 border-b border-white/10">
-                <div className="px-4 py-2.5 border-b border-white/5">
+              {/* Top half: template list */}
+              <div className="flex-1 min-h-0 border-b border-white/10 flex flex-col overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-white/5 shrink-0">
                   <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Campaign Templates</p>
                 </div>
-                <div className="flex flex-col max-h-[260px] overflow-y-auto divide-y divide-white/5">
+                <div className="flex flex-col flex-1 overflow-y-auto divide-y divide-white/5">
                   {TEMPLATES.map(t => (
                     <button key={t.id} onClick={() => selectTemplate(t)}
                       className={`text-left px-4 py-3 transition-colors hover:bg-white/[0.03] ${activeTemplate.id === t.id ? "bg-white/[0.06]" : ""}`}>
@@ -758,7 +758,7 @@ export default function OutreachPage() {
                 </div>
               </div>
 
-              {/* Customize fields */}
+              {/* Customize fields (shrink-0 — sits between the two halves) */}
               {activeTemplate.extraFields && activeTemplate.extraFields.length > 0 && (
                 <div className="shrink-0 border-b border-white/10 px-4 py-4 space-y-4">
                   <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Customize</p>
@@ -801,7 +801,7 @@ export default function OutreachPage() {
               )}
 
               {/* Contact list */}
-              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden border-t border-white/10">
                 {/* Search + select all */}
                 <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-3 shrink-0">
                   <input type="text" value={search} onChange={e => setSearch(e.target.value)}
