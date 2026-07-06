@@ -30,6 +30,7 @@ type CallLog = {
   add_ons: string[] | null;
   linked_contact_ids: string[] | null;
   follow_up_date: string | null;
+  quote_amount: string | null;
 };
 
 function participantIds(log: Pick<CallLog, "contact_id" | "linked_contact_ids">): string[] {
@@ -124,7 +125,7 @@ const PITCH_SERVICES = [
   { key: "floorplan", label: "Floor Plan", price: "from $50" },
 ] as const;
 
-function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[]): string {
+function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string): string {
   const TRACK_BASE = "https://www.luckimages.com/api/track-link";
   const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
 
@@ -185,8 +186,27 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
     </div>
   </td></tr>
 
+  ${quoteAmount ? `<tr><td style="padding:0 32px 0;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <div style="background-color:#0d1f0d;border:1px solid #1a3d1a;padding:20px 24px;">
+      <p style="margin:0 0 4px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#4ade80;">Your Quote</p>
+      <p style="margin:0;font-size:28px;font-weight:900;color:#ffffff;">$${quoteAmount}</p>
+      <p style="margin:4px 0 0;font-size:11px;color:#444;">Based on what we discussed on the call.</p>
+    </div>
+  </td></tr>` : ""}
+
+  <tr><td style="padding:24px 32px 16px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+        <td>
+          <a href="https://www.luckimages.com/register" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Create Portal Account →</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:10px 0 0;font-size:11px;color:#333;">Create a free account to book your shoot, track delivery, and pay invoices in one place.</p>
+  </td></tr>
+
   <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
-    <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Hey, ready to book or have any questions? Reach out and a member of our team will be in contact shortly.</p>
+    <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Ready to book or have questions? Reply to this email or give me a call.</p>
     <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
     <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ryan@luckimages.com · luckimages.com</p>
   </td></tr>
@@ -235,6 +255,7 @@ function ColdCallsPage() {
   const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
 
   const [notes, setNotes] = useState("");
+  const [quoteAmount, setQuoteAmount] = useState("");
   const [logging, setLogging] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -244,6 +265,7 @@ function ColdCallsPage() {
   const [pitchSent, setPitchSent] = useState(false);
   const [pitchContact, setPitchContact] = useState<Contact | null>(null);
   const [pitchServices, setPitchServices] = useState<Set<string>>(new Set(PITCH_SERVICES.map(s => s.key)));
+  const [pitchQuote, setPitchQuote] = useState("");
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
@@ -378,6 +400,7 @@ function ColdCallsPage() {
       linked_contact_ids: additionalContacts.length > 0 ? additionalContacts.map(c => c.id) : null,
       outcome,
       notes: notes || null,
+      quote_amount: quoteAmount || null,
       listing_address: address || null,
       listing_url: listingUrl || null,
       called_by: callerName,
@@ -399,6 +422,7 @@ function ColdCallsPage() {
     );
 
     setNotes("");
+    setQuoteAmount("");
     setPrimaryService(null);
     setSelectedAddOns(new Set());
     setAddress("");
@@ -478,7 +502,7 @@ function ColdCallsPage() {
         contactId: target.id,
         to: target.email,
         subject: pitchSubject,
-        html: buildPitchHtml(firstName, target.id, selected),
+        html: buildPitchHtml(firstName, target.id, selected, pitchQuote || undefined),
         body: isAll
           ? `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`
           : `Hi ${firstName},\n\nThanks for the call. Sending pricing + portfolio for ${selectedLabels.join(", ")} at luckimages.com.\n\nRyan Luck\nLuck Images`,
@@ -768,6 +792,7 @@ function ColdCallsPage() {
                           </p>
                         )}
                         {c.follow_up_date && <p className="text-xs text-[#38bdf8] mt-0.5">📅 Call back {new Date(c.follow_up_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>}
+                        {c.quote_amount && <p className="text-xs text-[#4ade80] mt-0.5">💰 Quoted ${c.quote_amount}</p>}
                         {c.notes && <p className="text-xs text-[#444] italic mt-0.5">&ldquo;{c.notes}&rdquo;</p>}
                       </div>
                     );
@@ -797,6 +822,7 @@ function ColdCallsPage() {
                         setPitchSent(false);
                         setPitchSubject("Real Estate Photography — Luck Images");
                         setPitchServices(new Set(PITCH_SERVICES.map(s => s.key)));
+                        setPitchQuote(log.quote_amount || "");
                         setShowPitch(true);
                         setExpandedLog(null);
                         setEditingLogId(null);
@@ -1107,6 +1133,23 @@ function ColdCallsPage() {
             />
           </div>
 
+          {/* Quote */}
+          <div className="bg-[#111] border border-white/10 p-5">
+            <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">
+              Quote Given <span className="normal-case tracking-normal text-[#333]">(optional — shown in follow-up email)</span>
+            </p>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#555]">$</span>
+              <input
+                type="text"
+                value={quoteAmount}
+                onChange={e => setQuoteAmount(e.target.value)}
+                placeholder="350"
+                className="w-full bg-[#181818] border border-white/10 text-white text-xs pl-6 pr-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
+              />
+            </div>
+          </div>
+
           {/* Call-back date */}
           <div className="bg-[#111] border border-white/10 p-5">
             <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">
@@ -1286,6 +1329,20 @@ function ColdCallsPage() {
                   <p className="text-xs text-[#555] mb-1.5 tracking-[1px] uppercase">Subject</p>
                   <input value={pitchSubject} onChange={e => setPitchSubject(e.target.value)}
                     className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+                </div>
+                <div>
+                  <p className="text-xs text-[#555] mb-1.5 tracking-[1px] uppercase">Quote <span className="normal-case tracking-normal text-[#333]">(leave blank to omit)</span></p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#555]">$</span>
+                    <input
+                      type="text"
+                      value={pitchQuote}
+                      onChange={e => setPitchQuote(e.target.value)}
+                      placeholder="350"
+                      className="w-full bg-[#181818] border border-white/10 text-white text-sm pl-7 pr-4 py-2.5 outline-none focus:border-[#4ade80]/40 placeholder:text-[#333]"
+                    />
+                  </div>
+                  {pitchQuote && <p className="text-[10px] text-[#4ade80] mt-1">Quote block will appear in the email.</p>}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
