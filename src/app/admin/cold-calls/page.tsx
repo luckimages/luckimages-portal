@@ -160,7 +160,12 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
 <tr><td align="center" style="background-color:#0c0c0c;" bgcolor="#0c0c0c">
 <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#0c0c0c;" bgcolor="#0c0c0c">
 
-  <tr><td style="padding:64px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
+  <tr><td style="padding:0;line-height:0;font-size:0;" align="center">
+    <img src="https://www.luckimages.com/hero-1.jpg" width="560" alt="" style="display:block;width:100%;max-width:560px;height:220px;object-fit:cover;object-position:center;" />
+  </td></tr>
+
+  <tr><td style="padding:40px 32px 56px;text-align:center;background-color:#0c0c0c;" bgcolor="#0c0c0c" align="center">
+    <img src="https://www.luckimages.com/logo.png" width="48" height="48" alt="Luck Images" style="display:block;margin:0 auto 12px;" />
     <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
     <h1 style="margin:0 0 20px;font-size:44px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#ffffff;line-height:1;">LUCK IMAGES</h1>
     <p style="margin:0 auto 32px;font-size:14px;line-height:1.8;color:#dddddd;max-width:400px;">${introText}</p>
