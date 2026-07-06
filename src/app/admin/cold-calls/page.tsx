@@ -116,13 +116,13 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
 }
 
 const PITCH_SERVICES = [
-  { key: "photo", label: "Listing Photos", price: "from $200" },
-  { key: "drone", label: "Drone Photos", price: "$200" },
-  { key: "matterport", label: "Matterport 3D Tour", price: "from $200" },
-  { key: "twilight", label: "Twilight Photography", price: TWILIGHT_STANDALONE_PRICE },
-  { key: "virtual-staging", label: "Virtual Staging", price: VIRTUAL_STAGING_PER_PHOTO_PRICE },
-  { key: "video", label: "Video Walkthrough", price: "from $200" },
-  { key: "floorplan", label: "Floor Plan", price: "from $50" },
+  { key: "photo", label: "Listing Photos", price: "from $200", desc: "" },
+  { key: "drone", label: "Drone Photos", price: "$200", desc: "Ten drone photographs, each with property lines added." },
+  { key: "matterport", label: "Matterport 3D Tour", price: "from $200", desc: "" },
+  { key: "twilight", label: "Twilight Photography", price: TWILIGHT_STANDALONE_PRICE, desc: "" },
+  { key: "virtual-staging", label: "Virtual Staging", price: VIRTUAL_STAGING_PER_PHOTO_PRICE, desc: "" },
+  { key: "video", label: "Video Walkthrough", price: "from $200", desc: "" },
+  { key: "floorplan", label: "Floor Plan", price: "from $50", desc: "" },
 ] as const;
 
 function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string): string {
@@ -135,12 +135,13 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
   const isSingle = services.length === 1;
   const isAll = services.length === PITCH_SERVICES.length;
 
-  const serviceRow = (label: string, price: string, href: string) =>
+  const serviceRow = (label: string, price: string, href: string, desc: string) =>
     `<tr>
       <td style="padding:11px 0;font-size:13px;border-bottom:1px solid #1e1e1e;background-color:#131313;" bgcolor="#131313">
         <a href="${href}" style="color:#ccc;text-decoration:none;">${label} <span style="font-size:10px;color:#444;">↗</span></a>
+        ${desc ? `<p style="margin:4px 0 0;font-size:11px;line-height:1.5;color:#777;">${desc}</p>` : ""}
       </td>
-      <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;border-bottom:1px solid #1e1e1e;background-color:#131313;" bgcolor="#131313">${price}</td>
+      <td style="padding:11px 0;font-size:13px;color:#4ade80;text-align:right;font-weight:700;vertical-align:top;border-bottom:1px solid #1e1e1e;background-color:#131313;" bgcolor="#131313">${price}</td>
     </tr>`;
 
   const introText = isAll
@@ -181,7 +182,7 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
     <div style="background-color:#131313;border:1px solid #222;padding:28px;">
       <p style="margin:0 0 20px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#555;">${isAll ? "Services &amp; Starting Prices" : "Pricing"}</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#131313;" bgcolor="#131313">
-        ${services.map(s => serviceRow(s.label, s.price, track(s.key))).join("")}
+        ${services.map(s => serviceRow(s.label, s.price, track(s.key), s.desc)).join("")}
       </table>
       <p style="margin:18px 0 0;font-size:11px;color:#444;">Photos scale with sq ft. Next-day delivery. Same-day rush available.</p>
     </div>
@@ -195,11 +196,11 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
     </div>
   </td></tr>` : ""}
 
-  <tr><td style="padding:24px 32px 16px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
-    <table cellpadding="0" cellspacing="0">
+  <tr><td style="padding:24px 32px 16px;background-color:#0c0c0c;text-align:center;" bgcolor="#0c0c0c" align="center">
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto;" align="center">
       <tr>
         <td>
-          <a href="https://www.luckimages.com/register" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Create Portal Account →</a>
+          <a href="https://www.luckimages.com/register" style="display:inline-block;background-color:#ffffff;color:#000000;font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;text-decoration:none;">Create Client Portal Account →</a>
         </td>
       </tr>
     </table>
