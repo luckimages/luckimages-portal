@@ -395,9 +395,9 @@ const TEMPLATES: Template[] = [
 
       const ALL_PITCH_SERVICES = [
         { key: "photo",           label: "Listing Photos",      price: "from $200" },
-        { key: "drone",           label: "Drone Photos",        price: "$100 add-on · $200 solo" },
+        { key: "drone",           label: "Drone Photos",        price: "$200" },
         { key: "matterport",      label: "Matterport 3D Tour",  price: "from $200" },
-        { key: "twilight",        label: "Twilight Photography", price: "+$150 add-on · $250 solo" },
+        { key: "twilight",        label: "Twilight Photography", price: "$250" },
         { key: "virtual-staging", label: "Virtual Staging",     price: "$25 / photo" },
         { key: "video",           label: "Video Walkthrough",   price: "from $200" },
         { key: "floorplan",       label: "Floor Plan",          price: "from $50" },

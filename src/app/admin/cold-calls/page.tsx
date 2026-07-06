@@ -117,9 +117,9 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
 
 const PITCH_SERVICES = [
   { key: "photo", label: "Listing Photos", price: "from $200" },
-  { key: "drone", label: "Drone Photos", price: "$100 add-on · $200 solo" },
+  { key: "drone", label: "Drone Photos", price: "$200" },
   { key: "matterport", label: "Matterport 3D Tour", price: "from $200" },
-  { key: "twilight", label: "Twilight Photography", price: `+$150 add-on · ${TWILIGHT_STANDALONE_PRICE} solo` },
+  { key: "twilight", label: "Twilight Photography", price: TWILIGHT_STANDALONE_PRICE },
   { key: "virtual-staging", label: "Virtual Staging", price: VIRTUAL_STAGING_PER_PHOTO_PRICE },
   { key: "video", label: "Video Walkthrough", price: "from $200" },
   { key: "floorplan", label: "Floor Plan", price: "from $50" },
