@@ -644,283 +644,274 @@ export default function OutreachPage() {
     }
   }
 
+  const PITCH_SERVICE_OPTIONS = [
+    { key: "photo",           label: "Listing Photos" },
+    { key: "drone",           label: "Drone" },
+    { key: "matterport",      label: "Matterport" },
+    { key: "twilight",        label: "Twilight" },
+    { key: "virtual-staging", label: "Virtual Staging" },
+    { key: "video",           label: "Video" },
+    { key: "floorplan",       label: "Floor Plan" },
+  ];
+
+  // For the pitch template, track selected services as a Set internally
+  const pitchServicesRaw = extraFields["services"] || "all";
+  const pitchAll = pitchServicesRaw === "all";
+  const pitchSelected = pitchAll
+    ? new Set(PITCH_SERVICE_OPTIONS.map(s => s.key))
+    : new Set(pitchServicesRaw.split(",").map(s => s.trim()).filter(Boolean));
+
+  function togglePitchService(key: string) {
+    const next = new Set(pitchSelected);
+    next.has(key) ? next.delete(key) : next.add(key);
+    const isAll = next.size === PITCH_SERVICE_OPTIONS.length;
+    setExtraFields(prev => ({ ...prev, services: isAll ? "all" : [...next].join(",") }));
+  }
+
   return (
     <main className="h-screen w-full bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
 
-
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        {/* Page header */}
-        <div className="px-4 md:px-8 pt-8 pb-4 shrink-0 flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight uppercase">Email Outreach</h1>
-            <p className="text-sm text-[#555] mt-1">Select a campaign, pick your contacts, preview, and create Gmail drafts to review and send yourself.</p>
-          </div>
-          <div className="flex gap-1 shrink-0">
-            <button
-              onClick={() => setMode("campaign")}
-              className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "campaign" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}
-            >Campaign</button>
-            <button
-              onClick={() => { setMode("quicksend"); setQsStatus("idle"); }}
-              className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "quicksend" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}
-            >Quick Send</button>
-          </div>
+      {/* Header */}
+      <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex items-center justify-between gap-4 border-b border-white/10">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight uppercase">Email Outreach</h1>
+          <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, create Gmail drafts.</p>
         </div>
+        <div className="flex gap-1 shrink-0">
+          <button onClick={() => setMode("campaign")}
+            className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "campaign" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}>
+            Campaign
+          </button>
+          <button onClick={() => { setMode("quicksend"); setQsStatus("idle"); }}
+            className={`text-[10px] tracking-[2px] uppercase px-4 py-2 border transition-colors ${mode === "quicksend" ? "border-white text-white bg-white/10" : "border-white/20 text-[#555] hover:text-white hover:border-white/40"}`}>
+            Quick Send
+          </button>
+        </div>
+      </div>
 
-        <div className="flex-1 min-h-0 overflow-hidden" style={{ display: "grid", gridTemplateColumns: "260px 1fr 360px" }}>
+      {/* Two-column body */}
+      <div className="flex-1 min-h-0 flex overflow-hidden">
 
-          {/* LEFT — Template picker + config */}
-          <div className="border-r border-white/10 flex flex-col overflow-y-auto">
-            <div className="px-4 py-3 border-b border-white/10">
-              <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Campaign Templates</p>
-            </div>
-            <div className="flex flex-col divide-y divide-white/5">
-              {TEMPLATES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => selectTemplate(t)}
-                  className={`text-left px-4 py-4 transition-colors hover:bg-white/[0.02] ${activeTemplate.id === t.id ? "bg-white/[0.04]" : ""}`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-[10px] tracking-[1.5px] uppercase font-semibold ${t.tagColor}`}>{t.tag}</span>
-                    {activeTemplate.id === t.id && <span className="text-[10px] text-[#444]">●</span>}
-                  </div>
-                  <p className="text-sm font-bold text-white">{t.label}</p>
-                  <p className="text-[11px] text-[#555] mt-1 leading-snug">{t.description}</p>
-                </button>
-              ))}
-            </div>
+        {/* ── LEFT PANEL ── */}
+        <div className="w-[380px] shrink-0 border-r border-white/10 flex flex-col overflow-hidden">
 
-            {/* Extra fields */}
-            {activeTemplate.extraFields && activeTemplate.extraFields.length > 0 && (
-              <div className="border-t border-white/10 px-4 py-4 space-y-3">
-                <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Customize</p>
-                {activeTemplate.extraFields.map(f => (
-                  <div key={f.key}>
-                    <label className="text-[10px] text-[#444] block mb-1">{f.label}</label>
-                    <input
-                      type="text"
-                      value={extraFields[f.key] || ""}
-                      onChange={e => setExtraFields(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      placeholder={f.placeholder}
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* MIDDLE — Contact list (campaign) or Quick Send compose */}
           {mode === "quicksend" ? (
-            <div className="flex flex-col border-r border-white/10 overflow-hidden min-w-0">
-              <div className="px-4 py-3 border-b border-white/10 shrink-0">
-                <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Quick Send — One-off Email</p>
+            /* Quick Send compose */
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <p className="text-[10px] tracking-[3px] uppercase text-[#555] mb-2">Quick Send — One-off Email</p>
+              <div>
+                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">To (email)</label>
+                <input type="email" value={qs.to} onChange={e => setQs(q => ({ ...q, to: e.target.value }))}
+                  placeholder="client@example.com"
+                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div>
-                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">To (email)</label>
-                  <input
-                    type="email"
-                    value={qs.to}
-                    onChange={e => setQs(q => ({ ...q, to: e.target.value }))}
-                    placeholder="client@example.com"
-                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Name (for preview)</label>
-                  <input
-                    type="text"
-                    value={qs.name}
-                    onChange={e => setQs(q => ({ ...q, name: e.target.value }))}
-                    placeholder="First Last"
-                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Subject</label>
-                  <input
-                    type="text"
-                    value={qs.subject}
-                    onChange={e => setQs(q => ({ ...q, subject: e.target.value }))}
-                    placeholder="Hey Sarah, quick note..."
-                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Message body</label>
-                  <p className="text-[10px] text-[#333] mb-2">Separate paragraphs with a blank line. Will be styled in Luck Images brand email format.</p>
-                  <textarea
-                    value={qs.body}
-                    onChange={e => setQs(q => ({ ...q, body: e.target.value }))}
-                    rows={10}
-                    placeholder={"Hey Sarah,\n\nJust wanted to follow up on your last shoot...\n\nLet me know if you have any upcoming listings."}
-                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20 resize-none leading-relaxed"
-                  />
-                </div>
-                <button
-                  onClick={sendQuick}
-                  disabled={!qs.to || !qs.subject || !qs.body || qsStatus === "sending" || qsStatus === "done"}
-                  className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40"
-                >
-                  {qsStatus === "sending" ? "Creating Draft..." : qsStatus === "done" ? "✓ Draft Created — Check Gmail" : qsStatus === "error" ? "Error — Retry" : "Create Draft →"}
+              <div>
+                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Name</label>
+                <input type="text" value={qs.name} onChange={e => setQs(q => ({ ...q, name: e.target.value }))}
+                  placeholder="First Last"
+                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+              </div>
+              <div>
+                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Subject</label>
+                <input type="text" value={qs.subject} onChange={e => setQs(q => ({ ...q, subject: e.target.value }))}
+                  placeholder="Hey Sarah, quick note..."
+                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+              </div>
+              <div>
+                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Message</label>
+                <p className="text-[10px] text-[#333] mb-2">Separate paragraphs with a blank line.</p>
+                <textarea value={qs.body} onChange={e => setQs(q => ({ ...q, body: e.target.value }))} rows={8}
+                  placeholder={"Hey Sarah,\n\nJust wanted to follow up...\n\nLet me know if you have upcoming listings."}
+                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20 resize-none leading-relaxed" />
+              </div>
+              <button onClick={sendQuick}
+                disabled={!qs.to || !qs.subject || !qs.body || qsStatus === "sending" || qsStatus === "done"}
+                className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                {qsStatus === "sending" ? "Creating Draft..." : qsStatus === "done" ? "✓ Draft Created — Check Gmail" : qsStatus === "error" ? "Error — Retry" : "Create Draft →"}
+              </button>
+              {qsStatus === "done" && (
+                <button onClick={() => { setQs({ to: "", name: "", subject: "", body: "" }); setQsStatus("idle"); }}
+                  className="w-full text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors py-2">
+                  Send another
                 </button>
-                {qsStatus === "done" && (
-                  <button onClick={() => { setQs({ to: "", name: "", subject: "", body: "" }); setQsStatus("idle"); }} className="w-full text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors py-2">
-                    Send another
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           ) : (
-          <div className="flex flex-col border-r border-white/10 overflow-hidden min-w-0">
-            {/* List header */}
-            <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search contacts..."
-                  className="w-full bg-transparent text-xs text-white outline-none placeholder:text-[#333]"
-                />
-              </div>
-              <span className="text-[10px] text-[#444] shrink-0">{eligible.length} eligible</span>
-              <button
-                onClick={toggleAll}
-                className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-2 py-1 shrink-0"
-              >
-                {selected.size === filtered.length && filtered.length > 0 ? "Deselect all" : `Select all (${filtered.length})`}
-              </button>
-            </div>
-
-            {/* Send bar */}
-            {selected.size > 0 && (
-              <div className="px-4 py-2.5 border-b border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="font-semibold">{selected.size} selected</span>
-                  {doneCount > 0 && <span className="text-[#4ade80]">{doneCount} drafted</span>}
-                  {errorCount > 0 && <span className="text-red-400">{errorCount} failed</span>}
+            <>
+              {/* Template list */}
+              <div className="shrink-0 border-b border-white/10">
+                <div className="px-4 py-2.5 border-b border-white/5">
+                  <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Campaign Templates</p>
                 </div>
-                <button
-                  onClick={sendAll}
-                  disabled={sending}
-                  className="text-xs tracking-[1px] uppercase font-semibold px-5 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40"
-                >
-                  {sending ? `Creating ${sentCount}/${selected.size}...` : `Create ${selected.size} Draft${selected.size !== 1 ? "s" : ""} →`}
-                </button>
+                <div className="flex flex-col max-h-[260px] overflow-y-auto divide-y divide-white/5">
+                  {TEMPLATES.map(t => (
+                    <button key={t.id} onClick={() => selectTemplate(t)}
+                      className={`text-left px-4 py-3 transition-colors hover:bg-white/[0.03] ${activeTemplate.id === t.id ? "bg-white/[0.06]" : ""}`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] tracking-[1.5px] uppercase font-semibold ${t.tagColor}`}>{t.tag}</span>
+                        {activeTemplate.id === t.id && <span className="text-[10px] text-white/40">✓</span>}
+                      </div>
+                      <p className="text-xs font-bold text-white mt-0.5">{t.label}</p>
+                      <p className="text-[10px] text-[#444] mt-0.5 leading-snug">{t.description}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-              {loading && <p className="text-xs text-[#444] italic p-4">Loading contacts...</p>}
-              {!loading && filtered.length === 0 && (
-                <p className="text-xs text-[#333] italic p-4">No contacts match this template&apos;s criteria.</p>
-              )}
-              {filtered.map(c => {
-                const status = statuses[c.id];
-                const isSelected = selected.has(c.id);
-                return (
-                  <div
-                    key={c.id}
-                    onClick={() => { if (!sending) toggle(c.id); }}
-                    onMouseEnter={() => setPreviewContact(c)}
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isSelected ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}
-                  >
-                    {/* Checkbox */}
-                    <div className={`w-4 h-4 border flex items-center justify-center shrink-0 transition-colors ${
-                      status === "done"    ? "border-[#4ade80] bg-[#4ade80]/20" :
-                      status === "error"   ? "border-red-500 bg-red-500/20" :
-                      status === "pending" ? "border-[#fbbf24] bg-[#fbbf24]/10" :
-                      isSelected ? "border-white bg-white/10" : "border-white/20"
-                    }`}>
-                      {status === "done"    && <span className="text-[#4ade80] text-[9px]">✓</span>}
-                      {status === "error"   && <span className="text-red-400 text-[9px]">✕</span>}
-                      {status === "pending" && <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24] animate-pulse block" />}
-                      {!status && isSelected && <span className="text-white text-[9px]">✓</span>}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{c.name}</p>
-                      <p className="text-[10px] text-[#444] truncate">{c.email}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {(c.total_revenue || 0) > 0 && (
-                        <span className="text-[10px] text-[#4ade80]">${(c.total_revenue || 0).toLocaleString()}</span>
+              {/* Customize fields */}
+              {activeTemplate.extraFields && activeTemplate.extraFields.length > 0 && (
+                <div className="shrink-0 border-b border-white/10 px-4 py-4 space-y-4">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Customize</p>
+                  {activeTemplate.extraFields.map(f => (
+                    <div key={f.key}>
+                      <label className="text-[10px] text-[#444] block mb-2 tracking-[1px] uppercase">{f.label}</label>
+                      {/* Service toggles for the pitch template */}
+                      {f.key === "services" ? (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] text-[#333]">
+                              {pitchAll ? "All services" : `${pitchSelected.size} selected`}
+                            </span>
+                            <button type="button"
+                              onClick={() => setExtraFields(prev => ({ ...prev, services: pitchAll ? "" : "all" }))}
+                              className="text-[10px] text-[#4ade80] hover:text-white transition-colors tracking-[1px] uppercase">
+                              {pitchAll ? "Clear all" : "Select all"}
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {PITCH_SERVICE_OPTIONS.map(s => {
+                              const active = pitchSelected.has(s.key);
+                              return (
+                                <button key={s.key} type="button" onClick={() => togglePitchService(s.key)}
+                                  className={`text-[10px] px-2.5 py-1.5 rounded-full border transition-all ${active ? "border-[#4ade80] text-[#4ade80] bg-[#4ade80]/10" : "border-white/15 text-[#555] hover:border-white/30 hover:text-white/70"}`}>
+                                  {s.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <input type="text" value={extraFields[f.key] || ""} onChange={e => setExtraFields(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder}
+                          className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
                       )}
-                      {status && (
-                        <span className={`text-[9px] tracking-wide ${
-                          status === "done" ? "text-[#4ade80]" : status === "error" ? "text-red-400" : "text-[#fbbf24]"
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Contact list */}
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                {/* Search + select all */}
+                <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-3 shrink-0">
+                  <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="Search contacts..."
+                    className="flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#333]" />
+                  <span className="text-[10px] text-[#444] shrink-0">{eligible.length}</span>
+                  <button onClick={toggleAll}
+                    className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-2 py-1 shrink-0">
+                    {selected.size === filtered.length && filtered.length > 0 ? "Deselect" : "All"}
+                  </button>
+                </div>
+
+                {/* Contacts */}
+                <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+                  {loading && <p className="text-xs text-[#444] italic p-4">Loading...</p>}
+                  {!loading && filtered.length === 0 && (
+                    <p className="text-xs text-[#333] italic p-4">No contacts match this template.</p>
+                  )}
+                  {filtered.map(c => {
+                    const status = statuses[c.id];
+                    const isSelected = selected.has(c.id);
+                    return (
+                      <div key={c.id}
+                        onClick={() => { if (!sending) toggle(c.id); }}
+                        onMouseEnter={() => setPreviewContact(c)}
+                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${isSelected ? "bg-white/[0.05]" : "hover:bg-white/[0.02]"}`}>
+                        <div className={`w-3.5 h-3.5 border flex items-center justify-center shrink-0 transition-colors ${
+                          status === "done"    ? "border-[#4ade80] bg-[#4ade80]/20" :
+                          status === "error"   ? "border-red-500 bg-red-500/20" :
+                          status === "pending" ? "border-[#fbbf24] bg-[#fbbf24]/10" :
+                          isSelected ? "border-white bg-white/10" : "border-white/20"
                         }`}>
-                          {status === "done" ? "Drafted" : status === "error" ? "Failed" : "Creating..."}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          )} {/* end mode === "campaign" */}
-
-          {/* RIGHT — Live email preview */}
-          <div className="flex flex-col overflow-hidden border-t md:border-t-0 border-white/10">
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
-              <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
-              {mode === "quicksend" && qs.name && (
-                <p className="text-[10px] text-[#333]">→ {qs.name.split(" ")[0]}</p>
-              )}
-              {mode === "campaign" && preview && (
-                <p className="text-[10px] text-[#333]">
-                  {preview.id === "example" ? "example — Sarah Johnson" : `→ ${preview.name.split(" ")[0]}`}
-                </p>
-              )}
-            </div>
-            {mode === "quicksend" ? (
-              <div className="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
-                {qs.subject && (
-                  <div className="px-4 py-3 border-b border-white/5 shrink-0">
-                    <p className="text-[10px] text-[#444] mb-0.5">Subject</p>
-                    <p className="text-xs text-white font-medium">{qs.subject}</p>
-                  </div>
-                )}
-                {qs.body ? (
-                  <iframe
-                    title="Email preview"
-                    className="w-full flex-1 border-0 bg-[#0a0a0a]"
-                    srcDoc={wrap(EYEBROW("") + H1(qs.subject || "Your message") + qs.body.split("\n\n").map(para => P(para)).join("") + SIG)}
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center justify-center p-8">
-                    <p className="text-xs text-[#333] italic">Start typing to see a live preview</p>
-                  </div>
-                )}
-              </div>
-            ) : preview ? (
-              <div className="flex-1 min-h-0 flex flex-col bg-[#0a0a0a]">
-                {/* Subject line */}
-                <div className="px-4 py-3 border-b border-white/5 shrink-0">
-                  <p className="text-[10px] text-[#444] mb-0.5">Subject</p>
-                  <p className="text-xs text-white font-medium">{activeTemplate.subject(preview)}</p>
+                          {status === "done"    && <span className="text-[#4ade80] text-[8px]">✓</span>}
+                          {status === "error"   && <span className="text-red-400 text-[8px]">✕</span>}
+                          {status === "pending" && <span className="w-1 h-1 rounded-full bg-[#fbbf24] animate-pulse block" />}
+                          {!status && isSelected && <span className="text-white text-[8px]">✓</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{c.name}</p>
+                          <p className="text-[10px] text-[#444] truncate">{c.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {(c.total_revenue || 0) > 0 && (
+                            <span className="text-[10px] text-[#4ade80]">${(c.total_revenue || 0).toLocaleString()}</span>
+                          )}
+                          {status && (
+                            <span className={`text-[9px] ${status === "done" ? "text-[#4ade80]" : status === "error" ? "text-red-400" : "text-[#fbbf24]"}`}>
+                              {status === "done" ? "✓" : status === "error" ? "✕" : "..."}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {/* HTML render */}
-                <iframe
-                  title="Email preview"
-                  className="w-full flex-1 border-0 bg-[#0a0a0a]"
-                  srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://www.luckimages.com/dashboard" })}
-                />
+
+                {/* Send bar */}
+                {selected.size > 0 && (
+                  <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0">
+                    <div className="text-xs text-[#888]">
+                      <span className="text-white font-semibold">{selected.size}</span> selected
+                      {doneCount > 0 && <span className="text-[#4ade80] ml-3">{doneCount} drafted</span>}
+                      {errorCount > 0 && <span className="text-red-400 ml-2">{errorCount} failed</span>}
+                    </div>
+                    <button onClick={sendAll} disabled={sending}
+                      className="text-xs tracking-[1px] uppercase font-bold px-5 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                      {sending ? `${sentCount}/${selected.size}...` : `Draft ${selected.size} →`}
+                    </button>
+                  </div>
+                )}
               </div>
+            </>
+          )}
+        </div>
+
+        {/* ── RIGHT PANEL — Large email preview ── */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#080808]">
+          {/* Preview header */}
+          <div className="px-5 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
+            <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
+            <span className="text-white/10">·</span>
+            {mode === "quicksend" ? (
+              <p className="text-[10px] text-[#444]">{qs.subject || "—"}</p>
+            ) : (
+              <p className="text-[10px] text-[#444]">{activeTemplate.subject(preview)}</p>
+            )}
+            <div className="flex-1" />
+            {mode === "campaign" && (
+              <p className="text-[10px] text-[#333]">
+                {preview.id === "example" ? "previewing: example contact" : `previewing: ${preview.name}`}
+              </p>
+            )}
+          </div>
+
+          {/* iframe */}
+          {mode === "quicksend" ? (
+            qs.body ? (
+              <iframe title="Email preview" className="w-full flex-1 border-0"
+                srcDoc={wrap(EYEBROW("") + H1(qs.subject || "Your message") + qs.body.split("\n\n").map(para => P(para)).join("") + SIG)} />
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-xs text-[#333] italic">No contacts to preview</p>
+                <p className="text-xs text-[#333] italic">Start typing to see a live preview</p>
               </div>
-            )}
-          </div>
-
+            )
+          ) : (
+            <iframe title="Email preview" className="w-full flex-1 border-0"
+              srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://www.luckimages.com/dashboard" })} />
+          )}
         </div>
+
       </div>
     </main>
   );
