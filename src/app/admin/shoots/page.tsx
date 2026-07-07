@@ -275,6 +275,37 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
     setEsSaving(false);
   }
 
+  const [confirming, setConfirming] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState("");
+  async function handleConfirm() {
+    setConfirming(true); setConfirmMsg("");
+    const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
+    const scheduledAtISO = esDatetime ? new Date(esDatetime).toISOString() : shoot.scheduled_at;
+
+    // Save address/notes first (confirm-booking only touches time/status/photographers)
+    await fetch("/api/admin/shoots", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: shoot.id, address: esAddress, notes: combinedNotes }),
+    });
+
+    const res = await fetch("/api/admin/confirm-booking", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shootId: shoot.id, scheduledAt: scheduledAtISO, photographerIds: esPhotographers }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setConfirming(false);
+    if (!res.ok) { setConfirmMsg(data.error || "Confirm failed"); return; }
+    onSave(shoot.id, {
+      status: "scheduled",
+      address: esAddress,
+      scheduled_at: scheduledAtISO || shoot.scheduled_at,
+      photographer_ids: esPhotographers,
+      notes: combinedNotes || "",
+    });
+    setConfirmMsg("Confirmed — client notified & calendar invite sent ✓");
+    setTab("info");
+  }
+
   const assignedPhotographers = photographers.filter(p => (shoot.photographer_ids || []).includes(p.id));
 
   return (
@@ -307,6 +338,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
             </div>
             <h2 className="text-lg font-black tracking-tight leading-tight">{shoot.address}</h2>
             {shoot.scheduled_at && <p className="text-xs text-[#555] mt-1">{fmtScheduled(shoot.scheduled_at)}</p>}
+            {shoot.drive_minutes != null && <p className="text-xs text-[#60a5fa] mt-1">🚗 {shoot.drive_minutes} min drive from home base</p>}
           </div>
           <button onClick={onClose} className="text-[#444] hover:text-white transition-colors text-xl leading-none shrink-0 ml-4">✕</button>
         </div>
@@ -377,7 +409,14 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
                 <p className="text-sm text-[#888] whitespace-pre-wrap">{parsed.notes}</p>
               </div>
             )}
+            {confirmMsg && <p className="text-xs text-[#4ade80]">{confirmMsg}</p>}
             <div className="flex gap-3 pt-2">
+              {shoot.status === "pending" && (
+                <button onClick={handleConfirm} disabled={confirming}
+                  className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-[#4ade80] text-black hover:bg-[#34d399] transition-colors disabled:opacity-40">
+                  {confirming ? "Confirming…" : "Confirm & Notify"}
+                </button>
+              )}
               {(shoot.status === "delivered" || shoot.status === "completed") && !shoot.paid_at && (
                 <button onClick={handleMarkPaid} disabled={markingPaid}
                   className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-[#4ade80] text-black hover:bg-[#34d399] transition-colors disabled:opacity-40">
@@ -385,7 +424,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
                 </button>
               )}
               <button onClick={() => setTab("edit")} className="flex-1 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">
-                Edit Details
+                {shoot.status === "pending" ? "Adjust Time / Photographer" : "Edit Details"}
               </button>
             </div>
           </div>
@@ -430,13 +469,27 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
               <textarea value={esNotes} onChange={e => { setEsNotes(e.target.value); setEsSaved(false); }} rows={3}
                 className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30 resize-none" />
             </div>
+            {confirmMsg && <p className="text-xs text-[#4ade80]">{confirmMsg}</p>}
             <div className="flex gap-3 pt-2">
-              <button onClick={handleSave} disabled={esSaving}
-                className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
-                {esSaving ? "Saving..." : esSaved ? "Saved ✓" : "Save Changes"}
-              </button>
+              {shoot.status === "pending" ? (
+                <button onClick={handleConfirm} disabled={confirming}
+                  className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-[#4ade80] text-black hover:bg-[#34d399] transition-colors disabled:opacity-40">
+                  {confirming ? "Confirming…" : "Confirm & Notify"}
+                </button>
+              ) : (
+                <button onClick={handleSave} disabled={esSaving}
+                  className="flex-1 py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-40">
+                  {esSaving ? "Saving..." : esSaved ? "Saved ✓" : "Save Changes"}
+                </button>
+              )}
               <button onClick={() => setTab("info")} className="px-6 py-2.5 text-xs tracking-[2px] uppercase border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">Cancel</button>
             </div>
+            {shoot.status === "pending" && (
+              <button onClick={handleSave} disabled={esSaving}
+                className="w-full py-2 text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">
+                {esSaving ? "Saving..." : esSaved ? "Saved (no notify) ✓" : "Just save details, don't confirm yet"}
+              </button>
+            )}
           </div>
         )}
 
