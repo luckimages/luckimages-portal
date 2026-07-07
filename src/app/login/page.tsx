@@ -24,8 +24,11 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
       const role = data.user?.user_metadata?.role || "realtor";
-      if (ADMIN_EMAILS.includes(data.user?.email || "")) {
+      if (redirect) {
+        router.push(redirect);
+      } else if (ADMIN_EMAILS.includes(data.user?.email || "")) {
         router.push("/choose-portal");
       } else if (role === "photographer") {
         router.push("/photographer");

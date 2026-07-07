@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
+import { createDeliveryInvoiceAndNotify } from "@/lib/deliveryInvoice";
 
 // PATCH — photographer advances shoot status
 export async function PATCH(req: Request) {
@@ -24,7 +25,7 @@ export async function PATCH(req: Request) {
   // Verify this photographer is assigned to this shoot
   const { data: shoot } = await service
     .from("shoots")
-    .select("id, address, scheduled_at, photographer_ids")
+    .select("id, address, scheduled_at, photographer_ids, status")
     .eq("id", id)
     .single();
 
@@ -34,6 +35,12 @@ export async function PATCH(req: Request) {
 
   const { error } = await service.from("shoots").update({ status }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // First time this shoot reaches "delivered" — auto-create the invoice and
+  // email the client a link to their media + a link to pay.
+  if (status === "delivered" && shoot.status !== "delivered") {
+    createDeliveryInvoiceAndNotify(id).catch(e => console.error("delivery invoice failed", e));
+  }
 
   // Get photographer's display name
   const { data: profile } = await service.from("profiles").select("full_name").eq("id", user.id).single();

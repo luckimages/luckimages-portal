@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { createShootEvent } from "@/lib/googleCalendar";
 import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
+import { createDeliveryInvoiceAndNotify } from "@/lib/deliveryInvoice";
 
 function service() {
   return createAdminClient();
@@ -201,6 +202,12 @@ export async function PATCH(req: Request) {
     await supabase.from("contacts").update({ stage: "client" }).eq("id", contact_id).in("stage", ["lead", "interested", "follow-up", "booked", "registered"]);
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // First time this shoot reaches "delivered" — auto-create the invoice and
+  // email the client a link to their media + a link to pay.
+  if (status === "delivered" && shoot?.status !== "delivered") {
+    createDeliveryInvoiceAndNotify(id).catch(e => console.error("delivery invoice failed", e));
+  }
 
   // Fire a notification for significant status changes
   if (status && shoot) {

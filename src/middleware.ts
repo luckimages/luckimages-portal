@@ -34,9 +34,12 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Not logged in — redirect to login except for public pages
+  // Not logged in — redirect to login except for public pages, preserving
+  // the intended destination so login can send them straight back to it.
   if (!user && (path.startsWith('/client') || path.startsWith('/photographer') || path === '/choose-portal')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', path)
+    return NextResponse.redirect(loginUrl)
   }
 
   return response
