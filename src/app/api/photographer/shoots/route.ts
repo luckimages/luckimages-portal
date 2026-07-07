@@ -37,9 +37,11 @@ export async function PATCH(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // First time this shoot reaches "delivered" — auto-create the invoice and
-  // email the client a link to their media + a link to pay.
+  // email the client a link to their media + a link to pay. Awaited (not
+  // fire-and-forget) since Vercel can freeze the function once the response
+  // is sent, killing any work still in flight.
   if (status === "delivered" && shoot.status !== "delivered") {
-    createDeliveryInvoiceAndNotify(id).catch(e => console.error("delivery invoice failed", e));
+    try { await createDeliveryInvoiceAndNotify(id); } catch (e) { console.error("delivery invoice failed", e); }
   }
 
   // Get photographer's display name
