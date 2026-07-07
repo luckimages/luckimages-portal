@@ -19,6 +19,10 @@ type Contact = {
 
 type SendStatus = "idle" | "pending" | "done" | "error";
 
+type QuickBlock =
+  | { id: string; type: "paragraph"; text: string }
+  | { id: string; type: "button"; label: string; url: string };
+
 type EmailLogRow = { contact_id: string | null; subject: string | null; sent_at: string | null; category: string | null };
 type LinkClickRow = { contact_id: string | null; service: string; clicked_at: string };
 
@@ -559,8 +563,12 @@ export default function OutreachPage() {
   const [linkClicks, setLinkClicks] = useState<LinkClickRow[]>([]);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
-  const [qs, setQs] = useState({ to: "", name: "", subject: "", body: "" });
+  const [qs, setQs] = useState({ to: "", name: "", subject: "" });
   const [qsStatus, setQsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [qsContactId, setQsContactId] = useState<string | null>(null);
+  const [qsContactSearch, setQsContactSearch] = useState("");
+  const [qsShowContactList, setQsShowContactList] = useState(false);
+  const [qsBlocks, setQsBlocks] = useState<QuickBlock[]>([{ id: "b1", type: "paragraph", text: "" }]);
 
   useEffect(() => {
     // Read deep-link params
@@ -686,20 +694,95 @@ export default function OutreachPage() {
   const doneCount = Object.values(statuses).filter(s => s === "done").length;
   const errorCount = Object.values(statuses).filter(s => s === "error").length;
 
+  // ── Quick Send block editor: paragraphs + tracked buttons, reorderable ──
+  function addParagraphBlock() {
+    setQsBlocks(prev => [...prev, { id: `b${Date.now()}`, type: "paragraph", text: "" }]);
+  }
+  function addButtonBlock() {
+    setQsBlocks(prev => [...prev, { id: `b${Date.now()}`, type: "button", label: "", url: "" }]);
+  }
+  function updateBlock(id: string, patch: Partial<QuickBlock>) {
+    setQsBlocks(prev => prev.map(b => b.id === id ? ({ ...b, ...patch } as QuickBlock) : b));
+  }
+  function removeBlock(id: string) {
+    setQsBlocks(prev => prev.filter(b => b.id !== id));
+  }
+  function moveBlock(id: string, dir: "up" | "down") {
+    setQsBlocks(prev => {
+      const idx = prev.findIndex(b => b.id === id);
+      const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
+  }
+
+  const qsContactMatches = qsContactSearch.trim()
+    ? contacts.filter(c => !!c.email && (
+        c.name.toLowerCase().includes(qsContactSearch.toLowerCase()) ||
+        c.email!.toLowerCase().includes(qsContactSearch.toLowerCase())
+      )).slice(0, 6)
+    : [];
+
+  function selectQsContact(c: Contact) {
+    setQs(q => ({ ...q, to: c.email || "", name: c.name }));
+    setQsContactId(c.id);
+    setQsContactSearch("");
+    setQsShowContactList(false);
+  }
+
+  // Branded header — same logo/title block used on the cold-call pitch email
+  const QUICK_HEADER = `
+    <img src="https://www.luckimages.com/logo.png" width="52" height="52" alt="Luck Images" style="display:block;margin:0 auto 12px;border:0;" />
+    <p style="margin:0 0 6px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#cccccc;">Real Estate Media · Austin, TX</p>
+    <h1 style="margin:0 0 28px;font-size:36px;font-weight:900;letter-spacing:-1px;text-transform:uppercase;color:#ffffff;line-height:1;text-align:center;">LUCK IMAGES</h1>`;
+
+  function buildQuickSendHtml(subject: string, blocks: QuickBlock[], contactId: string | null) {
+    const track = (url: string, label: string) => {
+      const params = new URLSearchParams({ url });
+      params.set("service", (label || "custom").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "custom");
+      if (contactId) params.set("contact", contactId);
+      return `https://www.luckimages.com/api/track-link?${params.toString()}`;
+    };
+    const body = blocks.map(b => {
+      if (b.type === "paragraph") return b.text ? P(b.text) : "";
+      if (!b.label || !b.url) return "";
+      return BTN(track(b.url, b.label), b.label);
+    }).join("");
+    return wrap(QUICK_HEADER + H1(subject || "Quick Note") + body + SIG);
+  }
+
   async function sendQuick() {
-    if (!qs.to || !qs.subject || !qs.body || qsStatus === "sending") return;
+    const hasContent = qsBlocks.some(b => (b.type === "paragraph" && b.text.trim()) || (b.type === "button" && b.label && b.url));
+    if (!qs.to || !qs.subject || !hasContent || qsStatus === "sending") return;
     setQsStatus("sending");
-    const html = wrap(
-      EYEBROW("") +
-      H1(qs.subject) +
-      qs.body.split("\n\n").map(para => P(para)).join("") +
-      SIG
-    );
+
+    // Resolve a contact so link clicks / registrations attribute correctly:
+    // use the one picked from the dropdown, else match by email, else create
+    // a lightweight lead record so tracking still works uniformly.
+    let contactId = qsContactId;
+    if (!contactId) {
+      const match = contacts.find(c => c.email?.toLowerCase() === qs.to.toLowerCase());
+      if (match) {
+        contactId = match.id;
+      } else {
+        const { data: created } = await supabase.from("contacts").insert({
+          name: qs.name || qs.to.split("@")[0],
+          email: qs.to,
+          stage: "lead",
+          lead_source: "quick_send",
+        }).select().single();
+        if (created) contactId = created.id;
+      }
+    }
+
+    const html = buildQuickSendHtml(qs.subject, qsBlocks, contactId);
     try {
       const res = await fetch("/api/admin/create-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: qs.to, subject: qs.subject, html }),
+        body: JSON.stringify({ contactId, to: qs.to, subject: qs.subject, html, category: "Quick Send" }),
       });
       setQsStatus(res.ok ? "done" : "error");
     } catch {
@@ -1018,9 +1101,36 @@ export default function OutreachPage() {
             /* Quick Send compose */
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555] mb-2">Quick Send — One-off Email</p>
+
+              {/* Contact picker — select an existing contact, or just type any email/name below */}
+              <div className="relative">
+                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Find a contact (optional)</label>
+                <input type="text" value={qsContactSearch}
+                  onChange={e => { setQsContactSearch(e.target.value); setQsShowContactList(true); }}
+                  onFocus={() => setQsShowContactList(true)}
+                  placeholder="Search name or email..."
+                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                {qsShowContactList && qsContactMatches.length > 0 && (
+                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-[#181818] border border-white/10 max-h-48 overflow-y-auto">
+                    {qsContactMatches.map(c => (
+                      <button key={c.id} type="button" onClick={() => selectQsContact(c)}
+                        className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors">
+                        <p className="text-xs text-white truncate">{c.name}</p>
+                        <p className="text-[10px] text-[#555] truncate">{c.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {qsContactId && (
+                  <p className="text-[10px] text-[#4ade80] mt-1">
+                    Linked to contact ✓ <button type="button" onClick={() => setQsContactId(null)} className="text-[#555] hover:text-white underline ml-1">unlink</button>
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">To (email)</label>
-                <input type="email" value={qs.to} onChange={e => setQs(q => ({ ...q, to: e.target.value }))}
+                <input type="email" value={qs.to} onChange={e => { setQs(q => ({ ...q, to: e.target.value })); setQsContactId(null); }}
                   placeholder="client@example.com"
                   className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
               </div>
@@ -1036,20 +1146,66 @@ export default function OutreachPage() {
                   placeholder="Hey Sarah, quick note..."
                   className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
               </div>
+
+              {/* Block editor — paragraphs + tracked buttons, reorderable */}
               <div>
-                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Message</label>
-                <p className="text-[10px] text-[#333] mb-2">Separate paragraphs with a blank line.</p>
-                <textarea value={qs.body} onChange={e => setQs(q => ({ ...q, body: e.target.value }))} rows={8}
-                  placeholder={"Hey Sarah,\n\nJust wanted to follow up...\n\nLet me know if you have upcoming listings."}
-                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20 resize-none leading-relaxed" />
+                <label className="text-[10px] text-[#444] block mb-2 tracking-[1px] uppercase">Message</label>
+                <div className="space-y-2">
+                  {qsBlocks.map((b, i) => (
+                    <div key={b.id} className="bg-[#181818] border border-white/10 p-2.5">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] tracking-[1px] uppercase text-[#555]">{b.type === "paragraph" ? "Paragraph" : "Button"}</span>
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => moveBlock(b.id, "up")} disabled={i === 0}
+                            className="text-[#555] hover:text-white disabled:opacity-20 disabled:hover:text-[#555] transition-colors text-xs px-1">↑</button>
+                          <button type="button" onClick={() => moveBlock(b.id, "down")} disabled={i === qsBlocks.length - 1}
+                            className="text-[#555] hover:text-white disabled:opacity-20 disabled:hover:text-[#555] transition-colors text-xs px-1">↓</button>
+                          <button type="button" onClick={() => removeBlock(b.id)}
+                            className="text-[#555] hover:text-red-400 transition-colors text-xs px-1">✕</button>
+                        </div>
+                      </div>
+                      {b.type === "paragraph" ? (
+                        <textarea value={b.text} onChange={e => updateBlock(b.id, { text: e.target.value })} rows={3}
+                          placeholder="Write a paragraph..."
+                          className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-2.5 py-2 outline-none placeholder:text-[#333] focus:border-white/20 resize-none leading-relaxed" />
+                      ) : (
+                        <div className="space-y-1.5">
+                          <input type="text" value={b.label} onChange={e => updateBlock(b.id, { label: e.target.value })}
+                            placeholder="Button text — e.g. View Listing →"
+                            className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-2.5 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                          <input type="url" value={b.url} onChange={e => updateBlock(b.id, { url: e.target.value })}
+                            placeholder="https://..."
+                            className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-2.5 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button type="button" onClick={addParagraphBlock}
+                    className="flex-1 text-[10px] tracking-[1px] uppercase text-[#888] hover:text-white border border-white/10 hover:border-white/30 transition-colors py-2">
+                    + Paragraph
+                  </button>
+                  <button type="button" onClick={addButtonBlock}
+                    className="flex-1 text-[10px] tracking-[1px] uppercase text-[#888] hover:text-white border border-white/10 hover:border-white/30 transition-colors py-2">
+                    + Button
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#333] mt-1.5">Buttons are click-tracked — see them under the &ldquo;Quick Send&rdquo; tab in Engagement.</p>
               </div>
+
               <button onClick={sendQuick}
-                disabled={!qs.to || !qs.subject || !qs.body || qsStatus === "sending" || qsStatus === "done"}
+                disabled={!qs.to || !qs.subject || qsStatus === "sending" || qsStatus === "done"}
                 className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
                 {qsStatus === "sending" ? "Creating Draft..." : qsStatus === "done" ? "✓ Draft Created — Check Gmail" : qsStatus === "error" ? "Error — Retry" : "Create Draft →"}
               </button>
               {qsStatus === "done" && (
-                <button onClick={() => { setQs({ to: "", name: "", subject: "", body: "" }); setQsStatus("idle"); }}
+                <button onClick={() => {
+                  setQs({ to: "", name: "", subject: "" });
+                  setQsBlocks([{ id: `b${Date.now()}`, type: "paragraph", text: "" }]);
+                  setQsContactId(null);
+                  setQsStatus("idle");
+                }}
                   className="w-full text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors py-2">
                   Send another
                 </button>
@@ -1217,9 +1373,9 @@ export default function OutreachPage() {
 
           {/* iframe */}
           {mode === "quicksend" ? (
-            qs.body ? (
+            qsBlocks.some(b => (b.type === "paragraph" && b.text) || (b.type === "button" && b.label)) ? (
               <iframe title="Email preview" className="w-full flex-1 border-0"
-                srcDoc={wrap(EYEBROW("") + H1(qs.subject || "Your message") + qs.body.split("\n\n").map(para => P(para)).join("") + SIG)} />
+                srcDoc={buildQuickSendHtml(qs.subject, qsBlocks, qsContactId)} />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-xs text-[#333] italic">Start typing to see a live preview</p>

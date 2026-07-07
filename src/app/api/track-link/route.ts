@@ -24,8 +24,18 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const service = searchParams.get("service") || "";
   const contactId = searchParams.get("contact");
+  const customUrl = searchParams.get("url");
 
-  const destination = SERVICE_URLS[service];
+  // Quick Send buttons link anywhere Ryan chooses at compose time, not just
+  // the fixed service pages — an explicit ?url= takes priority when present.
+  let destination: string | undefined;
+  if (customUrl) {
+    try {
+      const parsed = new URL(customUrl);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") destination = parsed.toString();
+    } catch { /* invalid URL — fall through to SERVICE_URLS / default */ }
+  }
+  if (!destination) destination = SERVICE_URLS[service];
   if (!destination) {
     return NextResponse.redirect(SITE_URL, { status: 302 });
   }
@@ -34,7 +44,7 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  const { error } = await db.from("link_clicks").insert({ contact_id: contactId || null, service });
+  const { error } = await db.from("link_clicks").insert({ contact_id: contactId || null, service: service || "custom" });
   if (error) console.error("track-link: failed to record click", { service, contactId, error: error.message });
 
   return NextResponse.redirect(destination, { status: 302 });
