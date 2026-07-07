@@ -14,6 +14,7 @@ type Contact = {
   user_id: string | null;
   created_at: string;
   lead_source: string | null;
+  registered_at: string | null;
 };
 
 type SendStatus = "idle" | "pending" | "done" | "error";
@@ -539,6 +540,7 @@ const EXAMPLE_CONTACT: Contact = {
   user_id: null,
   created_at: new Date(Date.now() - 90 * 24 * 3600000).toISOString(),
   lead_source: "referral",
+  registered_at: null,
 };
 
 export default function OutreachPage() {
@@ -556,6 +558,7 @@ export default function OutreachPage() {
   const [emailLog, setEmailLog] = useState<EmailLogRow[]>([]);
   const [linkClicks, setLinkClicks] = useState<LinkClickRow[]>([]);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
+  const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [qs, setQs] = useState({ to: "", name: "", subject: "", body: "" });
   const [qsStatus, setQsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
 
@@ -572,7 +575,7 @@ export default function OutreachPage() {
     async function load() {
       const { data } = await supabase
         .from("contacts")
-        .select("id, name, email, stage, total_revenue, user_id, created_at, lead_source")
+        .select("id, name, email, stage, total_revenue, user_id, created_at, lead_source, registered_at")
         .neq("stage", "deleted")
         .order("total_revenue", { ascending: false, nullsFirst: false });
       const list = data || [];
@@ -761,21 +764,82 @@ export default function OutreachPage() {
     return rows.sort((a, b) => b.lastActivity - a.lastActivity);
   })();
 
-  const engFiltered = engagement.filter(r =>
+  // ── Campaigns: group every sent email (with its attributed clicks) by
+  // format label, so each campaign type (Cold Call Follow-up, Portal Invite,
+  // a future newsletter, etc.) gets its own stats + lead list. New campaign
+  // types appear automatically the first time that category is sent.
+  type CampaignEntry = { contact: Contact; email: EmailLogRow; clicks: LinkClickRow[] };
+  const campaigns = (() => {
+    const map = new Map<string, CampaignEntry[]>();
+    for (const row of engagement) {
+      for (const { email, clicks } of row.timeline) {
+        const name = emailFormatLabel(email);
+        if (!map.has(name)) map.set(name, []);
+        map.get(name)!.push({ contact: row.contact, email, clicks });
+      }
+    }
+    const list = [...map.entries()].map(([name, entries]) => {
+      const contactIds = new Set(entries.map(e => e.contact.id));
+      const clickedContactIds = new Set(entries.filter(e => e.clicks.length > 0).map(e => e.contact.id));
+      // Registered = converted after being targeted by this campaign. Templates
+      // like Portal Invite only ever target unregistered contacts, so any
+      // registration afterward is fairly attributed to having been emailed.
+      const registeredContactIds = new Set(
+        entries.filter(e => e.contact.registered_at).map(e => e.contact.id)
+      );
+      const totalClicks = entries.reduce((n, e) => n + e.clicks.length, 0);
+      const lastSentAt = entries.reduce((max, e) => {
+        const t = e.email.sent_at ? new Date(e.email.sent_at).getTime() : 0;
+        return t > max ? t : max;
+      }, 0);
+      return {
+        name, entries, contactIds, clickedContactIds, registeredContactIds, totalClicks, lastSentAt,
+        emailsSent: entries.length,
+        leadsEmailed: contactIds.size,
+        leadsClicked: clickedContactIds.size,
+        registered: registeredContactIds.size,
+        clickRate: contactIds.size > 0 ? Math.round((clickedContactIds.size / contactIds.size) * 100) : 0,
+        registerRate: contactIds.size > 0 ? Math.round((registeredContactIds.size / contactIds.size) * 100) : 0,
+      };
+    });
+    return list.sort((a, b) => b.lastSentAt - a.lastSentAt);
+  })();
+
+  // Default to the most recently active campaign once data loads
+  if (activeCampaign === null && campaigns.length > 0) {
+    setActiveCampaign(campaigns[0].name);
+  }
+
+  const currentCampaign = campaigns.find(c => c.name === activeCampaign) || campaigns[0];
+
+  // Re-bucket the active campaign's entries by contact for the expandable list
+  const campaignByContact = (() => {
+    if (!currentCampaign) return [];
+    const map = new Map<string, { contact: Contact; timeline: { email: EmailLogRow; clicks: LinkClickRow[] }[] }>();
+    for (const e of currentCampaign.entries) {
+      if (!map.has(e.contact.id)) map.set(e.contact.id, { contact: e.contact, timeline: [] });
+      map.get(e.contact.id)!.timeline.push({ email: e.email, clicks: e.clicks });
+    }
+    const rows = [...map.values()].map(r => ({
+      ...r,
+      timeline: r.timeline.sort((a, b) => new Date(b.email.sent_at || 0).getTime() - new Date(a.email.sent_at || 0).getTime()),
+      lastActivity: Math.max(...r.timeline.map(t => new Date(t.email.sent_at || 0).getTime()), ...r.timeline.flatMap(t => t.clicks.map(c => new Date(c.clicked_at).getTime()))),
+    }));
+    return rows.sort((a, b) => b.lastActivity - a.lastActivity);
+  })();
+
+  const engFiltered = campaignByContact.filter(r =>
     !search || r.contact.name.toLowerCase().includes(search.toLowerCase()) || r.contact.email?.toLowerCase().includes(search.toLowerCase())
   );
-  const leadsEmailed = engagement.filter(r => r.emails.length > 0).length;
-  const leadsClicked = engagement.filter(r => r.clicks.length > 0).length;
-  const clickRate = leadsEmailed > 0 ? Math.round((leadsClicked / leadsEmailed) * 100) : 0;
 
   const fmtDate = (iso: string | null | undefined) =>
     iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
   const fmtDateTime = (iso: string) =>
     new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-  function reactionBadge(row: { contact: Contact; clicks: LinkClickRow[] }) {
-    if (["client", "registered", "closed"].includes(row.contact.stage)) return { label: "Converted", color: "#34d399" };
-    if (row.clicks.length > 0) return { label: "Clicked", color: "#60a5fa" };
+  function reactionBadge(row: { contact: Contact; timeline: { clicks: LinkClickRow[] }[] }) {
+    if (row.contact.registered_at || ["client", "registered", "closed"].includes(row.contact.stage)) return { label: "Registered", color: "#34d399" };
+    if (row.timeline.some(t => t.clicks.length > 0)) return { label: "Clicked", color: "#60a5fa" };
     return { label: "Sent", color: "#666" };
   }
 
@@ -807,131 +871,140 @@ export default function OutreachPage() {
       {/* ══ ENGAGEMENT PAGE ══ */}
       {mode === "engagement" ? (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {/* Summary bar */}
-          <div className="px-6 md:px-8 py-4 border-b border-white/10 shrink-0 flex items-center gap-8 flex-wrap">
-            <div>
-              <p className="text-2xl font-black tabular-nums">{leadsEmailed}</p>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Leads Emailed</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black tabular-nums text-[#60a5fa]">{leadsClicked}</p>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Clicked a Link</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black tabular-nums text-[#4ade80]">{clickRate}%</p>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Click Rate</p>
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search leads..."
-                className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
-            </div>
-          </div>
-
-          {/* Opens note */}
-          <div className="px-6 md:px-8 py-2 border-b border-white/5 shrink-0">
-            <p className="text-[10px] text-[#444]">
-              Tracking link clicks &amp; pipeline status live. <span className="text-[#555]">Email opens aren&apos;t tracked yet — ask Claude to turn on Resend open tracking.</span>
-            </p>
-          </div>
-
-          {/* Lead activity list */}
-          <div className="flex-1 overflow-y-auto">
-            {loading && <p className="text-xs text-[#444] italic p-8">Loading engagement...</p>}
-            {!loading && engFiltered.length === 0 && (
-              <div className="p-12 text-center">
-                <p className="text-sm text-[#444]">No email activity yet.</p>
-                <p className="text-xs text-[#333] mt-2">Once you send a follow-up email, each lead and how they react will show up here.</p>
-              </div>
+          {/* Campaign tabs — one per category found in the send log, newest-active first */}
+          <div className="px-6 md:px-8 pt-4 shrink-0 flex items-center gap-2 flex-wrap border-b border-white/10 pb-3">
+            {campaigns.length === 0 && !loading && (
+              <p className="text-xs text-[#333] italic">No campaigns sent yet.</p>
             )}
-            <div className="divide-y divide-white/5">
-              {engFiltered.map(row => {
-                const badge = reactionBadge(row);
-                const stage = STAGE_PILL[row.contact.stage] || { label: row.contact.stage, color: "#666" };
-                const isOpen = expandedLead === row.contact.id;
-                const latest = row.emails[0];
-                return (
-                  <div key={row.contact.id}>
-                    {/* ── Contact bar (click to expand) ── */}
-                    <button
-                      onClick={() => setExpandedLead(isOpen ? null : row.contact.id)}
-                      className={`w-full text-left px-6 md:px-8 py-4 flex items-center gap-4 transition-colors ${isOpen ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}>
-                      <span className={`text-[#555] text-sm shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className="text-base font-semibold truncate">{row.contact.name}</span>
-                          <span className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 rounded-full font-semibold"
-                            style={{ color: badge.color, backgroundColor: `${badge.color}1a` }}>{badge.label}</span>
-                          <span className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 rounded-full"
-                            style={{ color: stage.color, border: `1px solid ${stage.color}55` }}>{stage.label}</span>
-                        </div>
-                        <p className="text-xs text-[#555] mt-1 truncate">{row.contact.email}</p>
-                        {latest && (
-                          <p className="text-xs text-[#777] mt-1.5">
-                            <span className="text-[#999]">📨 {row.emails.length} email{row.emails.length > 1 ? "s" : ""}</span>
-                            <span className="text-[#555]"> · latest: {emailFormatLabel(latest)}</span>
-                            {row.clicks.length > 0
-                              ? <span className="text-[#60a5fa]"> · {row.clicks.length} link click{row.clicks.length > 1 ? "s" : ""}</span>
-                              : <span className="text-[#444]"> · no clicks yet</span>}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-[#666]">{row.lastActivity ? fmtDate(new Date(row.lastActivity).toISOString()) : "—"}</p>
-                        <p className="text-[10px] tracking-[1px] uppercase text-[#333] mt-0.5">last activity</p>
-                      </div>
-                    </button>
-
-                    {/* ── Expanded per-email history ── */}
-                    {isOpen && (
-                      <div className="px-6 md:px-8 pb-5 pl-14 space-y-3 bg-white/[0.015]">
-                        {row.timeline.length === 0 && (
-                          <p className="text-sm text-[#444] italic pt-2">No emails logged for this lead.</p>
-                        )}
-                        {row.timeline.map(({ email, clicks }, i) => (
-                          <div key={i} className="border-l-2 border-white/10 pl-4 pt-2">
-                            <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                              <span className="text-sm font-semibold text-[#4ade80]">{emailFormatLabel(email)}</span>
-                              <span className="text-xs text-[#555] tabular-nums">{email.sent_at ? fmtDateTime(email.sent_at) : "—"}</span>
-                            </div>
-                            {email.subject && <p className="text-xs text-[#666] mt-0.5">&ldquo;{email.subject.replace(/^\[DRAFT\]\s*/, "")}&rdquo;</p>}
-                            {clicks.length > 0 ? (
-                              <div className="mt-2 space-y-1">
-                                {clicks.map((c, j) => (
-                                  <div key={j} className="flex items-center gap-2 text-xs">
-                                    <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
-                                    <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-[#3a3a3a] italic mt-1.5">No clicks on this email yet</p>
-                            )}
-                          </div>
-                        ))}
-                        {row.orphanClicks.length > 0 && (
-                          <div className="border-l-2 border-white/10 pl-4 pt-2">
-                            <span className="text-sm font-semibold text-[#888]">Earlier clicks</span>
-                            <div className="mt-2 space-y-1">
-                              {row.orphanClicks.map((c, j) => (
-                                <div key={j} className="flex items-center gap-2 text-xs">
-                                  <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
-                                  <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        <a href={`/admin/contacts/${row.contact.id}`} className="inline-block text-xs text-[#555] hover:text-white transition-colors pt-1">
-                          View full contact →
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            {campaigns.map(c => (
+              <button key={c.name} onClick={() => setActiveCampaign(c.name)}
+                className={`text-xs tracking-[0.5px] px-3 py-1.5 border transition-colors ${
+                  activeCampaign === c.name ? "border-white text-white bg-white/10" : "border-white/15 text-[#666] hover:text-white hover:border-white/30"
+                }`}>
+                {c.name} <span className="text-[#444] ml-1">({c.leadsEmailed})</span>
+              </button>
+            ))}
           </div>
+
+          {currentCampaign && (
+            <>
+              {/* Summary bar — scoped to the active campaign */}
+              <div className="px-6 md:px-8 py-4 border-b border-white/10 shrink-0 flex items-center gap-8 flex-wrap">
+                <div>
+                  <p className="text-2xl font-black tabular-nums">{currentCampaign.leadsEmailed}</p>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Leads Emailed</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black tabular-nums text-[#60a5fa]">{currentCampaign.leadsClicked}</p>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Clicked a Link</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black tabular-nums text-[#4ade80]">{currentCampaign.clickRate}%</p>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Click Rate</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black tabular-nums text-[#34d399]">{currentCampaign.registered}</p>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Registered ({currentCampaign.registerRate}%)</p>
+                </div>
+                <div className="flex-1 min-w-[180px]">
+                  <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="Search leads..."
+                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                </div>
+              </div>
+
+              {/* Opens note */}
+              <div className="px-6 md:px-8 py-2 border-b border-white/5 shrink-0">
+                <p className="text-[10px] text-[#444]">
+                  Tracking link clicks, registrations &amp; pipeline status live. <span className="text-[#555]">Email opens aren&apos;t tracked yet — ask Claude to turn on Resend open tracking.</span>
+                </p>
+              </div>
+
+              {/* Lead activity list — scoped to the active campaign */}
+              <div className="flex-1 overflow-y-auto">
+                {loading && <p className="text-xs text-[#444] italic p-8">Loading engagement...</p>}
+                {!loading && engFiltered.length === 0 && (
+                  <div className="p-12 text-center">
+                    <p className="text-sm text-[#444]">No leads match.</p>
+                  </div>
+                )}
+                <div className="divide-y divide-white/5">
+                  {engFiltered.map(row => {
+                    const badge = reactionBadge(row);
+                    const stage = STAGE_PILL[row.contact.stage] || { label: row.contact.stage, color: "#666" };
+                    const isOpen = expandedLead === row.contact.id;
+                    const totalClicks = row.timeline.reduce((n, t) => n + t.clicks.length, 0);
+                    return (
+                      <div key={row.contact.id}>
+                        {/* ── Contact bar (click to expand) ── */}
+                        <button
+                          onClick={() => setExpandedLead(isOpen ? null : row.contact.id)}
+                          className={`w-full text-left px-6 md:px-8 py-4 flex items-center gap-4 transition-colors ${isOpen ? "bg-white/[0.04]" : "hover:bg-white/[0.02]"}`}>
+                          <span className={`text-[#555] text-sm shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="text-base font-semibold truncate">{row.contact.name}</span>
+                              <span className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 rounded-full font-semibold"
+                                style={{ color: badge.color, backgroundColor: `${badge.color}1a` }}>{badge.label}</span>
+                              <span className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 rounded-full"
+                                style={{ color: stage.color, border: `1px solid ${stage.color}55` }}>{stage.label}</span>
+                            </div>
+                            <p className="text-xs text-[#555] mt-1 truncate">{row.contact.email}</p>
+                            <p className="text-xs text-[#777] mt-1.5">
+                              <span className="text-[#999]">📨 {row.timeline.length} email{row.timeline.length > 1 ? "s" : ""}</span>
+                              {totalClicks > 0
+                                ? <span className="text-[#60a5fa]"> · {totalClicks} link click{totalClicks > 1 ? "s" : ""}</span>
+                                : <span className="text-[#444]"> · no clicks yet</span>}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-[#666]">{row.lastActivity ? fmtDate(new Date(row.lastActivity).toISOString()) : "—"}</p>
+                            <p className="text-[10px] tracking-[1px] uppercase text-[#333] mt-0.5">last activity</p>
+                          </div>
+                        </button>
+
+                        {/* ── Expanded per-email history ── */}
+                        {isOpen && (
+                          <div className="px-6 md:px-8 pb-5 pl-14 space-y-3 bg-white/[0.015]">
+                            {row.timeline.map(({ email, clicks }, i) => (
+                              <div key={i} className="border-l-2 border-white/10 pl-4 pt-2">
+                                <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                                  <span className="text-sm font-semibold text-[#4ade80]">{emailFormatLabel(email)}</span>
+                                  <span className="text-xs text-[#555] tabular-nums">{email.sent_at ? fmtDateTime(email.sent_at) : "—"}</span>
+                                </div>
+                                {email.subject && <p className="text-xs text-[#666] mt-0.5">&ldquo;{email.subject.replace(/^\[DRAFT\]\s*/, "")}&rdquo;</p>}
+                                {clicks.length > 0 ? (
+                                  <div className="mt-2 space-y-1">
+                                    {clicks.map((c, j) => (
+                                      <div key={j} className="flex items-center gap-2 text-xs">
+                                        <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
+                                        <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-[#3a3a3a] italic mt-1.5">No clicks on this email yet</p>
+                                )}
+                              </div>
+                            ))}
+                            {row.contact.registered_at && (
+                              <div className="border-l-2 border-[#34d399]/30 pl-4 pt-2">
+                                <span className="text-sm font-semibold text-[#34d399]">✓ Registered a portal account</span>
+                                <p className="text-xs text-[#555] mt-0.5">{fmtDateTime(row.contact.registered_at)}</p>
+                              </div>
+                            )}
+                            <a href={`/admin/contacts/${row.contact.id}`} className="inline-block text-xs text-[#555] hover:text-white transition-colors pt-1">
+                              View full contact →
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
 
