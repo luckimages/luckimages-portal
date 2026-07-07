@@ -146,17 +146,23 @@ export default function ClientPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const scheduledAt = new Date(`${booking.date}T${booking.time || "09:00"}`).toISOString();
-    const { error } = await supabase.from("shoots").insert({
-      client_id: user!.id,
-      address: booking.address,
-      scheduled_at: scheduledAt,
-      services: booking.services,
-      notes: booking.notes,
-      status: "pending",
-      square_footage: booking.square_footage ? parseInt(booking.square_footage) : null,
+    const res = await fetch("/api/portal/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        address: booking.address,
+        scheduledAt,
+        services: booking.services,
+        notes: booking.notes,
+        squareFootage: booking.square_footage || null,
+      }),
     });
     setLoading(false);
-    if (error) { setBookingStatus("Error: " + error.message); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setBookingStatus("Error: " + (data.error || "Could not submit request"));
+      return;
+    }
     setBookingStatus("success");
     setBooking({ address: "", date: "", time: "", services: [], notes: "", square_footage: "" });
     const { data: contact2 } = await supabase.from("contacts").select("id").eq("user_id", user!.id).single();

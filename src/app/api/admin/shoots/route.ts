@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
   const query = supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at")
+    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, drive_minutes")
     .order("scheduled_at", { ascending: false });
 
   if (full) { /* no filter — return all */ }

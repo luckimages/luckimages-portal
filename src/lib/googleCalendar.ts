@@ -15,6 +15,7 @@ export async function createShootEvent({
   notes,
   clientEmail,
   clientName,
+  photographerEmails,
 }: {
   address: string;
   scheduledAt: string;
@@ -22,6 +23,7 @@ export async function createShootEvent({
   notes?: string;
   clientEmail?: string;
   clientName?: string;
+  photographerEmails?: string[];
 }) {
   const auth = getOAuthClient();
   auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN! });
@@ -31,10 +33,14 @@ export async function createShootEvent({
   const start = new Date(scheduledAt);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2hr block
 
-  // Internal only — no client invites until portal goes live
+  // Invite Leif, the client, and any assigned photographers.
   const attendees: { email: string; displayName?: string }[] = [
     { email: "leif@luckimages.com", displayName: "Leif" },
   ];
+  if (clientEmail) attendees.push({ email: clientEmail, displayName: clientName });
+  for (const pe of photographerEmails || []) {
+    if (pe && !attendees.some(a => a.email === pe)) attendees.push({ email: pe });
+  }
 
   const serviceList = services?.length ? services.join(", ") : "Shoot";
   const description = [
@@ -49,7 +55,7 @@ export async function createShootEvent({
 
   const event = await calendar.events.insert({
     calendarId: "ryan@luckimages.com",
-    sendUpdates: "none", // no email invites until portal goes live
+    sendUpdates: "all", // email calendar invites to all attendees
     requestBody: {
       summary: `📸 ${serviceList} — ${address}`,
       location: address,

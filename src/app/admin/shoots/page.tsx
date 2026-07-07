@@ -30,6 +30,7 @@ type Shoot = {
   photographer_ids: string[];
   price: number | null;
   package_name: string | null;
+  drive_minutes: number | null;
 };
 
 type Contact = { id: string; name: string; brokerage: string | null };
@@ -612,6 +613,31 @@ function ShootsPage() {
     setShoots(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   }
 
+  // Confirm a pending booking: emails the client, creates the calendar invite,
+  // and flips it to scheduled. Optional overrides for time/photographers.
+  const [confirming, setConfirming] = useState<string | null>(null);
+  async function confirmBooking(id: string, scheduledAt?: string | null, photographerIds?: string[]) {
+    setStatusError(e => ({ ...e, [id]: "" }));
+    setConfirming(id);
+    const res = await fetch("/api/admin/confirm-booking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shootId: id, scheduledAt, photographerIds }),
+    });
+    setConfirming(null);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setStatusError(e => ({ ...e, [id]: d.error || "Confirm failed" }));
+      return;
+    }
+    setShoots(prev => prev.map(s => s.id === id ? {
+      ...s,
+      status: "scheduled",
+      ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+      ...(photographerIds ? { photographer_ids: photographerIds } : {}),
+    } : s));
+  }
+
   async function syncSheet() {
     setSyncing(true); setSyncMsg("");
     const res = await fetch("/api/admin/sync-shoots-sheet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trigger: "manual" }) });
@@ -645,6 +671,9 @@ function ShootsPage() {
                 </span>
               )}
               {shoot.price != null && <span className="text-xs font-bold text-[#4ade80]">${shoot.price.toLocaleString()}</span>}
+              {shoot.drive_minutes != null && (
+                <span className="text-xs text-[#60a5fa]">🚗 {shoot.drive_minutes} min drive</span>
+              )}
             </div>
             {(shoot.package_name || (shoot.services?.length > 0)) && (
               <div className="flex flex-wrap gap-1 mt-2">
@@ -722,9 +751,9 @@ function ShootsPage() {
             </div>
             <div className="px-4 pb-4 flex gap-2 flex-wrap border-t border-white/5 pt-3">
               {shoot.status === "pending" && (
-                <button onClick={() => quickStatus(shoot.id, "scheduled")}
-                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#4ade80]/10 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/20 transition-colors">
-                  Confirm
+                <button onClick={() => confirmBooking(shoot.id)} disabled={confirming === shoot.id}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#4ade80]/10 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40">
+                  {confirming === shoot.id ? "Confirming…" : "Confirm & Notify"}
                 </button>
               )}
               {(shoot.status === "pending" || shoot.status === "scheduled") && (
