@@ -14,7 +14,7 @@ const APPS = [
   { label: "Traffic",      href: "/dashboard/analytics",    color: "#888" },
   { label: "Revenue",     href: "/dashboard/revenue",      color: "#888" },
 
-  { label: "Updates",     href: "/admin/updates",          color: "#888" },
+  { label: "Updates",     href: "/dashboard/updates",      color: "#888" },
 ];
 
 function APP_ICON({ name, color }: { name: string; color: string }) {
@@ -64,14 +64,20 @@ type Todo = {
   completed_at: string | null;
 };
 
-type UpdateItem = {
+type PendingShootPreview = {
   id: string;
-  type: string;
-  category: string;
-  message: string;
-  created_at: string;
-  by?: string;
-  link?: string;
+  address: string;
+  client_name: string;
+  scheduled_at: string | null;
+  drive_minutes: number | null;
+  price: number | null;
+};
+
+type RegistrationPreview = {
+  id: string;
+  name: string;
+  email: string | null;
+  registered_at: string;
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -102,16 +108,6 @@ const TODO_TABS: { key: string; label: string; color: string }[] = [
   { key: "leif", label: "Leif", color: "text-[#60a5fa]" },
 ];
 
-const NOTIF_CATS: { key: string; label: string; dot: string }[] = [
-  { key: "alerts", label: "Alerts", dot: "bg-red-500" },
-  { key: "shoots", label: "Shoots", dot: "bg-[#60a5fa]" },
-  { key: "clients", label: "Clients", dot: "bg-[#fbbf24]" },
-  { key: "marketing", label: "Marketing", dot: "bg-[#f472b6]" },
-  { key: "finance", label: "Finance", dot: "bg-[#4ade80]" },
-  { key: "team", label: "Team", dot: "bg-[#fb923c]" },
-  { key: "nocturne", label: "Nocturne", dot: "bg-[#a78bfa]" },
-];
-
 function DashboardV2Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -125,8 +121,11 @@ function DashboardV2Page() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [todoTab, setTodoTab] = useState("asap");
 
-  const [updates, setUpdates] = useState<UpdateItem[]>([]);
-  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set(NOTIF_CATS.map(c => c.key)));
+  const [pendingShoots, setPendingShoots] = useState<PendingShootPreview[]>([]);
+  const [registrations, setRegistrations] = useState<RegistrationPreview[]>([]);
+  const [pendingAcked, setPendingAcked] = useState<Set<string>>(new Set());
+  const [regAcked, setRegAcked] = useState<Set<string>>(new Set());
+  const [confirmingShoot, setConfirmingShoot] = useState<string | null>(null);
   const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
   const [headerFlip, setHeaderFlip] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -213,13 +212,38 @@ function DashboardV2Page() {
     if (!checked) return;
     loadShoots();
     loadTodos();
-    fetch("/api/admin/company-updates").then(r => r.ok ? r.json() : { posts: [], auto: [] }).then(d => {
-      const all = [...(d.posts || []), ...(d.auto || [])].sort(
-        (a: UpdateItem, b: UpdateItem) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setUpdates(all);
-    });
+    fetch("/api/admin/shoots").then(r => r.ok ? r.json() : []).then(setPendingShoots);
+    fetch("/api/admin/registrations").then(r => r.ok ? r.json() : { registrations: [] }).then(d => setRegistrations(d.registrations || []));
+    fetch("/api/admin/notification-acks?source_type=pending_shoot").then(r => r.ok ? r.json() : { ackedIds: [] }).then(d => setPendingAcked(new Set(d.ackedIds || [])));
+    fetch("/api/admin/notification-acks?source_type=new_registration").then(r => r.ok ? r.json() : { ackedIds: [] }).then(d => setRegAcked(new Set(d.ackedIds || [])));
   }, [checked, loadTodos, loadShoots]);
+
+  async function ackPendingShoot(id: string) {
+    setPendingAcked(prev => new Set(prev).add(id));
+    await fetch("/api/admin/notification-acks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceType: "pending_shoot", sourceId: id }),
+    });
+  }
+  async function ackRegistration(id: string) {
+    setRegAcked(prev => new Set(prev).add(id));
+    await fetch("/api/admin/notification-acks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceType: "new_registration", sourceId: id }),
+    });
+  }
+  async function quickConfirmShoot(id: string) {
+    setConfirmingShoot(id);
+    const res = await fetch("/api/admin/confirm-booking", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shootId: id }),
+    });
+    setConfirmingShoot(null);
+    if (res.ok) {
+      await ackPendingShoot(id);
+      setPendingShoots(prev => prev.filter(s => s.id !== id));
+    }
+  }
 
   // Auto-refresh the shoot board every 30s while it's the active view, matching the live board page
   useEffect(() => {
@@ -272,16 +296,6 @@ function DashboardV2Page() {
     });
   }
 
-  function toggleCat(key: string) {
-    setActiveCategories(prev => {
-      const next = new Set(prev);
-      if (next.size === NOTIF_CATS.length) return new Set([key]);
-      if (next.has(key) && next.size === 1) return new Set(NOTIF_CATS.map(c => c.key));
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  }
-
   if (!checked) return null;
 
   const asapList = todoLists.find(l => l.name.toLowerCase().includes("asap")) || todoLists[0];
@@ -294,8 +308,6 @@ function DashboardV2Page() {
   const activeTabDef = TODO_TABS.find(t => t.key === todoTab)!;
   const tabTasks = getTabTasks(todoTab);
 
-  const filteredUpdates = updates.filter(u => activeCategories.has(u.category || "nocturne"));
-  const catDot: Record<string, string> = Object.fromEntries(NOTIF_CATS.map(c => [c.key, c.dot]));
 
   // Build the visible week (Mon–Sun)
   const today = new Date();
@@ -566,49 +578,88 @@ function DashboardV2Page() {
           )}
         </div>
 
-        {/* Bottom third: Notifications full width */}
-        <div className="flex-[1] min-h-0 pb-8 md:pb-10">
-          {/* Notifications */}
-          <div className="flex flex-col min-h-0 h-full border-2 border-white px-4 pt-3">
+        {/* Bottom third: Pending Shoots + New Registrations, side by side */}
+        <div className="flex-[1] min-h-0 pb-8 md:pb-10 flex gap-4">
+          {/* Pending Shoots */}
+          <div className="flex-1 min-w-0 flex flex-col min-h-0 border-2 border-white px-4 pt-3">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
-              <span className="text-xs tracking-[2px] uppercase text-white/70">Notifications</span>
-              <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
-            </div>
-            <div className="flex items-center gap-1.5 pb-2 mb-1 overflow-x-auto shrink-0">
-              {NOTIF_CATS.map(cat => {
-                const isActive = activeCategories.has(cat.key);
-                return (
-                  <button
-                    key={cat.key}
-                    onClick={() => toggleCat(cat.key)}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold tracking-wide whitespace-nowrap transition-all shrink-0 ${
-                      isActive ? "border-white/25 bg-white/[0.08] text-white/70" : "border-white/10 bg-transparent text-white/30 hover:text-white/50"
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? cat.dot : "bg-white/20"}`} />
-                    {cat.label}
-                  </button>
-                );
-              })}
+              <span className="text-xs tracking-[2px] uppercase text-white/70">📅 Pending Shoots</span>
+              <div className="flex items-center gap-2">
+                {pendingShoots.filter(s => !pendingAcked.has(s.id)).length > 0 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#fbbf24] text-black rounded-full">
+                    {pendingShoots.filter(s => !pendingAcked.has(s.id)).length}
+                  </span>
+                )}
+                <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto pb-3">
-              {filteredUpdates.length === 0 ? (
-                <p className="text-xs text-white/30 italic py-4">Nothing in this category.</p>
+              {pendingShoots.length === 0 ? (
+                <p className="text-xs text-white/30 italic py-4">No pending booking requests.</p>
               ) : (
                 <div className="flex flex-col divide-y divide-white/10">
-                  {filteredUpdates.slice(0, 40).map(u => {
-                    const dot = catDot[u.category || "nocturne"] || "bg-white/40";
-                    const headline = u.message.split("\n---\n")[0];
+                  {pendingShoots.map(s => {
+                    const isUnacked = !pendingAcked.has(s.id);
                     return (
-                      <a key={u.id} href={u.link || "#"} className="flex gap-2.5 items-start py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${dot}`} />
+                      <div key={s.id} className={`py-2.5 -mx-1 px-1 ${isUnacked ? "bg-[#fbbf24]/[0.06]" : ""}`}>
+                        <div className="flex gap-2.5 items-start">
+                          {isUnacked && <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 bg-[#fbbf24]" />}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-white/90 truncate">{s.address}</p>
+                            <p className="text-[10px] text-white/40 mt-0.5">
+                              {s.client_name || "Unknown"}
+                              {s.scheduled_at ? ` · ${new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                              {s.drive_minutes != null ? ` · 🚗 ${s.drive_minutes}m` : ""}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <button onClick={() => quickConfirmShoot(s.id)} disabled={confirmingShoot === s.id}
+                                className="text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#4ade80] hover:bg-[#34d399] px-2.5 py-1 transition-colors disabled:opacity-40">
+                                {confirmingShoot === s.id ? "Confirming…" : "Confirm & Notify"}
+                              </button>
+                              {isUnacked && (
+                                <button onClick={() => ackPendingShoot(s.id)} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">
+                                  Acknowledge
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* New Registrations */}
+          <div className="flex-1 min-w-0 flex flex-col min-h-0 border-2 border-white px-4 pt-3">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
+              <span className="text-xs tracking-[2px] uppercase text-white/70">👤 New Registrations</span>
+              <div className="flex items-center gap-2">
+                {registrations.filter(r => !regAcked.has(r.id)).length > 0 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#34d399] text-black rounded-full">
+                    {registrations.filter(r => !regAcked.has(r.id)).length}
+                  </span>
+                )}
+                <a href="/dashboard/updates" className="text-[10px] text-white/40 hover:text-white/70 transition-colors">View all →</a>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto pb-3">
+              {registrations.length === 0 ? (
+                <p className="text-xs text-white/30 italic py-4">No portal registrations yet.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-white/10">
+                  {registrations.slice(0, 20).map(r => {
+                    const isUnacked = !regAcked.has(r.id);
+                    return (
+                      <a key={r.id} href={`/admin/contacts/${r.id}`} onClick={() => isUnacked && ackRegistration(r.id)}
+                        className={`flex gap-2.5 items-start py-2.5 hover:bg-white/5 transition-colors -mx-1 px-1 ${isUnacked ? "bg-[#34d399]/[0.06]" : ""}`}>
+                        {isUnacked && <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 bg-[#34d399]" />}
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm text-white/90 truncate">{headline}</p>
+                          <p className="text-sm text-white/90 truncate">{r.name}</p>
                           <p className="text-[10px] text-white/40 mt-0.5">
-                            {new Date(u.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            {" · "}
-                            {new Date(u.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                            {u.by ? ` · ${u.by}` : ""}
+                            {r.email} · {new Date(r.registered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </p>
                         </div>
                       </a>
