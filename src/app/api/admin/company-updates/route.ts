@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const history = url.searchParams.get("history") === "1";
 
   // Manual posts (includes system-generated ones with links)
-  const postsQuery = db.from("company_updates").select("id, message, created_by, created_at, category").order("created_at", { ascending: false });
+  const postsQuery = db.from("company_updates").select("id, message, created_by, created_at, category, link").order("created_at", { ascending: false });
   if (!history) postsQuery.limit(40);
   const { data: posts } = await postsQuery;
 
@@ -85,13 +85,14 @@ export async function GET(req: Request) {
   // Late alerts always float to top regardless of scheduled_at
   const allAuto = [...lateAlerts, ...auto];
 
-  const mappedPosts = (posts || []).map((p: { id: string; message: string; created_at: string; created_by: string; category?: string }) => ({
+  const mappedPosts = (posts || []).map((p: { id: string; message: string; created_at: string; created_by: string; category?: string; link?: string }) => ({
     id: p.id,
     type: p.created_by === "system" ? "tool" : "post",
     category: p.category || "nocturne",
     message: p.message,
     created_at: p.created_at,
     by: p.created_by !== "system" ? p.created_by : undefined,
+    link: p.link || undefined,
   }));
 
   return NextResponse.json({ posts: mappedPosts, auto: allAuto });
