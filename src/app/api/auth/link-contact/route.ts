@@ -18,12 +18,14 @@ export async function POST(req: Request) {
   if (leadSource) sourceFields.lead_source = leadSource;
   if (referredByContactId) sourceFields.referred_by_contact_id = referredByContactId;
 
+  const registeredAt = new Date().toISOString();
+
   if (contactId) {
-    await db.from("contacts").update({ user_id: userId, email: email || undefined, ...sourceFields }).eq("id", contactId).is("user_id", null);
+    await db.from("contacts").update({ user_id: userId, email: email || undefined, registered_at: registeredAt, ...sourceFields }).eq("id", contactId).is("user_id", null);
   } else if (email) {
     const { data: existing } = await db.from("contacts").select("id, user_id, email").eq("email", email).maybeSingle();
     if (existing && !existing.user_id) {
-      await db.from("contacts").update({ user_id: userId, email, ...sourceFields }).eq("id", existing.id);
+      await db.from("contacts").update({ user_id: userId, email, registered_at: registeredAt, ...sourceFields }).eq("id", existing.id);
     } else if (!existing) {
       const { data: { user } } = await db.auth.admin.getUserById(userId);
       if (user) {
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
           stage: "registered",
           type: "client",
           user_id: userId,
+          registered_at: registeredAt,
           ...sourceFields,
         });
       }

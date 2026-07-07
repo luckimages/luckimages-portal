@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       .lt("scheduled_at", end)
       .order("scheduled_at", { ascending: true }),
     db.from("company_updates")
-      .select("id, message, category, created_at, created_by")
+      .select("id, message, category, created_at, created_by, link")
       .gte("created_at", start).lt("created_at", end)
       .order("created_at", { ascending: true }),
     db.from("contacts")

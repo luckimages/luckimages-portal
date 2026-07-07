@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Shoot = { id: string; address: string; status: string; scheduled_at: string | null; delivered_at: string | null; paid_at: string | null; contact_id: string | null; price: number | null };
-type Update = { id: string; message: string; category: string; created_at: string; created_by: string };
+type Update = { id: string; message: string; category: string; created_at: string; created_by: string; link?: string };
 type Contact = { id: string; name: string; created_at: string; stage: string };
 type Call = { id: string; called_at: string; outcome: string; called_by: string; contact_id: string; listing_address: string | null; contact_name: string | null };
 type TimeEntry = { id: string; user_id: string; user_name: string; started_at: string; stopped_at: string | null; duration_seconds: number | null };
 
 type CalEvent = {
   id: string;
-  type: "shoot" | "delivery" | "payment" | "update" | "contact" | "call" | "clock_in" | "clock_out";
+  type: string;
   label: string;
   time: string;
   meta?: string;
@@ -20,25 +20,39 @@ type CalEvent = {
 };
 
 // ── Colors ─────────────────────────────────────────────────────────────────────
+// update_* types split the old single "App Update" bucket by the same
+// categories the Command Center posts use, so history is filterable by kind.
 const TYPE_STYLE: Record<string, { dot: string; bg: string; border: string; text: string; label: string }> = {
-  shoot:     { dot: "bg-[#4ade80]", bg: "bg-[#4ade80]/10", border: "border-[#4ade80]/30", text: "text-[#4ade80]",  label: "Shoot" },
-  delivery:  { dot: "bg-[#34d399]", bg: "bg-[#34d399]/10", border: "border-[#34d399]/30", text: "text-[#34d399]",  label: "Delivery" },
-  payment:   { dot: "bg-[#86efac]", bg: "bg-[#86efac]/10", border: "border-[#86efac]/30", text: "text-[#86efac]",  label: "Payment" },
-  update:    { dot: "bg-[#a78bfa]", bg: "bg-[#a78bfa]/10", border: "border-[#a78bfa]/30", text: "text-[#a78bfa]",  label: "App Update" },
-  contact:   { dot: "bg-[#fbbf24]", bg: "bg-[#fbbf24]/10", border: "border-[#fbbf24]/30", text: "text-[#fbbf24]",  label: "New Contact" },
-  call:      { dot: "bg-[#60a5fa]", bg: "bg-[#60a5fa]/10", border: "border-[#60a5fa]/30", text: "text-[#60a5fa]",  label: "Call" },
-  clock_in:  { dot: "bg-[#fb923c]", bg: "bg-[#fb923c]/10", border: "border-[#fb923c]/30", text: "text-[#fb923c]",  label: "Clocked In" },
-  clock_out: { dot: "bg-[#fdba74]", bg: "bg-[#fdba74]/10", border: "border-[#fdba74]/30", text: "text-[#fdba74]",  label: "Clocked Out" },
+  shoot:            { dot: "bg-[#4ade80]", bg: "bg-[#4ade80]/10", border: "border-[#4ade80]/30", text: "text-[#4ade80]",  label: "Shoot" },
+  delivery:         { dot: "bg-[#34d399]", bg: "bg-[#34d399]/10", border: "border-[#34d399]/30", text: "text-[#34d399]",  label: "Delivery" },
+  payment:          { dot: "bg-[#86efac]", bg: "bg-[#86efac]/10", border: "border-[#86efac]/30", text: "text-[#86efac]",  label: "Payment" },
+  contact:          { dot: "bg-[#fbbf24]", bg: "bg-[#fbbf24]/10", border: "border-[#fbbf24]/30", text: "text-[#fbbf24]",  label: "New Contact" },
+  call:             { dot: "bg-[#60a5fa]", bg: "bg-[#60a5fa]/10", border: "border-[#60a5fa]/30", text: "text-[#60a5fa]",  label: "Call" },
+  clock_in:         { dot: "bg-[#fb923c]", bg: "bg-[#fb923c]/10", border: "border-[#fb923c]/30", text: "text-[#fb923c]",  label: "Clocked In" },
+  clock_out:        { dot: "bg-[#fdba74]", bg: "bg-[#fdba74]/10", border: "border-[#fdba74]/30", text: "text-[#fdba74]",  label: "Clocked Out" },
+  update_alerts:    { dot: "bg-red-500",    bg: "bg-red-500/10",    border: "border-red-500/30",    text: "text-red-400",    label: "Alert" },
+  update_shoots:    { dot: "bg-[#60a5fa]", bg: "bg-[#60a5fa]/10", border: "border-[#60a5fa]/30", text: "text-[#60a5fa]",  label: "Shoot Update" },
+  update_clients:   { dot: "bg-[#fbbf24]", bg: "bg-[#fbbf24]/10", border: "border-[#fbbf24]/30", text: "text-[#fbbf24]",  label: "Client Update" },
+  update_marketing: { dot: "bg-[#f472b6]", bg: "bg-[#f472b6]/10", border: "border-[#f472b6]/30", text: "text-[#f472b6]",  label: "Marketing" },
+  update_finance:   { dot: "bg-[#4ade80]", bg: "bg-[#4ade80]/10", border: "border-[#4ade80]/30", text: "text-[#4ade80]",  label: "Finance" },
+  update_team:      { dot: "bg-[#fb923c]", bg: "bg-[#fb923c]/10", border: "border-[#fb923c]/30", text: "text-[#fb923c]",  label: "Team" },
+  update_nocturne:  { dot: "bg-[#a78bfa]", bg: "bg-[#a78bfa]/10", border: "border-[#a78bfa]/30", text: "text-[#a78bfa]",  label: "Nocturne Dev" },
 };
 
 const LEGEND = [
-  { type: "shoot",     label: "Shoot Scheduled" },
-  { type: "delivery",  label: "Delivery" },
-  { type: "payment",   label: "Payment" },
-  { type: "contact",   label: "New Contact" },
-  { type: "call",      label: "Cold Call" },
-  { type: "update",    label: "App Update" },
-  { type: "clock_in",  label: "Ryan / Leif Clock-in" },
+  { type: "shoot",            label: "Shoot Scheduled" },
+  { type: "delivery",         label: "Delivery" },
+  { type: "payment",          label: "Payment" },
+  { type: "contact",          label: "New Contact" },
+  { type: "call",             label: "Cold Call" },
+  { type: "clock_in",         label: "Ryan / Leif Clock-in" },
+  { type: "update_alerts",    label: "Alert" },
+  { type: "update_shoots",    label: "Shoot Update" },
+  { type: "update_clients",   label: "Client Update" },
+  { type: "update_marketing", label: "Marketing" },
+  { type: "update_finance",   label: "Finance" },
+  { type: "update_team",      label: "Team" },
+  { type: "update_nocturne",  label: "Nocturne Dev" },
 ];
 
 function toDateStr(iso: string) {
@@ -100,11 +114,12 @@ export default function CalendarPage() {
       }
     }
 
-    // App updates
+    // Manual/system updates — split by category so they're filterable by kind
     for (const u of updates as Update[]) {
       const d = toDateStr(u.created_at);
       const headline = u.message.split("\n---\n")[0].trim();
-      add(d, { id: `update-${u.id}`, type: "update", label: headline, time: u.created_at, meta: u.created_by, link: "/dashboard/updates" });
+      const category = u.category || "nocturne";
+      add(d, { id: `update-${u.id}`, type: `update_${category}`, label: headline, time: u.created_at, meta: u.created_by, link: u.link || "/dashboard/updates" });
     }
 
     // New contacts
