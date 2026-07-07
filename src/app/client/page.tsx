@@ -129,15 +129,45 @@ export default function ClientPage() {
         contactId
           ? supabase.from("shoots").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).order("scheduled_at", { ascending: false })
           : supabase.from("shoots").select("*").eq("client_id", uid).order("scheduled_at", { ascending: false }),
-        supabase.from("invoices").select("*").eq("client_id", uid).order("created_at", { ascending: false }),
+        contactId
+          ? supabase.from("invoices").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).order("created_at", { ascending: false })
+          : supabase.from("invoices").select("*").eq("client_id", uid).order("created_at", { ascending: false }),
       ]);
       setShoots(shootData || []);
       setInvoices(invData || []);
     });
   }, [router]);
 
+  const [justPaid, setJustPaid] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "invoices") setTab("invoices");
+    if (params.get("paid") === "1") { setJustPaid(true); setTab("invoices"); }
+    if (params.get("paid") || params.get("tab")) {
+      window.history.replaceState({}, "", "/client");
+    }
+  }, []);
+
   function toggleService(s: string) {
     setBooking(b => ({ ...b, services: b.services.includes(s) ? b.services.filter(x => x !== s) : [...b.services, s] }));
+  }
+
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payError, setPayError] = useState("");
+  async function payInvoice(invoiceId: string) {
+    setPayError(""); setPayingId(invoiceId);
+    try {
+      const res = await fetch("/api/portal/pay-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) { setPayError(data.error || "Could not start payment"); setPayingId(null); return; }
+      window.location.href = data.url; // redirect to Stripe Checkout
+    } catch {
+      setPayError("Could not start payment"); setPayingId(null);
+    }
   }
 
   async function submitBooking(e: React.FormEvent) {
@@ -611,6 +641,16 @@ export default function ClientPage() {
         {/* INVOICES */}
         {tab === "invoices" && (
           <div>
+            {justPaid && (
+              <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-4 mb-4 text-center">
+                <p className="text-[#4ade80] text-sm">Payment received — thank you! Your invoice will update to Paid shortly.</p>
+              </div>
+            )}
+            {payError && (
+              <div className="bg-red-500/10 border border-red-500/20 p-4 mb-4 text-center">
+                <p className="text-red-400 text-sm">{payError}</p>
+              </div>
+            )}
             {invoices.length === 0 ? (
               <div className="flex items-center justify-center h-48">
                 <p className="text-[#555] text-sm">No invoices yet</p>
@@ -629,7 +669,12 @@ export default function ClientPage() {
                           <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Due"}</span>
                         </td>
                         <td className="px-5 py-3">
-                          {!inv.paid && <button className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors">Pay Now →</button>}
+                          {!inv.paid && (
+                            <button onClick={() => payInvoice(inv.id)} disabled={payingId === inv.id}
+                              className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
+                              {payingId === inv.id ? "Loading…" : "Pay Now →"}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

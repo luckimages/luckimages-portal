@@ -653,6 +653,25 @@ function ShootsPage() {
   // Log shoot card
   function LogShootCard({ shoot }: { shoot: Shoot }) {
     const [expanded, setExpanded] = useState(false);
+    const [invoiceOpen, setInvoiceOpen] = useState(false);
+    const [invoiceAmount, setInvoiceAmount] = useState(shoot.price != null ? String(shoot.price) : "");
+    const [invoiceMsg, setInvoiceMsg] = useState("");
+    const [invoiceBusy, setInvoiceBusy] = useState(false);
+    async function createInvoice() {
+      const dollars = parseFloat(invoiceAmount);
+      if (!dollars || dollars <= 0) { setInvoiceMsg("Enter an amount"); return; }
+      setInvoiceBusy(true); setInvoiceMsg("");
+      const res = await fetch("/api/admin/create-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shootId: shoot.id, amountCents: Math.round(dollars * 100) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setInvoiceBusy(false);
+      if (!res.ok) { setInvoiceMsg(data.error || "Failed"); return; }
+      setInvoiceMsg(data.emailed ? "Invoice created & emailed ✓" : "Invoice created ✓ (no client email on file)");
+      setInvoiceOpen(false);
+    }
     const clientDisplay = shoot.contact_name || shoot.client_name || shoot.client_email || null;
     const err = statusError[shoot.id];
     const shootPhotographers = photographers.filter(p => (shoot.photographer_ids || []).includes(p.id));
@@ -780,8 +799,28 @@ function ShootsPage() {
                   ↩ Reopen
                 </button>
               )}
+              <button onClick={() => { setInvoiceOpen(o => !o); setInvoiceMsg(""); }}
+                className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#60a5fa]/10 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/20 transition-colors">
+                {invoiceOpen ? "Close" : "+ Invoice"}
+              </button>
               {err && <p className="text-xs text-red-400 self-center">{err}</p>}
+              {invoiceMsg && <p className="text-xs text-[#4ade80] self-center">{invoiceMsg}</p>}
             </div>
+            {invoiceOpen && (
+              <div className="px-4 pb-4 flex items-center gap-2 flex-wrap">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#555]">$</span>
+                  <input type="number" min="0" value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)}
+                    placeholder="300"
+                    className="w-32 bg-[#181818] border border-white/10 text-white text-sm pl-7 pr-3 py-2 outline-none focus:border-[#60a5fa]/40 placeholder:text-[#333]" />
+                </div>
+                <button onClick={createInvoice} disabled={invoiceBusy}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#60a5fa]/10 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/20 transition-colors disabled:opacity-40">
+                  {invoiceBusy ? "Creating…" : "Create & Email Invoice"}
+                </button>
+                <span className="text-[10px] text-[#555]">Emails the client a link to pay in their portal.</span>
+              </div>
+            )}
           </div>
         )}
       </div>
