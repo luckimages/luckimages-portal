@@ -673,13 +673,13 @@ export default function OutreachPage() {
         const html = activeTemplate.html(contact, { ...extraFields, portalLink: portalLink || "" });
         const subject = activeTemplate.subject(contact);
 
-        const res = await fetch("/api/admin/create-draft", {
+        const res = await fetch("/api/admin/send-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contactId: contact.id, to: contact.email, subject, html, category: activeTemplate.label }),
         });
 
-        if (!res.ok) throw new Error("Draft creation failed");
+        if (!res.ok) throw new Error("Send failed");
         setStatuses(s => ({ ...s, [contact.id]: "done" }));
         setSentCount(n => n + 1);
       } catch {
@@ -779,7 +779,7 @@ export default function OutreachPage() {
 
     const html = buildQuickSendHtml(qs.subject, qsBlocks, contactId);
     try {
-      const res = await fetch("/api/admin/create-draft", {
+      const res = await fetch("/api/admin/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactId, to: qs.to, subject: qs.subject, html, category: "Quick Send" }),
@@ -933,7 +933,7 @@ export default function OutreachPage() {
       <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex items-center justify-between gap-4 border-b border-white/10">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase">Email Outreach</h1>
-          <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, create Gmail drafts.</p>
+          <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, send instantly.</p>
         </div>
         <div className="flex gap-1 shrink-0">
           <button onClick={() => setMode("campaign")}
@@ -1197,7 +1197,7 @@ export default function OutreachPage() {
               <button onClick={sendQuick}
                 disabled={!qs.to || !qs.subject || qsStatus === "sending" || qsStatus === "done"}
                 className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                {qsStatus === "sending" ? "Creating Draft..." : qsStatus === "done" ? "✓ Draft Created — Check Gmail" : qsStatus === "error" ? "Error — Retry" : "Create Draft →"}
+                {qsStatus === "sending" ? "Sending..." : qsStatus === "done" ? "✓ Sent" : qsStatus === "error" ? "Error — Retry" : "Send →"}
               </button>
               {qsStatus === "done" && (
                 <button onClick={() => {
@@ -1338,12 +1338,12 @@ export default function OutreachPage() {
                   <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0">
                     <div className="text-xs text-[#888]">
                       <span className="text-white font-semibold">{selected.size}</span> selected
-                      {doneCount > 0 && <span className="text-[#4ade80] ml-3">{doneCount} drafted</span>}
+                      {doneCount > 0 && <span className="text-[#4ade80] ml-3">{doneCount} sent</span>}
                       {errorCount > 0 && <span className="text-red-400 ml-2">{errorCount} failed</span>}
                     </div>
                     <button onClick={sendAll} disabled={sending}
                       className="text-xs tracking-[1px] uppercase font-bold px-5 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                      {sending ? `${sentCount}/${selected.size}...` : `Draft ${selected.size} →`}
+                      {sending ? `${sentCount}/${selected.size}...` : `Send ${selected.size} →`}
                     </button>
                   </div>
                 )}
