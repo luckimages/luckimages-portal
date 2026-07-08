@@ -138,7 +138,8 @@ function DashboardV2Page() {
   const [editOrder, setEditOrder] = useState<string[]>(DEFAULT_ORDER);
   const [editHidden, setEditHidden] = useState<Set<string>>(new Set());
   const dragIndex = useRef<number | null>(null);
-  const [selectedAppLabel, setSelectedAppLabel] = useState<string | null>(null);
+  const [selectedAppLabel, setSelectedAppLabel] = useState<string | null>(() => searchParams.get("app"));
+  const [deepLinkShootId] = useState<string | null>(() => searchParams.get("shoot"));
 
   useEffect(() => {
     const supabase = createClient();
@@ -605,7 +606,7 @@ function DashboardV2Page() {
                         <div className="flex gap-2.5 items-start">
                           {isUnacked && <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 bg-[#fbbf24]" />}
                           <div className="min-w-0 flex-1">
-                            <a href={`/dashboard/updates?shoot=${s.id}`} className="block hover:opacity-80 transition-opacity">
+                            <a href={`/dashboard/v2?page=apps&app=Updates&shoot=${s.id}`} className="block hover:opacity-80 transition-opacity">
                               <p className="text-sm text-white/90 truncate">{s.address}</p>
                               <p className="text-[10px] text-white/40 mt-0.5">
                                 {s.client_name || "Unknown"}
@@ -738,7 +739,7 @@ function DashboardV2Page() {
                 {activeApp ? (
                   <iframe
                     key={activeApp.href}
-                    src={activeApp.href}
+                    src={activeApp.label === "Updates" && deepLinkShootId ? `${activeApp.href}?shoot=${deepLinkShootId}` : activeApp.href}
                     className="w-full h-full border-0 bg-[#0c0c0c]"
                     title={activeApp.label}
                   />
