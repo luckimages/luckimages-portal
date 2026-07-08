@@ -31,7 +31,7 @@ export default function ClientPage() {
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", brokerage: "", areas: "", birthday: "", mailingList: false, referralSource: "" });
   const [profileEditing, setProfileEditing] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"" | "saving" | "saved" | "error">("");
-  const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", square_footage: "" });
+  const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", access_instructions: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
@@ -184,6 +184,7 @@ export default function ClientPage() {
         scheduledAt,
         services: booking.services,
         notes: booking.notes,
+        accessInstructions: booking.access_instructions,
         squareFootage: booking.square_footage || null,
       }),
     });
@@ -194,7 +195,7 @@ export default function ClientPage() {
       return;
     }
     setBookingStatus("success");
-    setBooking({ address: "", date: "", time: "", services: [], notes: "", square_footage: "" });
+    setBooking({ address: "", date: "", time: "", services: [], notes: "", access_instructions: "", square_footage: "" });
     const { data: contact2 } = await supabase.from("contacts").select("id").eq("user_id", user!.id).single();
     const cid2 = contact2?.id;
     const { data: shootData } = cid2
@@ -620,10 +621,16 @@ export default function ClientPage() {
                     );
                   })()}
 
+                  {/* Property access */}
+                  <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Property Access <span className="text-[#444]">(optional)</span></label>
+                    <textarea placeholder="Lockbox code, Supra key box, gate code, alarm instructions..." value={booking.access_instructions} onChange={e => setBooking(b => ({ ...b, access_instructions: e.target.value }))} className={inputCls + " resize-none h-20"} />
+                  </div>
+
                   {/* Notes */}
                   <div className="flex flex-col gap-2">
                     <label className={labelCls}>Notes <span className="text-[#444]">(optional)</span></label>
-                    <textarea placeholder="Gate code, special instructions, parking info..." value={booking.notes} onChange={e => setBooking(b => ({ ...b, notes: e.target.value }))} className={inputCls + " resize-none h-24"} />
+                    <textarea placeholder="Parking info, anything else we should know..." value={booking.notes} onChange={e => setBooking(b => ({ ...b, notes: e.target.value }))} className={inputCls + " resize-none h-24"} />
                   </div>
 
                   {bookingStatus && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">{bookingStatus}</p>}

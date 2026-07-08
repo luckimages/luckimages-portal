@@ -11,10 +11,18 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, scheduledAt, services, notes, squareFootage } = await req.json();
+  const { address, scheduledAt, services, notes, accessInstructions, squareFootage } = await req.json();
   if (!address || !scheduledAt) {
     return NextResponse.json({ error: "Address and preferred date/time are required" }, { status: 400 });
   }
+
+  // No dedicated access_instructions column yet — fold it into notes with a
+  // clear label so it's never missed on the day of the shoot, without
+  // needing a schema migration.
+  const combinedNotes = [
+    accessInstructions ? `🔑 Property Access: ${accessInstructions}` : null,
+    notes || null,
+  ].filter(Boolean).join("\n\n") || null;
 
   const db = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +42,7 @@ export async function POST(req: Request) {
     address,
     scheduled_at: scheduledAt,
     services: services || [],
-    notes: notes || null,
+    notes: combinedNotes,
     status: "pending",
     square_footage: squareFootage ? parseInt(squareFootage) : null,
     drive_minutes: drive?.minutes ?? null,
@@ -50,7 +58,7 @@ export async function POST(req: Request) {
 
   // Command Center item — actionable, links to the board to confirm
   await db.from("company_updates").insert({
-    message: `📅 New booking request — ${clientName} · ${address} · requested ${whenStr}\n---\nServices: ${svcStr}\nDrive: ${driveStr}\nReview & confirm on the board.`,
+    message: `📅 New booking request — ${clientName} · ${address} · requested ${whenStr}\n---\nServices: ${svcStr}\nDrive: ${driveStr}${accessInstructions ? `\n🔑 Access: ${accessInstructions}` : ""}\nReview & confirm on the board.`,
     created_by: "system",
     category: "shoots",
     link: "/dashboard/board",
@@ -74,6 +82,7 @@ export async function POST(req: Request) {
               ${squareFootage ? `<tr><td style="padding:6px 0;color:#666;">Sq Ft</td><td style="padding:6px 0;">${squareFootage}</td></tr>` : ""}
               <tr><td style="padding:6px 0;color:#666;">Drive time</td><td style="padding:6px 0;color:#4ade80;">${driveStr}</td></tr>
               ${contact?.phone ? `<tr><td style="padding:6px 0;color:#666;">Phone</td><td style="padding:6px 0;">${contact.phone}</td></tr>` : ""}
+              ${accessInstructions ? `<tr><td style="padding:6px 0;color:#4ade80;vertical-align:top;">🔑 Access</td><td style="padding:6px 0;color:#4ade80;font-weight:700;">${accessInstructions}</td></tr>` : ""}
               ${notes ? `<tr><td style="padding:6px 0;color:#666;vertical-align:top;">Notes</td><td style="padding:6px 0;">${notes}</td></tr>` : ""}
             </table>
             <a href="https://www.luckimages.com/dashboard/board" style="display:inline-block;margin-top:24px;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 26px;text-decoration:none;">Review &amp; Confirm →</a>
