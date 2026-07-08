@@ -21,11 +21,17 @@ export default function LoginPage() {
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setResetStatus("sending"); setResetError("");
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/set-password`,
+    const res = await fetch("/api/auth/request-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: resetEmail }),
     });
-    if (error) { setResetError(error.message); setResetStatus("error"); return; }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setResetError(data.error || "Something went wrong");
+      setResetStatus("error");
+      return;
+    }
     setResetStatus("sent");
   }
 

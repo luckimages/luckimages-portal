@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
@@ -12,6 +12,17 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [status, setStatus] = useState<"" | "saving" | "error">("");
   const [error, setError] = useState("");
+  const [firstName, setFirstName] = useState("");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      const { data: contact } = await supabase.from("contacts").select("name").eq("user_id", data.user.id).single();
+      const name = contact?.name || data.user.user_metadata?.full_name || "";
+      setFirstName(name.split(" ")[0] || "");
+    });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,9 +47,9 @@ export default function SetPasswordPage() {
           <span className="text-base font-black tracking-tight uppercase">Luck Images</span>
         </Link>
 
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2">Welcome</p>
-        <h1 className="text-3xl font-black tracking-tight uppercase mb-2">Set Your Password</h1>
-        <p className="text-sm text-[#666] mb-8">Create a password so you can log in directly next time.</p>
+        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2">{firstName ? `Hey ${firstName}` : "Welcome"}</p>
+        <h1 className="text-3xl font-black tracking-tight uppercase mb-2">New Password</h1>
+        <p className="text-sm text-[#666] mb-8">Enter your new password below.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
