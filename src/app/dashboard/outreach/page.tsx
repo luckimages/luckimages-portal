@@ -80,15 +80,34 @@ type Template = {
 const GOOGLE_REVIEW_URL = "https://g.page/r/CdYourReviewLink/review"; // TODO: replace with real URL
 const PORTAL_URL = "https://www.luckimages.com";
 
-const BASE = `background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto`;
-const EYEBROW = (label: string) => `<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images${label ? ` — ${label}` : ""}</p>`;
-const H1 = (text: string) => `<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">${text}</h1>`;
-const P = (text: string, style = "") => `<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px${style ? `;${style}` : ""}">${text}</p>`;
+const EYEBROW = (label: string) => `<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px;text-align:center">Luck Images${label ? ` — ${label}` : ""}</p>`;
+const H1 = (text: string) => `<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px;text-align:center">${text}</h1>`;
+const P = (text: string, style = "") => `<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px;text-align:center${style ? `;${style}` : ""}">${text}</p>`;
 const BTN = (href: string, label: string) => `<a href="${href}" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">${label}</a>`;
-const SMALL = (text: string) => `<p style="color:#444;font-size:11px;line-height:1.6;margin:0">${text}</p>`;
-const SIG = `<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>`;
-const HIGHLIGHT = (text: string, color: string, rgb: string) => `<p style="color:${color};font-size:13px;font-weight:700;margin:0 0 24px;border:1px solid rgba(${rgb},0.3);padding:12px 16px;display:inline-block">${text}</p><br>`;
-const wrap = (body: string) => `<!DOCTYPE html><html><body style="${BASE}">${body}</body></html>`;
+const SMALL = (text: string) => `<p style="color:#444;font-size:11px;line-height:1.6;margin:0;text-align:center">${text}</p>`;
+const SIG = `<p style="color:#333;font-size:11px;margin:24px 0 0;text-align:center">— Ryan Luck, Luck Images</p>`;
+const HIGHLIGHT = (text: string, color: string, rgb: string) => `<p style="color:${color};font-size:13px;font-weight:700;margin:0 0 24px;border:1px solid rgba(${rgb},0.3);padding:12px 16px;display:inline-block;text-align:center">${text}</p><br>`;
+
+// Gmail (and most webmail) strips <body>-level CSS, so centering can't rely
+// on inherited styles — it has to be set explicitly per element, same as the
+// Cold Call Follow-up template's table layout. The outer full-bleed table
+// carries min-height:100vh so short emails still fill the reading pane
+// instead of leaving a truncated card with white space below it.
+const wrap = (body: string) => `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background-color:#0c0c0c;font-family:Arial,sans-serif;color:#fff;" bgcolor="#0c0c0c">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0c0c;min-height:100vh;" bgcolor="#0c0c0c">
+<tr><td align="center" valign="middle" style="background-color:#0c0c0c;padding:40px 20px;" bgcolor="#0c0c0c">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#0c0c0c;" bgcolor="#0c0c0c">
+<tr><td align="center" style="text-align:center;">
+${body}
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
 
 const TEMPLATES: Template[] = [
   // ── ONBOARDING ──────────────────────────────────────────────────────────────
