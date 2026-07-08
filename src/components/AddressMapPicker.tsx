@@ -64,12 +64,21 @@ export default function AddressMapPicker({ address, onAddressChange, lat, lng, o
     (async () => {
       const L = (await import("leaflet")).default;
 
-      // Bundlers don't resolve Leaflet's default marker image paths — point
-      // them at the package's own CDN-hosted assets instead.
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      // Branded pin — white "RL" roundel (matches the logo used in email
+      // headers) over a triangle pointer, anchored at the tip so it points
+      // exactly at the confirmed coordinate.
+      const pinIcon = L.divIcon({
+        className: "luckimages-map-pin",
+        html: `
+          <div style="width:36px;height:48px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:#0c0c0c;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.45);box-sizing:border-box;">
+              <span style="font-family:Arial,sans-serif;font-weight:900;font-size:13px;letter-spacing:-0.5px;color:#fff;">RL</span>
+            </div>
+            <div style="width:0;height:0;margin:0 auto;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid #0c0c0c;"></div>
+          </div>
+        `,
+        iconSize: [36, 48],
+        iconAnchor: [18, 48],
       });
 
       if (cancelled) return;
@@ -81,7 +90,7 @@ export default function AddressMapPicker({ address, onAddressChange, lat, lng, o
           maxZoom: 19,
         }).addTo(map);
 
-        const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        const marker = L.marker([lat, lng], { draggable: true, icon: pinIcon }).addTo(map);
         marker.on("dragend", () => {
           const pos = marker.getLatLng();
           onLocationChange(pos.lat, pos.lng);
