@@ -605,12 +605,14 @@ function DashboardV2Page() {
                         <div className="flex gap-2.5 items-start">
                           {isUnacked && <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 bg-[#fbbf24]" />}
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-white/90 truncate">{s.address}</p>
-                            <p className="text-[10px] text-white/40 mt-0.5">
-                              {s.client_name || "Unknown"}
-                              {s.scheduled_at ? ` · ${new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
-                              {s.drive_minutes != null ? ` · 🚗 ${s.drive_minutes}m` : ""}
-                            </p>
+                            <a href={`/dashboard/updates?shoot=${s.id}`} className="block hover:opacity-80 transition-opacity">
+                              <p className="text-sm text-white/90 truncate">{s.address}</p>
+                              <p className="text-[10px] text-white/40 mt-0.5">
+                                {s.client_name || "Unknown"}
+                                {s.scheduled_at ? ` · ${new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                                {s.drive_minutes != null ? ` · 🚗 ${s.drive_minutes}m` : ""}
+                              </p>
+                            </a>
                             <div className="flex items-center gap-3 mt-1.5">
                               <button onClick={() => quickConfirmShoot(s.id)} disabled={confirmingShoot === s.id}
                                 className="text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#4ade80] hover:bg-[#34d399] px-2.5 py-1 transition-colors disabled:opacity-40">

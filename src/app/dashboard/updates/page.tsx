@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 type PendingShoot = {
   id: string;
@@ -95,8 +95,9 @@ export default function UpdatesPage() {
   const [editPhotographers, setEditPhotographers] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
   const [updateInput, setUpdateInput] = useState("");
-  const [quoteInputs, setQuoteInputs] = useState<Record<string, string>>({});
+  const [serviceQuotes, setServiceQuotes] = useState<Record<string, Record<string, string>>>({});
   const [savingQuote, setSavingQuote] = useState<string | null>(null);
+  const autoExpandedRef = useRef(false);
 
   const pendingAcks = useAcks("pending_shoot");
   const regAcks = useAcks("new_registration");
@@ -125,14 +126,37 @@ export default function UpdatesPage() {
     fetch("/api/admin/photographers").then(r => r.ok ? r.json() : []).then(setPhotographers);
   }, [loadShoots, loadRegs]);
 
+  // Deep link from the board's Pending Shoots widget (?shoot=<id>) — expand
+  // that specific shoot automatically and scroll it into view, once.
+  useEffect(() => {
+    if (autoExpandedRef.current || pendingShoots.length === 0) return;
+    autoExpandedRef.current = true;
+    const shootId = new URLSearchParams(window.location.search).get("shoot");
+    const s = shootId ? pendingShoots.find(x => x.id === shootId) : null;
+    if (!s) return;
+    initShootEdits(s);
+    setExpandedShoot(s.id);
+    setTimeout(() => {
+      document.getElementById(`pending-shoot-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingShoots]);
+
+  function initShootEdits(s: PendingShoot) {
+    pendingAcks.ack(s.id);
+    if (!editDatetime[s.id]) setEditDatetime(d => ({ ...d, [s.id]: s.scheduled_at ? toDatetimeLocal(s.scheduled_at) : "" }));
+    if (!editPhotographers[s.id]) setEditPhotographers(p => ({ ...p, [s.id]: s.photographer_ids || [] }));
+    if (!serviceQuotes[s.id]) {
+      const init: Record<string, string> = {};
+      (s.services || []).forEach(svc => { init[svc] = String(servicePrice(svc, s.square_footage || 0)); });
+      setServiceQuotes(q => ({ ...q, [s.id]: init }));
+    }
+  }
+
   function toggleShootExpand(s: PendingShoot) {
     setExpandedShoot(prev => {
       const next = prev === s.id ? null : s.id;
-      if (next) {
-        pendingAcks.ack(s.id);
-        if (!editDatetime[s.id]) setEditDatetime(d => ({ ...d, [s.id]: s.scheduled_at ? toDatetimeLocal(s.scheduled_at) : "" }));
-        if (!editPhotographers[s.id]) setEditPhotographers(p => ({ ...p, [s.id]: s.photographer_ids || [] }));
-      }
+      if (next) initShootEdits(s);
       return next;
     });
   }
@@ -145,17 +169,15 @@ export default function UpdatesPage() {
     });
   }
 
-  async function saveQuote(id: string) {
-    const raw = quoteInputs[id];
-    const price = raw !== undefined && raw !== "" ? Number(raw) : null;
+  async function saveQuote(id: string, amount: number) {
     setSavingQuote(id);
     const res = await fetch("/api/admin/shoots", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, price }),
+      body: JSON.stringify({ id, price: amount }),
     });
     setSavingQuote(null);
-    if (res.ok) setPendingShoots(prev => prev.map(x => x.id === id ? { ...x, price } : x));
+    if (res.ok) setPendingShoots(prev => prev.map(x => x.id === id ? { ...x, price: amount } : x));
   }
 
   async function confirmShoot(s: PendingShoot) {
@@ -225,8 +247,9 @@ export default function UpdatesPage() {
               {pendingShoots.map(s => {
                 const isUnacked = !pendingAcks.acked.has(s.id);
                 const isExpanded = expandedShoot === s.id;
+                const quoteTotal = Object.values(serviceQuotes[s.id] || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
                 return (
-                  <div key={s.id} className={isUnacked ? "bg-[#fbbf24]/[0.06] border-l-2 border-l-[#fbbf24]" : ""}>
+                  <div key={s.id} id={`pending-shoot-${s.id}`} className={isUnacked ? "bg-[#fbbf24]/[0.06] border-l-2 border-l-[#fbbf24]" : ""}>
                     <button onClick={() => toggleShootExpand(s)} className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -253,9 +276,15 @@ export default function UpdatesPage() {
                           {(s.services || []).length > 0 ? (
                             <div className="border border-white/10">
                               {(s.services || []).map((svc, i) => (
-                                <div key={svc} className={`flex items-center justify-between px-3 py-2 text-xs ${i > 0 ? "border-t border-white/5" : ""}`}>
+                                <div key={svc} className={`flex items-center justify-between px-3 py-2 text-xs gap-3 ${i > 0 ? "border-t border-white/5" : ""}`}>
                                   <span className="text-white">{svc}</span>
-                                  <span className="text-[#4ade80] font-semibold">${servicePrice(svc, s.square_footage || 0).toLocaleString()}</span>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="text-[#666]">$</span>
+                                    <input type="number" min="0"
+                                      value={serviceQuotes[s.id]?.[svc] ?? ""}
+                                      onChange={e => setServiceQuotes(q => ({ ...q, [s.id]: { ...(q[s.id] || {}), [svc]: e.target.value } }))}
+                                      className="w-20 bg-[#1a1a1a] border border-white/10 text-[#4ade80] font-semibold text-xs px-2 py-1 outline-none focus:border-white/30 text-right" />
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -264,20 +293,15 @@ export default function UpdatesPage() {
                           )}
                         </div>
 
-                        <div>
-                          <p className="text-[10px] tracking-[1px] uppercase text-[#555] mb-1">Quote</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[#666] text-sm">$</span>
-                            <input type="number" min="0"
-                              value={quoteInputs[s.id] ?? (s.price != null ? String(s.price) : "")}
-                              onChange={e => setQuoteInputs(q => ({ ...q, [s.id]: e.target.value }))}
-                              placeholder="Not set"
-                              className="w-28 bg-[#1a1a1a] border border-white/10 text-white text-sm px-2 py-1.5 outline-none focus:border-white/30" />
-                            <button onClick={() => saveQuote(s.id)} disabled={savingQuote === s.id}
-                              className="text-[10px] tracking-[1px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors disabled:opacity-40">
-                              {savingQuote === s.id ? "Saving..." : "Save"}
-                            </button>
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-[10px] tracking-[1px] uppercase text-[#555] mb-1">Quote (total)</p>
+                            <p className="text-lg font-bold text-[#4ade80]">${quoteTotal.toLocaleString()}</p>
                           </div>
+                          <button onClick={() => saveQuote(s.id, quoteTotal)} disabled={savingQuote === s.id}
+                            className="text-[10px] tracking-[1px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors disabled:opacity-40">
+                            {savingQuote === s.id ? "Saving..." : s.price === quoteTotal ? "Saved ✓" : "Save Quote"}
+                          </button>
                         </div>
 
                         {s.notes && <p className="text-xs text-[#777] italic">&ldquo;{s.notes}&rdquo;</p>}
