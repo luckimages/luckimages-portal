@@ -991,10 +991,10 @@ export default function OutreachPage() {
   }
 
   return (
-    <main className="h-screen w-full bg-[#0c0c0c] text-white flex flex-col overflow-hidden">
+    <main className="h-screen w-full bg-[#0c0c0c] text-white flex flex-col overflow-y-auto md:overflow-hidden">
 
       {/* Header */}
-      <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex items-center justify-between gap-4 border-b border-white/10">
+      <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/10">
         <div>
           <h1 className="text-2xl font-black tracking-tight uppercase">Email Outreach</h1>
           <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, send instantly.</p>
@@ -1017,7 +1017,7 @@ export default function OutreachPage() {
 
       {/* ══ ENGAGEMENT PAGE ══ */}
       {mode === "engagement" ? (
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col overflow-visible md:overflow-hidden">
           {/* Campaign tabs — one per category found in the send log, newest-active first */}
           <div className="px-6 md:px-8 pt-4 shrink-0 flex items-center gap-2 flex-wrap border-b border-white/10 pb-3">
             {campaigns.length === 0 && !loading && (
@@ -1068,7 +1068,7 @@ export default function OutreachPage() {
               </div>
 
               {/* Lead activity list — scoped to the active campaign */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="max-h-[60vh] md:max-h-none md:flex-1 overflow-y-auto">
                 {loading && <p className="text-xs text-[#444] italic p-8">Loading engagement...</p>}
                 {!loading && engFiltered.length === 0 && (
                   <div className="p-12 text-center">
@@ -1155,15 +1155,15 @@ export default function OutreachPage() {
         </div>
       ) : (
 
-      /* Two-column body */
-      <div className="flex-1 min-h-0 flex overflow-hidden">
+      /* Two-column body — stacks vertically (preview below compose) on mobile */
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-visible md:overflow-hidden">
 
         {/* ── LEFT PANEL ── */}
-        <div className="w-[380px] shrink-0 border-r border-white/10 flex flex-col overflow-hidden">
+        <div className="w-full md:w-[380px] shrink-0 border-b md:border-b-0 md:border-r border-white/10 flex flex-col overflow-visible md:overflow-hidden">
 
           {mode === "quicksend" ? (
             /* Quick Send compose */
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="flex-1 overflow-visible md:overflow-y-auto p-5 space-y-4">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555] mb-2">Quick Send — One-off Email</p>
 
               {/* Recipients — add as many existing contacts and/or typed emails as you want */}
@@ -1316,11 +1316,11 @@ export default function OutreachPage() {
           ) : (
             <>
               {/* Top half: template list */}
-              <div className="flex-1 min-h-0 border-b border-white/10 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 border-b border-white/10 flex flex-col overflow-visible md:overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-white/5 shrink-0">
                   <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Campaign Templates</p>
                 </div>
-                <div className="flex flex-col flex-1 overflow-y-auto divide-y divide-white/5">
+                <div className="flex flex-col flex-1 max-h-[45vh] md:max-h-none overflow-y-auto divide-y divide-white/5">
                   {TEMPLATES.map(t => (
                     <button key={t.id} onClick={() => selectTemplate(t)}
                       className={`text-left px-4 py-3 transition-colors hover:bg-white/[0.03] ${activeTemplate.id === t.id ? "bg-white/[0.06]" : ""}`}>
@@ -1378,7 +1378,7 @@ export default function OutreachPage() {
               )}
 
               {/* Contact list */}
-              <div className="flex flex-col flex-1 min-h-0 overflow-hidden border-t border-white/10">
+              <div className="flex flex-col flex-1 min-h-0 overflow-visible md:overflow-hidden border-t border-white/10">
                 {/* Search + select all */}
                 <div className="px-4 py-2.5 border-b border-white/10 flex items-center gap-3 shrink-0">
                   <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -1392,7 +1392,7 @@ export default function OutreachPage() {
                 </div>
 
                 {/* Contacts */}
-                <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+                <div className="max-h-[45vh] md:max-h-none md:flex-1 overflow-y-auto divide-y divide-white/5">
                   {loading && <p className="text-xs text-[#444] italic p-4">Loading...</p>}
                   {!loading && filtered.length === 0 && (
                     <p className="text-xs text-[#333] italic p-4">No contacts match this template.</p>
@@ -1455,7 +1455,7 @@ export default function OutreachPage() {
         </div>
 
         {/* ── RIGHT PANEL — Large email preview ── */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#080808]">
+        <div className="w-full md:flex-1 md:min-w-0 flex flex-col overflow-visible md:overflow-hidden bg-[#080808]">
           {/* Preview header */}
           <div className="px-5 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
             <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
@@ -1482,18 +1482,19 @@ export default function OutreachPage() {
             )}
           </div>
 
-          {/* iframe */}
+          {/* iframe — needs an explicit height on mobile since it's stacked in a
+              naturally-sized column there, not a flex-1 row with a bounded height */}
           {mode === "quicksend" ? (
             qsBlocks.some(b => (b.type === "paragraph" && b.text) || (b.type === "button" && b.label)) ? (
-              <iframe title="Email preview" className="w-full flex-1 border-0"
+              <iframe title="Email preview" className="w-full h-[80vh] md:h-auto md:flex-1 border-0"
                 srcDoc={buildQuickSendHtml(qsSubject, qsBlocks, qsRecipients[0]?.contactId ?? null)} />
             ) : (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="h-[80vh] md:h-auto md:flex-1 flex items-center justify-center">
                 <p className="text-xs text-[#333] italic">Start typing to see a live preview</p>
               </div>
             )
           ) : (
-            <iframe title="Email preview" className="w-full flex-1 border-0"
+            <iframe title="Email preview" className="w-full h-[80vh] md:h-auto md:flex-1 border-0"
               srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://www.luckimages.com/dashboard" })} />
           )}
         </div>
