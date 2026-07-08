@@ -64,15 +64,14 @@ export default function AddressMapPicker({ address, onAddressChange, lat, lng, o
     (async () => {
       const L = (await import("leaflet")).default;
 
-      // Branded pin — white "RL" roundel (matches the logo used in email
-      // headers) over a triangle pointer, anchored at the tip so it points
-      // exactly at the confirmed coordinate.
+      // Branded pin — the real Luck Images logo over a triangle pointer,
+      // anchored at the tip so it points exactly at the confirmed coordinate.
       const pinIcon = L.divIcon({
         className: "luckimages-map-pin",
         html: `
           <div style="width:36px;height:48px;">
-            <div style="width:36px;height:36px;border-radius:50%;background:#0c0c0c;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.45);box-sizing:border-box;">
-              <span style="font-family:Arial,sans-serif;font-weight:900;font-size:13px;letter-spacing:-0.5px;color:#fff;">RL</span>
+            <div style="width:36px;height:36px;border-radius:50%;background:#0c0c0c;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.45);box-sizing:border-box;overflow:hidden;">
+              <img src="https://www.luckimages.com/logo.png" width="36" height="36" style="display:block;object-fit:cover;" alt="" />
             </div>
             <div style="width:0;height:0;margin:0 auto;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid #0c0c0c;"></div>
           </div>
