@@ -79,6 +79,55 @@ function parseNotes(raw: string | null): { access: string; notes: string } {
 
 const EDITABLE_STATUSES = ["pending", "scheduled"];
 
+// Compact "6/18" style date — no year, no leading zeros — for the collapsed
+// Shoot Log row. The expanded detail view still shows the full date/time.
+function shortDate(iso: string | null): string {
+  if (!iso) return "TBD";
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+const STREET_SUFFIXES = new Set([
+  "st", "street", "ave", "avenue", "blvd", "boulevard", "dr", "drive", "ln", "lane",
+  "rd", "road", "way", "ct", "court", "pl", "place", "cir", "circle", "ter", "terrace",
+  "pkwy", "parkway", "trl", "trail", "bend", "loop", "cv", "cove", "xing", "crossing",
+  "pt", "point", "ridge", "holw", "hollow", "grv", "grove", "walk", "row", "sq", "square",
+  "hwy", "highway", "path", "pass", "run", "cres", "crescent", "aly", "alley", "byp",
+  "bypass", "ext", "extension", "frwy", "freeway", "grn", "green", "hbr", "harbor",
+  "is", "island", "jct", "junction", "knl", "knoll", "mnr", "manor", "mdw", "meadow",
+  "mt", "mount", "mtn", "mountain", "pike", "plz", "plaza", "rdg", "rte", "route",
+  "shr", "shore", "spg", "spring", "sta", "station", "vly", "valley", "vw", "view",
+  "vlg", "village", "wynd",
+]);
+
+// Nominatim addresses trail off into neighborhood/city/county/state/zip/country
+// — for the compact row we only want up through the street itself, e.g.
+// "5801, Magee Bend, Village at Western Oaks, Austin, TX..." → "5801 Magee Bend".
+function truncateAddressToStreet(address: string): string {
+  const segments = address.split(",").map(s => s.trim()).filter(Boolean);
+  const kept: string[] = [];
+  for (const seg of segments) {
+    kept.push(seg);
+    const words = seg.split(/\s+/);
+    const lastWord = (words[words.length - 1] || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (STREET_SUFFIXES.has(lastWord)) return kept.join(" ");
+  }
+  return address; // no recognized street suffix — leave it as-is
+}
+
+// Shared badge/quote coloring — yellow while pending, green once approved
+// (status moves to "scheduled"), plus the existing in-progress/edit colors.
+function statusVisual(status: string): { bg: string; text: string } {
+  if (status === "delivered" || status === "completed" || status === "scheduled") {
+    return { bg: "bg-[#4ade8018]", text: "text-[#4ade80]" };
+  }
+  if (status === "editing") return { bg: "bg-[#a78bfa18]", text: "text-[#a78bfa]" };
+  if (status === "on_site" || status === "en_route" || status === "wrapping") {
+    return { bg: "bg-[#60a5fa18]", text: "text-[#60a5fa]" };
+  }
+  return { bg: "bg-[#fbbf2418]", text: "text-[#fbbf24]" }; // pending
+}
+
 export default function ClientPage() {
   const router = useRouter();
   const [userName, setUserName] = useState("");
@@ -974,15 +1023,28 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
     await onCancelled();
   }
 
+  const visual = statusVisual(shoot.status);
+  const quote = calcQuote(shoot.services || [], shoot.square_footage ? String(shoot.square_footage) : "");
+
   return (
     <div className="py-4">
       <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 text-left">
-        <div className="min-w-0">
-          <p className="font-medium truncate">{shoot.address}</p>
-          <p className="text-xs text-[#555] mt-0.5">{shoot.scheduled_at ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"} · {shoot.services?.join(", ")}</p>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium truncate">
+            {shortDate(shoot.scheduled_at)} - {truncateAddressToStreet(shoot.address)}
+            {shoot.square_footage ? <span className="text-[#888] font-normal"> ({shoot.square_footage.toLocaleString()}sf)</span> : null}
+          </p>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {(shoot.services || []).map(s => (
+              <span key={s} className="text-[10px] tracking-wide uppercase text-white border border-white px-2 py-0.5">{s}</span>
+            ))}
+            {quote.low > 0 && (
+              <span className={`text-xs font-bold ${visual.text}`}>${quote.low.toLocaleString()}</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${delivered ? "bg-[#4ade8018] text-[#4ade80]" : shoot.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : shoot.status === "on_site" || shoot.status === "en_route" || shoot.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{shoot.status.replace("_", " ")}</span>
+          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${visual.bg} ${visual.text}`}>{shoot.status.replace("_", " ")}</span>
           <span className={`text-[#555] text-sm transition-transform ${expanded ? "rotate-90" : ""}`}>▸</span>
         </div>
       </button>
