@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, scheduledAt, services, notes, accessInstructions, squareFootage } = await req.json();
+  const { address, lat, lng, scheduledAt, services, notes, accessInstructions, squareFootage } = await req.json();
   if (!address || !scheduledAt) {
     return NextResponse.json({ error: "Address and preferred date/time are required" }, { status: 400 });
   }
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   // Drive-time estimate (null if no Maps key / lookup fails)
   const drive = await getDriveTime(address);
 
-  const { data: shoot, error } = await db.from("shoots").insert({
+  const shootPayload: Record<string, unknown> = {
     client_id: user.id,
     contact_id: contact?.id || null,
     address,
@@ -46,7 +46,22 @@ export async function POST(req: Request) {
     status: "pending",
     square_footage: squareFootage ? parseInt(squareFootage) : null,
     drive_minutes: drive?.minutes ?? null,
-  }).select().single();
+  };
+  if (typeof lat === "number" && typeof lng === "number") {
+    shootPayload.lat = lat;
+    shootPayload.lng = lng;
+  }
+
+  // lat/lng columns are a recent addition — if the migration hasn't been run
+  // yet in this environment, fall back to inserting without them rather than
+  // failing the whole booking.
+  let { data: shoot, error } = await db.from("shoots").insert(shootPayload).select().single();
+
+  if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
+    delete shootPayload.lat;
+    delete shootPayload.lng;
+    ({ data: shoot, error } = await db.from("shoots").insert(shootPayload).select().single());
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -55,10 +70,13 @@ export async function POST(req: Request) {
   });
   const svcStr = (services || []).join(", ") || "—";
   const driveStr = drive ? `${drive.text} (${drive.distanceText}) from home base` : "Drive time unavailable";
+  const mapUrl = typeof lat === "number" && typeof lng === "number"
+    ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`
+    : null;
 
   // Command Center item — actionable, links to the board to confirm
   await db.from("company_updates").insert({
-    message: `📅 New booking request — ${clientName} · ${address} · requested ${whenStr}\n---\nServices: ${svcStr}\nDrive: ${driveStr}${accessInstructions ? `\n🔑 Access: ${accessInstructions}` : ""}\nReview & confirm on the board.`,
+    message: `📅 New booking request — ${clientName} · ${address} · requested ${whenStr}\n---\nServices: ${svcStr}\nDrive: ${driveStr}${accessInstructions ? `\n🔑 Access: ${accessInstructions}` : ""}${mapUrl ? `\n📍 Confirmed pin: ${mapUrl}` : ""}\nReview & confirm on the board.`,
     created_by: "system",
     category: "shoots",
     link: "/dashboard/board",
@@ -76,7 +94,7 @@ export async function POST(req: Request) {
           <tr><td style="border:1px solid rgba(255,255,255,0.1);padding:32px;">
             <h1 style="margin:0 0 20px;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;color:#fff;">${clientName} wants to book</h1>
             <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#ccc;">
-              <tr><td style="padding:6px 0;color:#666;width:120px;">Address</td><td style="padding:6px 0;">${address}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;width:120px;">Address</td><td style="padding:6px 0;">${address}${mapUrl ? ` &middot; <a href="${mapUrl}" style="color:#4ade80;">View confirmed pin →</a>` : ""}</td></tr>
               <tr><td style="padding:6px 0;color:#666;">Requested</td><td style="padding:6px 0;">${whenStr}</td></tr>
               <tr><td style="padding:6px 0;color:#666;">Services</td><td style="padding:6px 0;">${svcStr}</td></tr>
               ${squareFootage ? `<tr><td style="padding:6px 0;color:#666;">Sq Ft</td><td style="padding:6px 0;">${squareFootage}</td></tr>` : ""}

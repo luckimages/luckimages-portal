@@ -17,16 +17,29 @@ export async function GET(req: Request) {
   const all = searchParams.get("all") === "1";
   const full = searchParams.get("full") === "1"; // all statuses including completed/cancelled
 
-  const query = supabase
-    .from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, drive_minutes")
+  const statusFilter = full ? "all" : !all ? "pending" : "active";
+
+  const withLatLng = supabase.from("shoots")
+    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, drive_minutes, lat, lng")
     .order("scheduled_at", { ascending: false });
+  if (statusFilter === "pending") withLatLng.eq("status", "pending");
+  else if (statusFilter === "active") withLatLng.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
 
-  if (full) { /* no filter — return all */ }
-  else if (!all) query.eq("status", "pending");
-  else query.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
-
-  const { data: shoots, error } = await query;
+  // lat/lng columns are a recent addition — if the migration hasn't run yet
+  // in this environment, fall back to the base column set.
+  const first = await withLatLng;
+  let shoots: Array<Record<string, any>> | null = first.data; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let error = first.error;
+  if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
+    const withoutLatLng = supabase.from("shoots")
+      .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, drive_minutes")
+      .order("scheduled_at", { ascending: false });
+    if (statusFilter === "pending") withoutLatLng.eq("status", "pending");
+    else if (statusFilter === "active") withoutLatLng.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
+    const second = await withoutLatLng;
+    shoots = second.data;
+    error = second.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -149,7 +162,7 @@ export async function PATCH(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { id, status, photographer_ids, price, package_name, contact_id, address, scheduled_at, services, notes, square_footage, property_type } = await req.json();
+  const { id, status, photographer_ids, price, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
@@ -194,8 +207,18 @@ export async function PATCH(req: Request) {
   if (notes !== undefined) updatePayload.notes = notes;
   if (square_footage !== undefined) updatePayload.square_footage = square_footage;
   if (property_type !== undefined) updatePayload.property_type = property_type;
+  if (typeof lat === "number") updatePayload.lat = lat;
+  if (typeof lng === "number") updatePayload.lng = lng;
 
-  const { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
+  let { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
+
+  // lat/lng columns are a recent addition — if the migration hasn't run yet
+  // in this environment, retry without them rather than failing the update.
+  if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
+    delete updatePayload.lat;
+    delete updatePayload.lng;
+    ({ error } = await supabase.from("shoots").update(updatePayload).eq("id", id));
+  }
 
   // Auto-promote contact to "client" stage when attached
   if (!error && contact_id) {

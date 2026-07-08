@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import HomeNav from "@/components/HomeNav";
+import AddressMapPicker from "@/components/AddressMapPicker";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -31,7 +32,7 @@ export default function ClientPage() {
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", brokerage: "", areas: "", birthday: "", mailingList: false, referralSource: "" });
   const [profileEditing, setProfileEditing] = useState(false);
   const [profileStatus, setProfileStatus] = useState<"" | "saving" | "saved" | "error">("");
-  const [booking, setBooking] = useState({ address: "", date: "", time: "", services: [] as string[], notes: "", access_instructions: "", square_footage: "" });
+  const [booking, setBooking] = useState({ address: "", lat: null as number | null, lng: null as number | null, date: "", time: "", services: [] as string[], notes: "", access_instructions: "", square_footage: "" });
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
@@ -181,6 +182,8 @@ export default function ClientPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         address: booking.address,
+        lat: booking.lat,
+        lng: booking.lng,
         scheduledAt,
         services: booking.services,
         notes: booking.notes,
@@ -195,7 +198,7 @@ export default function ClientPage() {
       return;
     }
     setBookingStatus("success");
-    setBooking({ address: "", date: "", time: "", services: [], notes: "", access_instructions: "", square_footage: "" });
+    setBooking({ address: "", lat: null, lng: null, date: "", time: "", services: [], notes: "", access_instructions: "", square_footage: "" });
     const { data: contact2 } = await supabase.from("contacts").select("id").eq("user_id", user!.id).single();
     const cid2 = contact2?.id;
     const { data: shootData } = cid2
@@ -547,10 +550,15 @@ export default function ClientPage() {
                 <div className="flex flex-col gap-6">
 
                   {/* Address */}
-                  <div className="flex flex-col gap-2">
-                    <label className={labelCls}>Property Address</label>
-                    <input type="text" required placeholder="123 Main St, Austin, TX 78701" value={booking.address} onChange={e => setBooking(b => ({ ...b, address: e.target.value }))} className={inputCls} />
-                  </div>
+                  <AddressMapPicker
+                    address={booking.address}
+                    onAddressChange={a => setBooking(b => ({ ...b, address: a }))}
+                    lat={booking.lat}
+                    lng={booking.lng}
+                    onLocationChange={(lat, lng) => setBooking(b => ({ ...b, lat, lng }))}
+                    inputCls={inputCls}
+                    labelCls={labelCls}
+                  />
 
                   {/* Date + Time */}
                   <div className="grid grid-cols-2 gap-4">

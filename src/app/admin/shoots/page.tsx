@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
+import AddressMapPicker from "@/components/AddressMapPicker";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -13,6 +14,8 @@ import { ADMIN_EMAILS } from "@/lib/constants";
 type Shoot = {
   id: string;
   address: string;
+  lat?: number | null;
+  lng?: number | null;
   scheduled_at: string | null;
   checked_in_at: string | null;
   delivered_at: string | null;
@@ -248,6 +251,8 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
   const [esNotes, setEsNotes] = useState(parsed.notes);
   const [esDatetime, setEsDatetime] = useState(shoot.scheduled_at ? toDatetimeLocal(shoot.scheduled_at) : "");
   const [esAddress, setEsAddress] = useState(shoot.address || "");
+  const [esLat, setEsLat] = useState<number | null>(shoot.lat ?? null);
+  const [esLng, setEsLng] = useState<number | null>(shoot.lng ?? null);
   const [esPhotographers, setEsPhotographers] = useState<string[]>(shoot.photographer_ids || []);
   const [esSaving, setEsSaving] = useState(false);
   const [esSaved, setEsSaved] = useState(false);
@@ -266,7 +271,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
     const scheduledAtISO = esDatetime ? new Date(esDatetime).toISOString() : null;
     const res = await fetch("/api/admin/shoots", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: shoot.id, address: esAddress, scheduled_at: scheduledAtISO, photographer_ids: esPhotographers, notes: combinedNotes }),
+      body: JSON.stringify({ id: shoot.id, address: esAddress, lat: esLat, lng: esLng, scheduled_at: scheduledAtISO, photographer_ids: esPhotographers, notes: combinedNotes }),
     });
     if (res.ok) {
       onSave(shoot.id, { address: esAddress, scheduled_at: scheduledAtISO || shoot.scheduled_at, photographer_ids: esPhotographers, notes: combinedNotes || "" });
@@ -285,7 +290,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
     // Save address/notes first (confirm-booking only touches time/status/photographers)
     await fetch("/api/admin/shoots", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: shoot.id, address: esAddress, notes: combinedNotes }),
+      body: JSON.stringify({ id: shoot.id, address: esAddress, lat: esLat, lng: esLng, notes: combinedNotes }),
     });
 
     const res = await fetch("/api/admin/confirm-booking", {
@@ -437,11 +442,15 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
               <input type="datetime-local" value={esDatetime} onChange={e => { setEsDatetime(e.target.value); setEsSaved(false); }}
                 className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
             </div>
-            <div>
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Address</p>
-              <input value={esAddress} onChange={e => { setEsAddress(e.target.value); setEsSaved(false); }}
-                className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
-            </div>
+            <AddressMapPicker
+              address={esAddress}
+              onAddressChange={a => { setEsAddress(a); setEsSaved(false); }}
+              lat={esLat}
+              lng={esLng}
+              onLocationChange={(lat, lng) => { setEsLat(lat); setEsLng(lng); setEsSaved(false); }}
+              inputCls="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30"
+              labelCls="text-[10px] tracking-[2px] uppercase text-[#555] mb-1 block"
+            />
             <div>
               <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">Photographers</p>
               <div className="flex flex-wrap gap-2">
