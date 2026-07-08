@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import ContactAvatar from "@/components/ContactAvatar";
 
 const supabase = createClient();
 
@@ -22,6 +23,8 @@ type SendStatus = "idle" | "pending" | "done" | "error";
 type QuickBlock =
   | { id: string; type: "paragraph"; text: string }
   | { id: string; type: "button"; label: string; url: string };
+
+type QuickRecipient = { contactId: string | null; name: string; email: string };
 
 type EmailLogRow = { contact_id: string | null; subject: string | null; sent_at: string | null; category: string | null };
 type LinkClickRow = { contact_id: string | null; service: string; clicked_at: string };
@@ -563,11 +566,14 @@ export default function OutreachPage() {
   const [linkClicks, setLinkClicks] = useState<LinkClickRow[]>([]);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
-  const [qs, setQs] = useState({ to: "", name: "", subject: "" });
+  const [qsSubject, setQsSubject] = useState("");
   const [qsStatus, setQsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
-  const [qsContactId, setQsContactId] = useState<string | null>(null);
+  const [qsRecipients, setQsRecipients] = useState<QuickRecipient[]>([]);
+  const [qsSendMode, setQsSendMode] = useState<"individual" | "together">("individual");
   const [qsContactSearch, setQsContactSearch] = useState("");
   const [qsShowContactList, setQsShowContactList] = useState(false);
+  const [qsManualEmail, setQsManualEmail] = useState("");
+  const [qsManualName, setQsManualName] = useState("");
   const [qsBlocks, setQsBlocks] = useState<QuickBlock[]>([{ id: "b1", type: "paragraph", text: "" }]);
 
   useEffect(() => {
@@ -719,17 +725,41 @@ export default function OutreachPage() {
   }
 
   const qsContactMatches = qsContactSearch.trim()
-    ? contacts.filter(c => !!c.email && (
+    ? contacts.filter(c => !!c.email && !qsRecipients.some(r => r.contactId === c.id) && (
         c.name.toLowerCase().includes(qsContactSearch.toLowerCase()) ||
         c.email!.toLowerCase().includes(qsContactSearch.toLowerCase())
       )).slice(0, 6)
     : [];
 
-  function selectQsContact(c: Contact) {
-    setQs(q => ({ ...q, to: c.email || "", name: c.name }));
-    setQsContactId(c.id);
+  function addQsContact(c: Contact) {
+    if (!c.email || qsRecipients.some(r => r.contactId === c.id)) return;
+    setQsRecipients(prev => [...prev, { contactId: c.id, name: c.name, email: c.email! }]);
     setQsContactSearch("");
     setQsShowContactList(false);
+  }
+
+  // Typed-in emails get resolved to a real contact immediately (match by
+  // email, else create a lightweight lead) so every recipient — picked or
+  // typed — always has a contactId for the mini card + click tracking.
+  async function addQsManual() {
+    const email = qsManualEmail.trim();
+    if (!email || qsRecipients.some(r => r.email.toLowerCase() === email.toLowerCase())) return;
+    const match = contacts.find(c => c.email?.toLowerCase() === email.toLowerCase());
+    let contactId = match?.id ?? null;
+    const name = match?.name || qsManualName.trim() || email.split("@")[0];
+    if (!contactId) {
+      const { data: created } = await supabase.from("contacts").insert({
+        name, email, stage: "lead", lead_source: "quick_send",
+      }).select().single();
+      if (created) contactId = created.id;
+    }
+    setQsRecipients(prev => [...prev, { contactId, name, email }]);
+    setQsManualEmail("");
+    setQsManualName("");
+  }
+
+  function removeQsRecipient(email: string) {
+    setQsRecipients(prev => prev.filter(r => r.email !== email));
   }
 
   // Branded header — same logo/title block used on the cold-call pitch email
@@ -755,36 +785,51 @@ export default function OutreachPage() {
 
   async function sendQuick() {
     const hasContent = qsBlocks.some(b => (b.type === "paragraph" && b.text.trim()) || (b.type === "button" && b.label && b.url));
-    if (!qs.to || !qs.subject || !hasContent || qsStatus === "sending") return;
+    if (qsRecipients.length === 0 || !qsSubject || !hasContent || qsStatus === "sending") return;
     setQsStatus("sending");
 
-    // Resolve a contact so link clicks / registrations attribute correctly:
-    // use the one picked from the dropdown, else match by email, else create
-    // a lightweight lead record so tracking still works uniformly.
-    let contactId = qsContactId;
-    if (!contactId) {
-      const match = contacts.find(c => c.email?.toLowerCase() === qs.to.toLowerCase());
-      if (match) {
-        contactId = match.id;
-      } else {
-        const { data: created } = await supabase.from("contacts").insert({
-          name: qs.name || qs.to.split("@")[0],
-          email: qs.to,
-          stage: "lead",
-          lead_source: "quick_send",
-        }).select().single();
-        if (created) contactId = created.id;
-      }
-    }
-
-    const html = buildQuickSendHtml(qs.subject, qsBlocks, contactId);
     try {
-      const res = await fetch("/api/admin/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId, to: qs.to, subject: qs.subject, html, category: "Quick Send" }),
-      });
-      setQsStatus(res.ok ? "done" : "error");
+      if (qsSendMode === "together" && qsRecipients.length > 1) {
+        // One shared email — first recipient in To, everyone else Cc'd so
+        // they all see each other, e.g. sending one note to a team of
+        // realtors. Tracked button links can only attribute to one contact
+        // (a single shared link can't tell which Cc'd person clicked it), so
+        // they're attributed to the primary/To recipient — but every
+        // recipient still gets logged as "emailed" in the Quick Send tab.
+        const [primary, ...rest] = qsRecipients;
+        const html = buildQuickSendHtml(qsSubject, qsBlocks, primary.contactId);
+        const res = await fetch("/api/admin/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contactId: primary.contactId,
+            to: primary.email,
+            cc: rest.map(r => r.email),
+            additionalContactIds: rest.map(r => r.contactId).filter((id): id is string => !!id),
+            subject: qsSubject,
+            html,
+            category: "Quick Send",
+          }),
+        });
+        setQsStatus(res.ok ? "done" : "error");
+      } else {
+        // Individual — a separate email (with its own tracked links) to each recipient.
+        let failures = 0;
+        for (const r of qsRecipients) {
+          const html = buildQuickSendHtml(qsSubject, qsBlocks, r.contactId);
+          try {
+            const res = await fetch("/api/admin/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contactId: r.contactId, to: r.email, subject: qsSubject, html, category: "Quick Send" }),
+            });
+            if (!res.ok) failures++;
+          } catch {
+            failures++;
+          }
+        }
+        setQsStatus(failures === 0 ? "done" : "error");
+      }
     } catch {
       setQsStatus("error");
     }
@@ -1102,47 +1147,83 @@ export default function OutreachPage() {
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               <p className="text-[10px] tracking-[3px] uppercase text-[#555] mb-2">Quick Send — One-off Email</p>
 
-              {/* Contact picker — select an existing contact, or just type any email/name below */}
-              <div className="relative">
-                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Find a contact (optional)</label>
-                <input type="text" value={qsContactSearch}
-                  onChange={e => { setQsContactSearch(e.target.value); setQsShowContactList(true); }}
-                  onFocus={() => setQsShowContactList(true)}
-                  placeholder="Search name or email..."
-                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
-                {qsShowContactList && qsContactMatches.length > 0 && (
-                  <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-[#181818] border border-white/10 max-h-48 overflow-y-auto">
-                    {qsContactMatches.map(c => (
-                      <button key={c.id} type="button" onClick={() => selectQsContact(c)}
-                        className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors">
-                        <p className="text-xs text-white truncate">{c.name}</p>
-                        <p className="text-[10px] text-[#555] truncate">{c.email}</p>
-                      </button>
+              {/* Recipients — add as many existing contacts and/or typed emails as you want */}
+              <div>
+                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">To</label>
+
+                {qsRecipients.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {qsRecipients.map(r => (
+                      <span key={r.email} className="inline-flex items-center gap-1.5 border border-white/10 bg-white/[0.03] rounded-full pr-2 pl-1 py-1">
+                        <ContactAvatar contactId={r.contactId} name={r.name} size={20} />
+                        <span className="flex flex-col leading-tight max-w-[140px]">
+                          <span className="text-[11px] font-medium text-white truncate">{r.name}</span>
+                          <span className="text-[9px] text-[#555] truncate">{r.email}</span>
+                        </span>
+                        <button type="button" onClick={() => removeQsRecipient(r.email)}
+                          className="text-[#555] hover:text-red-400 transition-colors text-xs ml-0.5 shrink-0">✕</button>
+                      </span>
                     ))}
                   </div>
                 )}
-                {qsContactId && (
-                  <p className="text-[10px] text-[#4ade80] mt-1">
-                    Linked to contact ✓ <button type="button" onClick={() => setQsContactId(null)} className="text-[#555] hover:text-white underline ml-1">unlink</button>
-                  </p>
+
+                {qsRecipients.length > 1 && (
+                  <div className="flex gap-1.5 mb-2">
+                    <button type="button" onClick={() => setQsSendMode("individual")}
+                      className={`flex-1 text-[10px] tracking-[1px] uppercase py-1.5 border transition-colors ${qsSendMode === "individual" ? "border-white text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white/70"}`}>
+                      Send individually
+                    </button>
+                    <button type="button" onClick={() => setQsSendMode("together")}
+                      className={`flex-1 text-[10px] tracking-[1px] uppercase py-1.5 border transition-colors ${qsSendMode === "together" ? "border-white text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white/70"}`}>
+                      Send together (Cc&apos;d)
+                    </button>
+                  </div>
                 )}
+                {qsSendMode === "together" && qsRecipients.length > 1 && (
+                  <p className="text-[10px] text-[#444] mb-2">One email — {qsRecipients[0].name} in To, everyone else Cc&apos;d.</p>
+                )}
+
+                <div className="relative">
+                  <input type="text" value={qsContactSearch}
+                    onChange={e => { setQsContactSearch(e.target.value); setQsShowContactList(true); }}
+                    onFocus={() => setQsShowContactList(true)}
+                    placeholder="Search contacts to add..."
+                    className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                  {qsShowContactList && qsContactMatches.length > 0 && (
+                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-[#181818] border border-white/10 max-h-48 overflow-y-auto">
+                      {qsContactMatches.map(c => (
+                        <button key={c.id} type="button" onClick={() => addQsContact(c)}
+                          className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors flex items-center gap-2">
+                          <ContactAvatar contactId={c.id} name={c.name} size={20} />
+                          <span className="min-w-0">
+                            <p className="text-xs text-white truncate">{c.name}</p>
+                            <p className="text-[10px] text-[#555] truncate">{c.email}</p>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-1.5 mt-1.5">
+                  <input type="email" value={qsManualEmail} onChange={e => setQsManualEmail(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addQsManual(); } }}
+                    placeholder="or type any email..."
+                    className="flex-1 min-w-0 bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                  <input type="text" value={qsManualName} onChange={e => setQsManualName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addQsManual(); } }}
+                    placeholder="Name"
+                    className="w-20 bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
+                  <button type="button" onClick={addQsManual} disabled={!qsManualEmail.trim()}
+                    className="text-[10px] tracking-[1px] uppercase text-[#888] hover:text-white border border-white/10 hover:border-white/30 transition-colors px-3 disabled:opacity-30 shrink-0">
+                    Add
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">To (email)</label>
-                <input type="email" value={qs.to} onChange={e => { setQs(q => ({ ...q, to: e.target.value })); setQsContactId(null); }}
-                  placeholder="client@example.com"
-                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
-              </div>
-              <div>
-                <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Name</label>
-                <input type="text" value={qs.name} onChange={e => setQs(q => ({ ...q, name: e.target.value }))}
-                  placeholder="First Last"
-                  className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
-              </div>
-              <div>
                 <label className="text-[10px] text-[#444] block mb-1 tracking-[1px] uppercase">Subject</label>
-                <input type="text" value={qs.subject} onChange={e => setQs(q => ({ ...q, subject: e.target.value }))}
+                <input type="text" value={qsSubject} onChange={e => setQsSubject(e.target.value)}
                   placeholder="Hey Sarah, quick note..."
                   className="w-full bg-[#1a1a1a] border border-white/10 text-xs text-white px-3 py-2 outline-none placeholder:text-[#333] focus:border-white/20" />
               </div>
@@ -1195,15 +1276,17 @@ export default function OutreachPage() {
               </div>
 
               <button onClick={sendQuick}
-                disabled={!qs.to || !qs.subject || qsStatus === "sending" || qsStatus === "done"}
+                disabled={qsRecipients.length === 0 || !qsSubject || qsStatus === "sending" || qsStatus === "done"}
                 className="w-full text-xs tracking-[2px] uppercase font-semibold py-3 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                {qsStatus === "sending" ? "Sending..." : qsStatus === "done" ? "✓ Sent" : qsStatus === "error" ? "Error — Retry" : "Send →"}
+                {qsStatus === "sending" ? "Sending..." : qsStatus === "done" ? "✓ Sent" : qsStatus === "error" ? "Error — Retry" :
+                  qsRecipients.length > 1 ? (qsSendMode === "together" ? "Send to all →" : `Send ${qsRecipients.length} individually →`) : "Send →"}
               </button>
               {qsStatus === "done" && (
                 <button onClick={() => {
-                  setQs({ to: "", name: "", subject: "" });
+                  setQsSubject("");
                   setQsBlocks([{ id: `b${Date.now()}`, type: "paragraph", text: "" }]);
-                  setQsContactId(null);
+                  setQsRecipients([]);
+                  setQsSendMode("individual");
                   setQsStatus("idle");
                 }}
                   className="w-full text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors py-2">
@@ -1359,7 +1442,7 @@ export default function OutreachPage() {
             <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Email Preview</p>
             <span className="text-white/10">·</span>
             {mode === "quicksend" ? (
-              <p className="text-[10px] text-[#444]">{qs.subject || "—"}</p>
+              <p className="text-[10px] text-[#444]">{qsSubject || "—"}</p>
             ) : (
               <p className="text-[10px] text-[#444]">{activeTemplate.subject(preview)}</p>
             )}
@@ -1369,13 +1452,22 @@ export default function OutreachPage() {
                 {preview.id === "example" ? "previewing: example contact" : `previewing: ${preview.name}`}
               </p>
             )}
+            {mode === "quicksend" && qsRecipients.length > 0 && (
+              <p className="text-[10px] text-[#333]">
+                {qsRecipients.length === 1
+                  ? `previewing: ${qsRecipients[0].name}`
+                  : qsSendMode === "together"
+                    ? `${qsRecipients.length} recipients, one email`
+                    : `${qsRecipients.length} recipients, individual emails`}
+              </p>
+            )}
           </div>
 
           {/* iframe */}
           {mode === "quicksend" ? (
             qsBlocks.some(b => (b.type === "paragraph" && b.text) || (b.type === "button" && b.label)) ? (
               <iframe title="Email preview" className="w-full flex-1 border-0"
-                srcDoc={buildQuickSendHtml(qs.subject, qsBlocks, qsContactId)} />
+                srcDoc={buildQuickSendHtml(qsSubject, qsBlocks, qsRecipients[0]?.contactId ?? null)} />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-xs text-[#333] italic">Start typing to see a live preview</p>
