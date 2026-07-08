@@ -178,7 +178,7 @@ export default function CalendarPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <div className="flex-1 flex flex-col px-6 py-6 gap-4">
         {/* Page title + legend */}
-        <div className="flex items-start justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
           <div>
             <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Unified</p>
             <h1 className="text-2xl font-black tracking-tight uppercase">Master Calendar</h1>
@@ -189,7 +189,7 @@ export default function CalendarPage() {
               <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-3 py-1.5">Today</button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end">
+          <div className="flex flex-wrap gap-2 md:justify-end">
             {LEGEND.map(l => {
               const s = TYPE_STYLE[l.type];
               const on = activeTypes.has(l.type);
@@ -204,7 +204,7 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="flex gap-5 flex-1 min-h-0">
+        <div className="flex flex-col md:flex-row gap-5 flex-1 min-h-0">
           {/* ── Calendar grid ── */}
           <div className="flex-1 min-w-0 flex flex-col">
             {/* Day headers */}
@@ -283,7 +283,7 @@ export default function CalendarPage() {
           </div>
 
           {/* ── Day detail panel ── */}
-          <div className={`w-80 shrink-0 flex flex-col transition-all ${selectedDay ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
+          <div className={`w-full md:w-80 shrink-0 flex flex-col transition-all ${selectedDay ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
             <div className="bg-[#111] border border-white/10 flex-1 overflow-y-auto">
               {selectedDay ? (
                 <>
