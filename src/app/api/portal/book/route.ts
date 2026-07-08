@@ -16,12 +16,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Address and preferred date/time are required" }, { status: 400 });
   }
 
-  // No dedicated access_instructions column yet — fold it into notes with a
-  // clear label so it's never missed on the day of the shoot, without
-  // needing a schema migration.
+  // No dedicated access_instructions column yet — fold it into notes using
+  // the same "ACCESS: " prefix the admin board's parseNotes() already
+  // expects, so it round-trips correctly in the admin edit modal.
   const combinedNotes = [
-    accessInstructions ? `🔑 Property Access: ${accessInstructions}` : null,
-    notes || null,
+    accessInstructions ? `ACCESS: ${accessInstructions}` : "",
+    notes || "",
   ].filter(Boolean).join("\n\n") || null;
 
   const db = createServiceClient(

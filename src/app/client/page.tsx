@@ -11,7 +11,7 @@ import AddressMapPicker from "@/components/AddressMapPicker";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 type Shoot = {
-  id: string; address: string; scheduled_at: string;
+  id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
   services: string[]; status: string; notes: string;
   square_footage: number | null;
 };
@@ -19,6 +19,65 @@ type Invoice = {
   id: string; amount_cents: number; paid: boolean;
   due_date: string; notes: string; shoot_id: string;
 };
+
+const PRIMARY_SERVICES = [
+  { key: "Listing Photos", label: "Listing Photos", from: 200 },
+  { key: "Video Walkthrough", label: "Video Walkthrough", from: 200 },
+  { key: "Matterport 3D Tour", label: "Matterport 3D Tour", from: 200 },
+  { key: "Twilight", label: "Twilight", from: 250 },
+  { key: "Drone Photos", label: "Drone Photos", from: 200 },
+  { key: "Headshots", label: "Headshots", from: 200 },
+];
+const ADDON_SERVICES = [
+  { key: "Drone Add-on", label: "+ Drone Photos", from: 100 },
+  { key: "Twilight Add-on", label: "+ Twilight", from: 150 },
+  { key: "Floor Plan", label: "+ Floor Plan", from: 50 },
+  { key: "Virtual Staging", label: "+ Virtual Staging", from: 25 },
+];
+
+function listingPhotosPrice(sqft: number) {
+  if (sqft <= 1500) return 200;
+  if (sqft <= 2000) return 250;
+  if (sqft <= 2500) return 300;
+  if (sqft <= 3000) return 350;
+  return 400;
+}
+function matterportPrice(sqft: number) {
+  if (sqft <= 2000) return 200;
+  if (sqft <= 3000) return 300;
+  if (sqft <= 4000) return 400;
+  return 500;
+}
+function floorPlanPrice(sqft: number) { return sqft < 2500 ? 50 : 75; }
+
+function calcQuote(services: string[], sqft: string): { low: number; exact: boolean } {
+  const sf = parseInt(sqft) || 0;
+  let total = 0;
+  for (const s of services) {
+    if (s === "Listing Photos") total += sf ? listingPhotosPrice(sf) : 200;
+    else if (s === "Matterport 3D Tour") total += sf ? matterportPrice(sf) : 200;
+    else if (s === "Floor Plan") total += sf ? floorPlanPrice(sf) : 50;
+    else if (s === "Twilight") total += 250;
+    else if (s === "Video Walkthrough") total += 200;
+    else if (s === "Drone Photos") total += 200;
+    else if (s === "Headshots") total += 200;
+    else if (s === "Drone Add-on") total += 100;
+    else if (s === "Twilight Add-on") total += 150;
+    else if (s === "Virtual Staging") total += 25;
+  }
+  return { low: total, exact: !!sf };
+}
+
+// Property Access is folded into the notes column with an "ACCESS: " prefix
+// (same convention the admin board's shoot editor uses) so it round-trips.
+function parseNotes(raw: string | null): { access: string; notes: string } {
+  const str = raw || "";
+  const m = str.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
+  if (m) return { access: m[1] || "", notes: (m[2] || "").replace(/^\n\n/, "").trim() };
+  return { access: "", notes: str };
+}
+
+const EDITABLE_STATUSES = ["pending", "scheduled"];
 
 export default function ClientPage() {
   const router = useRouter();
@@ -36,6 +95,7 @@ export default function ClientPage() {
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
+  const [expandedShootId, setExpandedShootId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -45,54 +105,6 @@ export default function ClientPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStatus, setPasswordStatus] = useState<"" | "saving" | "success" | "error">("");
   const [passwordError, setPasswordError] = useState("");
-
-  const PRIMARY_SERVICES = [
-    { key: "Listing Photos", label: "Listing Photos", from: 200 },
-    { key: "Video Walkthrough", label: "Video Walkthrough", from: 200 },
-    { key: "Matterport 3D Tour", label: "Matterport 3D Tour", from: 200 },
-    { key: "Twilight", label: "Twilight", from: 250 },
-    { key: "Drone Photos", label: "Drone Photos", from: 200 },
-    { key: "Headshots", label: "Headshots", from: 200 },
-  ];
-  const ADDON_SERVICES = [
-    { key: "Drone Add-on", label: "+ Drone Photos", from: 100 },
-    { key: "Twilight Add-on", label: "+ Twilight", from: 150 },
-    { key: "Floor Plan", label: "+ Floor Plan", from: 50 },
-    { key: "Virtual Staging", label: "+ Virtual Staging", from: 25 },
-  ];
-
-  function listingPhotosPrice(sqft: number) {
-    if (sqft <= 1500) return 200;
-    if (sqft <= 2000) return 250;
-    if (sqft <= 2500) return 300;
-    if (sqft <= 3000) return 350;
-    return 400;
-  }
-  function matterportPrice(sqft: number) {
-    if (sqft <= 2000) return 200;
-    if (sqft <= 3000) return 300;
-    if (sqft <= 4000) return 400;
-    return 500;
-  }
-  function floorPlanPrice(sqft: number) { return sqft < 2500 ? 50 : 75; }
-
-  function calcQuote(services: string[], sqft: string): { low: number; exact: boolean } {
-    const sf = parseInt(sqft) || 0;
-    let total = 0;
-    for (const s of services) {
-      if (s === "Listing Photos") total += sf ? listingPhotosPrice(sf) : 200;
-      else if (s === "Matterport 3D Tour") total += sf ? matterportPrice(sf) : 200;
-      else if (s === "Floor Plan") total += sf ? floorPlanPrice(sf) : 50;
-      else if (s === "Twilight") total += 250;
-      else if (s === "Video Walkthrough") total += 200;
-      else if (s === "Drone Photos") total += 200;
-      else if (s === "Headshots") total += 200;
-      else if (s === "Drone Add-on") total += 100;
-      else if (s === "Twilight Add-on") total += 150;
-      else if (s === "Virtual Staging") total += 25;
-    }
-    return { low: total, exact: !!sf };
-  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -128,8 +140,8 @@ export default function ClientPage() {
       const contactId = contact?.id;
       const [{ data: shootData }, { data: invData }] = await Promise.all([
         contactId
-          ? supabase.from("shoots").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).order("scheduled_at", { ascending: false })
-          : supabase.from("shoots").select("*").eq("client_id", uid).order("scheduled_at", { ascending: false }),
+          ? supabase.from("shoots").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).neq("status", "cancelled").order("scheduled_at", { ascending: false })
+          : supabase.from("shoots").select("*").eq("client_id", uid).neq("status", "cancelled").order("scheduled_at", { ascending: false }),
         contactId
           ? supabase.from("invoices").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).order("created_at", { ascending: false })
           : supabase.from("invoices").select("*").eq("client_id", uid).order("created_at", { ascending: false }),
@@ -199,11 +211,18 @@ export default function ClientPage() {
     }
     setBookingStatus("success");
     setBooking({ address: "", lat: null, lng: null, date: "", time: "", services: [], notes: "", access_instructions: "", square_footage: "" });
-    const { data: contact2 } = await supabase.from("contacts").select("id").eq("user_id", user!.id).single();
+    await reloadShoots();
+  }
+
+  async function reloadShoots() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: contact2 } = await supabase.from("contacts").select("id").eq("user_id", user.id).single();
     const cid2 = contact2?.id;
     const { data: shootData } = cid2
-      ? await supabase.from("shoots").select("*").or(`client_id.eq.${user!.id},contact_id.eq.${cid2}`).order("scheduled_at", { ascending: false })
-      : await supabase.from("shoots").select("*").eq("client_id", user!.id).order("scheduled_at", { ascending: false });
+      ? await supabase.from("shoots").select("*").or(`client_id.eq.${user.id},contact_id.eq.${cid2}`).neq("status", "cancelled").order("scheduled_at", { ascending: false })
+      : await supabase.from("shoots").select("*").eq("client_id", user.id).neq("status", "cancelled").order("scheduled_at", { ascending: false });
     setShoots(shootData || []);
   }
 
@@ -711,23 +730,16 @@ export default function ClientPage() {
               </div>
             ) : (
               <div className="flex flex-col divide-y divide-white/5">
-                {shoots.map(s => {
-                  const delivered = s.status === "delivered" || s.status === "completed";
-                  return (
-                    <div key={s.id} className="flex items-center justify-between py-4 gap-4">
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{s.address}</p>
-                        <p className="text-xs text-[#555] mt-0.5">{s.scheduled_at ? new Date(s.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"} · {s.services?.join(", ")}</p>
-                      </div>
-                      <div className="flex items-center gap-4 shrink-0">
-                        <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${delivered ? "bg-[#4ade8018] text-[#4ade80]" : s.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : s.status === "on_site" || s.status === "en_route" || s.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{s.status.replace("_", " ")}</span>
-                        {delivered && (
-                          <Link href={`/client/gallery/${s.id}`} className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white transition-colors whitespace-nowrap">View →</Link>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {shoots.map(s => (
+                  <ShootLogRow
+                    key={s.id}
+                    shoot={s}
+                    expanded={expandedShootId === s.id}
+                    onToggle={() => setExpandedShootId(expandedShootId === s.id ? null : s.id)}
+                    onUpdated={reloadShoots}
+                    onCancelled={reloadShoots}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -873,5 +885,222 @@ export default function ClientPage() {
 
       </div>
     </main>
+  );
+}
+
+const rowInputCls = "bg-[#181818] border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
+const rowLabelCls = "text-[10px] tracking-[2px] uppercase text-[#666]";
+
+function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
+  shoot: Shoot;
+  expanded: boolean;
+  onToggle: () => void;
+  onUpdated: () => Promise<void>;
+  onCancelled: () => Promise<void>;
+}) {
+  const delivered = shoot.status === "delivered" || shoot.status === "completed";
+  const editable = EDITABLE_STATUSES.includes(shoot.status);
+  const parsed = parseNotes(shoot.notes);
+
+  const [editing, setEditing] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState("");
+
+  const [eAddress, setEAddress] = useState(shoot.address);
+  const [eLat, setELat] = useState<number | null>(shoot.lat ?? null);
+  const [eLng, setELng] = useState<number | null>(shoot.lng ?? null);
+  const [eDate, setEDate] = useState(shoot.scheduled_at ? shoot.scheduled_at.slice(0, 10) : "");
+  const [eTime, setETime] = useState(shoot.scheduled_at ? new Date(shoot.scheduled_at).toTimeString().slice(0, 5) : "");
+  const [eSqft, setESqft] = useState(shoot.square_footage ? String(shoot.square_footage) : "");
+  const [eServices, setEServices] = useState<string[]>(shoot.services || []);
+  const [eAccess, setEAccess] = useState(parsed.access);
+  const [eNotes, setENotes] = useState(parsed.notes);
+
+  function toggleEService(key: string) {
+    setEServices(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
+  }
+
+  function startEditing() {
+    setEAddress(shoot.address);
+    setELat(shoot.lat ?? null);
+    setELng(shoot.lng ?? null);
+    setEDate(shoot.scheduled_at ? shoot.scheduled_at.slice(0, 10) : "");
+    setETime(shoot.scheduled_at ? new Date(shoot.scheduled_at).toTimeString().slice(0, 5) : "");
+    setESqft(shoot.square_footage ? String(shoot.square_footage) : "");
+    setEServices(shoot.services || []);
+    setEAccess(parsed.access);
+    setENotes(parsed.notes);
+    setError("");
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true); setError("");
+    const scheduledAt = eDate ? new Date(`${eDate}T${eTime || "09:00"}`).toISOString() : shoot.scheduled_at;
+    const res = await fetch("/api/portal/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: shoot.id, address: eAddress, lat: eLat, lng: eLng, scheduledAt,
+        services: eServices, notes: eNotes, accessInstructions: eAccess,
+        squareFootage: eSqft || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Could not save changes");
+      return;
+    }
+    setEditing(false);
+    await onUpdated();
+  }
+
+  async function confirmCancel() {
+    setCancelling(true); setError("");
+    const res = await fetch("/api/portal/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: shoot.id, cancel: true }),
+    });
+    setCancelling(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Could not cancel");
+      return;
+    }
+    await onCancelled();
+  }
+
+  return (
+    <div className="py-4">
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 text-left">
+        <div className="min-w-0">
+          <p className="font-medium truncate">{shoot.address}</p>
+          <p className="text-xs text-[#555] mt-0.5">{shoot.scheduled_at ? new Date(shoot.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "TBD"} · {shoot.services?.join(", ")}</p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${delivered ? "bg-[#4ade8018] text-[#4ade80]" : shoot.status === "editing" ? "bg-[#a78bfa18] text-[#a78bfa]" : shoot.status === "on_site" || shoot.status === "en_route" || shoot.status === "wrapping" ? "bg-[#60a5fa18] text-[#60a5fa]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{shoot.status.replace("_", " ")}</span>
+          <span className={`text-[#555] text-sm transition-transform ${expanded ? "rotate-90" : ""}`}>▸</span>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 bg-white/[0.02] border border-white/10 p-4">
+          {!editing ? (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className={rowLabelCls}>Date &amp; Time</p>
+                  <p className="text-sm text-white mt-1">{shoot.scheduled_at ? new Date(shoot.scheduled_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "TBD"}</p>
+                </div>
+                <div>
+                  <p className={rowLabelCls}>Square Footage</p>
+                  <p className="text-sm text-white mt-1">{shoot.square_footage || "—"}</p>
+                </div>
+              </div>
+              <div>
+                <p className={rowLabelCls}>Services</p>
+                <p className="text-sm text-white mt-1">{shoot.services?.join(", ") || "—"}</p>
+              </div>
+              {parsed.access && (
+                <div>
+                  <p className={rowLabelCls}>Property Access</p>
+                  <p className="text-sm text-white mt-1 whitespace-pre-wrap">{parsed.access}</p>
+                </div>
+              )}
+              {parsed.notes && (
+                <div>
+                  <p className={rowLabelCls}>Notes</p>
+                  <p className="text-sm text-white mt-1 whitespace-pre-wrap">{parsed.notes}</p>
+                </div>
+              )}
+
+              {error && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-3 py-2">{error}</p>}
+
+              <div className="flex items-center gap-3 pt-2">
+                {delivered && (
+                  <Link href={`/client/gallery/${shoot.id}`} className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white transition-colors">View Gallery →</Link>
+                )}
+                {editable && !confirmingCancel && (
+                  <>
+                    <button onClick={startEditing} className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">Edit</button>
+                    <button onClick={() => setConfirmingCancel(true)} className="text-xs tracking-[2px] uppercase text-red-400 border border-red-400/20 px-4 py-2 hover:bg-red-400/5 transition-colors">Cancel Shoot</button>
+                  </>
+                )}
+                {confirmingCancel && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[#888]">Cancel this shoot request?</span>
+                    <button onClick={confirmCancel} disabled={cancelling} className="text-xs tracking-[2px] uppercase text-white bg-red-500/80 px-4 py-2 hover:bg-red-500 transition-colors disabled:opacity-50">
+                      {cancelling ? "Cancelling..." : "Yes, Cancel"}
+                    </button>
+                    <button onClick={() => setConfirmingCancel(false)} className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Keep It</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <AddressMapPicker
+                address={eAddress}
+                onAddressChange={setEAddress}
+                lat={eLat}
+                lng={eLng}
+                onLocationChange={(lat, lng) => { setELat(lat); setELng(lng); }}
+                inputCls={rowInputCls}
+                labelCls={rowLabelCls}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={rowLabelCls}>Date</label>
+                  <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className={rowInputCls} />
+                </div>
+                <div>
+                  <label className={rowLabelCls}>Time</label>
+                  <input type="time" value={eTime} onChange={e => setETime(e.target.value)} className={rowInputCls} />
+                </div>
+              </div>
+              <div>
+                <label className={rowLabelCls}>Square Footage</label>
+                <input type="number" min="0" value={eSqft} onChange={e => setESqft(e.target.value)} className={rowInputCls} />
+              </div>
+              <div>
+                <label className={rowLabelCls}>Services</label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {[...PRIMARY_SERVICES, ...ADDON_SERVICES].map(s => {
+                    const checked = eServices.includes(s.key);
+                    return (
+                      <label key={s.key} className={`flex items-center gap-2 px-3 py-2 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3" />
+                        <span className="text-xs text-white">{s.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className={rowLabelCls}>Property Access</label>
+                <textarea value={eAccess} onChange={e => setEAccess(e.target.value)} placeholder="Lockbox code, Supra key box, gate code..." className={rowInputCls + " resize-none h-16"} />
+              </div>
+              <div>
+                <label className={rowLabelCls}>Notes</label>
+                <textarea value={eNotes} onChange={e => setENotes(e.target.value)} placeholder="Parking info, anything else..." className={rowInputCls + " resize-none h-16"} />
+              </div>
+
+              {error && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-3 py-2">{error}</p>}
+
+              <div className="flex items-center gap-3 pt-1">
+                <button onClick={save} disabled={saving} className="text-xs tracking-[2px] uppercase text-black bg-white font-semibold px-4 py-2 hover:bg-white/90 transition-colors disabled:opacity-50">
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+                <button onClick={() => { setEditing(false); setError(""); }} className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Discard</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
