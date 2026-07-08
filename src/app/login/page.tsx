@@ -13,6 +13,22 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const [showForgot, setShowForgot] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetStatus, setResetStatus] = useState<"" | "sending" | "sent" | "error">("");
+  const [resetError, setResetError] = useState("");
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setResetStatus("sending"); setResetError("");
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/set-password`,
+    });
+    if (error) { setResetError(error.message); setResetStatus("error"); return; }
+    setResetStatus("sent");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -58,65 +74,132 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-sm bg-black border border-white/10 p-8">
 
-          <div className="mb-8 text-center">
-            <p className="text-xs tracking-[6px] uppercase text-white/40 mb-2">Portal Access</p>
-            <h1 className="text-3xl font-black tracking-tight uppercase text-white">Sign In</h1>
-          </div>
+          {showForgot ? (
+            <>
+              <div className="mb-8 text-center">
+                <p className="text-xs tracking-[6px] uppercase text-white/40 mb-2">Portal Access</p>
+                <h1 className="text-3xl font-black tracking-tight uppercase text-white">Reset Password</h1>
+              </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-xs tracking-[2px] uppercase text-[#666]">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                placeholder="you@example.com"
-                className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
-              />
-            </div>
+              {resetStatus === "sent" ? (
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm text-[#ccc] text-center">
+                    If an account exists for <span className="text-white">{resetEmail}</span>, a reset link is on its way — check your inbox.
+                  </p>
+                  <button
+                    onClick={() => { setShowForgot(false); setResetStatus(""); setResetEmail(""); }}
+                    className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors text-center"
+                  >
+                    ← Back to Sign In
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+                  <p className="text-sm text-[#888] -mt-2 mb-2">Enter your email and we&apos;ll send you a link to set a new password.</p>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs tracking-[2px] uppercase text-[#666]">Email</label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={e => setResetEmail(e.target.value)}
+                      required
+                      placeholder="you@example.com"
+                      className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
+                    />
+                  </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs tracking-[2px] uppercase text-[#666]">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
-              />
-            </div>
+                  {resetError && (
+                    <p className="text-xs tracking-[1px] text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">
+                      {resetError}
+                    </p>
+                  )}
 
-            {error && (
-              <p className="text-xs tracking-[1px] text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">
-                {error}
-              </p>
-            )}
+                  <button
+                    type="submit"
+                    disabled={resetStatus === "sending"}
+                    className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resetStatus === "sending" ? "Sending..." : "Send Reset Link →"}
+                  </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? "Signing in..." : "Sign In →"}
-            </button>
-          </form>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(false); setResetError(""); setResetStatus(""); }}
+                    className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors"
+                  >
+                    ← Back to Sign In
+                  </button>
+                </form>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mb-8 text-center">
+                <p className="text-xs tracking-[6px] uppercase text-white/40 mb-2">Portal Access</p>
+                <h1 className="text-3xl font-black tracking-tight uppercase text-white">Sign In</h1>
+              </div>
 
-          <div className="mt-6 flex flex-col gap-3">
-            <Link
-              href="/register"
-              className="block text-center border-2 border-white/30 text-white text-sm tracking-[3px] uppercase font-bold py-4 hover:border-white hover:bg-white/5 transition-all"
-            >
-              New? Create a Free Account →
-            </Link>
-            <p className="text-center text-xs text-[#444] tracking-[1px] pt-2">
-              Luck Images photographer?{" "}
-              <Link href="/photographer-register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
-                Join the team
-              </Link>
-            </p>
-          </div>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs tracking-[2px] uppercase text-[#666]">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    placeholder="you@example.com"
+                    className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs tracking-[2px] uppercase text-[#666]">Password</label>
+                    <button type="button" onClick={() => { setShowForgot(true); setResetEmail(email); }} className="text-xs text-[#666] hover:text-white transition-colors underline underline-offset-4">
+                      Forgot password?
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    placeholder="••••••••"
+                    className="bg-[#181818] border border-white/20 text-white text-sm px-4 py-4 outline-none focus:border-white/60 transition-colors placeholder:text-[#444]"
+                  />
+                </div>
+
+                {error && (
+                  <p className="text-xs tracking-[1px] text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-2 bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Signing in..." : "Sign In →"}
+                </button>
+              </form>
+
+              <div className="mt-6 flex flex-col gap-3">
+                <Link
+                  href="/register"
+                  className="block text-center border-2 border-white/30 text-white text-sm tracking-[3px] uppercase font-bold py-4 hover:border-white hover:bg-white/5 transition-all"
+                >
+                  New? Create a Free Account →
+                </Link>
+                <p className="text-center text-xs text-[#444] tracking-[1px] pt-2">
+                  Luck Images photographer?{" "}
+                  <Link href="/photographer-register" className="text-[#666] hover:text-white transition-colors underline underline-offset-4">
+                    Join the team
+                  </Link>
+                </p>
+              </div>
+            </>
+          )}
 
         </div>
       </div>

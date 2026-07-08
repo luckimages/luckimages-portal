@@ -38,6 +38,24 @@ function fmtWhen(iso: string | null) {
   return new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+// Estimated per-line price for the services receipt — same pricing tiers
+// used in the client booking form's quote calculator.
+function servicePrice(service: string, sqft: number): number {
+  switch (service) {
+    case "Listing Photos": return sqft ? (sqft <= 1500 ? 200 : sqft <= 2000 ? 250 : sqft <= 2500 ? 300 : sqft <= 3000 ? 350 : 400) : 200;
+    case "Matterport 3D Tour": return sqft ? (sqft <= 2000 ? 200 : sqft <= 3000 ? 300 : sqft <= 4000 ? 400 : 500) : 200;
+    case "Floor Plan": return sqft ? (sqft < 2500 ? 50 : 75) : 50;
+    case "Twilight": return 250;
+    case "Video Walkthrough": return 200;
+    case "Drone Photos": return 200;
+    case "Headshots": return 200;
+    case "Drone Add-on": return 100;
+    case "Twilight Add-on": return 150;
+    case "Virtual Staging": return 25;
+    default: return 0;
+  }
+}
+
 function useAcks(sourceType: string) {
   const [acked, setAcked] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
@@ -77,6 +95,8 @@ export default function UpdatesPage() {
   const [editPhotographers, setEditPhotographers] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
   const [updateInput, setUpdateInput] = useState("");
+  const [quoteInputs, setQuoteInputs] = useState<Record<string, string>>({});
+  const [savingQuote, setSavingQuote] = useState<string | null>(null);
 
   const pendingAcks = useAcks("pending_shoot");
   const regAcks = useAcks("new_registration");
@@ -123,6 +143,19 @@ export default function UpdatesPage() {
       const next = cur.includes(photogId) ? cur.filter(id => id !== photogId) : [...cur, photogId];
       return { ...prev, [shootId]: next };
     });
+  }
+
+  async function saveQuote(id: string) {
+    const raw = quoteInputs[id];
+    const price = raw !== undefined && raw !== "" ? Number(raw) : null;
+    setSavingQuote(id);
+    const res = await fetch("/api/admin/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, price }),
+    });
+    setSavingQuote(null);
+    if (res.ok) setPendingShoots(prev => prev.map(x => x.id === id ? { ...x, price } : x));
   }
 
   async function confirmShoot(s: PendingShoot) {
@@ -209,12 +242,44 @@ export default function UpdatesPage() {
                     </button>
                     {isExpanded && (
                       <div className="px-5 pb-5 pt-1 border-t border-white/5 bg-white/[0.015] space-y-4">
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                          <div><p className="text-[#444] mb-0.5">Services</p><p className="text-[#ccc]">{(s.services || []).join(", ") || "—"}</p></div>
-                          <div><p className="text-[#444] mb-0.5">Sq Ft</p><p className="text-[#ccc]">{s.square_footage || "—"}</p></div>
-                          <div><p className="text-[#444] mb-0.5">Quote</p><p className="text-[#4ade80] font-semibold">{s.price ? `$${s.price.toLocaleString()}` : "Not set"}</p></div>
-                          <div><p className="text-[#444] mb-0.5">Contact</p><p className="text-[#ccc]">{s.client_email || "—"}</p></div>
+                        <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-xs">
+                          <div><p className="text-[#444] mb-0.5">Date &amp; Time</p><p className="text-[#ccc]">{fmtWhen(s.scheduled_at)}</p></div>
+                          <div><p className="text-[#444] mb-0.5">Realtor</p><p className="text-[#ccc] truncate">{s.client_email || s.client_name || "—"}</p></div>
+                          <div><p className="text-[#444] mb-0.5">Sq Ft</p><p className="text-[#ccc]">{s.square_footage ? `${s.square_footage.toLocaleString()} sq ft` : "—"}</p></div>
                         </div>
+
+                        <div>
+                          <p className="text-[10px] tracking-[1px] uppercase text-[#555] mb-2">Services</p>
+                          {(s.services || []).length > 0 ? (
+                            <div className="border border-white/10">
+                              {(s.services || []).map((svc, i) => (
+                                <div key={svc} className={`flex items-center justify-between px-3 py-2 text-xs ${i > 0 ? "border-t border-white/5" : ""}`}>
+                                  <span className="text-white">{svc}</span>
+                                  <span className="text-[#4ade80] font-semibold">${servicePrice(svc, s.square_footage || 0).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-[#333] italic">No services selected</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] tracking-[1px] uppercase text-[#555] mb-1">Quote</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#666] text-sm">$</span>
+                            <input type="number" min="0"
+                              value={quoteInputs[s.id] ?? (s.price != null ? String(s.price) : "")}
+                              onChange={e => setQuoteInputs(q => ({ ...q, [s.id]: e.target.value }))}
+                              placeholder="Not set"
+                              className="w-28 bg-[#1a1a1a] border border-white/10 text-white text-sm px-2 py-1.5 outline-none focus:border-white/30" />
+                            <button onClick={() => saveQuote(s.id)} disabled={savingQuote === s.id}
+                              className="text-[10px] tracking-[1px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors disabled:opacity-40">
+                              {savingQuote === s.id ? "Saving..." : "Save"}
+                            </button>
+                          </div>
+                        </div>
+
                         {s.notes && <p className="text-xs text-[#777] italic">&ldquo;{s.notes}&rdquo;</p>}
 
                         <div>
