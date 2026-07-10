@@ -47,11 +47,25 @@ export async function GET(req: Request) {
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const db = service();
-  const { data: items, error } = await db
+  // thumb_path is a recent addition — degrade gracefully if the migration
+  // hasn't run yet in this environment.
+  const first = await db
     .from("media")
-    .select("id, file_name, file_type, file_path, original_path, created_at")
+    .select("id, file_name, file_type, file_path, original_path, thumb_path, created_at")
     .eq("shoot_id", shootId)
     .order("created_at");
+  let items: Array<Record<string, any>> | null = first.data; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let error = first.error;
+
+  if (error && error.message?.includes("thumb_path")) {
+    const second = await db
+      .from("media")
+      .select("id, file_name, file_type, file_path, original_path, created_at")
+      .eq("shoot_id", shootId)
+      .order("created_at");
+    items = second.data;
+    error = second.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -65,12 +79,23 @@ export async function GET(req: Request) {
   }
 
   const withUrls = await Promise.all((items || []).map(async (m) => {
-    const [{ data: preview }, { data: download }] = await Promise.all([
-      db.storage.from("shoot-media").createSignedUrl(m.file_path, 7200),
+    // download_url stays a signed URL to the private original — access
+    // control matters there. preview_url (thumb) is a stable PUBLIC URL when
+    // available: no rotating token means it's actually cacheable by the
+    // browser, unlike a fresh signed URL on every request.
+    const [{ data: download }] = await Promise.all([
       db.storage.from("shoot-media").createSignedUrl(m.original_path || m.file_path, 7200),
     ]);
+    let preview_url: string | null = null;
+    const thumbPath = (m as { thumb_path?: string | null }).thumb_path;
+    if (thumbPath) {
+      preview_url = db.storage.from("shoot-thumbnails").getPublicUrl(thumbPath).data.publicUrl;
+    } else {
+      const { data: signedPreview } = await db.storage.from("shoot-media").createSignedUrl(m.file_path, 7200);
+      preview_url = signedPreview?.signedUrl || null;
+    }
     const service_type = parseServiceType(m.file_path, shootId);
-    return { ...m, service_type, preview_url: preview?.signedUrl || null, download_url: download?.signedUrl || null };
+    return { ...m, service_type, preview_url, download_url: download?.signedUrl || null };
   }));
 
   return NextResponse.json({ media: withUrls, canEdit });
@@ -84,11 +109,15 @@ export async function DELETE(req: Request) {
   const { id } = await req.json();
   const db = service();
 
-  const { data: m } = await db
+  let { data: m } = await db
     .from("media")
-    .select("id, shoot_id, file_path, original_path")
+    .select("id, shoot_id, file_path, original_path, thumb_path")
     .eq("id", id)
     .single();
+
+  if (!m) {
+    ({ data: m } = await db.from("media").select("id, shoot_id, file_path, original_path").eq("id", id).single());
+  }
 
   if (!m) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -97,6 +126,8 @@ export async function DELETE(req: Request) {
 
   const pathsToDelete = [m.file_path, m.original_path].filter(Boolean) as string[];
   await db.storage.from("shoot-media").remove(pathsToDelete);
+  const thumbPath = (m as { thumb_path?: string | null }).thumb_path;
+  if (thumbPath) await db.storage.from("shoot-thumbnails").remove([thumbPath]);
   await db.from("media").delete().eq("id", id);
 
   return NextResponse.json({ ok: true });
