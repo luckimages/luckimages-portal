@@ -33,6 +33,10 @@ export default function RegisterPage() {
     brokerage: "", areas: "", birthday: "",
     mailingList: false, referralSource: "",
   });
+  // Honeypot — invisible to real users (off-screen, not display:none, since
+  // some bots specifically skip that), but form-filling bots grab every
+  // input they find. Any value here means it wasn't a human.
+  const [honey, setHoney] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -48,6 +52,9 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Bot tripped the honeypot — pretend it worked and quietly bail rather
+    // than erroring, so scripts don't get a clear signal to adapt to.
+    if (honey) { setLoading(true); return; }
     setError(""); setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signUp({
@@ -110,6 +117,13 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+
+            {/* Honeypot — real users never see or reach this field */}
+            <div className="absolute left-[-9999px] w-px h-px overflow-hidden" aria-hidden="true">
+              <label htmlFor="company">Company</label>
+              <input id="company" name="company" type="text" tabIndex={-1} autoComplete="off"
+                value={honey} onChange={e => setHoney(e.target.value)} />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
