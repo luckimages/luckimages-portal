@@ -39,6 +39,7 @@ type Contact = {
   total_revenue: number | null;
   created_at: string;
   referred_by_contact_id: string | null;
+  registered_at: string | null;
 };
 
 type Shoot = {
@@ -111,7 +112,7 @@ export default function MarketingPage() {
   const load = useCallback(async () => {
     const supabase = createClient();
     const [{ data: contactData }, { data: shootData }, { data: callData }, { data: clickData }] = await Promise.all([
-      supabase.from("contacts").select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id").neq("stage", "deleted"),
+      supabase.from("contacts").select("id, name, type, stage, lead_source, total_revenue, created_at, referred_by_contact_id, registered_at").neq("stage", "deleted"),
       supabase.from("shoots").select("id, contact_id, scheduled_at, status, price").in("status", ["completed", "delivered"]),
       supabase.from("cold_calls").select("id, contact_id, outcome, called_at, called_by"),
       supabase.from("link_clicks").select("id, contact_id, service, clicked_at").order("clicked_at", { ascending: false }),
@@ -164,6 +165,14 @@ export default function MarketingPage() {
   const emailRevMTD = shoots.filter(s => s.contact_id && coldEmailContactIds.has(s.contact_id) && s.scheduled_at && s.scheduled_at >= mtdStart).reduce((s, sh) => s + (sh.price || 0), 0);
   const emailRevYTD = shoots.filter(s => s.contact_id && coldEmailContactIds.has(s.contact_id) && s.scheduled_at && s.scheduled_at >= ytdStart).reduce((s, sh) => s + (sh.price || 0), 0);
   const emailConvRate = coldEmailContactIds.size > 0 ? Math.round((emailConverted / coldEmailContactIds.size) * 100) : 0;
+
+  // ── Instagram DM stats ──────────────────────────────────────────────────
+  const instagramContactIds = new Set(contacts.filter(c => c.lead_source === "instagram").map(c => c.id));
+  const instagramClicked = new Set(
+    linkClicks.filter(c => c.service === "instagram-dm" && c.contact_id && instagramContactIds.has(c.contact_id)).map(c => c.contact_id)
+  ).size;
+  const instagramRegistered = contacts.filter(c => instagramContactIds.has(c.id) && c.registered_at).length;
+  const instagramConvRate = instagramContactIds.size > 0 ? Math.round((instagramRegistered / instagramContactIds.size) * 100) : 0;
 
   // ── Generic channel stats ───────────────────────────────────────────────
   const genericChannels = CHANNELS.filter(ch => !ch.dedicated).map(ch => {
@@ -381,6 +390,41 @@ export default function MarketingPage() {
                     <div className="h-full bg-[#60a5fa] transition-all" style={{ width: `${emailConvRate}%` }} />
                   </div>
                   <p className="text-xs font-bold text-[#60a5fa] tabular-nums shrink-0">{emailConvRate}% conversion</p>
+                </div>
+              </div>
+
+              {/* Instagram — dedicated card */}
+              <div className="border border-white/10 bg-[#111] p-5 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📸</span>
+                    <div>
+                      <p className="text-sm font-bold tracking-wide">Instagram</p>
+                      <p className="text-[10px] text-[#444] mt-0.5">Tracked DM links — per-realtor click &amp; registration status</p>
+                    </div>
+                  </div>
+                  <a
+                    href="/dashboard/instagram"
+                    className="text-[10px] tracking-[1.5px] uppercase border border-white/20 px-3 py-1.5 text-[#888] hover:text-white hover:border-white/40 transition-all shrink-0"
+                  >
+                    Open Tool →
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-2 gap-px bg-white/5">
+                  <StatBox label="Contacts Reached" value={instagramContactIds.size.toString()} />
+                  <StatBox label="Link Clicks" value={instagramClicked.toString()} accent="#f472b6" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-px bg-white/5">
+                  <StatBox label="Registered" value={instagramRegistered.toString()} accent="#4ade80" />
+                  <StatBox label="Registration Rate" value={instagramContactIds.size > 0 ? `${instagramConvRate}%` : "—"} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-white/5 overflow-hidden rounded-full">
+                    <div className="h-full bg-[#f472b6] transition-all" style={{ width: `${instagramConvRate}%` }} />
+                  </div>
+                  <p className="text-xs font-bold text-[#f472b6] tabular-nums shrink-0">{instagramConvRate}% registered</p>
                 </div>
               </div>
 
