@@ -85,7 +85,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name, property_type } = await req.json();
+  const { address, lat, lng, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name, property_type } = await req.json();
   if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
 
   const db = service();
@@ -115,8 +115,18 @@ export async function POST(req: Request) {
     package_name: package_name || null,
     property_type: property_type || null,
   };
+  if (typeof lat === "number") payload.lat = lat;
+  if (typeof lng === "number") payload.lng = lng;
 
-  const { data, error } = await db.from("shoots").insert(payload).select().single();
+  let { data, error } = await db.from("shoots").insert(payload).select().single();
+
+  // lat/lng columns are a recent addition — if the migration hasn't run yet
+  // in this environment, retry without them rather than failing the create.
+  if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
+    delete payload.lat;
+    delete payload.lng;
+    ({ data, error } = await db.from("shoots").insert(payload).select().single());
+  }
 
   // Auto-promote contact to "client" stage
   if (!error && contact_id) {
