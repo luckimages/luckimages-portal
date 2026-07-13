@@ -87,6 +87,12 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: "text-[#4ade80] bg-[#4ade80]/5",
 };
 
+const SERVICE_OPTIONS = [
+  "Listing Photos", "Video Walkthrough", "Matterport 3D Tour", "Twilight",
+  "Drone Photos", "Headshots", "Drone Add-on", "Twilight Add-on",
+  "Floor Plan", "Virtual Staging",
+];
+
 const PACKAGES = [
   { label: "Photos Only", price: 175 },
   { label: "Drone Only", price: 200 },
@@ -553,6 +559,72 @@ function ShootsPage() {
   const [editContactName, setEditContactName] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // New Shoot modal — for phone-booked shoots that never went through the
+  // realtor self-service portal.
+  const [showNewShoot, setShowNewShoot] = useState(false);
+  const [nsAddress, setNsAddress] = useState("");
+  const [nsLat, setNsLat] = useState<number | null>(null);
+  const [nsLng, setNsLng] = useState<number | null>(null);
+  const [nsDatetime, setNsDatetime] = useState("");
+  const [nsSqft, setNsSqft] = useState("");
+  const [nsServices, setNsServices] = useState<string[]>([]);
+  const [nsPrice, setNsPrice] = useState("");
+  const [nsAccess, setNsAccess] = useState("");
+  const [nsNotes, setNsNotes] = useState("");
+  const [nsContactId, setNsContactId] = useState<string | null>(null);
+  const [nsContactName, setNsContactName] = useState("");
+  const [nsContactSearch, setNsContactSearch] = useState("");
+  const [nsPhotographers, setNsPhotographers] = useState<string[]>([]);
+  const [nsSaving, setNsSaving] = useState(false);
+  const [nsError, setNsError] = useState("");
+
+  function resetNewShoot() {
+    setNsAddress(""); setNsLat(null); setNsLng(null); setNsDatetime("");
+    setNsSqft(""); setNsServices([]); setNsPrice(""); setNsAccess(""); setNsNotes("");
+    setNsContactId(null); setNsContactName(""); setNsContactSearch("");
+    setNsPhotographers([]); setNsError("");
+  }
+
+  function toggleNsService(s: string) {
+    setNsServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  }
+  function toggleNsPhotographer(id: string) {
+    setNsPhotographers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  async function createShoot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nsAddress.trim() || !nsDatetime) { setNsError("Address and date/time are required."); return; }
+    setNsSaving(true); setNsError("");
+    const combinedNotes = [nsAccess ? `ACCESS: ${nsAccess}` : "", nsNotes].filter(Boolean).join("\n\n") || null;
+    const res = await fetch("/api/admin/shoots", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        address: nsAddress,
+        lat: nsLat,
+        lng: nsLng,
+        scheduled_at: new Date(nsDatetime).toISOString(),
+        services: nsServices,
+        square_footage: nsSqft || null,
+        price: nsPrice ? Number(nsPrice) : null,
+        notes: combinedNotes,
+        contact_id: nsContactId,
+        photographer_ids: nsPhotographers,
+        status: "scheduled",
+      }),
+    });
+    setNsSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setNsError(data.error || "Could not create shoot");
+      return;
+    }
+    setShowNewShoot(false);
+    resetNewShoot();
+    await loadShoots();
+  }
   const [statusError, setStatusError] = useState<Record<string, string>>({});
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
@@ -948,9 +1020,15 @@ function ShootsPage() {
         <>
           <div className="max-w-4xl mx-auto px-4 md:px-8 pt-10 pb-4 flex items-end justify-between">
             <h1 className="text-4xl font-black tracking-tight leading-none uppercase">Shoot Log</h1>
-            <a href="/dashboard/quotes" className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">
-              + New Quote
-            </a>
+            <div className="flex items-center gap-3">
+              <button onClick={() => { resetNewShoot(); setShowNewShoot(true); }}
+                className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                + New Shoot
+              </button>
+              <a href="/dashboard/quotes" className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                + New Quote
+              </a>
+            </div>
           </div>
 
           <div className="max-w-4xl mx-auto px-4 md:px-8 pb-4 flex items-center gap-3 flex-wrap">
@@ -1164,6 +1242,136 @@ function ShootsPage() {
             </div>
           </div>
         )
+      )}
+
+      {/* New Shoot modal — phone-booked shoots that skip the realtor portal */}
+      {showNewShoot && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" onClick={() => setShowNewShoot(false)}>
+          <div className="bg-[#111] border border-white/15 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-6 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-10">
+              <p className="text-xs font-bold tracking-[3px] uppercase">New Shoot</p>
+              <button onClick={() => setShowNewShoot(false)} className="text-[#555] hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <form onSubmit={createShoot} className="p-6 space-y-4">
+              <AddressMapPicker
+                address={nsAddress}
+                onAddressChange={setNsAddress}
+                lat={nsLat}
+                lng={nsLng}
+                onLocationChange={(lat, lng) => { setNsLat(lat); setNsLng(lng); }}
+                inputCls="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30"
+                labelCls="text-xs tracking-[2px] uppercase text-[#555] mb-2 block"
+              />
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Date &amp; Time</p>
+                <input type="datetime-local" value={nsDatetime} onChange={e => setNsDatetime(e.target.value)}
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 [color-scheme:dark]" />
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Sq Ft</p>
+                <input type="number" min="0" value={nsSqft} onChange={e => setNsSqft(e.target.value)} placeholder="2400"
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SERVICE_OPTIONS.map(s => {
+                    const active = nsServices.includes(s);
+                    return (
+                      <button key={s} type="button" onClick={() => toggleNsService(s)}
+                        className={`text-xs px-3 py-1.5 border transition-all ${active ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Quote</p>
+                <div className="flex items-center bg-[#181818] border border-white/10">
+                  <span className="text-xs text-[#555] px-3">$</span>
+                  <input type="number" min="0" value={nsPrice} onChange={e => setNsPrice(e.target.value)}
+                    placeholder="0" className="flex-1 bg-transparent text-white text-sm px-2 py-2.5 outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact / Client</p>
+                {nsContactId ? (
+                  <div className="flex items-center justify-between bg-[#181818] border border-white/10 px-4 py-2.5">
+                    <span className="text-sm text-white">{nsContactName}</span>
+                    <button type="button" onClick={() => { setNsContactId(null); setNsContactName(""); }}
+                      className="text-[#444] hover:text-white text-xs transition-colors">✕ Remove</button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input value={nsContactSearch} onChange={e => setNsContactSearch(e.target.value)} placeholder="Search contacts..."
+                      className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    {nsContactSearch && (
+                      <div className="absolute top-full left-0 right-0 bg-[#181818] border border-white/10 border-t-0 max-h-40 overflow-y-auto z-10 divide-y divide-white/5">
+                        {contacts.filter(c => c.name.toLowerCase().includes(nsContactSearch.toLowerCase()) || (c.brokerage || "").toLowerCase().includes(nsContactSearch.toLowerCase())).slice(0, 6).map(c => (
+                          <button key={c.id} type="button"
+                            onClick={() => { setNsContactId(c.id); setNsContactName(c.name); setNsContactSearch(""); }}
+                            className="w-full text-left px-4 py-2.5 text-xs hover:bg-white/5 transition-colors">
+                            <span className="font-medium">{c.name}</span>
+                            {c.brokerage && <span className="text-[#555] ml-2">{c.brokerage}</span>}
+                          </button>
+                        ))}
+                        {contacts.filter(c => c.name.toLowerCase().includes(nsContactSearch.toLowerCase())).length === 0 && (
+                          <p className="px-4 py-2.5 text-xs text-[#444]">No contacts found</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Assign Photographer</p>
+                <div className="flex flex-wrap gap-2">
+                  {photographers.map(p => {
+                    const assigned = nsPhotographers.includes(p.id);
+                    return (
+                      <button key={p.id} type="button" onClick={() => toggleNsPhotographer(p.id)}
+                        className={`text-xs px-3 py-1.5 border transition-all ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Property Access</p>
+                <textarea value={nsAccess} onChange={e => setNsAccess(e.target.value)} rows={2} placeholder="Lockbox code, Supra key box, gate code..."
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Notes</p>
+                <textarea value={nsNotes} onChange={e => setNsNotes(e.target.value)} rows={3} placeholder="Parking info, anything else..."
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 resize-none placeholder:text-[#333]" />
+              </div>
+
+              {nsError && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">{nsError}</p>}
+
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setShowNewShoot(false)}
+                  className="flex-1 py-3 text-xs tracking-[1px] uppercase border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-all">
+                  Cancel
+                </button>
+                <button type="submit" disabled={nsSaving}
+                  className="flex-1 py-3 text-xs tracking-[1px] uppercase font-bold bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                  {nsSaving ? "Creating..." : "Create Shoot"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Edit modal (log/schedule) */}
