@@ -93,11 +93,11 @@ function SortableTask({
 
   return (
     <div ref={setNodeRef} style={style} className={`border-b border-white/5 ${isDragging ? "bg-white/[0.03]" : ""}`}>
-      <div className="flex items-center gap-2 px-3 py-2.5 hover:bg-white/[0.02] group">
+      <div className="flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.02] group">
         {/* Drag handle */}
         <button
           {...attributes} {...listeners}
-          className="text-[#222] hover:text-[#555] transition-colors cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+          className="text-[#333] hover:text-[#666] transition-colors cursor-grab active:cursor-grabbing flex-shrink-0 touch-none text-base"
           tabIndex={-1}
         >
           ⠿
@@ -105,47 +105,47 @@ function SortableTask({
         {/* Circle checkbox */}
         <button
           onClick={onComplete}
-          className="w-4 h-4 rounded-full border border-white/25 flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all"
+          className="w-5 h-5 rounded-full border border-white/25 flex-shrink-0 hover:border-[#4ade80] hover:bg-[#4ade80]/10 transition-all"
         />
         {/* Title area */}
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onExpand}>
-          <p className="text-xs text-white truncate">{title}</p>
+          <p className="text-sm text-white truncate">{title}</p>
           {(task.notes || task.details) && !expanded && (
-            <p className="text-[10px] text-[#444] truncate mt-0.5">{task.notes || task.details}</p>
+            <p className="text-xs text-[#555] truncate mt-0.5">{task.notes || task.details}</p>
           )}
-          {due && <p className={`text-[10px] mt-0.5 ${due.cls}`}>{due.label}</p>}
+          {due && <p className={`text-xs mt-0.5 ${due.cls}`}>{due.label}</p>}
         </div>
         {/* Assignee badge */}
         <button
           onClick={onCycleAssignee}
-          className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${asgn.cls}`}
+          className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${asgn.cls}`}
           title={`${task.assigned_to || "both"} — click to change`}
         >{asgn.label}</button>
-        <button onClick={onExpand} className="text-[#333] text-[10px]">{expanded ? "▲" : "▼"}</button>
+        <button onClick={onExpand} className="text-[#333] text-xs">{expanded ? "▲" : "▼"}</button>
       </div>
       {expanded && (
-        <div className="px-4 pb-3 bg-white/[0.015]">
+        <div className="px-5 pb-4 bg-white/[0.015]">
           {editing ? (
-            <div className="flex flex-col gap-1.5 pt-1">
+            <div className="flex flex-col gap-2 pt-1">
               <input value={editTitle} onChange={e => onEditTitle(e.target.value)}
-                className="bg-[#1a1a1a] border border-white/10 text-xs px-2 py-1.5 outline-none text-white w-full"
+                className="bg-[#1a1a1a] border border-white/10 text-sm px-3 py-2 outline-none text-white w-full"
                 placeholder="Title" />
               <textarea value={editNotes} onChange={e => onEditNotes(e.target.value)}
-                className="bg-[#1a1a1a] border border-white/10 text-xs px-2 py-1.5 outline-none text-white w-full resize-none"
+                className="bg-[#1a1a1a] border border-white/10 text-sm px-3 py-2 outline-none text-white w-full resize-none"
                 rows={2} placeholder="Notes (optional)" />
-              <div className="flex gap-2">
-                <button onClick={onSaveEdit} className="text-[10px] tracking-[1px] uppercase text-[#4ade80] hover:text-white transition-colors">Save</button>
-                <button onClick={onCancelEdit} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Cancel</button>
+              <div className="flex gap-3">
+                <button onClick={onSaveEdit} className="text-xs tracking-[1px] uppercase text-[#4ade80] hover:text-white transition-colors">Save</button>
+                <button onClick={onCancelEdit} className="text-xs tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Cancel</button>
               </div>
             </div>
           ) : (
-            <div className="pt-1 flex flex-col gap-1">
-              {(task.notes || task.details) && <p className="text-[11px] text-[#777] leading-relaxed whitespace-pre-wrap">{task.notes || task.details}</p>}
+            <div className="pt-1 flex flex-col gap-1.5">
+              {(task.notes || task.details) && <p className="text-sm text-[#888] leading-relaxed whitespace-pre-wrap">{task.notes || task.details}</p>}
               <div className="flex items-center gap-3 mt-1">
-                <span className={`text-[9px] ${userColor(task.created_by)}`}>{task.created_by}</span>
-                <span className="text-[9px] text-[#333]">{fmtTime(task.created_at)}</span>
-                <button onClick={onEdit} className="text-[9px] text-[#444] hover:text-white transition-colors uppercase tracking-[1px]">Edit</button>
-                <button onClick={onDelete} className="text-[9px] text-[#333] hover:text-red-400 transition-colors uppercase tracking-[1px]">Delete</button>
+                <span className={`text-xs ${userColor(task.created_by)}`}>{task.created_by}</span>
+                <span className="text-xs text-[#444]">{fmtTime(task.created_at)}</span>
+                <button onClick={onEdit} className="text-xs text-[#555] hover:text-white transition-colors uppercase tracking-[1px]">Edit</button>
+                <button onClick={onDelete} className="text-xs text-[#444] hover:text-red-400 transition-colors uppercase tracking-[1px]">Delete</button>
               </div>
             </div>
           )}
@@ -312,16 +312,16 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-4 overflow-x-auto pb-2 items-stretch">
         {lists.map(list => {
           const listTasks = todos.filter(t => t.list_id === list.id);
           const listCompleted = completedTodos.filter(t => t.list_id === list.id);
           const isOver = overListId === list.id && activeDragId !== null && getListForTask(activeDragId) !== list.id;
 
           return (
-            <div key={list.id} className={`bg-[#111] border flex flex-col flex-shrink-0 w-80 transition-colors ${isOver ? "border-white/30 bg-white/[0.03]" : "border-white/10"}`} style={{ minHeight: 280 }}>
+            <div key={list.id} className={`bg-[#111] border flex flex-col flex-1 min-w-[300px] min-h-[calc(100vh-220px)] transition-colors ${isOver ? "border-white/30 bg-white/[0.03]" : "border-white/10"}`}>
               {/* List header */}
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/10">
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/10">
                 {listRenamingId === list.id ? (
                   <input
                     autoFocus
@@ -329,26 +329,26 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
                     onChange={e => setListRenameValue(e.target.value)}
                     onBlur={() => handleRenameList(list.id, listRenameValue || list.name)}
                     onKeyDown={e => { if (e.key === "Enter") handleRenameList(list.id, listRenameValue || list.name); if (e.key === "Escape") setListRenamingId(null); }}
-                    className="bg-transparent text-xs outline-none text-white flex-1 font-semibold tracking-[1px] uppercase"
+                    className="bg-transparent text-sm outline-none text-white flex-1 font-semibold tracking-[1px] uppercase"
                   />
                 ) : (
                   <button
                     onDoubleClick={() => { setListRenamingId(list.id); setListRenameValue(list.name); }}
-                    className="text-xs tracking-[1.5px] uppercase text-[#888] hover:text-white transition-colors text-left flex-1"
+                    className="text-sm tracking-[1.5px] uppercase text-[#888] hover:text-white transition-colors text-left flex-1 font-semibold"
                     title="Double-click to rename"
                   >
                     {list.name}
-                    {listTasks.length > 0 && <span className="ml-1.5 text-[#333] font-normal">({listTasks.length})</span>}
+                    {listTasks.length > 0 && <span className="ml-1.5 text-[#444] font-normal">({listTasks.length})</span>}
                   </button>
                 )}
-                <button onClick={() => handleDeleteList(list.id)} className="text-[#222] hover:text-red-400 transition-colors text-sm ml-2" title="Delete list">×</button>
+                <button onClick={() => handleDeleteList(list.id)} className="text-[#222] hover:text-red-400 transition-colors text-base ml-2" title="Delete list">×</button>
               </div>
 
               {/* Tasks */}
               <SortableContext items={listTasks.map(t => t.id)} strategy={verticalListSortingStrategy} id={list.id}>
                 <div className="flex-1 overflow-y-auto min-h-0">
                   {listTasks.length === 0 && (
-                    <div className={`p-4 text-[10px] italic text-center transition-colors ${isOver ? "text-[#555]" : "text-[#2a2a2a]"}`}>
+                    <div className={`p-4 text-xs italic text-center transition-colors ${isOver ? "text-[#555]" : "text-[#2a2a2a]"}`}>
                       {isOver ? "Drop here" : "No tasks"}
                     </div>
                   )}
@@ -376,15 +376,15 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
                   {/* Completed collapse */}
                   {listCompleted.length > 0 && (
                     <div className="border-t border-white/5 mt-1">
-                      <button onClick={() => setCompletedOpen(o => ({ ...o, [list.id]: !o[list.id] }))} className="w-full flex items-center gap-2 px-3 py-2 text-[10px] text-[#333] hover:text-[#666] transition-colors">
+                      <button onClick={() => setCompletedOpen(o => ({ ...o, [list.id]: !o[list.id] }))} className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-[#444] hover:text-[#777] transition-colors">
                         <span>{completedOpen[list.id] ? "▾" : "▸"}</span>
                         <span>{listCompleted.length} completed</span>
                       </button>
                       {completedOpen[list.id] && listCompleted.map(t => (
-                        <div key={t.id} className="flex items-center gap-2 px-3 py-2 border-b border-white/5 opacity-50 hover:opacity-75">
-                          <button onClick={() => handleUncomplete(t.id)} className="w-4 h-4 rounded-full border border-white/40 flex-shrink-0 bg-white/10 flex items-center justify-center text-[8px] text-white hover:border-white transition-all">✓</button>
-                          <span className="text-xs text-[#555] line-through flex-1 truncate">{t.title || t.text}</span>
-                          <button onClick={() => handleDelete(t.id)} className="text-[10px] text-[#333] hover:text-red-400 transition-colors">×</button>
+                        <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5 opacity-50 hover:opacity-75">
+                          <button onClick={() => handleUncomplete(t.id)} className="w-4 h-4 rounded-full border border-white/40 flex-shrink-0 bg-white/10 flex items-center justify-center text-[9px] text-white hover:border-white transition-all">✓</button>
+                          <span className="text-sm text-[#666] line-through flex-1 truncate">{t.title || t.text}</span>
+                          <button onClick={() => handleDelete(t.id)} className="text-xs text-[#444] hover:text-red-400 transition-colors">×</button>
                         </div>
                       ))}
                     </div>
@@ -394,35 +394,35 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
 
               {/* Add task */}
               {addOpenList === list.id ? (
-                <form onSubmit={e => handleAddTask(list.id, e)} className="border-t border-white/10 flex flex-col gap-1.5 p-2.5">
+                <form onSubmit={e => handleAddTask(list.id, e)} className="border-t border-white/10 flex flex-col gap-2 p-3.5">
                   <input value={addTitle} onChange={e => setAddTitle(e.target.value)} placeholder="Task title"
-                    className="bg-transparent text-xs px-2 py-1.5 outline-none placeholder:text-[#333] text-white border border-white/10" autoFocus />
+                    className="bg-transparent text-sm px-3 py-2 outline-none placeholder:text-[#444] text-white border border-white/10" autoFocus />
                   <input value={addNotes} onChange={e => setAddNotes(e.target.value)} placeholder="Notes (optional)"
-                    className="bg-transparent text-xs px-2 py-1.5 outline-none placeholder:text-[#333] text-white border border-white/10" />
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <div className="flex gap-1">
+                    className="bg-transparent text-sm px-3 py-2 outline-none placeholder:text-[#444] text-white border border-white/10" />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex gap-1.5">
                       {(["both", "ryan", "leif"] as const).map(a => {
                         const lbl = a === "both" ? "B" : a === "ryan" ? "R" : "L";
                         const active = addAssignee === a;
                         const cls = a === "ryan" ? "border-[#4ade80] text-[#4ade80]" : a === "leif" ? "border-[#60a5fa] text-[#60a5fa]" : "border-white/20 text-[#555]";
                         return (
                           <button key={a} type="button" onClick={() => setAddAssignee(a)}
-                            className={`text-[10px] w-5 h-5 border rounded-full transition-colors ${active ? cls : "border-white/10 text-[#333]"}`}>
+                            className={`text-xs w-6 h-6 border rounded-full transition-colors ${active ? cls : "border-white/10 text-[#333]"}`}>
                             {lbl}
                           </button>
                         );
                       })}
                     </div>
                     <input type="date" value={addDueDate} onChange={e => setAddDueDate(e.target.value)}
-                      className="bg-transparent border border-white/10 text-[10px] text-[#555] px-1.5 py-0.5 outline-none flex-1 min-w-0" />
+                      className="bg-transparent border border-white/10 text-xs text-[#666] px-2 py-1 outline-none flex-1 min-w-0" />
                   </div>
-                  <div className="flex gap-2">
-                    <button type="submit" className="text-[10px] uppercase tracking-[1px] text-[#4ade80] hover:text-white transition-colors">Add</button>
-                    <button type="button" onClick={() => setAddOpenList(null)} className="text-[10px] uppercase tracking-[1px] text-[#333] hover:text-white transition-colors">Cancel</button>
+                  <div className="flex gap-3">
+                    <button type="submit" className="text-xs uppercase tracking-[1px] text-[#4ade80] hover:text-white transition-colors">Add</button>
+                    <button type="button" onClick={() => setAddOpenList(null)} className="text-xs uppercase tracking-[1px] text-[#444] hover:text-white transition-colors">Cancel</button>
                   </div>
                 </form>
               ) : (
-                <button onClick={() => setAddOpenList(list.id)} className="border-t border-white/10 w-full text-left px-3 py-2 text-xs text-[#333] hover:text-[#666] transition-colors">
+                <button onClick={() => setAddOpenList(list.id)} className="border-t border-white/10 w-full text-left px-4 py-3 text-sm text-[#444] hover:text-[#777] transition-colors">
                   + Add task
                 </button>
               )}
@@ -433,7 +433,7 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
         {/* New list button */}
         {lists.length < 5 && (
           <button onClick={handleCreateList}
-            className="flex-shrink-0 w-80 border border-dashed border-white/10 hover:border-white/20 text-[#333] hover:text-[#666] transition-colors text-xs flex items-center justify-center gap-1.5 min-h-[80px]">
+            className="flex-1 min-w-[220px] max-w-[280px] border border-dashed border-white/10 hover:border-white/20 text-[#333] hover:text-[#666] transition-colors text-sm flex items-center justify-center gap-1.5 min-h-[calc(100vh-220px)]">
             + New List
           </button>
         )}

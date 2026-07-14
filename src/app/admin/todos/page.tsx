@@ -22,7 +22,7 @@ export default function TodosPage() {
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
-      <div className="px-4 md:px-8 py-8 w-full lg:w-3/5 mx-auto">
+      <div className="px-4 md:px-8 py-8 w-full max-w-[1900px] mx-auto">
         <div className="mb-6">
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-1">Command Center</p>
           <h1 className="text-2xl font-black tracking-tight uppercase">Task Lists</h1>
