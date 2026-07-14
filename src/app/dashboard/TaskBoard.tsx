@@ -312,14 +312,15 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-2 items-stretch">
+      <div className="flex gap-4 overflow-x-auto pb-2 items-start">
         {lists.map(list => {
           const listTasks = todos.filter(t => t.list_id === list.id);
           const listCompleted = completedTodos.filter(t => t.list_id === list.id);
           const isOver = overListId === list.id && activeDragId !== null && getListForTask(activeDragId) !== list.id;
+          const isEmpty = listTasks.length === 0;
 
           return (
-            <div key={list.id} className={`bg-[#111] border flex flex-col flex-1 min-w-[300px] min-h-[calc(100vh-220px)] transition-colors ${isOver ? "border-white/30 bg-white/[0.03]" : "border-white/10"}`}>
+            <div key={list.id} className={`bg-[#111] border flex flex-col flex-1 min-w-[450px] ${isEmpty ? "min-h-[33vh]" : ""} transition-colors ${isOver ? "border-white/30 bg-white/[0.03]" : "border-white/10"}`}>
               {/* List header */}
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/10">
                 {listRenamingId === list.id ? (
@@ -433,7 +434,7 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
         {/* New list button */}
         {lists.length < 5 && (
           <button onClick={handleCreateList}
-            className="flex-1 min-w-[220px] max-w-[280px] border border-dashed border-white/10 hover:border-white/20 text-[#333] hover:text-[#666] transition-colors text-sm flex items-center justify-center gap-1.5 min-h-[calc(100vh-220px)]">
+            className="flex-1 min-w-[220px] max-w-[280px] border border-dashed border-white/10 hover:border-white/20 text-[#333] hover:text-[#666] transition-colors text-sm flex items-center justify-center gap-1.5 min-h-[33vh]">
             + New List
           </button>
         )}
