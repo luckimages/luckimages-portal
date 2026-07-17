@@ -530,6 +530,7 @@ function ShootsPage() {
   // Log-view state
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [showCancelled, setShowCancelled] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
 
   // Schedule-view state
@@ -675,17 +676,25 @@ function ShootsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const filtered = shoots.filter(s => {
+  function matchesLogFilters(s: Shoot) {
     const name = s.contact_name || s.client_name || s.client_email || "";
     const matchSearch = !search ||
       s.address.toLowerCase().includes(search.toLowerCase()) ||
       name.toLowerCase().includes(search.toLowerCase()) ||
       (s.package_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (s.services || []).some(sv => sv.toLowerCase().includes(search.toLowerCase()));
-    const matchStatus = filterStatus === "all" || s.status === filterStatus;
     const matchMonth = !filterMonth || (s.scheduled_at || "").startsWith(filterMonth);
-    return matchSearch && matchStatus && matchMonth;
-  }).sort((a, b) => new Date(b.scheduled_at || 0).getTime() - new Date(a.scheduled_at || 0).getTime());
+    return matchSearch && matchMonth;
+  }
+  const sortByScheduledDesc = (a: Shoot, b: Shoot) => new Date(b.scheduled_at || 0).getTime() - new Date(a.scheduled_at || 0).getTime();
+
+  const filtered = shoots.filter(s => {
+    if (s.status === "cancelled") return false;
+    const matchStatus = filterStatus === "all" || s.status === filterStatus;
+    return matchStatus && matchesLogFilters(s);
+  }).sort(sortByScheduledDesc);
+
+  const cancelledShoots = shoots.filter(s => s.status === "cancelled" && matchesLogFilters(s)).sort(sortByScheduledDesc);
 
   const availableMonths = [...new Set(shoots.map(s => s.scheduled_at?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse();
 
@@ -1059,7 +1068,6 @@ function ShootsPage() {
               <option value="editing">Editing</option>
               <option value="delivered">Delivered</option>
               <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
             </select>
             <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
               className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
@@ -1084,6 +1092,21 @@ function ShootsPage() {
               ) : (
                 <div className="space-y-2">
                   {filtered.map(s => <LogShootCard key={s.id} shoot={s} />)}
+                </div>
+              )}
+
+              {cancelledShoots.length > 0 && (
+                <div className="mt-8 pt-4 border-t border-white/10">
+                  <button onClick={() => setShowCancelled(v => !v)}
+                    className="flex items-center gap-2 text-xs tracking-[2px] uppercase text-[#444] hover:text-[#888] transition-colors">
+                    <span>{showCancelled ? "▾" : "▸"}</span>
+                    <span>Cancelled ({cancelledShoots.length})</span>
+                  </button>
+                  {showCancelled && (
+                    <div className="space-y-2 mt-4 opacity-60">
+                      {cancelledShoots.map(s => <LogShootCard key={s.id} shoot={s} />)}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
