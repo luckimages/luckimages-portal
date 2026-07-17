@@ -93,17 +93,6 @@ const SERVICE_OPTIONS = [
   "Floor Plan", "Virtual Staging",
 ];
 
-const PACKAGES = [
-  { label: "Photos Only", price: 175 },
-  { label: "Drone Only", price: 200 },
-  { label: "Photo + Drone", price: 325 },
-  { label: "Video", price: 250 },
-  { label: "Matterport", price: 225 },
-  { label: "Twilight", price: 250 },
-  { label: "Full Package", price: 750 },
-  { label: "Custom", price: 0 },
-];
-
 // ── Board-view helpers ────────────────────────────────────────────────────────
 
 const BOARD_STAGES: { key: string; label: string; color: string; dim: string; dbStatuses: string[] }[] = [
@@ -554,11 +543,19 @@ function ShootsPage() {
 
   // Edit modal (log/schedule)
   const [editShoot, setEditShoot] = useState<Shoot | null>(null);
-  const [editForm, setEditForm] = useState({ price: "", package_name: "", notes: "", status: "" });
+  const [editForm, setEditForm] = useState({ price: "", package_name: "", notes: "", status: "", address: "", square_footage: "" });
+  const [editLat, setEditLat] = useState<number | null>(null);
+  const [editLng, setEditLng] = useState<number | null>(null);
+  const [editDatetime, setEditDatetime] = useState("");
+  const [editServices, setEditServices] = useState<string[]>([]);
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editContactName, setEditContactName] = useState("");
   const [contactSearch, setContactSearch] = useState("");
   const [saving, setSaving] = useState(false);
+
+  function toggleEditService(s: string) {
+    setEditServices(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  }
 
   // New Shoot modal — for phone-booked shoots that never went through the
   // realtor self-service portal.
@@ -705,7 +702,18 @@ function ShootsPage() {
 
   function openEdit(shoot: Shoot) {
     setEditShoot(shoot);
-    setEditForm({ price: shoot.price != null ? String(shoot.price) : "", package_name: shoot.package_name || "", notes: shoot.notes || "", status: shoot.status });
+    setEditForm({
+      price: shoot.price != null ? String(shoot.price) : "",
+      package_name: shoot.package_name || "",
+      notes: shoot.notes || "",
+      status: shoot.status,
+      address: shoot.address || "",
+      square_footage: shoot.square_footage != null ? String(shoot.square_footage) : "",
+    });
+    setEditLat(shoot.lat ?? null);
+    setEditLng(shoot.lng ?? null);
+    setEditDatetime(shoot.scheduled_at ? toDatetimeLocal(shoot.scheduled_at) : "");
+    setEditServices(shoot.services || []);
     setEditContactId(shoot.contact_id || null);
     setEditContactName(shoot.contact_name || shoot.client_name || "");
     setContactSearch("");
@@ -725,6 +733,12 @@ function ShootsPage() {
         package_name: editForm.package_name || null,
         contact_id: editContactId,
         notes: editForm.notes || null,
+        address: editForm.address,
+        lat: editLat,
+        lng: editLng,
+        scheduled_at: editDatetime ? new Date(editDatetime).toISOString() : null,
+        services: editServices,
+        square_footage: editForm.square_footage ? Number(editForm.square_footage) : null,
       }),
     });
     setSaving(false);
@@ -1377,8 +1391,8 @@ function ShootsPage() {
       {/* Edit modal (log/schedule) */}
       {editShoot && (
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" onClick={() => setEditShoot(null)}>
-          <div className="bg-[#111] border border-white/15 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between px-6 py-4 border-b border-white/10">
+          <div className="bg-[#111] border border-white/15 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-6 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-10">
               <div>
                 <p className="text-xs font-bold tracking-[3px] uppercase">Edit Shoot</p>
                 <p className="text-sm mt-1 text-[#888] truncate max-w-[280px]">{editShoot.address}</p>
@@ -1387,18 +1401,43 @@ function ShootsPage() {
               <button onClick={() => setEditShoot(null)} className="text-[#555] hover:text-white text-lg leading-none">✕</button>
             </div>
             <form onSubmit={saveEdit} className="p-6 space-y-4">
+              <AddressMapPicker
+                address={editForm.address}
+                onAddressChange={a => setEditForm(f => ({ ...f, address: a }))}
+                lat={editLat}
+                lng={editLng}
+                onLocationChange={(lat, lng) => { setEditLat(lat); setEditLng(lng); }}
+                inputCls="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30"
+                labelCls="text-xs tracking-[2px] uppercase text-[#555] mb-2 block"
+              />
+
               <div>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Package</p>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {PACKAGES.map(pkg => (
-                    <button key={pkg.label} type="button"
-                      onClick={() => setEditForm(f => ({ ...f, package_name: pkg.label === f.package_name ? "" : pkg.label, price: pkg.price && pkg.label !== f.package_name ? String(pkg.price) : f.price }))}
-                      className={`text-xs px-3 py-1.5 border transition-all ${editForm.package_name === pkg.label ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
-                      {pkg.label}{pkg.price ? ` · $${pkg.price}` : ""}
-                    </button>
-                  ))}
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Date &amp; Time</p>
+                <input type="datetime-local" value={editDatetime} onChange={e => setEditDatetime(e.target.value)}
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 [color-scheme:dark]" />
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Sq Ft</p>
+                <input type="number" min="0" value={editForm.square_footage} onChange={e => setEditForm(f => ({ ...f, square_footage: e.target.value }))} placeholder="2400"
+                  className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30" />
+              </div>
+
+              <div>
+                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Services</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SERVICE_OPTIONS.map(s => {
+                    const active = editServices.includes(s);
+                    return (
+                      <button key={s} type="button" onClick={() => toggleEditService(s)}
+                        className={`text-xs px-3 py-1.5 border transition-all ${active ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
+                        {s}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Price</p>
                 <div className="flex items-center bg-[#181818] border border-white/10">
