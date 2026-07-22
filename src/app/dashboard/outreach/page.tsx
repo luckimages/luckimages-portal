@@ -621,11 +621,20 @@ export default function OutreachPage() {
       }
 
       // Engagement data — who was emailed + how they reacted
-      const [{ data: logs }, { data: clicks }] = await Promise.all([
+      const [{ data: logs }, { data: clicks }, { data: textLogs }] = await Promise.all([
         supabase.from("email_log").select("contact_id, subject, sent_at, category").not("contact_id", "is", null).order("sent_at", { ascending: false }),
         supabase.from("link_clicks").select("contact_id, service, clicked_at").not("contact_id", "is", null).order("clicked_at", { ascending: false }),
+        supabase.from("cold_calls").select("contact_id, outcome, called_at").not("contact_id", "is", null).ilike("outcome", "%sent_text%").order("called_at", { ascending: false }),
       ]);
-      setEmailLog(logs || []);
+      // Cold-call follow-up texts aren't emails, but they slot into the exact
+      // same campaign/engagement view as a synthetic "email_log" row — same
+      // shape (contact_id/subject/sent_at/category), just no real send behind
+      // it. The "Cold Call Texts" category then groups automatically like
+      // any other campaign.
+      const textEntries: EmailLogRow[] = (textLogs || []).map(t => ({
+        contact_id: t.contact_id, subject: null, sent_at: t.called_at, category: "Cold Call Texts",
+      }));
+      setEmailLog([...(logs || []), ...textEntries]);
       setLinkClicks(clicks || []);
     }
     load();
@@ -1033,13 +1042,15 @@ export default function OutreachPage() {
             ))}
           </div>
 
-          {currentCampaign && (
+          {currentCampaign && (() => {
+            const isTextCampaign = currentCampaign.name === "Cold Call Texts";
+            return (
             <>
               {/* Summary bar — scoped to the active campaign */}
               <div className="px-6 md:px-8 py-4 border-b border-white/10 shrink-0 flex items-center gap-8 flex-wrap">
                 <div>
                   <p className="text-2xl font-black tabular-nums">{currentCampaign.leadsEmailed}</p>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">Leads Emailed</p>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">{isTextCampaign ? "Leads Texted" : "Leads Emailed"}</p>
                 </div>
                 <div>
                   <p className="text-2xl font-black tabular-nums text-[#60a5fa]">{currentCampaign.leadsClicked}</p>
@@ -1063,7 +1074,9 @@ export default function OutreachPage() {
               {/* Opens note */}
               <div className="px-6 md:px-8 py-2 border-b border-white/5 shrink-0">
                 <p className="text-[10px] text-[#444]">
-                  Tracking link clicks, registrations &amp; pipeline status live. <span className="text-[#555]">Email opens aren&apos;t tracked yet — ask Claude to turn on Resend open tracking.</span>
+                  {isTextCampaign
+                    ? <>Tracking link clicks, registrations &amp; pipeline status live. <span className="text-[#555]">Text delivery/read status isn&apos;t available for SMS.</span></>
+                    : <>Tracking link clicks, registrations &amp; pipeline status live. <span className="text-[#555]">Email opens aren&apos;t tracked yet — ask Claude to turn on Resend open tracking.</span></>}
                 </p>
               </div>
 
@@ -1098,7 +1111,7 @@ export default function OutreachPage() {
                             </div>
                             <p className="text-xs text-[#555] mt-1 truncate">{row.contact.email}</p>
                             <p className="text-xs text-[#777] mt-1.5">
-                              <span className="text-[#999]">📨 {row.timeline.length} email{row.timeline.length > 1 ? "s" : ""}</span>
+                              <span className="text-[#999]">{isTextCampaign ? "💬" : "📨"} {row.timeline.length} {isTextCampaign ? "text" : "email"}{row.timeline.length > 1 ? "s" : ""}</span>
                               {totalClicks > 0
                                 ? <span className="text-[#60a5fa]"> · {totalClicks} link click{totalClicks > 1 ? "s" : ""}</span>
                                 : <span className="text-[#444]"> · no clicks yet</span>}
@@ -1130,7 +1143,7 @@ export default function OutreachPage() {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-xs text-[#3a3a3a] italic mt-1.5">No clicks on this email yet</p>
+                                  <p className="text-xs text-[#3a3a3a] italic mt-1.5">No clicks on this {isTextCampaign ? "text" : "email"} yet</p>
                                 )}
                               </div>
                             ))}
@@ -1151,7 +1164,8 @@ export default function OutreachPage() {
                 </div>
               </div>
             </>
-          )}
+            );
+          })()}
         </div>
       ) : (
 

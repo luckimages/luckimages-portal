@@ -65,19 +65,6 @@ type LinkClick = {
   clicked_at: string;
 };
 
-const SERVICE_LABELS: Record<string, string> = {
-  photo: "Listing Photos",
-  drone: "Drone Photos",
-  matterport: "Matterport 3D Tour",
-  twilight: "Twilight Photography",
-  "virtual-staging": "Virtual Staging",
-  video: "Video Walkthrough",
-  floorplan: "Floor Plan",
-  pricing: "Pricing Page",
-  home: "Homepage / Portfolio",
-  "cold-call-text": "Text Follow-up",
-};
-
 const BASE_URL = "https://www.luckimages.com";
 
 function hasTag(outcome: string, tag: string) {
@@ -213,21 +200,6 @@ export default function MarketingPage() {
     }
     return gaps.length ? Math.round(gaps.reduce((a, b) => a + b) / gaps.length) : null;
   })();
-
-  // ── Email engagement (pitch email link clicks) ──────────────────────────
-  const clicksByContact: Record<string, LinkClick[]> = {};
-  for (const click of linkClicks) {
-    if (!click.contact_id) continue;
-    if (!clicksByContact[click.contact_id]) clicksByContact[click.contact_id] = [];
-    clicksByContact[click.contact_id].push(click);
-  }
-  const engagedContacts = Object.entries(clicksByContact)
-    .map(([contactId, clicks]) => {
-      const contact = contacts.find(c => c.id === contactId);
-      const sorted = [...clicks].sort((a, b) => new Date(b.clicked_at).getTime() - new Date(a.clicked_at).getTime());
-      return { contactId, name: contact?.name || "Unknown", clicks: sorted };
-    })
-    .sort((a, b) => new Date(b.clicks[0].clicked_at).getTime() - new Date(a.clicks[0].clicked_at).getTime());
 
   const unattributed = contacts.filter(c => !c.lead_source);
   const top10LTV = [...contacts].filter(c => (c.total_revenue || 0) > 0).sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0)).slice(0, 10);
@@ -575,35 +547,6 @@ export default function MarketingPage() {
                   </tbody>
                 </table>
               </div>}
-            </div>
-
-            {/* Email engagement — who opened/clicked pitch email links */}
-            <div>
-              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Outreach Engagement</p>
-              {engagedContacts.length === 0 ? (
-                <div className="border border-white/5 px-4 py-6 text-center">
-                  <p className="text-xs text-[#444] italic">No link clicks yet — this fills in once leads click a link in a pitch email.</p>
-                </div>
-              ) : (
-                <div className="border border-white/5 divide-y divide-white/5">
-                  {engagedContacts.map(({ contactId, name, clicks }) => (
-                    <div key={contactId} className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02] transition-colors">
-                      <a href={`/admin/contacts/${contactId}`} className="flex-1 text-sm font-medium hover:underline min-w-0 truncate">{name}</a>
-                      <div className="flex flex-wrap gap-1.5 justify-end shrink-0">
-                        {clicks.slice(0, 4).map(c => (
-                          <span key={c.id} className="text-[10px] tracking-wide text-[#60a5fa] bg-[#60a5fa]/10 px-2 py-0.5 rounded-full">
-                            {SERVICE_LABELS[c.service] || c.service}
-                          </span>
-                        ))}
-                        {clicks.length > 4 && <span className="text-[10px] text-[#444]">+{clicks.length - 4} more</span>}
-                      </div>
-                      <span className="text-[10px] text-[#444] shrink-0 w-24 text-right">
-                        {new Date(clicks[0].clicked_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Top referrers */}
