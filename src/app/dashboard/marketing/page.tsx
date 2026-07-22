@@ -343,13 +343,13 @@ export default function MarketingPage() {
                 </div>
               </div>
 
-              {/* Email Outreach — dedicated card */}
+              {/* Outreach — dedicated card */}
               <div className="border border-white/10 bg-[#111] p-5 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">📧</span>
                     <div>
-                      <p className="text-sm font-bold tracking-wide">Email Outreach</p>
+                      <p className="text-sm font-bold tracking-wide">Outreach</p>
                       <p className="text-[10px] text-[#444] mt-0.5">Campaigns, templates & pitch email engagement</p>
                     </div>
                   </div>
@@ -579,7 +579,7 @@ export default function MarketingPage() {
 
             {/* Email engagement — who opened/clicked pitch email links */}
             <div>
-              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Email Outreach Engagement</p>
+              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-4">Outreach Engagement</p>
               {engagedContacts.length === 0 ? (
                 <div className="border border-white/5 px-4 py-6 text-center">
                   <p className="text-xs text-[#444] italic">No link clicks yet — this fills in once leads click a link in a pitch email.</p>

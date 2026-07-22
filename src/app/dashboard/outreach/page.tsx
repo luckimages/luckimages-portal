@@ -996,7 +996,7 @@ export default function OutreachPage() {
       {/* Header */}
       <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/10">
         <div>
-          <h1 className="text-2xl font-black tracking-tight uppercase">Email Outreach</h1>
+          <h1 className="text-2xl font-black tracking-tight uppercase">Outreach</h1>
           <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, send instantly.</p>
         </div>
         <div className="flex gap-1 shrink-0">
