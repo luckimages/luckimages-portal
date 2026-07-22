@@ -291,7 +291,7 @@ function ColdCallsPage() {
   const [pitchQuoteNote, setPitchQuoteNote] = useState("");
 
   // Text-message follow-up — tracked link to copy/paste into a voicemail follow-up text
-  const [textCopied, setTextCopied] = useState<string | null>(null);
+  const [textCopied, setTextCopied] = useState<{ id: string; logged: boolean } | null>(null);
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
@@ -486,10 +486,20 @@ function ColdCallsPage() {
 
   // Copy the tracked follow-up-text link and log it exactly like clicking the
   // "Sent Text" bubble would — this is meant to replace that manual step.
+  // Only logs once per day per contact so re-copying the same link repeatedly
+  // doesn't pile up duplicate "Sent Text" entries in their history.
   async function copyTextLink(contactId: string) {
     navigator.clipboard.writeText(trackedTextLink(contactId));
-    setTextCopied(contactId);
+
+    const today = new Date().toDateString();
+    const alreadyLoggedToday = callLogs.some(l =>
+      l.contact_id === contactId && hasTag(l.outcome, "sent_text") && new Date(l.called_at).toDateString() === today
+    );
+
+    setTextCopied({ id: contactId, logged: !alreadyLoggedToday });
     setTimeout(() => setTextCopied(null), 1500);
+
+    if (alreadyLoggedToday) return;
 
     const supabase = createClient();
     const outcome = "sent_text";
@@ -955,7 +965,9 @@ function ColdCallsPage() {
                       onClick={() => copyTextLink(log.contact!.id)}
                       className="w-full text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors"
                     >
-                      💬 {textCopied === log.contact.id ? "✓ Copied — logged as Sent Text" : "Copy Text Follow-up Link"}
+                      💬 {textCopied?.id === log.contact.id
+                        ? (textCopied.logged ? "✓ Copied — logged as Sent Text" : "✓ Copied — already logged today")
+                        : "Copy Text Follow-up Link"}
                     </button>
                   )}
                   {log.contact && currentStage === "lead" && (
