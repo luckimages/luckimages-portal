@@ -141,10 +141,6 @@ function trackedTextLink(contactId: string): string {
   return `${TRACK_BASE_URL}?service=cold-call-text&contact=${contactId}&url=${encodeURIComponent(PORTFOLIO_URL)}`;
 }
 
-function defaultTextMessage(firstName: string, link: string): string {
-  return `Hi${firstName ? ` ${firstName}` : ""}, this is Ryan with Luck Images — sorry I keep missing you! Wanted to follow up on my voicemail. Here's our portfolio + pricing for real estate photography, video, drone & twilight in Austin: ${link}`;
-}
-
 function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string, quoteNote?: string): string {
   const TRACK_BASE = "https://www.luckimages.com/api/track-link";
   const track = (service: string) => `${TRACK_BASE}?service=${service}&contact=${contactId}`;
@@ -295,8 +291,6 @@ function ColdCallsPage() {
   const [pitchQuoteNote, setPitchQuoteNote] = useState("");
 
   // Text-message follow-up — tracked link to copy/paste into a voicemail follow-up text
-  const [textLinkContactId, setTextLinkContactId] = useState<string | null>(null);
-  const [textMessage, setTextMessage] = useState("");
   const [textCopied, setTextCopied] = useState<string | null>(null);
 
   const [logTab, setLogTab] = useState<LogTab>("all");
@@ -487,6 +481,24 @@ function ColdCallsPage() {
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
     setSelectedTags(new Set());
     setFollowUpDate("");
+    await loadData();
+  }
+
+  // Copy the tracked follow-up-text link and log it exactly like clicking the
+  // "Sent Text" bubble would — this is meant to replace that manual step.
+  async function copyTextLink(contactId: string) {
+    navigator.clipboard.writeText(trackedTextLink(contactId));
+    setTextCopied(contactId);
+    setTimeout(() => setTextCopied(null), 1500);
+
+    const supabase = createClient();
+    const outcome = "sent_text";
+    await supabase.from("cold_calls").insert({
+      contact_id: contactId,
+      outcome,
+      called_by: callerName,
+    });
+    await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).eq("id", contactId);
     await loadData();
   }
 
@@ -940,37 +952,11 @@ function ColdCallsPage() {
                   )}
                   {log.contact && (
                     <button
-                      onClick={() => {
-                        const id = log.contact!.id;
-                        if (textLinkContactId === id) { setTextLinkContactId(null); return; }
-                        setTextLinkContactId(id);
-                        setTextMessage(defaultTextMessage(log.contact!.name.split(" ")[0], trackedTextLink(id)));
-                      }}
+                      onClick={() => copyTextLink(log.contact!.id)}
                       className="w-full text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors"
                     >
-                      💬 {textLinkContactId === log.contact.id ? "Hide Text Follow-up" : "Copy Text Follow-up"}
+                      💬 {textCopied === log.contact.id ? "✓ Copied — logged as Sent Text" : "Copy Text Follow-up Link"}
                     </button>
-                  )}
-                  {log.contact && textLinkContactId === log.contact.id && (
-                    <div className="bg-[#111] border border-[#60a5fa]/30 p-4 space-y-3">
-                      <div>
-                        <p className="text-[10px] tracking-[1.5px] uppercase text-[#555] mb-1.5">Text message (edit freely)</p>
-                        <textarea
-                          value={textMessage}
-                          onChange={e => setTextMessage(e.target.value)}
-                          rows={4}
-                          className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 resize-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => { navigator.clipboard.writeText(textMessage); setTextCopied(log.contact!.id); setTimeout(() => setTextCopied(null), 1500); }}
-                        className="w-full text-xs tracking-[1px] uppercase font-bold py-3 bg-[#60a5fa] text-black hover:bg-[#7fb4fb] transition-colors"
-                      >
-                        {textCopied === log.contact.id ? "✓ Copied — paste into Messages" : "Copy Message + Tracked Link"}
-                      </button>
-                      <p className="text-[10px] text-[#444]">Opens will show up as &quot;Text Follow-up&quot; clicks on the Marketing dashboard.</p>
-                    </div>
                   )}
                   {log.contact && currentStage === "lead" && (
                     <a
