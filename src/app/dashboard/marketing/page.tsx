@@ -75,6 +75,7 @@ const SERVICE_LABELS: Record<string, string> = {
   floorplan: "Floor Plan",
   pricing: "Pricing Page",
   home: "Homepage / Portfolio",
+  "cold-call-text": "Text Follow-up",
 };
 
 const BASE_URL = "https://www.luckimages.com";
