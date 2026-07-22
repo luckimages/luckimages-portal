@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { normalizePhone } from "@/lib/format";
 import { useContactModal } from "@/context/ContactModalContext";
 import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel, TWILIGHT_STANDALONE_PRICE, VIRTUAL_STAGING_PER_PHOTO_PRICE } from "@/lib/pricing";
-import { ADMIN_EMAILS } from "@/lib/constants";
+import { ADMIN_EMAILS, COLD_CALL_TEXT_LINK_NOTE } from "@/lib/constants";
 
 type Contact = {
   id: string;
@@ -507,6 +507,7 @@ function ColdCallsPage() {
       contact_id: contactId,
       outcome,
       called_by: callerName,
+      notes: COLD_CALL_TEXT_LINK_NOTE,
     });
     await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).eq("id", contactId);
     await loadData();
