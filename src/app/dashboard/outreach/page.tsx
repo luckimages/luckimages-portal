@@ -638,7 +638,11 @@ export default function OutreachPage() {
       const textEntries: EmailLogRow[] = (textLogs || []).map(t => ({
         contact_id: t.contact_id, subject: null, sent_at: t.called_at, category: "Cold Call Texts",
       }));
-      setEmailLog([...(logs || []), ...textEntries]);
+      // Re-sort after merging — click attribution below assumes each contact's
+      // entries are newest-first, which only holds if the merged list as a
+      // whole is time-sorted, not just each source query individually.
+      const merged = [...(logs || []), ...textEntries].sort((a, b) => new Date(b.sent_at || 0).getTime() - new Date(a.sent_at || 0).getTime());
+      setEmailLog(merged);
       setLinkClicks(clicks || []);
     }
     load();
@@ -970,18 +974,41 @@ export default function OutreachPage() {
     setActiveCampaign(campaigns[0].name);
   }
 
-  const currentCampaign = campaigns.find(c => c.name === activeCampaign) || campaigns[0];
+  // "All" is a synthetic campaign combining every category — every lead
+  // ever emailed or texted, however they were reached, with a combined
+  // click rate. Built from `engagement` directly since that's already every
+  // contact's full cross-category timeline (+ any orphan clicks that never
+  // attributed to a specific send).
+  const ALL_KEY = "__all__";
+  const isAllView = activeCampaign === ALL_KEY;
+  const allCampaignSummary = (() => {
+    const reached = engagement.length;
+    const clicked = engagement.filter(r => r.timeline.some(t => t.clicks.length > 0) || r.orphanClicks.length > 0).length;
+    const registered = engagement.filter(r => r.contact.registered_at).length;
+    return {
+      name: "All",
+      leadsEmailed: reached,
+      leadsClicked: clicked,
+      clickRate: reached > 0 ? Math.round((clicked / reached) * 100) : 0,
+      registered,
+      registerRate: reached > 0 ? Math.round((registered / reached) * 100) : 0,
+    };
+  })();
+
+  const currentCampaign = isAllView ? allCampaignSummary : campaigns.find(c => c.name === activeCampaign) || campaigns[0];
 
   // Re-bucket the active campaign's entries by contact for the expandable list
   const campaignByContact = (() => {
+    if (isAllView) return engagement;
     if (!currentCampaign) return [];
     const map = new Map<string, { contact: Contact; timeline: { email: EmailLogRow; clicks: LinkClickRow[] }[] }>();
-    for (const e of currentCampaign.entries) {
+    for (const e of (campaigns.find(c => c.name === activeCampaign) || campaigns[0])?.entries || []) {
       if (!map.has(e.contact.id)) map.set(e.contact.id, { contact: e.contact, timeline: [] });
       map.get(e.contact.id)!.timeline.push({ email: e.email, clicks: e.clicks });
     }
     const rows = [...map.values()].map(r => ({
       ...r,
+      orphanClicks: [] as LinkClickRow[],
       timeline: r.timeline.sort((a, b) => new Date(b.email.sent_at || 0).getTime() - new Date(a.email.sent_at || 0).getTime()),
       lastActivity: Math.max(...r.timeline.map(t => new Date(t.email.sent_at || 0).getTime()), ...r.timeline.flatMap(t => t.clicks.map(c => new Date(c.clicked_at).getTime()))),
     }));
@@ -1036,6 +1063,14 @@ export default function OutreachPage() {
             {campaigns.length === 0 && !loading && (
               <p className="text-xs text-[#333] italic">No campaigns sent yet.</p>
             )}
+            {campaigns.length > 0 && (
+              <button onClick={() => setActiveCampaign(ALL_KEY)}
+                className={`text-xs tracking-[0.5px] px-3 py-1.5 border font-semibold transition-colors ${
+                  isAllView ? "border-white text-white bg-white/10" : "border-white/15 text-[#666] hover:text-white hover:border-white/30"
+                }`}>
+                All <span className="text-[#444] ml-1">({engagement.length})</span>
+              </button>
+            )}
             {campaigns.map(c => (
               <button key={c.name} onClick={() => setActiveCampaign(c.name)}
                 className={`text-xs tracking-[0.5px] px-3 py-1.5 border transition-colors ${
@@ -1054,7 +1089,7 @@ export default function OutreachPage() {
               <div className="px-6 md:px-8 py-4 border-b border-white/10 shrink-0 flex items-center gap-8 flex-wrap">
                 <div>
                   <p className="text-2xl font-black tabular-nums">{currentCampaign.leadsEmailed}</p>
-                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">{isTextCampaign ? "Leads Texted" : "Leads Emailed"}</p>
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-0.5">{isAllView ? "Leads Reached" : isTextCampaign ? "Leads Texted" : "Leads Emailed"}</p>
                 </div>
                 <div>
                   <p className="text-2xl font-black tabular-nums text-[#60a5fa]">{currentCampaign.leadsClicked}</p>
@@ -1078,7 +1113,9 @@ export default function OutreachPage() {
               {/* Opens note */}
               <div className="px-6 md:px-8 py-2 border-b border-white/5 shrink-0">
                 <p className="text-[10px] text-[#444]">
-                  {isTextCampaign
+                  {isAllView
+                    ? <>Tracking link clicks, registrations &amp; pipeline status live across every channel. <span className="text-[#555]">Email opens aren&apos;t tracked yet, and SMS has no read status.</span></>
+                    : isTextCampaign
                     ? <>Tracking link clicks, registrations &amp; pipeline status live. <span className="text-[#555]">Text delivery/read status isn&apos;t available for SMS.</span></>
                     : <>Tracking link clicks, registrations &amp; pipeline status live. <span className="text-[#555]">Email opens aren&apos;t tracked yet — ask Claude to turn on Resend open tracking.</span></>}
                 </p>
@@ -1097,7 +1134,8 @@ export default function OutreachPage() {
                     const badge = reactionBadge(row);
                     const stage = STAGE_PILL[row.contact.stage] || { label: row.contact.stage, color: "#666" };
                     const isOpen = expandedLead === row.contact.id;
-                    const totalClicks = row.timeline.reduce((n, t) => n + t.clicks.length, 0);
+                    const orphanClicks: LinkClickRow[] = "orphanClicks" in row ? row.orphanClicks : [];
+                    const totalClicks = row.timeline.reduce((n, t) => n + t.clicks.length, 0) + orphanClicks.length;
                     return (
                       <div key={row.contact.id}>
                         {/* ── Contact bar (click to expand) ── */}
@@ -1115,7 +1153,7 @@ export default function OutreachPage() {
                             </div>
                             <p className="text-xs text-[#555] mt-1 truncate">{row.contact.email}</p>
                             <p className="text-xs text-[#777] mt-1.5">
-                              <span className="text-[#999]">{isTextCampaign ? "💬" : "📨"} {row.timeline.length} {isTextCampaign ? "text" : "email"}{row.timeline.length > 1 ? "s" : ""}</span>
+                              <span className="text-[#999]">{isAllView ? "📤" : isTextCampaign ? "💬" : "📨"} {row.timeline.length} {isAllView ? "send" : isTextCampaign ? "text" : "email"}{row.timeline.length > 1 ? "s" : ""}</span>
                               {totalClicks > 0
                                 ? <span className="text-[#60a5fa]"> · {totalClicks} link click{totalClicks > 1 ? "s" : ""}</span>
                                 : <span className="text-[#444]"> · no clicks yet</span>}
@@ -1151,6 +1189,20 @@ export default function OutreachPage() {
                                 )}
                               </div>
                             ))}
+                            {orphanClicks.length > 0 && (
+                              <div className="border-l-2 border-white/10 pl-4 pt-2">
+                                <span className="text-sm font-semibold text-[#888]">Other clicks</span>
+                                <p className="text-[10px] text-[#444] mb-1">Not attributed to a specific send</p>
+                                <div className="space-y-1">
+                                  {orphanClicks.map((c, j) => (
+                                    <div key={j} className="flex items-center gap-2 text-xs">
+                                      <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
+                                      <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             {row.contact.registered_at && (
                               <div className="border-l-2 border-[#34d399]/30 pl-4 pt-2">
                                 <span className="text-sm font-semibold text-[#34d399]">✓ Registered a portal account</span>
