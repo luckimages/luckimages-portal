@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
-import { COLD_CALL_TEXT_LINK_NOTE } from "@/lib/constants";
+import { COLD_CALL_TEXT_LINK_NOTE, GOOGLE_REVIEW_URL } from "@/lib/constants";
 
 const supabase = createClient();
 
@@ -78,7 +78,6 @@ type Template = {
   requiresPortalLink?: boolean;
 };
 
-const GOOGLE_REVIEW_URL = "https://g.page/r/CdYourReviewLink/review"; // TODO: replace with real URL
 const PORTAL_URL = "https://www.luckimages.com";
 
 const EYEBROW = (label: string) => `<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px;text-align:center">Luck Images${label ? ` — ${label}` : ""}</p>`;

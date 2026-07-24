@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendReviewRequestTexts } from "@/lib/reviewRequestTexts";
 
 export const maxDuration = 30;
 
@@ -28,18 +29,25 @@ export async function GET(req: Request) {
     .lt("scheduled_at", new Date().toISOString());
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!shoots?.length) return NextResponse.json({ updated: 0 });
 
-  const ids = shoots.map(s => s.id);
-  await db.from("shoots").update({ status: "editing" }).in("id", ids);
+  let updated = 0;
+  if (shoots?.length) {
+    const ids = shoots.map(s => s.id);
+    await db.from("shoots").update({ status: "editing" }).in("id", ids);
 
-  // Log each to Command Center
-  await Promise.all(shoots.map(s =>
-    db.from("company_updates").insert({
-      message: `🖥️ Editing started — ${s.address}`,
-      created_by: "system",
-    })
-  ));
+    // Log each to Command Center
+    await Promise.all(shoots.map(s =>
+      db.from("company_updates").insert({
+        message: `🖥️ Editing started — ${s.address}`,
+        created_by: "system",
+      })
+    ));
+    updated = ids.length;
+  }
 
-  return NextResponse.json({ updated: ids.length });
+  // Piggyback the post-delivery review-request texts on this same daily
+  // run rather than using a separate Vercel Cron slot.
+  const reviewResult = await sendReviewRequestTexts();
+
+  return NextResponse.json({ updated, reviewTexts: reviewResult });
 }

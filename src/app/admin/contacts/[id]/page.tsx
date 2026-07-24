@@ -450,7 +450,15 @@ export default function ContactProfilePage() {
             {contact.phone && (
               <div>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Phone</p>
-                <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] font-mono">{formatPhone(contact.phone)}</a>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <a href={`tel:${contact.phone}`} className="text-sm text-[#4ade80] font-mono">{formatPhone(contact.phone)}</a>
+                  <a href={`/dashboard/phone?tab=calls&contact=${contact.id}`} className="text-[10px] tracking-[1px] uppercase border border-white/15 px-2.5 py-1 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                    📞 Call
+                  </a>
+                  <a href={`/dashboard/phone?tab=messages&contact=${contact.id}`} className="text-[10px] tracking-[1px] uppercase border border-white/15 px-2.5 py-1 text-[#888] hover:text-white hover:border-white/30 transition-all">
+                    💬 Text
+                  </a>
+                </div>
               </div>
             )}
             {contact.email && (

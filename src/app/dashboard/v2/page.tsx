@@ -7,6 +7,7 @@ import { ADMIN_EMAILS } from "@/lib/constants";
 
 const APPS = [
   { label: "Contacts",    href: "/admin/contacts",        color: "#888" },
+  { label: "Phone",       href: "/dashboard/phone",       color: "#888" },
   { label: "Shoot Log",   href: "/admin/shoots",           color: "#888" },
   { label: "Calendar",    href: "/dashboard/calendar",     color: "#888" },
   { label: "Todos",       href: "/admin/todos",            color: "#888" },

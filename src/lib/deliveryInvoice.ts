@@ -1,4 +1,5 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { getTwilioClient, isTwilioConfigured, toE164 } from "./twilio";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
@@ -48,15 +49,17 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
   }).select().single();
   if (error || !invoice) return;
 
-  // Resolve client name/email (contact first, else auth user) + registration state
+  // Resolve client name/email/phone (contact first, else auth user) + registration state
   let clientName = "there";
   let clientEmail: string | undefined;
+  let clientPhone: string | null = null;
   let isRegistered = !!shoot.client_id;
   if (shoot.contact_id) {
-    const { data: c } = await db.from("contacts").select("name, email, user_id").eq("id", shoot.contact_id).single();
+    const { data: c } = await db.from("contacts").select("name, email, phone, user_id").eq("id", shoot.contact_id).single();
     if (c) {
       clientName = c.name?.split(" ")[0] || clientName;
       clientEmail = c.email || undefined;
+      clientPhone = c.phone;
       if (c.user_id) isRegistered = true;
     }
   }
@@ -108,6 +111,28 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
         html,
       }),
     });
+  }
+
+  const toNumber = toE164(clientPhone);
+  if (isTwilioConfigured() && toNumber) {
+    try {
+      const client = getTwilioClient()!;
+      const msg = await client.messages.create({
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        to: toNumber,
+        body: `Hi ${clientName}, your photos from ${shoot.address} are ready! View them here: ${galleryUrl}`,
+      });
+      await db.from("messages").insert({
+        contact_id: shoot.contact_id || null,
+        direction: "outbound",
+        from_number: process.env.TWILIO_PHONE_NUMBER,
+        to_number: toNumber,
+        body: msg.body,
+        status: msg.status,
+        twilio_sid: msg.sid,
+        sent_by: "system",
+      });
+    } catch (e) { console.error("delivery text failed", e); }
   }
 
   await db.from("company_updates").insert({
