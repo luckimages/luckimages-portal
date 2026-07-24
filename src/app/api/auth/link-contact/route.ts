@@ -29,13 +29,18 @@ export async function POST(req: Request) {
     } else if (!existing) {
       const { data: { user } } = await db.auth.admin.getUserById(userId);
       if (user) {
+        // /register (the realtor signup form) sets role:"realtor" in auth
+        // metadata — reflect that in the contact's type instead of a bare
+        // "client" default, or newly-registered realtors silently never show
+        // up in the Realtors count on /admin/contacts.
+        const type = user.user_metadata?.role === "realtor" ? "realtor" : "client";
         await db.from("contacts").insert({
           name: user.user_metadata?.full_name || email.split("@")[0],
           email: user.email,
           phone: user.user_metadata?.phone || null,
           brokerage: user.user_metadata?.brokerage || null,
           stage: "registered",
-          type: "client",
+          type,
           user_id: userId,
           registered_at: registeredAt,
           ...sourceFields,
