@@ -44,13 +44,27 @@ export async function GET(req: Request) {
   const pageviews = rows.length;
 
   // A session counts as "registered" if any of its page views happened
-  // while logged in -- otherwise it's an anonymous visitor.
+  // while logged in -- otherwise it's an anonymous visitor. Every row in a
+  // registered session (even ones where user_id happened to be null on that
+  // particular request) attributes to "registered" for the split-out stats
+  // below, so pageviews/duration line up with the visitor counts.
   const registeredSessionIds = new Set(rows.filter((r) => r.user_id).map((r) => r.session_id));
   const registeredVisitors = registeredSessionIds.size;
   const anonymousVisitors = uniqueVisitors - registeredVisitors;
 
+  const registeredRows = rows.filter((r) => registeredSessionIds.has(r.session_id));
+  const anonymousRows = rows.filter((r) => !registeredSessionIds.has(r.session_id));
+  const registeredPageviews = registeredRows.length;
+  const anonymousPageviews = anonymousRows.length;
+
   const durations = rows.map((r) => r.duration_seconds).filter((d): d is number => typeof d === "number" && d > 0);
   const avgDurationSeconds = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+  const avgDuration = (group: typeof rows) => {
+    const d = group.map((r) => r.duration_seconds).filter((d): d is number => typeof d === "number" && d > 0);
+    return d.length ? d.reduce((a, b) => a + b, 0) / d.length : 0;
+  };
+  const registeredAvgDurationSeconds = avgDuration(registeredRows);
+  const anonymousAvgDurationSeconds = avgDuration(anonymousRows);
 
   const pathCounts: Record<string, number> = {};
   for (const r of rows) pathCounts[r.path] = (pathCounts[r.path] || 0) + 1;
@@ -162,7 +176,11 @@ export async function GET(req: Request) {
     registeredVisitors,
     anonymousVisitors,
     pageviews,
+    registeredPageviews,
+    anonymousPageviews,
     avgDurationSeconds,
+    registeredAvgDurationSeconds,
+    anonymousAvgDurationSeconds,
     topPages,
     topReferrers,
     dailyTraffic,

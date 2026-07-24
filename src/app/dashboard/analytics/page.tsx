@@ -12,7 +12,11 @@ type AnalyticsData = {
   registeredVisitors: number;
   anonymousVisitors: number;
   pageviews: number;
+  registeredPageviews: number;
+  anonymousPageviews: number;
   avgDurationSeconds: number;
+  registeredAvgDurationSeconds: number;
+  anonymousAvgDurationSeconds: number;
   topPages: { path: string; count: number }[];
   topReferrers: { source: string; count: number }[];
   dailyTraffic: { date: string; visitors: number; views: number }[];
@@ -107,10 +111,16 @@ export default function AnalyticsPage() {
               <div className="border border-white/10 p-5">
                 <p className="text-3xl font-black">{data.pageviews.toLocaleString()}</p>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Page Views</p>
+                <p className="text-[10px] text-[#444] mt-1.5">
+                  <span className="text-[#4ade80]">{data.registeredPageviews}</span> registered · <span className="text-white/50">{data.anonymousPageviews}</span> anonymous
+                </p>
               </div>
               <div className="border border-white/10 p-5">
                 <p className="text-3xl font-black">{formatDuration(data.avgDurationSeconds)}</p>
                 <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">Avg. Time on Page</p>
+                <p className="text-[10px] text-[#444] mt-1.5">
+                  <span className="text-[#4ade80]">{formatDuration(data.registeredAvgDurationSeconds)}</span> registered · <span className="text-white/50">{formatDuration(data.anonymousAvgDurationSeconds)}</span> anonymous
+                </p>
               </div>
               <button
                 type="button"
