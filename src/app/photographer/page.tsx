@@ -79,12 +79,23 @@ export default function PhotographerPage() {
     setUploading(true); setUploadStatus("");
     const files = Array.from(e.target.files);
     let errors = 0;
+    const supabase = createClient();
     // Upload sequentially to avoid overwhelming the server watermarking process
     for (const file of files) {
-      const formData = new FormData();
-      formData.append("shoot_id", selectedShoot);
-      formData.append("file", file);
-      const res = await fetch("/api/photographer/upload", { method: "POST", body: formData });
+      // Straight to Storage from the browser — real estate/drone originals
+      // routinely exceed Vercel's ~4.5MB serverless request-body limit,
+      // which used to silently fail every file that size.
+      const filePath = `${selectedShoot}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("shoot-media")
+        .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
+      if (uploadErr) { errors++; continue; }
+
+      const res = await fetch("/api/photographer/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shoot_id: selectedShoot, file_path: filePath, file_name: file.name, file_type: file.type || "application/octet-stream" }),
+      });
       if (!res.ok) errors++;
     }
     setUploading(false);
@@ -130,11 +141,19 @@ export default function PhotographerPage() {
     setCardUploading(true);
     const files = Array.from(e.target.files);
     let ok = 0;
+    const supabase = createClient();
     for (const file of files) {
-      const fd = new FormData();
-      fd.append("shoot_id", shootId);
-      fd.append("file", file);
-      const res = await fetch("/api/photographer/upload", { method: "POST", body: fd });
+      const filePath = `${shootId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("shoot-media")
+        .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
+      if (uploadErr) continue;
+
+      const res = await fetch("/api/photographer/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shoot_id: shootId, file_path: filePath, file_name: file.name, file_type: file.type || "application/octet-stream" }),
+      });
       if (res.ok) ok++;
     }
     setCardUploading(false);

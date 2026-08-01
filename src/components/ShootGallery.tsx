@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createClient } from "@/lib/supabase";
 
 type MediaItem = {
   id: string;
@@ -100,12 +101,35 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
     let failed = 0;
     // Find the original service name from slug
     const serviceType = services.find(s => slugify(s) === serviceSlug) || serviceSlug;
+    const supabase = createClient();
     for (const file of files) {
-      const fd = new FormData();
-      fd.append("shoot_id", shootId);
-      fd.append("file", file);
-      if (serviceSlug) fd.append("service_type", serviceType);
-      const res = await fetch("/api/photographer/upload", { method: "POST", body: fd });
+      // Upload straight from the browser to Supabase Storage — real estate
+      // (and especially drone/HDR) originals routinely blow past Vercel's
+      // hard 4.5MB serverless request-body limit, which silently failed
+      // every file that size regardless of our own code. Only a small JSON
+      // pointer goes through our API route now; the bytes never do.
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = serviceSlug
+        ? `${shootId}/${serviceSlug}/${timestamp}_${safeName}`
+        : `${shootId}/${timestamp}_${safeName}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("shoot-media")
+        .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
+      if (uploadErr) { failed++; continue; }
+
+      const res = await fetch("/api/photographer/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shoot_id: shootId,
+          file_path: filePath,
+          file_name: file.name,
+          file_type: file.type || "application/octet-stream",
+          service_type: serviceSlug ? serviceType : undefined,
+        }),
+      });
       if (!res.ok) failed++;
     }
     setUploading(null);

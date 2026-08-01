@@ -16,19 +16,21 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const formData = await req.formData();
-  const shootId = formData.get("shoot_id") as string;
-  const file = formData.get("file") as File;
-  const serviceType = (formData.get("service_type") as string | null) || "";
+  const body = await req.json();
+  const shootId = body.shoot_id as string;
+  const filePath = body.file_path as string;
+  const fileName = body.file_name as string;
+  const fileType = (body.file_type as string) || "application/octet-stream";
+  const serviceType = (body.service_type as string | null) || "";
 
-  if (!shootId || !file) {
-    return NextResponse.json({ error: "Missing shoot_id or file" }, { status: 400 });
+  if (!shootId || !filePath || !fileName) {
+    return NextResponse.json({ error: "Missing shoot_id, file_path, or file_name" }, { status: 400 });
   }
 
-  // Slugify service name for path segment: "HDR Photography" → "hdr-photography"
   const serviceSlug = serviceType
     ? serviceType.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
     : "";
+  const timestamp = Date.now();
 
   // Verify access
   const { data: shoot } = await service
@@ -42,34 +44,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not your shoot" }, { status: 403 });
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-
-  const filePath = serviceSlug
-    ? `${shootId}/${serviceSlug}/${timestamp}_${safeName}`
-    : `${shootId}/${timestamp}_${safeName}`;
-
-  // Full-res originals are the whole reason egress blew past quota last cycle —
-  // private signed URLs get a fresh token every request, so browsers can never
-  // cache them, and the gallery grid/lightbox were loading full originals just
-  // to show a small thumbnail. Cache-Control here helps the (rarer) direct
-  // download path; the real fix is the separate compressed thumbnail below.
-  const { error: storageError } = await service.storage
+  // The browser already uploaded the original straight to Storage (bypassing
+  // Vercel's ~4.5MB serverless request-body limit, which silently failed
+  // every real estate/drone original over that size when the raw bytes used
+  // to be routed through this route). Download it back server-side — this
+  // is our own outbound fetch, not an inbound request body, so it isn't
+  // subject to that limit — just to generate the compressed thumbnail.
+  const { data: downloaded, error: downloadError } = await service.storage
     .from("shoot-media")
-    .upload(filePath, buffer, { contentType: file.type, upsert: false, cacheControl: "31536000" });
-
-  if (storageError) {
-    return NextResponse.json({ error: storageError.message }, { status: 500 });
+    .download(filePath);
+  if (downloadError || !downloaded) {
+    return NextResponse.json({ error: downloadError?.message || "Could not read uploaded file" }, { status: 500 });
   }
+  const buffer = Buffer.from(await downloaded.arrayBuffer());
 
   // Compressed thumbnail in a PUBLIC bucket — a public URL has no rotating
   // signed token, so it's actually cacheable (unlike shoot-media's signed
   // URLs), and it's what the gallery grid/lightbox should load instead of
   // the multi-MB original. Only for images; video/other files have none.
   let thumbPath: string | null = null;
-  if (file.type.startsWith("image/")) {
+  if (fileType.startsWith("image/")) {
     try {
       const thumbBuffer = await sharp(buffer, { failOn: "none" })
         .rotate() // apply EXIF orientation before resizing
@@ -94,8 +88,8 @@ export async function POST(req: NextRequest) {
     uploaded_by: user.id,
     file_path: filePath,
     original_path: filePath,
-    file_name: file.name,
-    file_type: file.type,
+    file_name: fileName,
+    file_type: fileType,
   };
   if (thumbPath) insertPayload.thumb_path = thumbPath;
 
