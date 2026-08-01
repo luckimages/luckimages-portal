@@ -135,10 +135,27 @@ const CLICK_LABEL: Record<string, string> = {
 };
 
 const TRACK_BASE_URL = "https://www.luckimages.com/api/track-link";
-const PORTFOLIO_URL = "https://www.luckimages.com";
 
-function trackedTextLink(contactId: string): string {
-  return `${TRACK_BASE_URL}?service=cold-call-text&contact=${contactId}&url=${encodeURIComponent(PORTFOLIO_URL)}`;
+// Maps the service key stored on a cold_calls row (SERVICE_OPTIONS/
+// ADDON_OPTIONS in lib/pricing, e.g. "photos_sm", "video_gold") to the
+// tracked-link service key /api/track-link resolves to an actual page
+// (see SERVICE_URLS there) — so a drone pitch texts a link to the drone
+// page, not the homepage. Only ever the primary service, never an add-on:
+// Ryan pitches one service per call.
+const PITCH_SERVICE_TO_TRACKED_KEY: Record<string, string> = {
+  photos_sm: "photo",
+  drone: "drone",
+  video_bronze: "video",
+  video_silver: "video",
+  video_gold: "video",
+  matterport: "matterport",
+  // No dedicated headshots page yet — send to the homepage instead.
+  headshots: "home",
+};
+
+function trackedTextLink(contactId: string, pitchedService: string | null): string {
+  const trackedKey = (pitchedService && PITCH_SERVICE_TO_TRACKED_KEY[pitchedService]) || "home";
+  return `${TRACK_BASE_URL}?service=${trackedKey}&contact=${contactId}`;
 }
 
 function buildPitchHtml(firstName: string, contactId: string, selectedKeys: string[], quoteAmount?: string, quoteNote?: string): string {
@@ -488,8 +505,8 @@ function ColdCallsPage() {
   // "Sent Text" bubble would — this is meant to replace that manual step.
   // Only logs once per day per contact so re-copying the same link repeatedly
   // doesn't pile up duplicate "Sent Text" entries in their history.
-  async function copyTextLink(contactId: string) {
-    navigator.clipboard.writeText(trackedTextLink(contactId));
+  async function copyTextLink(contactId: string, pitchedService: string | null) {
+    navigator.clipboard.writeText(trackedTextLink(contactId, pitchedService));
 
     const today = new Date().toDateString();
     const alreadyLoggedToday = callLogs.some(l =>
@@ -963,7 +980,7 @@ function ColdCallsPage() {
                   )}
                   {log.contact && (
                     <button
-                      onClick={() => copyTextLink(log.contact!.id)}
+                      onClick={() => copyTextLink(log.contact!.id, log.service)}
                       className="w-full text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors"
                     >
                       💬 {textCopied?.id === log.contact.id
