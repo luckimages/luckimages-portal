@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { ADMIN_EMAILS } from "@/lib/constants";
-import sharp from "sharp";
 
 export const maxDuration = 60;
 
@@ -65,6 +64,12 @@ export async function POST(req: NextRequest) {
   let thumbPath: string | null = null;
   if (fileType.startsWith("image/")) {
     try {
+      // Dynamic import so a broken sharp/libvips install (a real incident —
+      // it crashed every upload in this route when sharp was a static
+      // top-level import, since a native-module load failure throws before
+      // this try/catch even runs) degrades to "no thumbnail" instead of
+      // taking the whole upload down with it.
+      const sharp = (await import("sharp")).default;
       const thumbBuffer = await sharp(buffer, { failOn: "none" })
         .rotate() // apply EXIF orientation before resizing
         .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
