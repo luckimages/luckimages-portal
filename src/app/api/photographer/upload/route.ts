@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       const sharp = (await import("sharp")).default;
       const thumbBuffer = await sharp(buffer, { failOn: "none" })
         .rotate() // apply EXIF orientation before resizing
-        .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+        .resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true })
         .jpeg({ quality: 75 })
         .toBuffer();
 
