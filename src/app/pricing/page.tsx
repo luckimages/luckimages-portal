@@ -16,7 +16,7 @@ const STANDALONE = [
     ],
   },
   {
-    name: "Drone Photos",
+    name: "Aerial Photos",
     description: "FAA-certified aerial photography — standalone shoot.",
     tiers: [
       { label: "20 photos", price: "$200" },
@@ -28,7 +28,7 @@ const STANDALONE = [
     description: "Cinematic interior walkthroughs that bring listings to life.",
     tiers: [
       { label: "Bronze", price: "$200" },
-      { label: "Silver (includes drone)", price: "$300" },
+      { label: "Silver (includes aerial)", price: "$300" },
       { label: "Gold", price: "Custom" },
     ],
   },
@@ -77,7 +77,7 @@ const STANDALONE = [
 
 const ADDONS = [
   {
-    name: "Drone Photos",
+    name: "Aerial Photos",
     description: "Aerial stills added to any listing shoot.",
     tiers: [
       { label: "5 photos", price: "$100" },

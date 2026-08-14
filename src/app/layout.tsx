@@ -94,7 +94,7 @@ const jsonLd = {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
-              "name": "Drone Photography & Video",
+              "name": "Aerial Photography & Video",
               "description": "FAA-certified aerial photography and video for real estate listings and developments in Austin TX."
             }
           },

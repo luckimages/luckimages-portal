@@ -89,7 +89,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const SERVICE_OPTIONS = [
   "Listing Photos", "Video Walkthrough", "Matterport 3D Tour", "Twilight",
-  "Drone Photos", "Headshots", "Drone Add-on", "Twilight Add-on",
+  "Aerial Photos", "Headshots", "Aerial Add-on", "Twilight Add-on",
   "Floor Plan", "Virtual Staging",
 ];
 

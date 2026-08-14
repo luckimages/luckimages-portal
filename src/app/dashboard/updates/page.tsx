@@ -47,9 +47,9 @@ function servicePrice(service: string, sqft: number): number {
     case "Floor Plan": return sqft ? (sqft < 2500 ? 50 : 75) : 50;
     case "Twilight": return 250;
     case "Video Walkthrough": return 200;
-    case "Drone Photos": return 200;
+    case "Aerial Photos": return 200;
     case "Headshots": return 200;
-    case "Drone Add-on": return 100;
+    case "Aerial Add-on": return 100;
     case "Twilight Add-on": return 150;
     case "Virtual Staging": return 25;
     default: return 0;

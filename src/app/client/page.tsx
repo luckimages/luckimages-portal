@@ -25,11 +25,11 @@ const PRIMARY_SERVICES = [
   { key: "Video Walkthrough", label: "Video Walkthrough", from: 200 },
   { key: "Matterport 3D Tour", label: "Matterport 3D Tour", from: 200 },
   { key: "Twilight", label: "Twilight", from: 250 },
-  { key: "Drone Photos", label: "Drone Photos", from: 200 },
+  { key: "Aerial Photos", label: "Aerial Photos", from: 200 },
   { key: "Headshots", label: "Headshots", from: 200 },
 ];
 const ADDON_SERVICES = [
-  { key: "Drone Add-on", label: "+ Drone Photos", from: 100 },
+  { key: "Aerial Add-on", label: "+ Aerial Photos", from: 100 },
   { key: "Twilight Add-on", label: "+ Twilight", from: 150 },
   { key: "Floor Plan", label: "+ Floor Plan", from: 50 },
   { key: "Virtual Staging", label: "+ Virtual Staging", from: 25 },
@@ -59,9 +59,9 @@ function calcQuote(services: string[], sqft: string): { low: number; exact: bool
     else if (s === "Floor Plan") total += sf ? floorPlanPrice(sf) : 50;
     else if (s === "Twilight") total += 250;
     else if (s === "Video Walkthrough") total += 200;
-    else if (s === "Drone Photos") total += 200;
+    else if (s === "Aerial Photos") total += 200;
     else if (s === "Headshots") total += 200;
-    else if (s === "Drone Add-on") total += 100;
+    else if (s === "Aerial Add-on") total += 100;
     else if (s === "Twilight Add-on") total += 150;
     else if (s === "Virtual Staging") total += 25;
   }

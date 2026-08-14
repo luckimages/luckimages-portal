@@ -319,13 +319,13 @@ export default function ContactProfilePage() {
   // Service breakdown — count each service type across all shoots
   const SERVICE_LABELS: Record<string, string> = {
     "Listing Photos": "Listing Photos",
-    "Drone Photos": "Drone Photos",
-    "Drone Video": "Drone Video",
+    "Aerial Photos": "Aerial Photos",
+    "Aerial Video": "Aerial Video",
     "Floor Plan": "Floor Plans",
     "Matterport": "Matterport",
     "Virtual Staging": "Virtual Staging",
     "Video — Bronze": "Video",
-    "Video — Silver (w/ Drone)": "Video + Drone",
+    "Video — Silver (w/ Aerial)": "Video + Aerial",
     "Headshots": "Headshots",
     "Twilight": "Twilight",
   };

@@ -34,7 +34,7 @@ const PRICING: Record<string, { standalone: string[]; addon?: string[] }> = {
     addon: ["Added to existing shoot — $100–$150"],
   },
   "video": {
-    standalone: ["Bronze — $200", "Silver (includes drone) — $300", "Gold — Custom"],
+    standalone: ["Bronze — $200", "Silver (includes aerial) — $300", "Gold — Custom"],
   },
   "twilight": {
     standalone: ["4 photos — $250"],

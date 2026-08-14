@@ -7,7 +7,7 @@ import FadeUp from "@/components/FadeUp";
 
 const SERVICES = [
   "Listing photos", "Twilight photos", "Walk through video",
-  "Drone photos", "Drone video", "Matterport / 360 tour",
+  "Aerial photos", "Aerial video", "Matterport / 360 tour",
   "Virtual staging", "Floorplans", "Brochures",
 ];
 

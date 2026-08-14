@@ -22,9 +22,9 @@ const PRIMARY_SERVICES: {
       { price: 400 },
     ],
   },
-  { id: "drone_photos", name: "Drone Photos (Standalone)", unit: "flat", tiers: [{ price: 200 }] },
+  { id: "drone_photos", name: "Aerial Photos (Standalone)", unit: "flat", tiers: [{ price: 200 }] },
   { id: "video_bronze", name: "Video — Bronze", unit: "flat", tiers: [{ price: 200 }] },
-  { id: "video_silver", name: "Video — Silver (w/ Drone)", unit: "flat", tiers: [{ price: 300 }] },
+  { id: "video_silver", name: "Video — Silver (w/ Aerial)", unit: "flat", tiers: [{ price: 300 }] },
   {
     id: "matterport",
     name: "Matterport 3D Tour",
@@ -58,8 +58,8 @@ const ADDON_SERVICES: {
   note?: string;
   listingOnly?: boolean;
 }[] = [
-  { id: "drone_5", name: "Drone Photos (5)", unit: "flat", tiers: [{ price: 100 }] },
-  { id: "drone_10", name: "Drone Photos (10)", unit: "flat", tiers: [{ price: 150 }] },
+  { id: "drone_5", name: "Aerial Photos (5)", unit: "flat", tiers: [{ price: 100 }] },
+  { id: "drone_10", name: "Aerial Photos (10)", unit: "flat", tiers: [{ price: 150 }] },
   { id: "twilight_addon", name: "Twilight Add-On (2 photos)", unit: "flat", tiers: [{ price: 150 }], listingOnly: true },
   { id: "twilight_2nd", name: "Twilight — 2nd Trip", unit: "flat", tiers: [{ price: 200 }], listingOnly: true },
   {

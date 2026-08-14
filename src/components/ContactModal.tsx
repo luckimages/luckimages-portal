@@ -237,9 +237,9 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
   const avgPerShoot = pricedShoots.length > 0 ? Math.round(totalShootRevenue / pricedShoots.length) : 0;
   const lastShoot = shoots.find(s => s.scheduled_at);
   const SERVICE_LABELS: Record<string, string> = {
-    "Listing Photos": "Listing Photos", "Drone Photos": "Drone Photos", "Drone Video": "Drone Video",
+    "Listing Photos": "Listing Photos", "Aerial Photos": "Aerial Photos", "Aerial Video": "Aerial Video",
     "Floor Plan": "Floor Plans", "Matterport": "Matterport", "Virtual Staging": "Virtual Staging",
-    "Video — Bronze": "Video", "Video — Silver": "Video + Drone", "Headshots": "Headshots", "Twilight": "Twilight",
+    "Video — Bronze": "Video", "Video — Silver": "Video + Aerial", "Headshots": "Headshots", "Twilight": "Twilight",
   };
   const serviceCount: Record<string, number> = {};
   for (const shoot of shoots) {

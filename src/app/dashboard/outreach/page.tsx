@@ -36,7 +36,7 @@ const MODES: Mode[] = ["campaign", "quicksend", "engagement"];
 // Pretty labels for the service keys stored in link_clicks
 const CLICK_LABEL: Record<string, string> = {
   photo: "Listing Photos", "listing-photos": "Listing Photos",
-  drone: "Drone", matterport: "Matterport", twilight: "Twilight",
+  drone: "Aerial", matterport: "Matterport", twilight: "Twilight",
   "virtual-staging": "Virtual Staging", video: "Video",
   floorplan: "Floor Plan", floorplans: "Floor Plan", brochures: "Brochures",
   pricing: "Pricing", home: "Our Work",
@@ -460,7 +460,7 @@ const TEMPLATES: Template[] = [
 
       const ALL_PITCH_SERVICES = [
         { key: "photo",           label: "Listing Photos",      price: "from $200" },
-        { key: "drone",           label: "Drone Photos",        price: "$200" },
+        { key: "drone",           label: "Aerial Photos",       price: "$200" },
         { key: "matterport",      label: "Matterport 3D Tour",  price: "from $200" },
         { key: "twilight",        label: "Twilight Photography", price: "$250" },
         { key: "virtual-staging", label: "Virtual Staging",     price: "$25 / photo" },
@@ -872,7 +872,7 @@ export default function OutreachPage() {
 
   const PITCH_SERVICE_OPTIONS = [
     { key: "photo",           label: "Listing Photos" },
-    { key: "drone",           label: "Drone" },
+    { key: "drone",           label: "Aerial" },
     { key: "matterport",      label: "Matterport" },
     { key: "twilight",        label: "Twilight" },
     { key: "virtual-staging", label: "Virtual Staging" },

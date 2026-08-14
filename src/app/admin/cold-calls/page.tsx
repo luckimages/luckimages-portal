@@ -117,7 +117,7 @@ function toggleTag(prev: Set<CallTag>, key: CallTag): Set<CallTag> {
 
 const PITCH_SERVICES = [
   { key: "photo", label: "Listing Photos", price: "from $200", desc: "" },
-  { key: "drone", label: "Drone Photos", price: "$200", desc: "Ten drone photographs, each with property lines added." },
+  { key: "drone", label: "Aerial Photos", price: "$200", desc: "Ten drone photographs, each with property lines added." },
   { key: "matterport", label: "Matterport 3D Tour", price: "from $200", desc: "" },
   { key: "twilight", label: "Twilight Photography", price: TWILIGHT_STANDALONE_PRICE, desc: "" },
   { key: "virtual-staging", label: "Virtual Staging", price: VIRTUAL_STAGING_PER_PHOTO_PRICE, desc: "" },
@@ -128,7 +128,7 @@ const PITCH_SERVICES = [
 // Pretty labels for the service keys stored in link_clicks
 const CLICK_LABEL: Record<string, string> = {
   photo: "Listing Photos", "listing-photos": "Listing Photos",
-  drone: "Drone", matterport: "Matterport", twilight: "Twilight",
+  drone: "Aerial", matterport: "Matterport", twilight: "Twilight",
   "virtual-staging": "Virtual Staging", video: "Video",
   floorplan: "Floor Plan", floorplans: "Floor Plan", brochures: "Brochures",
   pricing: "Pricing", home: "Our Work", "cold-call-text": "Text Follow-up",

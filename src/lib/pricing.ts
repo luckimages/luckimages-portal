@@ -12,9 +12,9 @@ export const QB_PRIMARY: { id: string; name: string; tiers: PriceTier[] }[] = [
       { price: 400 },
     ],
   },
-  { id: "drone_photos",    name: "Drone Photos (Standalone)",  tiers: [{ price: 200 }] },
+  { id: "drone_photos",    name: "Aerial Photos (Standalone)", tiers: [{ price: 200 }] },
   { id: "video_bronze",    name: "Video — Bronze",             tiers: [{ price: 200 }] },
-  { id: "video_silver",    name: "Video — Silver (w/ Drone)",  tiers: [{ price: 300 }] },
+  { id: "video_silver",    name: "Video — Silver (w/ Aerial)", tiers: [{ price: 300 }] },
   {
     id: "matterport",
     name: "Matterport 3D Tour",
@@ -36,8 +36,8 @@ export const QB_PRIMARY: { id: string; name: string; tiers: PriceTier[] }[] = [
 ];
 
 export const QB_ADDONS: { id: string; name: string; tiers: PriceTier[]; note?: string }[] = [
-  { id: "drone_5",         name: "Drone Photos (5)",          tiers: [{ price: 100 }] },
-  { id: "drone_10",        name: "Drone Photos (10)",         tiers: [{ price: 150 }] },
+  { id: "drone_5",         name: "Aerial Photos (5)",         tiers: [{ price: 100 }] },
+  { id: "drone_10",        name: "Aerial Photos (10)",        tiers: [{ price: 150 }] },
   { id: "twilight_addon",  name: "Twilight Add-On (2 photos)", tiers: [{ price: 150 }] },
   { id: "twilight_2nd",    name: "Twilight — 2nd Trip",       tiers: [{ price: 200 }] },
   {
@@ -70,7 +70,7 @@ export function getPrice(tiers: PriceTier[], sqft: number): number {
 
 export const SERVICE_OPTIONS = [
   { key: "photos_sm",    label: "Photos",         price: "$200–$400" },
-  { key: "drone",        label: "Drone Photos",   price: "$200+" },
+  { key: "drone",        label: "Aerial Photos",  price: "$200+" },
   { key: "video_bronze", label: "Video Bronze",   price: "$200" },
   { key: "video_silver", label: "Video Silver",   price: "$300" },
   { key: "video_gold",   label: "Video Gold",     price: "Custom" },
@@ -79,7 +79,7 @@ export const SERVICE_OPTIONS = [
 ] as const;
 
 export const ADDON_OPTIONS = [
-  { key: "addon_drone",           label: "Drone Photos",    price: "+$100–$150" },
+  { key: "addon_drone",           label: "Aerial Photos",   price: "+$100–$150" },
   { key: "addon_twilight",        label: "Twilight",        price: "+$150–$200" },
   { key: "addon_matterport",      label: "Matterport 3D",   price: "+$100–$250" },
   { key: "addon_floor_plan",      label: "Floor Plan",      price: "+$50–$75" },
