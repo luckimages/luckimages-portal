@@ -351,7 +351,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
 
       {/* Lightbox */}
       {lightboxIdx !== null && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightboxIdx(null)}>
+        <div data-lightbox-open="true" className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightboxIdx(null)}>
           <button className="absolute top-4 right-5 text-white/60 hover:text-white text-2xl leading-none z-10" onClick={() => setLightboxIdx(null)}>✕</button>
 
           {lightboxIdx > 0 && (
@@ -363,15 +363,15 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
               onClick={e => { e.stopPropagation(); setLightboxIdx(i => i !== null ? i + 1 : i); }}>›</button>
           )}
 
-          <div className="max-w-5xl max-h-[85vh] w-full px-16" onClick={e => e.stopPropagation()}>
+          <div className="max-w-[92vw] max-h-[85vh] w-full px-12" onClick={e => e.stopPropagation()}>
             {(() => {
               const m = lightboxItems[lightboxIdx];
               return (
                 <div className="flex flex-col items-center gap-4">
                   {isImage(m) && m.preview_url ? (
-                    <img src={m.preview_url} alt={m.file_name} className="max-h-[60vh] max-w-full object-contain" />
+                    <img src={m.preview_url} alt={m.file_name} className="max-h-[72vh] max-w-full object-contain" />
                   ) : m.file_type?.startsWith("video/") && m.preview_url ? (
-                    <video src={m.preview_url} controls className="max-h-[70vh] max-w-full" />
+                    <video src={m.preview_url} controls className="max-h-[72vh] max-w-full" />
                   ) : (
                     <div className="bg-[#111] border border-white/10 p-12 text-center">
                       <p className="text-4xl mb-3">📄</p>

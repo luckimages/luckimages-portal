@@ -669,6 +669,10 @@ function ShootsPage() {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      // The media lightbox (ShootGallery) uses these same keys to move
+      // between photos — don't also flip the Log/Schedule/Board view
+      // underneath it while it's open.
+      if (document.querySelector("[data-lightbox-open]")) return;
       if (e.key === "ArrowLeft") setView(v => { const i = VIEWS.indexOf(v); return VIEWS[Math.max(0, i - 1)]; });
       if (e.key === "ArrowRight") setView(v => { const i = VIEWS.indexOf(v); return VIEWS[Math.min(VIEWS.length - 1, i + 1)]; });
     }
