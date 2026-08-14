@@ -14,6 +14,16 @@ type MediaItem = {
   created_at: string;
 };
 
+// A file that's mid-upload — shown with a local, instant preview (no
+// network round trip needed to render it) so the grid never sits blank
+// while a batch is in flight.
+type PendingUpload = {
+  key: string;
+  fileName: string;
+  previewUrl: string | null;
+  status: "uploading" | "failed";
+};
+
 type Props = {
   shootId: string;
   services?: string[];
@@ -57,6 +67,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
 
   // Per-section upload state: keyed by service slug (or "" for ungrouped)
   const [uploading, setUploading] = useState<string | null>(null);
+  // Keyed by service slug — files currently mid-upload, shown as instant
+  // local previews in the grid so it never looks empty during a batch.
+  const [pendingUploads, setPendingUploads] = useState<Record<string, PendingUpload[]>>({});
   const [uploadError, setUploadError] = useState("");
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const dragCounters = useRef<Record<string, number>>({});
@@ -108,7 +121,24 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
     // Find the original service name from slug
     const serviceType = services.find(s => slugify(s) === serviceSlug) || serviceSlug;
     const supabase = createClient();
-    for (const file of files) {
+
+    // Show every selected file immediately as a local preview (no network
+    // round trip needed to render it) so the grid never sits blank for the
+    // whole batch — each one resolves to the real, server-confirmed
+    // thumbnail as soon as that specific file finishes uploading. Replaces
+    // any leftover placeholders from a previous attempt on this section.
+    const placeholders: PendingUpload[] = files.map((file, i) => ({
+      key: `${Date.now()}_${i}_${file.name}`,
+      fileName: file.name,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      status: "uploading",
+    }));
+    setPendingUploads(prev => ({ ...prev, [serviceSlug]: placeholders }));
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const placeholderKey = placeholders[i].key;
+
       // Upload straight from the browser to Supabase Storage — real estate
       // (and especially drone/HDR) originals routinely blow past Vercel's
       // hard 4.5MB serverless request-body limit, which silently failed
@@ -123,7 +153,11 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
       const { error: uploadErr } = await supabase.storage
         .from("shoot-media")
         .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
-      if (uploadErr) { failed++; continue; }
+      if (uploadErr) {
+        failed++;
+        setPendingUploads(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === placeholderKey ? { ...p, status: "failed" } : p) }));
+        continue;
+      }
 
       const res = await fetch("/api/photographer/upload", {
         method: "POST",
@@ -136,7 +170,17 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
           service_type: serviceSlug ? serviceType : undefined,
         }),
       });
-      if (!res.ok) failed++;
+      if (!res.ok) {
+        failed++;
+        setPendingUploads(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === placeholderKey ? { ...p, status: "failed" } : p) }));
+        continue;
+      }
+
+      // Success — drop this placeholder and pull in the real media list so
+      // its actual thumbnail shows up now instead of waiting for the batch.
+      if (placeholders[i].previewUrl) URL.revokeObjectURL(placeholders[i].previewUrl!);
+      setPendingUploads(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).filter(p => p.key !== placeholderKey) }));
+      await load();
     }
     setUploading(null);
     if (failed > 0) setUploadError(`${failed} file(s) failed to upload.`);
@@ -195,7 +239,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
   function SectionGrid({ section }: { section: typeof serviceSections[0] }) {
     const slug = section.slug;
     const isDragging = draggingSection === slug;
-    const isUploading = uploading === slug;
+    const pending = pendingUploads[slug] || [];
 
     function onDragEnter(e: React.DragEvent) {
       if (!canEdit) return;
@@ -241,13 +285,6 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
             </div>
           </div>
         )}
-        {/* Upload overlay */}
-        {isUploading && (
-          <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center">
-            <p className="text-xs tracking-[3px] uppercase text-white">Uploading...</p>
-          </div>
-        )}
-
         {/* Section toolbar */}
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <p className="text-xs text-[#555]">{section.items.length} file{section.items.length !== 1 ? "s" : ""}</p>
@@ -273,7 +310,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
         </div>
 
         {/* Grid or empty state */}
-        {section.items.length === 0 ? (
+        {section.items.length === 0 && pending.length === 0 ? (
           canEdit ? (
             <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-6 cursor-pointer hover:bg-white/[0.02] transition-colors">
               <span className="text-xl mb-1">↑</span>
@@ -292,6 +329,25 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
           )
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {pending.map(p => (
+              <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                {p.previewUrl ? (
+                  <img src={p.previewUrl} alt={p.fileName} className={`w-full h-full object-cover ${p.status === "uploading" ? "opacity-50" : "opacity-30"}`} />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-50">
+                    <span className="text-2xl">📄</span>
+                    <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
+                  </div>
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  {p.status === "uploading" ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
+                  )}
+                </div>
+              </div>
+            ))}
             {section.items.map((m, idx) => (
               <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
                 <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(idx); }}>
