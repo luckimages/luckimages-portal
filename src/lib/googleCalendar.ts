@@ -8,13 +8,20 @@ function getOAuthClient() {
   );
 }
 
+// Google Places returns "123 Main St, City, ST ZIP, Country" — the calendar
+// title only wants the street portion, not the whole formatted address.
+function streetOnly(address: string): string {
+  return address.split(",")[0].trim() || address.trim();
+}
+
 export async function createShootEvent({
   address,
   scheduledAt,
   services,
   notes,
   clientEmail,
-  clientName,
+  clientFullName,
+  clientPhone,
   photographerEmails,
 }: {
   address: string;
@@ -22,7 +29,8 @@ export async function createShootEvent({
   services: string[];
   notes?: string;
   clientEmail?: string;
-  clientName?: string;
+  clientFullName?: string;
+  clientPhone?: string;
   photographerEmails?: string[];
 }) {
   const auth = getOAuthClient();
@@ -37,14 +45,15 @@ export async function createShootEvent({
   const attendees: { email: string; displayName?: string }[] = [
     { email: "leif@luckimages.com", displayName: "Leif" },
   ];
-  if (clientEmail) attendees.push({ email: clientEmail, displayName: clientName });
+  if (clientEmail) attendees.push({ email: clientEmail, displayName: clientFullName });
   for (const pe of photographerEmails || []) {
     if (pe && !attendees.some(a => a.email === pe)) attendees.push({ email: pe });
   }
 
   const serviceList = services?.length ? services.join(", ") : "Shoot";
   const description = [
-    clientName ? `Client: ${clientName}` : null,
+    clientFullName ? `Client: ${clientFullName}` : null,
+    clientPhone ? `Phone: ${clientPhone}` : null,
     clientEmail ? `Email: ${clientEmail}` : null,
     services?.length ? `Services: ${serviceList}` : null,
     notes ? `Notes: ${notes}` : null,
@@ -57,7 +66,7 @@ export async function createShootEvent({
     calendarId: "ryan@luckimages.com",
     sendUpdates: "all", // email calendar invites to all attendees
     requestBody: {
-      summary: `📸 ${serviceList} — ${address}`,
+      summary: `Luck Images - ${streetOnly(address)}`,
       location: address,
       description,
       start: { dateTime: start.toISOString(), timeZone: "America/Chicago" },

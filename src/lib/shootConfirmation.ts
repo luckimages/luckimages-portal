@@ -8,32 +8,37 @@ function service() {
   );
 }
 
-// Resolves the client's name + email for a shoot — contact record first
+// Resolves the client's name/phone/email for a shoot — contact record first
 // (phone-booked/cold-call contacts), falling back to the portal auth user
 // (self-service bookings) if no contact is linked or the contact has no email.
 export async function resolveClientContact(
   contactId: string | null | undefined,
   clientId: string | null | undefined
-): Promise<{ clientName: string; clientEmail: string | undefined }> {
+): Promise<{ clientFirstName: string; clientFullName: string | undefined; clientEmail: string | undefined; clientPhone: string | undefined }> {
   const db = service();
-  let clientName = "there";
+  let clientFirstName = "there";
+  let clientFullName: string | undefined;
   let clientEmail: string | undefined;
+  let clientPhone: string | undefined;
 
   if (contactId) {
-    const { data: c } = await db.from("contacts").select("name, email").eq("id", contactId).single();
+    const { data: c } = await db.from("contacts").select("name, email, phone").eq("id", contactId).single();
     if (c) {
-      clientName = c.name?.split(" ")[0] || clientName;
+      clientFullName = c.name || undefined;
+      clientFirstName = c.name?.split(" ")[0] || clientFirstName;
       clientEmail = c.email || undefined;
+      clientPhone = c.phone || undefined;
     }
   }
   if (!clientEmail && clientId) {
     const { data: { user: cu } } = await db.auth.admin.getUserById(clientId);
     if (cu) {
       clientEmail = cu.email || undefined;
-      clientName = cu.user_metadata?.full_name?.split(" ")[0] || clientName;
+      const metaName = cu.user_metadata?.full_name as string | undefined;
+      if (metaName) { clientFullName = metaName; clientFirstName = metaName.split(" ")[0]; }
     }
   }
-  return { clientName, clientEmail };
+  return { clientFirstName, clientFullName, clientEmail, clientPhone };
 }
 
 function confirmationEmailHtml(clientName: string, whenStr: string, address: string, svcStr: string) {
@@ -82,7 +87,7 @@ export async function notifyShootBooked({
   photographerIds?: string[];
 }): Promise<{ calendarOk: boolean; emailed: boolean; clientEmail?: string }> {
   const db = service();
-  const { clientName, clientEmail } = await resolveClientContact(contactId, clientId);
+  const { clientFirstName, clientFullName, clientEmail, clientPhone } = await resolveClientContact(contactId, clientId);
 
   const photographerEmails: string[] = [];
   for (const pid of photographerIds || []) {
@@ -99,7 +104,8 @@ export async function notifyShootBooked({
         services: services || [],
         notes: notes || undefined,
         clientEmail,
-        clientName,
+        clientFullName,
+        clientPhone,
         photographerEmails,
       });
       calendarOk = true;
@@ -123,7 +129,7 @@ export async function notifyShootBooked({
           from: "Ryan Luck <ryan@luckimages.com>",
           to: [clientEmail],
           subject: `Confirmed: your Luck Images shoot — ${whenStr}`,
-          html: confirmationEmailHtml(clientName, whenStr, address, svcStr),
+          html: confirmationEmailHtml(clientFirstName, whenStr, address, svcStr),
         }),
       });
       emailed = true;
