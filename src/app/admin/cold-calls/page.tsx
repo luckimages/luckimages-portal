@@ -73,10 +73,23 @@ function nextFollowUpDate(outcome: string, calledAt: string): Date | null {
   return due;
 }
 
+// A callback more than 2 weeks past due has been mentally dropped by both sides —
+// stop nagging with the DUE badge instead of leaving it pinned forever.
+const STALE_DUE_MS = 14 * 24 * 60 * 60 * 1000;
+
 function isFollowUpDue(outcome: string, calledAt: string, followUpDate?: string | null): boolean {
-  if (followUpDate) return new Date(followUpDate).getTime() <= Date.now();
-  const due = nextFollowUpDate(outcome, calledAt);
-  return !!due && due.getTime() <= Date.now();
+  const due = followUpDate ? new Date(followUpDate) : nextFollowUpDate(outcome, calledAt);
+  if (!due) return false;
+  const elapsed = Date.now() - due.getTime();
+  return elapsed >= 0 && elapsed < STALE_DUE_MS;
+}
+
+// Buckets a log by recency for the Call Log's This Week / Last Week / Show older grouping.
+function weekBucket(calledAt: string): "this_week" | "last_week" | "older" {
+  const days = (Date.now() - new Date(calledAt).getTime()) / (24 * 60 * 60 * 1000);
+  if (days < 7) return "this_week";
+  if (days < 14) return "last_week";
+  return "older";
 }
 
 function TagBubbles({ selected, onToggle, disabled }: { selected: Set<CallTag>; onToggle: (t: CallTag) => void; disabled?: boolean }) {
@@ -309,9 +322,11 @@ function ColdCallsPage() {
 
   // Text-message follow-up — tracked link to copy/paste into a voicemail follow-up text
   const [textCopied, setTextCopied] = useState<{ id: string; logged: boolean } | null>(null);
+  const [pendingTextCopied, setPendingTextCopied] = useState(false);
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
+  const [showOlderLogs, setShowOlderLogs] = useState(false);
   const [callerName, setCallerName] = useState("ryan");
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<Set<CallTag>>(new Set());
@@ -530,6 +545,18 @@ function ColdCallsPage() {
     await loadData();
   }
 
+  // Copy the follow-up text link for the call currently being logged (before Save).
+  // No separate DB write here — it just marks "Sent Text" on the in-progress outcome
+  // so it's captured in the same log entry when Save Call Log is clicked, instead of
+  // creating a second row like the post-save copyTextLink() does.
+  function copyPendingTextLink() {
+    if (!contact) return;
+    navigator.clipboard.writeText(trackedTextLink(contact.id, primaryService));
+    setSelectedTags(prev => new Set(prev).add("sent_text"));
+    setPendingTextCopied(true);
+    setTimeout(() => setPendingTextCopied(false), 1500);
+  }
+
   // Recompute each contact's stage from their own most recent shared-or-solo call log.
   async function recomputeStageForContacts(ids: string[]) {
     const supabase = createClient();
@@ -663,21 +690,15 @@ function ColdCallsPage() {
     });
   });
 
-  function stagePriority(outcome: string): number {
-    if (hasTag(outcome, "interested")) return 0;
-    if (hasTag(outcome, "nurture")) return 1;
-    if (!hasTag(outcome, "closed") && !hasTag(outcome, "dead")) return 2; // call again
-    if (hasTag(outcome, "closed")) return 3;
-    return 4; // dead
-  }
+  const byMostRecent = (a: EnrichedLog, b: EnrichedLog) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime();
 
   const tabLogs: Record<LogTab, EnrichedLog[]> = {
-    all: [...latestLogs].sort((a, b) => stagePriority(a.outcome) - stagePriority(b.outcome) || new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
-    interested: latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")),
-    nurture: latestLogs.filter(l => hasTag(l.outcome, "nurture") && !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(a.follow_up_date || b.called_at).getTime() - new Date(b.follow_up_date || a.called_at).getTime()),
-    call_again: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "nurture") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort((a, b) => new Date(b.called_at).getTime() - new Date(a.called_at).getTime()),
-    closed: latestLogs.filter(l => hasTag(l.outcome, "closed")),
-    dead: latestLogs.filter(l => hasTag(l.outcome, "dead")),
+    all: [...latestLogs].sort(byMostRecent),
+    interested: latestLogs.filter(l => hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort(byMostRecent),
+    nurture: latestLogs.filter(l => hasTag(l.outcome, "nurture") && !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort(byMostRecent),
+    call_again: latestLogs.filter(l => !hasTag(l.outcome, "interested") && !hasTag(l.outcome, "nurture") && !hasTag(l.outcome, "closed") && !hasTag(l.outcome, "dead")).sort(byMostRecent),
+    closed: latestLogs.filter(l => hasTag(l.outcome, "closed")).sort(byMostRecent),
+    dead: latestLogs.filter(l => hasTag(l.outcome, "dead")).sort(byMostRecent),
   };
 
   const TAB_LABELS: Record<LogTab, string> = {
@@ -1335,6 +1356,13 @@ function ColdCallsPage() {
               onToggle={key => setSelectedTags(prev => toggleTag(prev, key))}
             />
             <button
+              onClick={copyPendingTextLink}
+              disabled={!contact}
+              className="w-full mt-3 text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              💬 {pendingTextCopied ? "✓ Copied — will log as Sent Text" : "Copy Follow-up Text Link"}
+            </button>
+            <button
               onClick={logCall}
               disabled={!contact || logging || selectedTags.size === 0}
               className="w-full mt-3 text-xs tracking-[2px] uppercase font-bold py-3.5 bg-white text-black hover:bg-[#ddd] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1352,7 +1380,7 @@ function ColdCallsPage() {
 
           <input
             value={logSearch}
-            onChange={e => setLogSearch(e.target.value)}
+            onChange={e => { setLogSearch(e.target.value); setShowOlderLogs(false); }}
             placeholder="Search by name or brokerage..."
             className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
           />
@@ -1362,7 +1390,7 @@ function ColdCallsPage() {
             {(["all", "interested", "nurture", "call_again", "closed", "dead"] as LogTab[]).map(tab => (
               <button
                 key={tab}
-                onClick={() => setLogTab(tab)}
+                onClick={() => { setLogTab(tab); setShowOlderLogs(false); }}
                 className={`px-4 py-2.5 text-xs tracking-[1px] uppercase whitespace-nowrap transition-colors border-b-2 ${
                   logTab === tab ? "border-white text-white" : "border-transparent text-[#555] hover:text-white"
                 }`}
@@ -1383,7 +1411,10 @@ function ColdCallsPage() {
               if (visibleLogs.length === 0) {
                 return <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>;
               }
-              return visibleLogs.map((log: EnrichedLog) => {
+              const buckets: Record<"this_week" | "last_week" | "older", EnrichedLog[]> = { this_week: [], last_week: [], older: [] };
+              visibleLogs.forEach(l => buckets[weekBucket(l.called_at)].push(l));
+
+              const renderRow = (log: EnrichedLog) => {
               const isExpanded = expandedLog === log.contact_id;
               const initials = (log.contact?.name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
               const mostRecentAddress = contactListings[log.contact_id]?.[0] ?? null;
@@ -1443,7 +1474,35 @@ function ColdCallsPage() {
                   </div>
                 </div>
               );
-              });
+              };
+
+              return (
+                <>
+                  {buckets.this_week.length > 0 && (
+                    <>
+                      <p className="px-4 pt-3 pb-1 text-[9px] tracking-[2px] uppercase text-[#444]">This Week</p>
+                      {buckets.this_week.map(renderRow)}
+                    </>
+                  )}
+                  {buckets.last_week.length > 0 && (
+                    <>
+                      <p className="px-4 pt-3 pb-1 text-[9px] tracking-[2px] uppercase text-[#444]">Last Week</p>
+                      {buckets.last_week.map(renderRow)}
+                    </>
+                  )}
+                  {buckets.older.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setShowOlderLogs(o => !o)}
+                        className="w-full text-left px-4 py-3 text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors"
+                      >
+                        {showOlderLogs ? "▾ Hide older" : `▸ Show older (${buckets.older.length})`}
+                      </button>
+                      {showOlderLogs && buckets.older.map(renderRow)}
+                    </>
+                  )}
+                </>
+              );
             })()}
           </div>
         </div>
