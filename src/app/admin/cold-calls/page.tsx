@@ -323,6 +323,7 @@ function ColdCallsPage() {
   // Text-message follow-up — tracked link to copy/paste into a voicemail follow-up text
   const [textCopied, setTextCopied] = useState<{ id: string; logged: boolean } | null>(null);
   const [pendingTextCopied, setPendingTextCopied] = useState(false);
+  const [pendingTextLinkSent, setPendingTextLinkSent] = useState(false);
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
@@ -473,13 +474,19 @@ function ColdCallsPage() {
     const supabase = createClient();
     const outcome = [...selectedTags].join(",");
     const allContactsOnCall = [contact, ...additionalContacts];
+    // Preserve whatever the tracked-link marker needs to look like for the
+    // Outreach "Cold Call Texts" filter (COLD_CALL_TEXT_LINK_NOTE) without
+    // clobbering real call notes typed into the form.
+    const finalNotes = pendingTextLinkSent
+      ? [notes.trim(), COLD_CALL_TEXT_LINK_NOTE].filter(Boolean).join("\n\n")
+      : (notes || null);
     // One shared log entry — teammates on the same call all point back to it via linked_contact_ids,
     // so they share one history instead of getting duplicate independent logs.
     await supabase.from("cold_calls").insert({
       contact_id: contact.id,
       linked_contact_ids: additionalContacts.length > 0 ? additionalContacts.map(c => c.id) : null,
       outcome,
-      notes: notes || null,
+      notes: finalNotes,
       quote_amount: quoteAmount || null,
       listing_address: address || null,
       listing_url: listingUrl || null,
@@ -513,6 +520,7 @@ function ColdCallsPage() {
     setContactForm({ name: "", phone: "", email: "", brokerage: "" });
     setSelectedTags(new Set());
     setFollowUpDate("");
+    setPendingTextLinkSent(false);
     await loadData();
   }
 
@@ -553,6 +561,7 @@ function ColdCallsPage() {
     if (!contact) return;
     navigator.clipboard.writeText(trackedTextLink(contact.id, primaryService));
     setSelectedTags(prev => new Set(prev).add("sent_text"));
+    setPendingTextLinkSent(true);
     setPendingTextCopied(true);
     setTimeout(() => setPendingTextCopied(false), 1500);
   }
