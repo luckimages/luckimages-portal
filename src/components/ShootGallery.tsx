@@ -61,6 +61,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const dragCounters = useRef<Record<string, number>>({});
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const filmstripActiveRef = useRef<HTMLButtonElement | null>(null);
 
   // Parent components often pass a new onMediaChange function identity on every
   // render — keep it in a ref so it doesn't force load() (and therefore the
@@ -91,6 +92,11 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIdx, lightboxItems.length]);
+
+  // Keep the active filmstrip thumb in view when navigating via arrows/keys
+  useEffect(() => {
+    filmstripActiveRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [lightboxIdx]);
 
   async function uploadFileList(files: File[], serviceSlug: string) {
     if (!files.length) return;
@@ -298,10 +304,12 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
                     </div>
                   )}
                 </button>
-                {/* Hover: download only (no delete X) */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none group-hover:pointer-events-auto">
+                {/* Hover: download only (no delete X) — pointer-events-none on the
+                    whole overlay so it doesn't swallow clicks meant for the lightbox
+                    button underneath; only the link itself is clickable. */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
                   <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                    className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
+                    className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
                     ↓
                   </a>
                 </div>
@@ -361,7 +369,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
               return (
                 <div className="flex flex-col items-center gap-4">
                   {isImage(m) && m.preview_url ? (
-                    <img src={m.preview_url} alt={m.file_name} className="max-h-[70vh] max-w-full object-contain" />
+                    <img src={m.preview_url} alt={m.file_name} className="max-h-[60vh] max-w-full object-contain" />
                   ) : m.file_type?.startsWith("video/") && m.preview_url ? (
                     <video src={m.preview_url} controls className="max-h-[70vh] max-w-full" />
                   ) : (
@@ -387,6 +395,29 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
               );
             })()}
           </div>
+
+          {/* Filmstrip — click any thumb to jump straight to it */}
+          {lightboxItems.length > 1 && (
+            <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-8 bg-gradient-to-t from-black/90 to-transparent"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex gap-2 overflow-x-auto max-w-full justify-center">
+                {lightboxItems.map((item, i) => (
+                  <button
+                    key={item.id}
+                    ref={i === lightboxIdx ? filmstripActiveRef : undefined}
+                    onClick={() => setLightboxIdx(i)}
+                    className={`shrink-0 w-14 h-14 border-2 overflow-hidden transition-all ${i === lightboxIdx ? "border-white opacity-100" : "border-transparent opacity-50 hover:opacity-80"}`}
+                  >
+                    {isImage(item) && item.preview_url ? (
+                      <img src={item.preview_url} alt={item.file_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-white/10 flex items-center justify-center text-lg">📄</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
