@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
-import { createShootEvent } from "@/lib/googleCalendar";
 import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
 import { createDeliveryInvoiceAndNotify } from "@/lib/deliveryInvoice";
+import { notifyShootBooked } from "@/lib/shootConfirmation";
 
 function service() {
   return createAdminClient();
@@ -85,27 +85,45 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { address, lat, lng, scheduled_at, services, notes, square_footage, client_id, contact_id, photographer_ids, status: reqStatus, price, package_name, property_type } = await req.json();
+  const { address, lat, lng, scheduled_at, services, notes, square_footage, client_id, contact_id, contact_email, photographer_ids, status: reqStatus, price, package_name, property_type } = await req.json();
   if (!address?.trim()) return NextResponse.json({ error: "Address required" }, { status: 400 });
 
   const db = service();
-  const insertStatus = reqStatus === "scheduled" ? "scheduled" : "pending";
+  let insertStatus = reqStatus === "scheduled" ? "scheduled" : "pending";
 
   // If a contact_id is provided and that contact has a portal account, link client_id too
   // so the shoot appears in their client portal (which queries by client_id)
   let resolvedClientId = client_id || null;
   let resolvedContactName = "";
-  if (contact_id && !resolvedClientId) {
-    const { data: contact } = await db.from("contacts").select("user_id, name").eq("id", contact_id).single();
-    if (contact?.user_id) resolvedClientId = contact.user_id;
+  let hasClientEmail = true;
+  if (contact_id) {
+    const { data: contact } = await db.from("contacts").select("user_id, name, email").eq("id", contact_id).single();
+    if (contact?.user_id && !resolvedClientId) resolvedClientId = contact.user_id;
     resolvedContactName = contact?.name ?? "";
+
+    // Need an email to invite the client to the calendar event / send the
+    // confirmation. Use the one just typed into the New Shoot form if the
+    // contact doesn't have one on file yet, and save it for next time.
+    hasClientEmail = !!(contact?.email || contact_email);
+    if (!contact?.email && contact_email) {
+      await db.from("contacts").update({ email: contact_email }).eq("id", contact_id);
+    }
+  }
+
+  // No email on file and none provided — hold the shoot as pending (with the
+  // date/photographer already locked in) instead of silently booking a shoot
+  // the client never hears about.
+  let combinedNotes = notes?.trim() || null;
+  if (contact_id && !hasClientEmail) {
+    insertStatus = "pending";
+    combinedNotes = [combinedNotes, `⚠ Missing ${resolvedContactName || "client"}'s email — add it and confirm to notify them.`].filter(Boolean).join("\n\n");
   }
 
   const payload: Record<string, unknown> = {
     address: address.trim(),
     scheduled_at: scheduled_at || null,
     services: services || [],
-    notes: notes?.trim() || null,
+    notes: combinedNotes,
     square_footage: square_footage || null,
     client_id: resolvedClientId,
     contact_id: contact_id || null,
@@ -134,15 +152,23 @@ export async function POST(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Google Calendar event
-  if (insertStatus === "scheduled" && data.scheduled_at) {
+  // Calendar invite (Ryan's calendar, Leif + client + photographers) and the
+  // client confirmation email. Only fires when the shoot is actually locked
+  // in as scheduled — a shoot held as pending (missing client email, or a
+  // portal request awaiting confirmation) gets its one calendar event at the
+  // Confirm & Notify step instead, so it's never created twice.
+  if (insertStatus === "scheduled") {
     try {
-      await createShootEvent({
-        address: data.address, scheduledAt: data.scheduled_at,
-        services: data.services ?? [], notes: data.notes ?? "",
-        clientName: resolvedContactName || undefined,
+      await notifyShootBooked({
+        address: data.address,
+        scheduledAt: data.scheduled_at,
+        services: data.services ?? [],
+        notes: data.notes ?? "",
+        contactId: contact_id || null,
+        clientId: resolvedClientId,
+        photographerIds: photographer_ids || [],
       });
-    } catch (e) { console.error("Calendar event failed:", e); }
+    } catch (e) { console.error("notifyShootBooked failed:", e); }
   }
 
   // Push to assigned photographers
@@ -177,7 +203,7 @@ export async function PATCH(req: Request) {
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, client_id, status, checked_in_at, delivered_at, paid_at")
+    .select("id, address, scheduled_at, services, notes, client_id, contact_id, photographer_ids, status, checked_in_at, delivered_at, paid_at")
     .eq("id", id)
     .single();
 
@@ -285,36 +311,22 @@ export async function PATCH(req: Request) {
     } catch (e) { console.error("Push notification failed:", e); }
   }
 
-  // Only create calendar event when transitioning pending → scheduled (not already scheduled)
+  // Only fire the calendar invite + confirmation email when transitioning
+  // pending → scheduled (not on every edit to an already-scheduled shoot).
   if (status === "scheduled" && shoot?.scheduled_at && shoot?.status === "pending") {
     try {
-      // Resolve client name + email
-      let clientName = "";
-      let clientEmail = "";
-      if (shoot.client_id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", shoot.client_id)
-          .single();
-        clientName = profile?.full_name ?? "";
-
-        const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-        const user = users?.users.find(u => u.id === shoot.client_id);
-        clientEmail = user?.email ?? "";
-      }
-
-      await createShootEvent({
+      await notifyShootBooked({
         address: shoot.address,
         scheduledAt: shoot.scheduled_at,
         services: shoot.services ?? [],
         notes: shoot.notes ?? "",
-        clientEmail: clientEmail || undefined,
-        clientName: clientName || undefined,
+        contactId: contact_id ?? shoot.contact_id,
+        clientId: shoot.client_id,
+        photographerIds: photographer_ids ?? shoot.photographer_ids ?? [],
       });
     } catch (calErr) {
-      console.error("Google Calendar event creation failed:", calErr);
-      // Don't fail the whole request if calendar fails
+      console.error("notifyShootBooked failed:", calErr);
+      // Don't fail the whole request if calendar/email fails
     }
   }
 

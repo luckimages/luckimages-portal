@@ -36,7 +36,7 @@ type Shoot = {
   drive_minutes: number | null;
 };
 
-type Contact = { id: string; name: string; brokerage: string | null };
+type Contact = { id: string; name: string; brokerage: string | null; email?: string | null };
 type Photographer = { id: string; name: string; email: string };
 
 // ── Log-view helpers ──────────────────────────────────────────────────────────
@@ -577,15 +577,20 @@ function ShootsPage() {
   const [nsContactId, setNsContactId] = useState<string | null>(null);
   const [nsContactName, setNsContactName] = useState("");
   const [nsContactSearch, setNsContactSearch] = useState("");
+  const [nsContactEmail, setNsContactEmail] = useState("");
   const [nsPhotographers, setNsPhotographers] = useState<string[]>([]);
   const [nsSaving, setNsSaving] = useState(false);
   const [nsError, setNsError] = useState("");
+  const [nsInfo, setNsInfo] = useState("");
+
+  const nsSelectedContact = nsContactId ? contacts.find(c => c.id === nsContactId) : null;
+  const nsContactMissingEmail = !!nsContactId && !nsSelectedContact?.email;
 
   function resetNewShoot() {
     setNsAddress(""); setNsLat(null); setNsLng(null); setNsDatetime("");
     setNsSqft(""); setNsServices([]); setNsPrice(""); setNsAccess(""); setNsNotes("");
-    setNsContactId(null); setNsContactName(""); setNsContactSearch("");
-    setNsPhotographers([]); setNsError("");
+    setNsContactId(null); setNsContactName(""); setNsContactSearch(""); setNsContactEmail("");
+    setNsPhotographers([]); setNsError(""); setNsInfo("");
   }
 
   function toggleNsService(s: string) {
@@ -598,7 +603,7 @@ function ShootsPage() {
   async function createShoot(e: React.FormEvent) {
     e.preventDefault();
     if (!nsAddress.trim() || !nsDatetime) { setNsError("Address and date/time are required."); return; }
-    setNsSaving(true); setNsError("");
+    setNsSaving(true); setNsError(""); setNsInfo("");
     const combinedNotes = [nsAccess ? `ACCESS: ${nsAccess}` : "", nsNotes].filter(Boolean).join("\n\n") || null;
     const res = await fetch("/api/admin/shoots", {
       method: "POST",
@@ -613,6 +618,7 @@ function ShootsPage() {
         price: nsPrice ? Number(nsPrice) : null,
         notes: combinedNotes,
         contact_id: nsContactId,
+        contact_email: nsContactEmail.trim() || undefined,
         photographer_ids: nsPhotographers,
         status: "scheduled",
       }),
@@ -623,9 +629,16 @@ function ShootsPage() {
       setNsError(data.error || "Could not create shoot");
       return;
     }
+    const { shoot } = await res.json().catch(() => ({ shoot: null }));
+    await loadShoots();
+    // Forced to pending because the contact still has no email on file —
+    // keep the modal open so this doesn't get missed.
+    if (shoot?.status === "pending" && nsContactId) {
+      setNsInfo(`Shoot created as Pending — ${nsContactName || "the client"} has no email on file, so the calendar invite and confirmation email haven't gone out yet. Add their email, then Confirm & Notify from the Board.`);
+      return;
+    }
     setShowNewShoot(false);
     resetNewShoot();
-    await loadShoots();
   }
   const [statusError, setStatusError] = useState<Record<string, string>>({});
   const [syncing, setSyncing] = useState(false);
@@ -646,7 +659,7 @@ function ShootsPage() {
       setShoots(raw.map((s: Shoot) => ({ ...s, contact_name: s.contact_id ? contactMap[s.contact_id] || null : null })));
       setLastRefresh(new Date());
     }
-    const { data: c } = await supabase.from("contacts").select("id, name, brokerage").order("name");
+    const { data: c } = await supabase.from("contacts").select("id, name, brokerage, email").order("name");
     setContacts(c || []);
     const pgRes = await fetch("/api/admin/photographers");
     if (pgRes.ok) setPhotographers(await pgRes.json());
@@ -1348,10 +1361,29 @@ function ShootsPage() {
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Contact / Client</p>
                 {nsContactId ? (
-                  <div className="flex items-center justify-between bg-[#181818] border border-white/10 px-4 py-2.5">
-                    <span className="text-sm text-white">{nsContactName}</span>
-                    <button type="button" onClick={() => { setNsContactId(null); setNsContactName(""); }}
-                      className="text-[#444] hover:text-white text-xs transition-colors">✕ Remove</button>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-[#181818] border border-white/10 px-4 py-2.5">
+                      <span className="text-sm text-white">{nsContactName}</span>
+                      <button type="button" onClick={() => { setNsContactId(null); setNsContactName(""); setNsContactEmail(""); }}
+                        className="text-[#444] hover:text-white text-xs transition-colors">✕ Remove</button>
+                    </div>
+                    {nsContactMissingEmail && (
+                      <div className="bg-[#fbbf24]/10 border border-[#fbbf24]/30 px-4 py-3 space-y-2">
+                        <p className="text-xs text-[#fbbf24]">⚠ {nsContactName} doesn&apos;t have an email on file — needed for the calendar invite and confirmation email.</p>
+                        <input
+                          type="email"
+                          value={nsContactEmail}
+                          onChange={e => setNsContactEmail(e.target.value)}
+                          placeholder="client@email.com"
+                          className="w-full bg-[#181818] border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]"
+                        />
+                        <p className="text-[10px] text-[#888]">
+                          {nsContactEmail.trim()
+                            ? "Will be saved to their contact and used to notify them."
+                            : "Leave blank to save this shoot as Pending until you add their email."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="relative">
@@ -1404,17 +1436,25 @@ function ShootsPage() {
               </div>
 
               {nsError && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">{nsError}</p>}
+              {nsInfo && <p className="text-xs text-[#fbbf24] border border-[#fbbf24]/20 bg-[#fbbf24]/5 px-4 py-3">{nsInfo}</p>}
 
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setShowNewShoot(false)}
-                  className="flex-1 py-3 text-xs tracking-[1px] uppercase border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-all">
-                  Cancel
+              {nsInfo ? (
+                <button type="button" onClick={() => { setShowNewShoot(false); resetNewShoot(); }}
+                  className="w-full py-3 text-xs tracking-[1px] uppercase font-bold bg-white text-black hover:bg-white/90 transition-all">
+                  Done
                 </button>
-                <button type="submit" disabled={nsSaving}
-                  className="flex-1 py-3 text-xs tracking-[1px] uppercase font-bold bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
-                  {nsSaving ? "Creating..." : "Create Shoot"}
-                </button>
-              </div>
+              ) : (
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setShowNewShoot(false)}
+                    className="flex-1 py-3 text-xs tracking-[1px] uppercase border border-white/10 text-[#555] hover:text-white hover:border-white/30 transition-all">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={nsSaving}
+                    className="flex-1 py-3 text-xs tracking-[1px] uppercase font-bold bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">
+                    {nsSaving ? "Creating..." : "Create Shoot"}
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
