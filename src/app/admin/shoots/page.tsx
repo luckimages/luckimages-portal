@@ -435,6 +435,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
             <div>
               <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
               <input type="datetime-local" value={esDatetime} onChange={e => { setEsDatetime(e.target.value); setEsSaved(false); }}
+                onClick={e => { try { e.currentTarget.showPicker(); } catch {} }}
                 className="w-full bg-[#1a1a1a] border border-white/10 text-white text-sm px-3 py-2 focus:outline-none focus:border-white/30" />
             </div>
             <AddressMapPicker
@@ -1325,6 +1326,7 @@ function ShootsPage() {
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Date &amp; Time</p>
                 <input type="datetime-local" value={nsDatetime} onChange={e => setNsDatetime(e.target.value)}
+                  onClick={e => { try { e.currentTarget.showPicker(); } catch {} }}
                   className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 [color-scheme:dark]" />
               </div>
 
@@ -1486,6 +1488,7 @@ function ShootsPage() {
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Date &amp; Time</p>
                 <input type="datetime-local" value={editDatetime} onChange={e => setEditDatetime(e.target.value)}
+                  onClick={e => { try { e.currentTarget.showPicker(); } catch {} }}
                   className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30 [color-scheme:dark]" />
               </div>
 
