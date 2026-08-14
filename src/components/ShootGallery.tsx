@@ -14,14 +14,16 @@ type MediaItem = {
   created_at: string;
 };
 
-// A file that's mid-upload — shown with a local, instant preview (no
-// network round trip needed to render it) so the grid never sits blank
-// while a batch is in flight.
-type PendingUpload = {
+// A file picked (or dropped) but not yet uploaded — shown with a local,
+// instant preview so the grid never sits blank, and removable before it's
+// actually sent anywhere, so a wrong pick or a duplicate never has to go
+// all the way to upload-then-delete.
+type StagedFile = {
   key: string;
+  file: File;
   fileName: string;
   previewUrl: string | null;
-  status: "uploading" | "failed";
+  status: "staged" | "uploading" | "failed";
 };
 
 type Props = {
@@ -67,9 +69,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
 
   // Per-section upload state: keyed by service slug (or "" for ungrouped)
   const [uploading, setUploading] = useState<string | null>(null);
-  // Keyed by service slug — files currently mid-upload, shown as instant
-  // local previews in the grid so it never looks empty during a batch.
-  const [pendingUploads, setPendingUploads] = useState<Record<string, PendingUpload[]>>({});
+  // Keyed by service slug — files picked/dropped but not yet confirmed for
+  // upload. Nothing here has touched the server until "Confirm Upload".
+  const [stagedFiles, setStagedFiles] = useState<Record<string, StagedFile[]>>({});
   const [uploadError, setUploadError] = useState("");
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const dragCounters = useRef<Record<string, number>>({});
@@ -111,33 +113,50 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
     filmstripActiveRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [lightboxIdx]);
 
-  async function uploadFileList(files: File[], serviceSlug: string) {
+  // Picking/dropping files only stages them locally — nothing touches the
+  // server until "Confirm Upload". Appends to any already-staged files for
+  // this section rather than replacing, so multiple picks/drops stack up.
+  function stageFiles(files: File[], serviceSlug: string) {
     if (!files.length) return;
-    setUploading(serviceSlug);
     setUploadError("");
     setDraggingSection(null);
     dragCounters.current[serviceSlug] = 0;
+    const staged: StagedFile[] = files.map((file, i) => ({
+      key: `${Date.now()}_${i}_${file.name}`,
+      file,
+      fileName: file.name,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      status: "staged",
+    }));
+    setStagedFiles(prev => ({ ...prev, [serviceSlug]: [...(prev[serviceSlug] || []), ...staged] }));
+    if (fileRefs.current[serviceSlug]) fileRefs.current[serviceSlug]!.value = "";
+  }
+
+  function removeStagedFile(serviceSlug: string, key: string) {
+    setStagedFiles(prev => {
+      const item = (prev[serviceSlug] || []).find(p => p.key === key);
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      return { ...prev, [serviceSlug]: (prev[serviceSlug] || []).filter(p => p.key !== key) };
+    });
+  }
+
+  async function confirmUpload(serviceSlug: string) {
+    const staged = (stagedFiles[serviceSlug] || []).filter(p => p.status === "staged");
+    if (!staged.length) return;
+    setUploading(serviceSlug);
+    setUploadError("");
     let failed = 0;
     // Find the original service name from slug
     const serviceType = services.find(s => slugify(s) === serviceSlug) || serviceSlug;
     const supabase = createClient();
 
-    // Show every selected file immediately as a local preview (no network
-    // round trip needed to render it) so the grid never sits blank for the
-    // whole batch — each one resolves to the real, server-confirmed
-    // thumbnail as soon as that specific file finishes uploading. Replaces
-    // any leftover placeholders from a previous attempt on this section.
-    const placeholders: PendingUpload[] = files.map((file, i) => ({
-      key: `${Date.now()}_${i}_${file.name}`,
-      fileName: file.name,
-      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-      status: "uploading",
+    setStagedFiles(prev => ({
+      ...prev,
+      [serviceSlug]: (prev[serviceSlug] || []).map(p => staged.some(s => s.key === p.key) ? { ...p, status: "uploading" } : p),
     }));
-    setPendingUploads(prev => ({ ...prev, [serviceSlug]: placeholders }));
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const placeholderKey = placeholders[i].key;
+    for (const item of staged) {
+      const file = item.file;
 
       // Upload straight from the browser to Supabase Storage — real estate
       // (and especially drone/HDR) originals routinely blow past Vercel's
@@ -155,7 +174,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
         .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
       if (uploadErr) {
         failed++;
-        setPendingUploads(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === placeholderKey ? { ...p, status: "failed" } : p) }));
+        setStagedFiles(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === item.key ? { ...p, status: "failed" } : p) }));
         continue;
       }
 
@@ -172,19 +191,18 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
       });
       if (!res.ok) {
         failed++;
-        setPendingUploads(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === placeholderKey ? { ...p, status: "failed" } : p) }));
+        setStagedFiles(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === item.key ? { ...p, status: "failed" } : p) }));
         continue;
       }
 
-      // Success — drop this placeholder and pull in the real media list so
+      // Success — drop this staged entry and pull in the real media list so
       // its actual thumbnail shows up now instead of waiting for the batch.
-      if (placeholders[i].previewUrl) URL.revokeObjectURL(placeholders[i].previewUrl!);
-      setPendingUploads(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).filter(p => p.key !== placeholderKey) }));
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      setStagedFiles(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).filter(p => p.key !== item.key) }));
       await load();
     }
     setUploading(null);
     if (failed > 0) setUploadError(`${failed} file(s) failed to upload.`);
-    if (fileRefs.current[serviceSlug]) fileRefs.current[serviceSlug]!.value = "";
     await load();
   }
 
@@ -239,7 +257,8 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
   function SectionGrid({ section }: { section: typeof serviceSections[0] }) {
     const slug = section.slug;
     const isDragging = draggingSection === slug;
-    const pending = pendingUploads[slug] || [];
+    const staged = stagedFiles[slug] || [];
+    const readyToConfirm = staged.filter(p => p.status === "staged").length;
 
     function onDragEnter(e: React.DragEvent) {
       if (!canEdit) return;
@@ -262,9 +281,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
       const dropped = Array.from(e.dataTransfer.files);
       const files = dropped.filter(isMediaFile);
       if (files.length) {
-        uploadFileList(files, slug);
+        stageFiles(files, slug);
       } else if (dropped.length) {
-        setUploadError(`${dropped.length} file(s) weren't recognized as photos/videos and weren't uploaded.`);
+        setUploadError(`${dropped.length} file(s) weren't recognized as photos/videos and weren't added.`);
       }
     }
 
@@ -302,7 +321,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
                   ref={el => { fileRefs.current[slug] = el; }}
                   type="file" multiple accept="image/*,video/*" className="hidden"
                   disabled={!!uploading}
-                  onChange={e => { if (e.target.files?.length) uploadFileList(Array.from(e.target.files), slug); }}
+                  onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
                 />
               </label>
             )}
@@ -310,7 +329,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
         </div>
 
         {/* Grid or empty state */}
-        {section.items.length === 0 && pending.length === 0 ? (
+        {section.items.length === 0 && staged.length === 0 ? (
           canEdit ? (
             <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-6 cursor-pointer hover:bg-white/[0.02] transition-colors">
               <span className="text-xl mb-1">↑</span>
@@ -319,7 +338,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
                 ref={el => { fileRefs.current[slug] = el; }}
                 type="file" multiple accept="image/*,video/*" className="hidden"
                 disabled={!!uploading}
-                onChange={e => { if (e.target.files?.length) uploadFileList(Array.from(e.target.files), slug); }}
+                onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
               />
             </label>
           ) : (
@@ -328,50 +347,79 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
             </div>
           )
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {pending.map(p => (
-              <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
-                {p.previewUrl ? (
-                  <img src={p.previewUrl} alt={p.fileName} className={`w-full h-full object-cover ${p.status === "uploading" ? "opacity-50" : "opacity-30"}`} />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-50">
-                    <span className="text-2xl">📄</span>
-                    <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
-                  </div>
-                )}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                  {p.status === "uploading" ? (
-                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {staged.map(p => (
+                <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                  {p.previewUrl ? (
+                    <img src={p.previewUrl} alt={p.fileName} className={`w-full h-full object-cover ${p.status === "uploading" ? "opacity-50" : "opacity-30"}`} />
                   ) : (
-                    <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
-                  )}
-                </div>
-              </div>
-            ))}
-            {section.items.map((m, idx) => (
-              <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
-                <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(idx); }}>
-                  {isImage(m) && m.preview_url ? (
-                    <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                      <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
-                      <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-50">
+                      <span className="text-2xl">📄</span>
+                      <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
                     </div>
                   )}
-                </button>
-                {/* Hover: download only (no delete X) — pointer-events-none on the
-                    whole overlay so it doesn't swallow clicks meant for the lightbox
-                    button underneath; only the link itself is clickable. */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
-                  <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                    className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
-                    ↓
-                  </a>
+                  {p.status === "uploading" ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      {p.status === "failed" && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
+                        </div>
+                      )}
+                      <button onClick={() => removeStagedFile(slug, p.key)}
+                        className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
+                        title="Remove">
+                        ✕
+                      </button>
+                    </>
+                  )}
                 </div>
+              ))}
+              {section.items.map((m, idx) => (
+                <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                  <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(idx); }}>
+                    {isImage(m) && m.preview_url ? (
+                      <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                        <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
+                        <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
+                      </div>
+                    )}
+                  </button>
+                  {/* Hover: download + delete — pointer-events-none on the whole
+                      overlay so it doesn't swallow clicks meant for the lightbox
+                      button underneath; only the buttons themselves are clickable. */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
+                    <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                      className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
+                      ↓
+                    </a>
+                  </div>
+                  {canEdit && (
+                    <button onClick={() => setConfirmDelete(m.id)}
+                      className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
+                      title="Delete">
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {readyToConfirm > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-3 bg-[#0c0c0c] border border-white/10 px-4 py-3">
+                <p className="text-xs text-[#888]">{readyToConfirm} file{readyToConfirm !== 1 ? "s" : ""} ready to upload</p>
+                <button onClick={() => confirmUpload(slug)} disabled={uploading === slug}
+                  className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 hover:bg-white/90 transition-colors font-semibold disabled:opacity-40">
+                  {uploading === slug ? "Uploading..." : `Confirm Upload (${readyToConfirm})`}
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     );
