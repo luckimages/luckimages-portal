@@ -542,6 +542,10 @@ function ShootsPage() {
   const [selectedShoot, setSelectedShoot] = useState<Shoot | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
+  // Log-view: only one shoot card expanded at a time, across both the main
+  // list and the Cancelled folder — opening a second one closes the first.
+  const [expandedLogShootId, setExpandedLogShootId] = useState<string | null>(null);
+
   // Edit modal (log/schedule)
   const [editShoot, setEditShoot] = useState<Shoot | null>(null);
   const [editForm, setEditForm] = useState({ price: "", package_name: "", notes: "", status: "", address: "", square_footage: "" });
@@ -813,7 +817,8 @@ function ShootsPage() {
 
   // Log shoot card
   function LogShootCard({ shoot }: { shoot: Shoot }) {
-    const [expanded, setExpanded] = useState(false);
+    const expanded = expandedLogShootId === shoot.id;
+    const toggleExpanded = () => setExpandedLogShootId(prev => prev === shoot.id ? null : shoot.id);
     const [invoiceOpen, setInvoiceOpen] = useState(false);
     const [invoiceAmount, setInvoiceAmount] = useState(shoot.price != null ? String(shoot.price) : "");
     const [invoiceMsg, setInvoiceMsg] = useState("");
@@ -839,7 +844,7 @@ function ShootsPage() {
     const inProgress = !["pending", "cancelled", "delivered", "completed"].includes(shoot.status);
     return (
       <div className={`bg-[#111] border border-white/10 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""} ${expanded ? "border-white/20" : "hover:border-white/20"}`}>
-        <div className="flex items-start justify-between gap-4 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+        <div className="flex items-start justify-between gap-4 p-4 cursor-pointer" onClick={toggleExpanded}>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{shoot.address}</p>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
