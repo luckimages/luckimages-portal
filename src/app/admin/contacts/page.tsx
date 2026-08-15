@@ -75,6 +75,12 @@ function ContactsPageInner() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "new", notes: "" });
   const [showDeleted, setShowDeleted] = useState(false);
+  const [dupePairs, setDupePairs] = useState<{ a: Contact; b: Contact; reason: string }[]>([]);
+  const [dismissedDupes, setDismissedDupes] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("dismissed_dupes") || "[]")); }
+    catch { return new Set(); }
+  });
+  const [mergingPair, setMergingPair] = useState<string | null>(null);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -84,7 +90,56 @@ function ContactsPageInner() {
       supabase.from("shoots").select("contact_id, scheduled_at").neq("status", "cancelled").order("scheduled_at", { ascending: false }),
       supabase.from("contacts").select("referred_by_contact_id").not("referred_by_contact_id", "is", null),
     ]);
-    setContacts(data || []);
+    const list = data || [];
+    setContacts(list);
+
+    // Detect potential duplicates — same email (case-insensitive) or same name (honorifics stripped)
+    const HONORIFICS = /^(mr\.?|mrs\.?|ms\.?|dr\.?|prof\.?)\s+/i;
+    const normName = (n: string) => n.toLowerCase().trim().replace(HONORIFICS, "");
+    const active = list.filter(c => c.stage !== "deleted");
+    const pairs: { a: Contact; b: Contact; reason: string }[] = [];
+    const seen = new Set<string>();
+    const byEmail = new Map<string, Contact>();
+    const byName  = new Map<string, Contact>();
+    for (const c of active) {
+      if (c.email) {
+        const key = c.email.toLowerCase().trim();
+        if (byEmail.has(key)) {
+          const other = byEmail.get(key)!;
+          const pairKey = [c.id, other.id].sort().join(":");
+          if (!seen.has(pairKey)) { seen.add(pairKey); pairs.push({ a: other, b: c, reason: "same email" }); }
+        } else { byEmail.set(key, c); }
+      }
+      const nameKey = normName(c.name);
+      if (byName.has(nameKey)) {
+        const other = byName.get(nameKey)!;
+        const pairKey = [c.id, other.id].sort().join(":");
+        if (!seen.has(pairKey)) { seen.add(pairKey); pairs.push({ a: other, b: c, reason: "same name" }); }
+      } else { byName.set(nameKey, c); }
+    }
+    setDupePairs(pairs);
+
+    // Notify via company_updates if new (un-dismissed) duplicates were found
+    if (pairs.length > 0) {
+      const dismissed: string[] = JSON.parse(localStorage.getItem("dismissed_dupes") || "[]");
+      const undismissed = pairs.filter(p => !dismissed.includes([p.a.id, p.b.id].sort().join(":")));
+      if (undismissed.length > 0) {
+        // Only fire once per session — check sessionStorage
+        const notifKey = `dupe_notified_${undismissed.map(p => [p.a.id,p.b.id].sort().join(":")).sort().join("|")}`;
+        if (!sessionStorage.getItem(notifKey)) {
+          sessionStorage.setItem(notifKey, "1");
+          fetch("/api/admin/company-updates", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: `⚠️ ${undismissed.length} potential duplicate contact${undismissed.length > 1 ? "s" : ""} found — review in Contacts`,
+              category: "admin",
+              link: "/admin/contacts",
+            }),
+          }).catch(() => {});
+        }
+      }
+    }
 
     // Build shoot map: contact_id → { count, lastDate }
     const sm: Record<string, { count: number; lastDate: string | null }> = {};
@@ -132,6 +187,25 @@ function ContactsPageInner() {
     setForm({ name: "", email: "", phone: "", brokerage: "", stage: "new", notes: "" });
     if (data) router.push(`/admin/contacts/${data.id}`);
     else loadContacts();
+  }
+
+  function dismissDupe(a: Contact, b: Contact) {
+    const key = [a.id, b.id].sort().join(":");
+    const next = new Set(dismissedDupes);
+    next.add(key);
+    setDismissedDupes(next);
+    localStorage.setItem("dismissed_dupes", JSON.stringify([...next]));
+  }
+
+  async function mergeDupe(keepId: string, dropId: string, pairKey: string) {
+    setMergingPair(pairKey);
+    const res = await fetch("/api/admin/merge-contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keepId, dropId }),
+    });
+    setMergingPair(null);
+    if (res.ok) loadContacts();
   }
 
   async function updateStage(e: React.MouseEvent, contact: Contact, stage: string) {
@@ -203,6 +277,57 @@ function ContactsPageInner() {
             </button>
           </div>
         </div>
+        {/* Duplicate contacts banner */}
+        {dupePairs.filter(p => !dismissedDupes.has([p.a.id, p.b.id].sort().join(":"))).length > 0 && (() => {
+          const visible = dupePairs.filter(p => !dismissedDupes.has([p.a.id, p.b.id].sort().join(":")));
+          return (
+            <div className="mb-6 border border-[#fbbf24]/30 bg-[#fbbf24]/5 px-5 py-4 space-y-3">
+              <p className="text-xs tracking-[2px] uppercase text-[#fbbf24] font-semibold">
+                ⚠ {visible.length} Potential Duplicate{visible.length > 1 ? "s" : ""} Found
+              </p>
+              {visible.map(({ a, b, reason }) => {
+                const pairKey = [a.id, b.id].sort().join(":");
+                const merging = mergingPair === pairKey;
+                return (
+                  <div key={pairKey} className="flex items-start justify-between gap-4 flex-wrap border-t border-white/5 pt-3">
+                    <div className="text-sm">
+                      <span className="text-white font-semibold">{a.name}</span>
+                      <span className="text-[#555] mx-2">vs</span>
+                      <span className="text-white font-semibold">{b.name}</span>
+                      <span className="text-[10px] text-[#555] ml-2 tracking-wide">— {reason}</span>
+                      <div className="text-[11px] text-[#444] mt-0.5">
+                        {a.email || "(no email)"} · {b.email || "(no email)"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => mergeDupe(a.id, b.id, pairKey)}
+                        disabled={merging}
+                        className="text-[10px] tracking-[1px] uppercase px-3 py-1.5 bg-white text-black font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
+                      >
+                        {merging ? "Merging…" : `Keep "${a.name.split(" ")[0]}" →`}
+                      </button>
+                      <button
+                        onClick={() => mergeDupe(b.id, a.id, pairKey)}
+                        disabled={merging}
+                        className="text-[10px] tracking-[1px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors disabled:opacity-50"
+                      >
+                        {merging ? "…" : `Keep "${b.name.split(" ")[0]}"`}
+                      </button>
+                      <button
+                        onClick={() => dismissDupe(a, b)}
+                        className="text-[10px] text-[#444] hover:text-[#888] transition-colors px-2 py-1.5"
+                      >
+                        Not a duplicate
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         <div className="flex items-center gap-2 flex-wrap">
           {/* Leads */}
           <button

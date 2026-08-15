@@ -301,6 +301,7 @@ function ColdCallsPage() {
   const [contactInput, setContactInput] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [creatingNew, setCreatingNew] = useState(false);
+  const [dupeWarning, setDupeWarning] = useState<Contact | null>(null);
 
   const [primaryService, setPrimaryService] = useState<string | null>(null);
   const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
@@ -454,6 +455,20 @@ function ColdCallsPage() {
   async function createContact(e: React.FormEvent) {
     e.preventDefault();
     if (!contactForm.name.trim()) return;
+
+    // Check for an existing contact with the same name (case-insensitive)
+    // before creating — prevents duplicates from capitalization differences.
+    const nameLower = contactForm.name.trim().toLowerCase();
+    const nameMatch = contacts.find(c => c.name.toLowerCase() === nameLower);
+    const phoneLower = normalizePhone(contactForm.phone);
+    const phoneMatch = phoneLower ? contacts.find(c => c.phone === phoneLower) : null;
+    const existing = nameMatch || phoneMatch || null;
+    if (existing && !dupeWarning) {
+      setDupeWarning(existing);
+      return;
+    }
+    setDupeWarning(null);
+
     const supabase = createClient();
     const { data } = await supabase.from("contacts").insert({
       name: contactForm.name,
@@ -1234,6 +1249,24 @@ function ColdCallsPage() {
                     <input type="email" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))}
                       placeholder="Email (optional)"
                       className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                    {dupeWarning && (
+                      <div className="border border-[#fbbf24]/30 bg-[#fbbf24]/5 px-3 py-2.5 space-y-2">
+                        <p className="text-[10px] text-[#fbbf24] tracking-wide">⚠ Looks like this contact already exists:</p>
+                        <p className="text-xs text-white font-semibold">{dupeWarning.name}</p>
+                        {dupeWarning.email && <p className="text-[10px] text-[#555]">{dupeWarning.email}</p>}
+                        <div className="flex gap-2 pt-1">
+                          <button type="button" onClick={() => { selectContact(dupeWarning); setDupeWarning(null); setCreatingNew(false); setContactInput(""); }}
+                            className="flex-1 text-[10px] tracking-[1px] uppercase bg-white text-black py-2 font-bold hover:bg-[#ddd] transition-colors">
+                            Use Existing
+                          </button>
+                          <button type="submit"
+                            className="flex-1 text-[10px] tracking-[1px] uppercase border border-white/20 text-[#888] py-2 hover:text-white hover:border-white/40 transition-colors">
+                            Create Anyway
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!dupeWarning && (
                     <div className="flex gap-2">
                       <button type="button"
                         onClick={() => { setCreatingNew(false); setContactInput(""); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); }}
@@ -1245,6 +1278,7 @@ function ColdCallsPage() {
                         Save &amp; Select
                       </button>
                     </div>
+                    )}
                   </form>
                 )}
               </div>
