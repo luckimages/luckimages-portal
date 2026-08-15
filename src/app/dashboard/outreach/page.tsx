@@ -11,6 +11,7 @@ type Contact = {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   stage: string;
   total_revenue: number | null;
   user_id: string | null;
@@ -75,7 +76,6 @@ type Template = {
   subject: (c: Contact) => string;
   html: (c: Contact, extra?: Record<string, string>) => string;
   extraFields?: { key: string; label: string; placeholder: string; default?: string }[];
-  requiresPortalLink?: boolean;
 };
 
 const PORTAL_URL = "https://www.luckimages.com";
@@ -114,21 +114,23 @@ const TEMPLATES: Template[] = [
   {
     id: "portal_invite",
     label: "Portal Invite",
-    description: "Invite past clients to their private portal. Sends a personalized magic link valid for 24h. Only targets clients without a portal account.",
+    description: "Invite past clients to create their portal account. Pre-fills their name, email, and phone — they just choose a password. Only targets clients without a portal account.",
     tag: "Onboarding",
     tagColor: "text-[#a78bfa]",
     filter: c => !!c.email && !c.user_id && c.stage !== "deleted" && c.stage !== "lead",
-    subject: c => `Your Luck Images client portal is ready, ${c.name.split(" ")[0]}`,
-    requiresPortalLink: true,
-    html: (c, extra) => {
+    subject: c => `${c.name.split(" ")[0]}, your Luck Images client portal is ready`,
+    html: (c) => {
       const n = c.name.split(" ")[0];
-      const link = extra?.portalLink || "#";
+      const params = new URLSearchParams({ contact_id: c.id, name: c.name, email: c.email || "" });
+      if (c.phone) params.set("phone", c.phone);
+      const registerUrl = `https://www.luckimages.com/register?${params.toString()}`;
       return wrap(
         EYEBROW("Client Portal") +
-        H1(`Your Portal is Ready, ${n}`) +
-        P("We built a private portal where you can view your past shoot photos, track upcoming sessions, download files, and manage your account — all in one place.") +
-        BTN(link, "Access Your Portal →") +
-        SMALL("This link is personal to you and expires in 24 hours. If you need a new one, just reply to this email.") +
+        H1(`You're Invited, ${n}`) +
+        P("I've built a private client portal where you can view all your past shoots, download delivered photos, and track invoices in one place.") +
+        P("Your info is already on file — just click below to set a password and you're in. Takes about 30 seconds.") +
+        BTN(registerUrl, "Create Your Account →") +
+        SMALL("Questions? Just reply to this email — I'm happy to help.") +
         SIG
       );
     },
@@ -561,6 +563,7 @@ const EXAMPLE_CONTACT: Contact = {
   id: "example",
   name: "Sarah Johnson",
   email: "sarah@example.com",
+  phone: null,
   stage: "active",
   total_revenue: 2400,
   user_id: null,
@@ -609,7 +612,7 @@ export default function OutreachPage() {
     async function load() {
       const { data } = await supabase
         .from("contacts")
-        .select("id, name, email, stage, total_revenue, user_id, created_at, lead_source, registered_at")
+        .select("id, name, email, phone, stage, total_revenue, user_id, created_at, lead_source, registered_at")
         .neq("stage", "deleted")
         .order("total_revenue", { ascending: false, nullsFirst: false });
       const list = data || [];
@@ -741,19 +744,7 @@ export default function OutreachPage() {
     for (const contact of toSend) {
       setStatuses(s => ({ ...s, [contact.id]: "pending" }));
       try {
-        let portalLink: string | undefined;
-        if (activeTemplate.requiresPortalLink) {
-          const res = await fetch("/api/admin/invite-client", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: contact.email, name: contact.name }),
-          });
-          const data = await res.json();
-          if (!data.link) throw new Error("No magic link");
-          portalLink = data.link;
-        }
-
-        const html = activeTemplate.html(contact, { ...extraFields, portalLink: portalLink || "" });
+        const html = activeTemplate.html(contact, { ...extraFields });
         const subject = activeTemplate.subject(contact);
 
         const res = await fetch("/api/admin/send-email", {
@@ -1652,7 +1643,7 @@ export default function OutreachPage() {
             )
           ) : (
             <iframe title="Email preview" className="w-full h-[80vh] md:h-auto md:flex-1 border-0"
-              srcDoc={activeTemplate.html(preview, { ...extraFields, portalLink: "https://www.luckimages.com/dashboard" })} />
+              srcDoc={activeTemplate.html(preview, { ...extraFields })} />
           )}
         </div>
 
