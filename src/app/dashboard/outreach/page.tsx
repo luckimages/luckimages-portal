@@ -629,15 +629,45 @@ export default function OutreachPage() {
         // button (marked via notes) — not every manual "Sent Text" tag ever
         // logged the old way, which never had a tracked link behind it.
         supabase.from("cold_calls").select("contact_id, outcome, called_at").not("contact_id", "is", null).ilike("outcome", "%sent_text%").ilike("notes", `%${COLD_CALL_TEXT_LINK_NOTE}%`).order("called_at", { ascending: false }),
-        // How long each tracked-link click spent on the landing page — the
-        // link_click_id column is a recent addition, so tolerate it not
-        // existing yet rather than failing the whole load.
-        supabase.from("page_views").select("link_click_id, duration_seconds").not("link_click_id", "is", null).not("duration_seconds", "is", null),
+        // Landing page views for tracked links — we need session_id so we can
+        // sum the full session (all pages they navigated to after clicking).
+        // Don't filter on duration_seconds here: if they bounced off the
+        // landing page in <1s but spent 3 minutes on /services, we still want
+        // to capture their session_id to count that time.
+        supabase.from("page_views").select("link_click_id, session_id, duration_seconds").not("link_click_id", "is", null),
       ]);
       if (pageViewsRes.data) {
+        type LandingView = { link_click_id: string; session_id: string | null; duration_seconds: number | null };
+        const landingViews = pageViewsRes.data as LandingView[];
+
+        // Collect unique session IDs from real clicks (JS ran = page_view exists)
+        const sessionIds = [...new Set(landingViews.map(v => v.session_id).filter((s): s is string => !!s))];
+
+        // Fetch every page_view in those sessions so we can total the full
+        // time they spent on luckimages.com during that visit, not just the
+        // landing page.
+        let sessionViews: { session_id: string; duration_seconds: number }[] = [];
+        if (sessionIds.length > 0) {
+          const { data: sv } = await supabase
+            .from("page_views")
+            .select("session_id, duration_seconds")
+            .in("session_id", sessionIds)
+            .not("duration_seconds", "is", null);
+          sessionViews = (sv || []) as typeof sessionViews;
+        }
+
+        // Total dwell per session (all pages summed)
+        const sessionTotals: Record<string, number> = {};
+        for (const v of sessionViews) {
+          sessionTotals[v.session_id] = (sessionTotals[v.session_id] || 0) + v.duration_seconds;
+        }
+
+        // Map click_id → total session dwell. A click with no session_id means
+        // JS never ran (bot prefetch) — exclude from dwellMap so it gets filtered.
         const dwellMap: Record<string, number> = {};
-        for (const pv of pageViewsRes.data as { link_click_id: string; duration_seconds: number }[]) {
-          dwellMap[pv.link_click_id] = pv.duration_seconds;
+        for (const v of landingViews) {
+          if (!v.session_id) continue;
+          dwellMap[v.link_click_id] = sessionTotals[v.session_id] ?? (v.duration_seconds ?? 0);
         }
         setDwellByClickId(dwellMap);
       }
