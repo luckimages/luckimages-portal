@@ -3,20 +3,24 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import ShootGallery from "@/components/ShootGallery";
 
 type Shoot = { address: string; scheduled_at: string; services: string[] };
 
 export default function GalleryPage() {
   const { shootId } = useParams<{ shootId: string }>();
+  const router = useRouter();
   const [shoot, setShoot] = useState<Shoot | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { router.replace("/login"); return; }
+    });
     supabase.from("shoots").select("address,scheduled_at,services").eq("id", shootId).single()
       .then(({ data }) => setShoot(data));
-  }, [shootId]);
+  }, [shootId, router]);
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">

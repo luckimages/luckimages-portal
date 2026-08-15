@@ -17,7 +17,7 @@ type Shoot = {
 };
 type Invoice = {
   id: string; amount_cents: number; paid: boolean;
-  due_date: string; notes: string; shoot_id: string;
+  due_date: string; notes: string; shoot_id: string; created_at: string;
 };
 
 const PRIMARY_SERVICES = [
@@ -436,8 +436,14 @@ export default function ClientPage() {
               </div>
             </div>
 
-            {/* Active shoot tracker — full width if active */}
-            {upcomingShoots.length > 0 && upcomingShoots.map(s => {
+            {/* Active shoot tracker — show the soonest non-delivered shoot only */}
+            {(() => {
+              const s = upcomingShoots
+                .filter(sh => !["delivered", "completed"].includes(sh.status))
+                .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
+              if (!s) return null;
+              return [s];
+            })().map(s => {
               const STAGES = [
                 { key: "pending",   label: "Confirmed" },
                 { key: "en_route",  label: "En Route" },
@@ -745,7 +751,7 @@ export default function ClientPage() {
                   <tbody>
                     {invoices.map(inv => (
                       <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                        <td className="px-5 py-3 text-[#888]">{new Date(inv.due_date || "").toLocaleDateString()}</td>
+                        <td className="px-5 py-3 text-[#888]">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</td>
                         <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
                         <td className="px-5 py-3 text-[#888]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
                         <td className="px-5 py-3">
