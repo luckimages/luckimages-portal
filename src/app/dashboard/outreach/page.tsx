@@ -910,12 +910,17 @@ export default function OutreachPage() {
       if (!contact) continue; // skip deleted / unknown
 
       // emails come newest-first; attribute each click to the most recent
-      // email sent at-or-before the click time.
+      // email sent at-or-before the click time. A grace window absorbs the
+      // pre-save "Copy Follow-up Text Link" flow, where the link is copied
+      // and sent mid-call but the cold_calls row (the synthetic "send") isn't
+      // written until Save Call Log — so a fast-clicking client can click
+      // before the recorded send timestamp.
+      const CLICK_GRACE_MS = 30 * 60 * 1000;
       const timeline = emails.map(e => ({ email: e, clicks: [] as LinkClickRow[] }));
       const orphanClicks: LinkClickRow[] = [];
       for (const c of clicks) {
         const t = new Date(c.clicked_at).getTime();
-        const idx = timeline.findIndex(row => row.email.sent_at && new Date(row.email.sent_at).getTime() <= t);
+        const idx = timeline.findIndex(row => row.email.sent_at && new Date(row.email.sent_at).getTime() - CLICK_GRACE_MS <= t);
         if (idx >= 0) timeline[idx].clicks.push(c);
         else orphanClicks.push(c);
       }
