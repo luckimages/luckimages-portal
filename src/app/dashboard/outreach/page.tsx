@@ -906,6 +906,17 @@ export default function OutreachPage() {
     setExtraFields(prev => ({ ...prev, services: isAll ? "all" : [...next].join(",") }));
   }
 
+  // Bot clicks have no page_view duration recorded — iOS iMessage prefetches the
+  // URL to generate a preview card before the user even sees the message.
+  // Only count clicks where we have a real dwell time.
+  const realClicks = linkClicks.filter(c => dwellByClickId[c.id] !== undefined);
+
+  function dwellColor(seconds: number): string {
+    if (seconds >= 45) return "#4ade80";  // green — engaged, worth reaching out
+    if (seconds >= 8) return "#fbbf24";   // yellow — browsed briefly
+    return "#f87171";                     // red — quick bounce
+  }
+
   // ── Engagement: one row per lead that was emailed or clicked a link ──
   const engagement = (() => {
     const byContact = new Map<string, { emails: EmailLogRow[]; clicks: LinkClickRow[] }>();
@@ -914,7 +925,7 @@ export default function OutreachPage() {
       return byContact.get(id)!;
     };
     for (const l of emailLog) if (l.contact_id) bucket(l.contact_id).emails.push(l);
-    for (const c of linkClicks) if (c.contact_id) bucket(c.contact_id).clicks.push(c);
+    for (const c of realClicks) if (c.contact_id) bucket(c.contact_id).clicks.push(c);
 
     const rows = [];
     for (const [cid, { emails, clicks }] of byContact) {
@@ -1049,9 +1060,13 @@ export default function OutreachPage() {
   // "Registered" means they actually created a portal account — the stage
   // pill next to this (Client/Lead/etc) already covers being a client
   // however they were booked, so this badge shouldn't also imply that.
-  function reactionBadge(row: { contact: Contact; timeline: { clicks: LinkClickRow[] }[] }) {
+  function reactionBadge(row: { contact: Contact; timeline: { clicks: LinkClickRow[] }[]; orphanClicks?: LinkClickRow[] }) {
     if (row.contact.registered_at) return { label: "Registered", color: "#34d399" };
-    if (row.timeline.some(t => t.clicks.length > 0)) return { label: "Clicked", color: "#60a5fa" };
+    const allClicks = [...row.timeline.flatMap(t => t.clicks), ...(row.orphanClicks ?? [])];
+    if (allClicks.length > 0) {
+      const best = allClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
+      return { label: "Clicked", color: dwellColor(best) };
+    }
     return { label: "Sent", color: "#666" };
   }
 
@@ -1161,6 +1176,9 @@ export default function OutreachPage() {
                     const isOpen = expandedLead === row.contact.id;
                     const orphanClicks: LinkClickRow[] = "orphanClicks" in row ? row.orphanClicks : [];
                     const totalClicks = row.timeline.reduce((n, t) => n + t.clicks.length, 0) + orphanClicks.length;
+                    const allRowClicks = [...row.timeline.flatMap(t => t.clicks), ...orphanClicks];
+                    const bestDwell = allRowClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
+                    const clickSummaryColor = totalClicks > 0 ? dwellColor(bestDwell) : "#444";
                     return (
                       <div key={row.contact.id}>
                         {/* ── Contact bar (click to expand) ── */}
@@ -1180,7 +1198,7 @@ export default function OutreachPage() {
                             <p className="text-xs text-[#777] mt-1.5">
                               <span className="text-[#999]">{isAllView ? "📤" : isTextCampaign ? "💬" : "📨"} {row.timeline.length} {isAllView ? "send" : isTextCampaign ? "text" : "email"}{row.timeline.length > 1 ? "s" : ""}</span>
                               {totalClicks > 0
-                                ? <span className="text-[#60a5fa]"> · {totalClicks} link click{totalClicks > 1 ? "s" : ""}</span>
+                                ? <span style={{ color: clickSummaryColor }}> · {totalClicks} link click{totalClicks > 1 ? "s" : ""}</span>
                                 : <span className="text-[#444]"> · no clicks yet</span>}
                             </p>
                           </div>
@@ -1202,15 +1220,19 @@ export default function OutreachPage() {
                                 {email.subject && <p className="text-xs text-[#666] mt-0.5">&ldquo;{email.subject.replace(/^\[DRAFT\]\s*/, "")}&rdquo;</p>}
                                 {clicks.length > 0 ? (
                                   <div className="mt-2 space-y-1">
-                                    {clicks.map((c, j) => (
+                                    {clicks.map((c, j) => {
+                                      const dwell = dwellByClickId[c.id];
+                                      const color = dwell != null ? dwellColor(dwell) : "#60a5fa";
+                                      return (
                                       <div key={j} className="flex items-center gap-2 text-xs">
-                                        <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
+                                        <span style={{ color }}>🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
                                         <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                        {dwellByClickId[c.id] != null && (
-                                          <span className="text-[#444] tabular-nums">· viewed for {fmtDwell(dwellByClickId[c.id])}</span>
+                                        {dwell != null && (
+                                          <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
                                         )}
                                       </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 ) : (
                                   <p className="text-xs text-[#3a3a3a] italic mt-1.5">No clicks on this {isTextCampaign ? "text" : "email"} yet</p>
@@ -1222,15 +1244,19 @@ export default function OutreachPage() {
                                 <span className="text-sm font-semibold text-[#888]">Other clicks</span>
                                 <p className="text-[10px] text-[#444] mb-1">Not attributed to a specific send</p>
                                 <div className="space-y-1">
-                                  {orphanClicks.map((c, j) => (
+                                  {orphanClicks.map((c, j) => {
+                                    const dwell = dwellByClickId[c.id];
+                                    const color = dwell != null ? dwellColor(dwell) : "#60a5fa";
+                                    return (
                                     <div key={j} className="flex items-center gap-2 text-xs">
-                                      <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
+                                      <span style={{ color }}>🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
                                       <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                      {dwellByClickId[c.id] != null && (
-                                        <span className="text-[#444] tabular-nums">· viewed for {fmtDwell(dwellByClickId[c.id])}</span>
+                                      {dwell != null && (
+                                        <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
                                       )}
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
