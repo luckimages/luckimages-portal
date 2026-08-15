@@ -1046,8 +1046,11 @@ export default function OutreachPage() {
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
   };
 
+  // "Registered" means they actually created a portal account — the stage
+  // pill next to this (Client/Lead/etc) already covers being a client
+  // however they were booked, so this badge shouldn't also imply that.
   function reactionBadge(row: { contact: Contact; timeline: { clicks: LinkClickRow[] }[] }) {
-    if (row.contact.registered_at || ["client", "registered", "closed"].includes(row.contact.stage)) return { label: "Registered", color: "#34d399" };
+    if (row.contact.registered_at) return { label: "Registered", color: "#34d399" };
     if (row.timeline.some(t => t.clicks.length > 0)) return { label: "Clicked", color: "#60a5fa" };
     return { label: "Sent", color: "#666" };
   }
