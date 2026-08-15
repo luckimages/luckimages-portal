@@ -638,7 +638,7 @@ export default function ClientPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-2">
                       <label className={labelCls}>Preferred Date</label>
-                      <input type="date" required value={booking.date} onChange={e => setBooking(b => ({ ...b, date: e.target.value }))} className={inputCls} />
+                      <input type="date" required min={new Date().toISOString().slice(0, 10)} value={booking.date} onChange={e => setBooking(b => ({ ...b, date: e.target.value }))} className={inputCls} />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className={labelCls}>Preferred Time</label>
@@ -1122,7 +1122,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={rowLabelCls}>Date</label>
-                  <input type="date" value={eDate} onChange={e => setEDate(e.target.value)} className={rowInputCls} />
+                  <input type="date" min={new Date().toISOString().slice(0, 10)} value={eDate} onChange={e => setEDate(e.target.value)} className={rowInputCls} />
                 </div>
                 <div>
                   <label className={rowLabelCls}>Time</label>
