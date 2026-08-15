@@ -52,7 +52,7 @@ function confirmationEmailHtml(clientName: string, whenStr: string, address: str
         <tr><td style="border:1px solid rgba(255,255,255,0.1);padding:34px;text-align:center;">
           <h1 style="margin:0 0 16px;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;color:#fff;">You're all set, ${clientName}</h1>
           <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#888;">Your shoot is confirmed. A calendar invite is on its way — here are the details:</p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#ccc;border-top:1px solid #1a1a1a;text-align:left;">
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;font-size:14px;color:#ccc;border-top:1px solid #1a1a1a;text-align:left;">
             <tr><td style="padding:10px 0;color:#666;width:110px;border-bottom:1px solid #1a1a1a;">When</td><td style="padding:10px 0;border-bottom:1px solid #1a1a1a;color:#fff;font-weight:700;">${whenStr}</td></tr>
             <tr><td style="padding:10px 0;color:#666;border-bottom:1px solid #1a1a1a;">Address</td><td style="padding:10px 0;border-bottom:1px solid #1a1a1a;">${address}</td></tr>
             <tr><td style="padding:10px 0;color:#666;">Services</td><td style="padding:10px 0;">${svcStr}</td></tr>
