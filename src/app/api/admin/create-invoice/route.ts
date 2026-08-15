@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
-import { ADMIN_EMAILS } from "@/lib/constants";
+import { ADMIN_EMAILS, CLIENT_EMAILS_ENABLED } from "@/lib/constants";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   }
 
   const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey && clientEmail) {
+  if (CLIENT_EMAILS_ENABLED && resendKey && clientEmail) {
     const amountStr = `$${(Math.round(amountCents) / 100).toLocaleString()}`;
     const ctaLabel = isRegistered ? "View &amp; Pay in Portal →" : "Create Account &amp; Pay →";
     const ctaHref = isRegistered ? `${SITE_URL}/client?tab=invoices` : `${SITE_URL}/register`;

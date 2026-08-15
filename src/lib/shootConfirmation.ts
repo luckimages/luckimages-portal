@@ -1,5 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createShootEvent } from "@/lib/googleCalendar";
+import { CLIENT_EMAILS_ENABLED } from "@/lib/constants";
 
 function service() {
   return createServiceClient(
@@ -116,7 +117,7 @@ export async function notifyShootBooked({
 
   let emailed = false;
   const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey && clientEmail && scheduledAt) {
+  if (CLIENT_EMAILS_ENABLED && resendKey && clientEmail && scheduledAt) {
     const whenStr = new Date(scheduledAt).toLocaleString("en-US", {
       weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago",
     });

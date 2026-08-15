@@ -1,5 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { getTwilioClient, isTwilioConfigured, toE164 } from "./twilio";
+import { CLIENT_EMAILS_ENABLED } from "@/lib/constants";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
@@ -77,7 +78,7 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
   const amountStr = `$${(amountCents / 100).toLocaleString()}`;
 
   const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey && clientEmail) {
+  if (CLIENT_EMAILS_ENABLED && resendKey && clientEmail) {
     const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#fff;">
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;"><tr><td align="center" style="padding:44px 24px;">
         <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
@@ -114,7 +115,7 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
   }
 
   const toNumber = toE164(clientPhone);
-  if (isTwilioConfigured() && toNumber) {
+  if (CLIENT_EMAILS_ENABLED && isTwilioConfigured() && toNumber) {
     try {
       const client = getTwilioClient()!;
       const msg = await client.messages.create({
