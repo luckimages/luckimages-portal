@@ -36,6 +36,16 @@ export default function PageTracker() {
       current.current = null;
     }
 
+    // Tracked-link clicks land here with ?lc=<click id> so this visit's
+    // duration can be reported back against that specific click — captured
+    // once, then stripped from the visible URL immediately.
+    const url = new URL(window.location.href);
+    const linkClickId = url.searchParams.get("lc");
+    if (linkClickId) {
+      url.searchParams.delete("lc");
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    }
+
     createClient()
       .auth.getUser()
       .then(({ data }) => data.user ?? null)
@@ -54,6 +64,7 @@ export default function PageTracker() {
             sessionId: getSessionId(),
             userAgent: navigator.userAgent,
             userId: user?.id ?? null,
+            linkClickId,
           }),
         });
       })

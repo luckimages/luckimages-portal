@@ -44,8 +44,17 @@ export async function GET(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-  const { error } = await db.from("link_clicks").insert({ contact_id: contactId || null, service: service || "custom" });
+  const { data, error } = await db.from("link_clicks").insert({ contact_id: contactId || null, service: service || "custom" }).select("id").single();
   if (error) console.error("track-link: failed to record click", { service, contactId, error: error.message });
+
+  // Tag the redirect with this click's id so the landing page's own visit-
+  // duration tracking (PageTracker) can report back how long they stayed —
+  // stripped from the visible URL client-side, so visitors never see it.
+  if (data?.id) {
+    const dest = new URL(destination);
+    dest.searchParams.set("lc", data.id);
+    destination = dest.toString();
+  }
 
   return NextResponse.redirect(destination, { status: 302 });
 }
