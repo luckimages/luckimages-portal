@@ -52,19 +52,10 @@ function confirmationEmailHtml(clientName: string, whenStr: string, address: str
         <tr><td style="border:1px solid rgba(255,255,255,0.1);padding:34px;text-align:center;">
           <h1 style="margin:0 0 16px;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;color:#fff;">You're all set, ${clientName}</h1>
           <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#888;">Your shoot is confirmed. A calendar invite is on its way — here are the details:</p>
-          <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#ccc;border-top:1px solid #1a1a1a;text-align:center;">
-            <tr><td style="padding:14px 0;border-bottom:1px solid #1a1a1a;">
-              <p style="margin:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#666;">When</p>
-              <p style="margin:4px 0 0;font-size:15px;color:#fff;font-weight:700;">${whenStr}</p>
-            </td></tr>
-            <tr><td style="padding:14px 0;border-bottom:1px solid #1a1a1a;">
-              <p style="margin:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#666;">Address</p>
-              <p style="margin:4px 0 0;font-size:15px;color:#fff;">${address}</p>
-            </td></tr>
-            <tr><td style="padding:14px 0;">
-              <p style="margin:0;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#666;">Services</p>
-              <p style="margin:4px 0 0;font-size:15px;color:#fff;">${svcStr}</p>
-            </td></tr>
+          <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#ccc;border-top:1px solid #1a1a1a;text-align:left;">
+            <tr><td style="padding:10px 0;color:#666;width:110px;border-bottom:1px solid #1a1a1a;">When</td><td style="padding:10px 0;border-bottom:1px solid #1a1a1a;color:#fff;font-weight:700;">${whenStr}</td></tr>
+            <tr><td style="padding:10px 0;color:#666;border-bottom:1px solid #1a1a1a;">Address</td><td style="padding:10px 0;border-bottom:1px solid #1a1a1a;">${address}</td></tr>
+            <tr><td style="padding:10px 0;color:#666;">Services</td><td style="padding:10px 0;">${svcStr}</td></tr>
           </table>
           <a href="https://www.luckimages.com/client" style="display:inline-block;margin-top:26px;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 26px;text-decoration:none;">View in Your Portal →</a>
           <p style="margin:24px 0 0;font-size:12px;color:#555;line-height:1.6;">Need to change anything? Just reply to this email.</p>
