@@ -66,46 +66,20 @@ export default function InviteAllPage() {
     for (const contact of toInvite) {
       setStatuses(s => ({ ...s, [contact.id]: "pending" }));
       try {
-        // Generate magic link
-        const linkRes = await fetch("/api/admin/invite-client", {
+        const res = await fetch("/api/admin/invite-contact", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: contact.email, name: contact.name }),
+          body: JSON.stringify({ contactId: contact.id }),
         });
-        const { link } = await linkRes.json();
-
-        if (!link) throw new Error("No link returned");
-
-        // Send the email via Resend
-        const firstName = contact.name.split(" ")[0];
-        const html = `<!DOCTYPE html><html><body style="background:#0c0c0c;color:#fff;font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:0 auto">
-<p style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#555;margin:0 0 32px">Luck Images — Client Portal</p>
-<h1 style="font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;margin:0 0 16px">Your Portal is Ready, ${firstName}</h1>
-<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 32px">We built a private portal where you can view your past shoot photos, track upcoming sessions, download files, and manage your account — all in one place.</p>
-<a href="${link}" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">Access Your Portal →</a>
-<p style="color:#444;font-size:11px;line-height:1.6;margin:0">This link is personal to you and expires in 24 hours. If you need a new one, just reply to this email.</p>
-<p style="color:#333;font-size:11px;margin:24px 0 0">— Ryan Luck, Luck Images</p>
-</body></html>`;
-
-        await fetch("/api/admin/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contactId: contact.id,
-            to: contact.email,
-            subject: `Your Luck Images client portal is ready, ${firstName}`,
-            html,
-          }),
-        });
-
+        if (!res.ok) throw new Error("Invite failed");
         setStatuses(s => ({ ...s, [contact.id]: "done" }));
         setSent(n => n + 1);
       } catch {
         setStatuses(s => ({ ...s, [contact.id]: "error" }));
       }
 
-      // Small delay to avoid rate limits
-      await new Promise(r => setTimeout(r, 300));
+      // Small delay to avoid Resend rate limits
+      await new Promise(r => setTimeout(r, 400));
     }
 
     setSending(false);
