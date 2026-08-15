@@ -142,6 +142,14 @@ function DashboardV2Page() {
   const [selectedAppLabel, setSelectedAppLabel] = useState<string | null>(() => searchParams.get("app"));
   const [deepLinkShootId] = useState<string | null>(() => searchParams.get("shoot"));
 
+  // If the v2 dashboard ever ends up inside an iframe, bust out immediately.
+  // This prevents the nested-window problem when an app navigates to /dashboard.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.self !== window.top) {
+      window.top!.location.href = window.location.href;
+    }
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {

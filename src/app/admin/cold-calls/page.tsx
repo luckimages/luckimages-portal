@@ -747,7 +747,11 @@ function ColdCallsPage() {
       {/* Header */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push("/dashboard")} className="text-[#555] text-sm hover:text-white transition-colors">
+          <button onClick={() => {
+            const target = "/dashboard/v2?page=apps";
+            if (window.self !== window.top) window.top!.location.href = target;
+            else router.push(target);
+          }} className="text-[#555] text-sm hover:text-white transition-colors">
             ← Back
           </button>
           <h1 className="text-sm font-bold tracking-[3px] uppercase">Cold Calls</h1>

@@ -75,6 +75,7 @@ function ContactsPageInner() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "new", notes: "" });
   const [showDeleted, setShowDeleted] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "brokerages">("list");
   const [dupePairs, setDupePairs] = useState<{ a: Contact; b: Contact; reason: string }[]>([]);
   const [dismissedDupes, setDismissedDupes] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem("dismissed_dupes") || "[]")); }
@@ -258,10 +259,10 @@ function ContactsPageInner() {
           <h1 className="text-4xl font-black tracking-tight leading-none uppercase">Contacts</h1>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/admin/cold-calls")}
-              className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
+              onClick={() => setViewMode(v => v === "brokerages" ? "list" : "brokerages")}
+              className={`text-xs tracking-[1px] uppercase border px-4 py-2 transition-all ${viewMode === "brokerages" ? "border-white/40 text-white" : "border-white/10 text-[#888] hover:text-white hover:border-white/30"}`}
             >
-              Cold Calls
+              Brokerages
             </button>
             <button
               onClick={() => router.push("/admin/invite-all")}
@@ -387,10 +388,58 @@ function ContactsPageInner() {
           <span className="text-xs text-[#444]">{filtered.length} contacts</span>
         </div>
 
-        {/* Table */}
+        {/* Table / Brokerage view */}
         {loading ? (
           <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
-        ) : (
+        ) : viewMode === "brokerages" ? (() => {
+          // Group all active contacts by brokerage
+          const grouped = new Map<string, Contact[]>();
+          for (const c of active) {
+            const key = c.brokerage?.trim() || "— No Brokerage";
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(c);
+          }
+          const sorted = [...grouped.entries()].sort(([a], [b]) => {
+            if (a === "— No Brokerage") return 1;
+            if (b === "— No Brokerage") return -1;
+            return a.localeCompare(b);
+          });
+          return (
+            <div className="space-y-1">
+              {sorted.map(([brokerage, members]) => (
+                <div key={brokerage} className="border border-white/10">
+                  <div className="px-4 py-2.5 bg-white/[0.03] flex items-center justify-between">
+                    <span className="text-xs tracking-[2px] uppercase font-semibold text-[#888]">{brokerage}</span>
+                    <span className="text-[10px] text-[#444]">{members.length} contact{members.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  {members.sort((a, b) => a.name.localeCompare(b.name)).map(contact => {
+                    const tc = TYPE_COLORS[contact.type] || TYPE_COLORS.lead;
+                    return (
+                      <div
+                        key={contact.id}
+                        onClick={() => router.push(`/admin/contacts/${contact.id}`)}
+                        className="flex items-center gap-3 px-4 py-2.5 border-t border-white/5 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                      >
+                        <div className="w-5 shrink-0" />
+                        <ContactAvatar contactId={contact.id} name={contact.name} size={24} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tc.color }} />
+                            <span className="text-xs font-medium text-white">{contact.name}</span>
+                            {contact.is_hot && <span className="text-[#fbbf24] text-[10px]">●</span>}
+                          </div>
+                          {contact.email && <p className="text-[11px] text-[#444] mt-0.5 truncate">{contact.email}</p>}
+                        </div>
+                        <span className="text-[11px] text-[#555] whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : ""}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${tc.badge}`}>{tc.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          );
+        })() : (
           <div className="border border-white/10 overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
