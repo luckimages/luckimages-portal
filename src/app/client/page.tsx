@@ -746,16 +746,15 @@ export default function ClientPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[480px]">
-                  <thead><tr className="border-b border-white/10">{["Date", "Amount", "Due", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
+                <table className="w-full text-sm min-w-[400px]">
+                  <thead><tr className="border-b border-white/10">{["Date", "Amount", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
                   <tbody>
                     {invoices.map(inv => (
                       <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                         <td className="px-5 py-3 text-[#888]">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</td>
                         <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
-                        <td className="px-5 py-3 text-[#888]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
                         <td className="px-5 py-3">
-                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Due"}</span>
+                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Unpaid"}</span>
                         </td>
                         <td className="px-5 py-3">
                           {!inv.paid && (

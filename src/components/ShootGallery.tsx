@@ -30,6 +30,7 @@ type Props = {
   shootId: string;
   services?: string[];
   onMediaChange?: (count: number) => void;
+  canDownload?: boolean;
 };
 
 // Convert "HDR Photography" → "hdr-photography" (matches upload slug)
@@ -58,7 +59,7 @@ function isMediaFile(f: File): boolean {
   return MEDIA_EXTENSIONS.includes(ext);
 }
 
-export default function ShootGallery({ shootId, services = [], onMediaChange }: Props) {
+export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -308,7 +309,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <p className="text-xs text-[#555]">{section.items.length} file{section.items.length !== 1 ? "s" : ""}</p>
           <div className="flex gap-2">
-            {section.items.length > 0 && (
+            {section.items.length > 0 && canDownload && (
               <button onClick={() => downloadAll(section.items)}
                 className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
                 ↓ Download All
@@ -391,14 +392,24 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
                       </div>
                     )}
                   </button>
-                  {/* Hover: download + delete — pointer-events-none on the whole
-                      overlay so it doesn't swallow clicks meant for the lightbox
-                      button underneath; only the buttons themselves are clickable. */}
+                  {/* Watermark overlay when downloads are locked */}
+                  {!canDownload && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+                      <span className="text-white/20 text-[9px] tracking-[3px] uppercase font-bold -rotate-[30deg] whitespace-nowrap">Luck Images</span>
+                    </div>
+                  )}
+                  {/* Hover: download (if unlocked) or lock icon */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
-                    <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
-                      ↓
-                    </a>
+                    {canDownload ? (
+                      <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
+                        ↓
+                      </a>
+                    ) : (
+                      <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
+                        🔒
+                      </span>
+                    )}
                   </div>
                   {canEdit && (
                     <button onClick={() => setConfirmDelete(m.id)}
@@ -484,10 +495,16 @@ export default function ShootGallery({ shootId, services = [], onMediaChange }: 
                   )}
                   <div className="flex items-center gap-4">
                     <p className="text-xs text-[#555]">{m.file_name} · {lightboxIdx + 1} of {lightboxItems.length}</p>
-                    <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                      className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
-                      ↓ Download
-                    </a>
+                    {canDownload ? (
+                      <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                        className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
+                        ↓ Download
+                      </a>
+                    ) : (
+                      <span className="text-xs tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-4 py-2">
+                        🔒 Pay to Download
+                      </span>
+                    )}
                     {canEdit && (
                       <button onClick={() => setConfirmDelete(m.id)}
                         className="text-xs tracking-[2px] uppercase text-[#ef4444] border border-[#ef4444]/30 px-4 py-2 hover:bg-[#ef4444]/10 transition-colors">
