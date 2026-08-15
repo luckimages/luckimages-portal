@@ -30,40 +30,64 @@ export async function POST(req: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const [{ data: keep }, { data: drop }] = await Promise.all([
+  // Pick the "base" contact: registered > has email > older
+  const [{ data: rawA }, { data: rawB }] = await Promise.all([
     db.from("contacts").select("*").eq("id", keepId).single(),
     db.from("contacts").select("*").eq("id", dropId).single(),
   ]);
+  if (!rawA || !rawB) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
 
-  if (!keep || !drop) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+  // Always base on the better record, regardless of which ID was passed as keepId
+  function pickBase(a: Record<string,unknown>, b: Record<string,unknown>): [Record<string,unknown>, Record<string,unknown>] {
+    if (a.user_id && !b.user_id) return [a, b];
+    if (b.user_id && !a.user_id) return [b, a];
+    if (a.email   && !b.email)   return [a, b];
+    if (b.email   && !a.email)   return [b, a];
+    return new Date(a.created_at as string) <= new Date(b.created_at as string) ? [a, b] : [b, a];
+  }
+  const [keep, drop] = pickBase(rawA, rawB);
 
-  // Patch keeper with any data the duplicate has that the keeper is missing
+  // Combine all data — never discard anything from either contact
   const patch: Record<string, unknown> = {};
-  if (!keep.email      && drop.email)      patch.email      = drop.email;
-  if (!keep.phone      && drop.phone)      patch.phone      = drop.phone;
-  if (!keep.brokerage  && drop.brokerage)  patch.brokerage  = drop.brokerage;
-  if (!keep.notes      && drop.notes)      patch.notes      = drop.notes;
-  if (!keep.user_id    && drop.user_id)    patch.user_id    = drop.user_id;
+
+  // Email: keep both if different
+  const emails = [keep.email, drop.email].filter(Boolean).map((e) => (e as string).toLowerCase().trim());
+  const uniqueEmails = [...new Set(emails)];
+  if (uniqueEmails.length > 0) patch.email = uniqueEmails.join(", ");
+
+  // Phone: keep both if different
+  const phones = [keep.phone, drop.phone].filter(Boolean).map((p) => (p as string).trim());
+  const uniquePhones = [...new Set(phones)];
+  if (uniquePhones.length > 0) patch.phone = uniquePhones.join(", ");
+
+  // Notes: concatenate both
+  const notesParts = [keep.notes, drop.notes].filter(Boolean);
+  if (notesParts.length > 0) patch.notes = notesParts.join("\n---\n");
+
+  // Scalar fields: prefer non-null value, fall back to the other
+  if (!keep.brokerage   && drop.brokerage)   patch.brokerage   = drop.brokerage;
+  if (!keep.user_id     && drop.user_id)     patch.user_id     = drop.user_id;
   if (!keep.lead_source && drop.lead_source) patch.lead_source = drop.lead_source;
+
   if (Object.keys(patch).length > 0) {
-    await db.from("contacts").update(patch).eq("id", keepId);
+    await db.from("contacts").update(patch).eq("id", keep.id);
   }
 
   // Re-point all child records from drop → keep
   for (const { table, col } of CONTACT_REF_TABLES) {
-    await db.from(table).update({ [col]: keepId }).eq(col, dropId);
+    await db.from(table).update({ [col]: keep.id }).eq(col, drop.id);
   }
 
   // Delete the duplicate
-  const { error } = await db.from("contacts").delete().eq("id", dropId);
+  const { error } = await db.from("contacts").delete().eq("id", drop.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await db.from("company_updates").insert({
     message: `🔀 Contacts merged — "${drop.name}" folded into "${keep.name}" by ${user.email?.split("@")[0] || "admin"}`,
     created_by: user.email?.split("@")[0] || "system",
     category: "admin",
-    link: `/admin/contacts/${keepId}`,
+    link: `/admin/contacts/${keep.id}`,
   });
 
-  return NextResponse.json({ ok: true, keepId, droppedId: dropId });
+  return NextResponse.json({ ok: true, keepId: keep.id, droppedId: drop.id });
 }

@@ -280,42 +280,26 @@ function ContactsPageInner() {
         {/* Duplicate contacts banner */}
         {dupePairs.filter(p => !dismissedDupes.has([p.a.id, p.b.id].sort().join(":"))).length > 0 && (() => {
           const visible = dupePairs.filter(p => !dismissedDupes.has([p.a.id, p.b.id].sort().join(":")));
-          // Auto-pick keeper: prefer registered > has email > older
-          function autoKeeper(a: Contact, b: Contact): [Contact, Contact] {
-            if (a.user_id && !b.user_id) return [a, b];
-            if (b.user_id && !a.user_id) return [b, a];
-            if (a.email && !b.email) return [a, b];
-            if (b.email && !a.email) return [b, a];
-            return new Date(a.created_at) <= new Date(b.created_at) ? [a, b] : [b, a];
-          }
           return (
             <div className="mb-6 border border-[#fbbf24]/30 bg-[#fbbf24]/5 px-5 py-4 space-y-3">
               <p className="text-xs tracking-[2px] uppercase text-[#fbbf24] font-semibold">
                 ⚠ {visible.length} Potential Duplicate{visible.length > 1 ? "s" : ""} Found
               </p>
-              {visible.map(({ a, b, reason }) => {
+              {visible.map(({ a, b }) => {
                 const pairKey = [a.id, b.id].sort().join(":");
                 const merging = mergingPair === pairKey;
-                const [keep, drop] = autoKeeper(a, b);
-                const detail = (c: Contact) => [c.email, c.phone].filter(Boolean).join(" · ") || "no contact info";
+                const info = (c: Contact) => [c.email, c.phone].filter(Boolean).join(" · ") || "no contact info";
                 return (
-                  <div key={pairKey} className="flex items-start justify-between gap-4 flex-wrap border-t border-white/5 pt-3">
-                    <div className="text-sm space-y-1">
-                      <div>
-                        <span className="text-white font-semibold">{a.name}</span>
-                        <span className="text-[10px] text-[#555] ml-2 tracking-wide">— {reason}</span>
-                      </div>
-                      <div className="text-[11px] text-[#555] space-y-0.5">
-                        <div><span className="text-[#777]">Contact A:</span> {detail(a)}{a.user_id ? " · registered" : ""}</div>
-                        <div><span className="text-[#777]">Contact B:</span> {detail(b)}{b.user_id ? " · registered" : ""}</div>
-                        {a.email !== b.email && (a.email || b.email) &&
-                          <div className="text-[10px] text-[#444] italic">Will keep the record with more info and merge the other into it.</div>
-                        }
-                      </div>
+                  <div key={pairKey} className="flex items-center justify-between gap-4 flex-wrap border-t border-white/5 pt-3">
+                    <div className="text-sm">
+                      <span className="text-white font-semibold">{a.name}</span>
+                      <span className="text-[11px] text-[#555] ml-2">{info(a)}</span>
+                      <span className="text-[#444] mx-2">+</span>
+                      <span className="text-[11px] text-[#555]">{info(b)}</span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-3 shrink-0">
                       <button
-                        onClick={() => mergeDupe(keep.id, drop.id, pairKey)}
+                        onClick={() => mergeDupe(a.id, b.id, pairKey)}
                         disabled={merging}
                         className="text-[10px] tracking-[1px] uppercase px-3 py-1.5 bg-white text-black font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
                       >
@@ -323,7 +307,7 @@ function ContactsPageInner() {
                       </button>
                       <button
                         onClick={() => dismissDupe(a, b)}
-                        className="text-[10px] text-[#444] hover:text-[#888] transition-colors px-2 py-1.5"
+                        className="text-[10px] text-[#444] hover:text-[#888] transition-colors"
                       >
                         Not a duplicate
                       </button>
