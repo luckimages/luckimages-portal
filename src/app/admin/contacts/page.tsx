@@ -190,6 +190,12 @@ function ContactsPageInner() {
               Cold Calls
             </button>
             <button
+              onClick={() => router.push("/admin/invite-all")}
+              className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
+            >
+              Mass Invite
+            </button>
+            <button
               onClick={() => setShowAdd(true)}
               className="text-xs tracking-[1px] uppercase bg-white text-black px-4 py-2 font-bold hover:bg-[#ddd] transition-colors"
             >
