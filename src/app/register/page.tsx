@@ -37,15 +37,30 @@ export default function RegisterPage() {
   // some bots specifically skip that), but form-filling bots grab every
   // input they find. Any value here means it wasn't a human.
   const [honey, setHoney] = useState("");
+  const [isInvited, setIsInvited] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get("ref");   // contact ID of the referrer
-    const src = params.get("src");   // lead source string (channel name)
-    const by = params.get("by");     // legacy alias for ref
+    const ref = params.get("ref");
+    const src = params.get("src");
+    const by = params.get("by");
     if (ref || by) setReferredBy(ref || by);
     if (ref || by) setForm(f => ({ ...f, referralSource: "referral" }));
     if (src) setForm(f => ({ ...f, referralSource: src }));
+
+    // Pre-fill from portal invite link — name/email/phone passed as params
+    const prefillName  = params.get("name");
+    const prefillEmail = params.get("email");
+    const prefillPhone = params.get("phone");
+    if (prefillName || prefillEmail || prefillPhone) {
+      setIsInvited(true);
+      setForm(f => ({
+        ...f,
+        ...(prefillName  ? { fullName: prefillName }  : {}),
+        ...(prefillEmail ? { email: prefillEmail }     : {}),
+        ...(prefillPhone ? { phone: prefillPhone }     : {}),
+      }));
+    }
   }, []);
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
@@ -111,9 +126,11 @@ export default function RegisterPage() {
         <div className="w-full max-w-lg">
 
           <div className="mb-10 text-center">
-            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-3">Client Portal</p>
-            <h1 className="text-3xl font-black tracking-tight uppercase">Create Account</h1>
-            <p className="text-xs text-[#444] mt-3 tracking-wide">For realtors, property managers & interior designers</p>
+            <p className="text-xs tracking-[4px] uppercase text-[#666] mb-3">Luck Images — Client Portal</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">{isInvited ? "Set Up Your Account" : "Create Account"}</h1>
+            <p className="text-xs text-[#444] mt-3 tracking-wide">
+              {isInvited ? "Your info is pre-filled — just choose a password to finish." : "For realtors, property managers & interior designers"}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -138,7 +155,11 @@ export default function RegisterPage() {
 
             <div className="flex flex-col gap-2">
               <label className={labelCls}>Email</label>
-              <input type="email" required placeholder="you@brokerage.com" value={form.email} onChange={e => set("email", e.target.value)} className={inputCls} />
+              <input type="email" required placeholder="you@brokerage.com" value={form.email}
+                onChange={e => set("email", e.target.value)}
+                readOnly={isInvited}
+                className={inputCls + (isInvited ? " opacity-60 cursor-default" : "")} />
+              {isInvited && <p className="text-[10px] text-[#444]">This is the email your invite was sent to.</p>}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -162,13 +183,15 @@ export default function RegisterPage() {
               <input type="text" placeholder="78701, 78704, South Austin..." value={form.areas} onChange={e => set("areas", e.target.value)} className={inputCls} />
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className={labelCls}>How did you hear about us?</label>
-              <select value={form.referralSource} onChange={e => set("referralSource", e.target.value)} className={inputCls + " cursor-pointer"}>
-                <option value="">Select one...</option>
-                {CHANNELS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-              </select>
-            </div>
+            {!isInvited && (
+              <div className="flex flex-col gap-2">
+                <label className={labelCls}>How did you hear about us?</label>
+                <select value={form.referralSource} onChange={e => set("referralSource", e.target.value)} className={inputCls + " cursor-pointer"}>
+                  <option value="">Select one...</option>
+                  {CHANNELS.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                </select>
+              </div>
+            )}
 
             <label className="flex items-center gap-3 cursor-pointer mt-1">
               <input type="checkbox" checked={form.mailingList} onChange={e => set("mailingList", e.target.checked)} className="accent-white w-4 h-4" />

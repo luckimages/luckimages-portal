@@ -9,6 +9,7 @@ type Contact = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   stage: string;
   total_revenue: number | null;
   user_id: string | null;
@@ -28,7 +29,7 @@ export default function InviteAllPage() {
     async function load() {
       const { data } = await supabase
         .from("contacts")
-        .select("id, name, email, stage, total_revenue, user_id")
+        .select("id, name, email, phone, stage, total_revenue, user_id")
         .not("email", "is", null)
         .is("user_id", null)
         .neq("stage", "deleted")
@@ -63,15 +64,69 @@ export default function InviteAllPage() {
 
     const toInvite = contacts.filter(c => selected.has(c.id));
 
+    const SITE_URL = "https://www.luckimages.com";
+
     for (const contact of toInvite) {
       setStatuses(s => ({ ...s, [contact.id]: "pending" }));
       try {
-        const res = await fetch("/api/admin/invite-contact", {
+        const firstName = contact.name.split(" ")[0];
+
+        // Build pre-filled register URL — contact_id ensures linking even if
+        // they tweak their email; name/email/phone pre-fill the form fields.
+        const params = new URLSearchParams({ contact_id: contact.id, name: contact.name, email: contact.email });
+        if (contact.phone) params.set("phone", contact.phone);
+        const registerUrl = `${SITE_URL}/register?${params.toString()}`;
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;">
+    <tr><td align="center" style="padding:48px 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+        <tr><td style="padding-bottom:28px;">
+          <p style="margin:0;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#444;">Luck Images — Client Portal</p>
+        </td></tr>
+        <tr><td style="border:1px solid rgba(255,255,255,0.1);padding:40px;">
+          <h1 style="margin:0 0 20px;font-size:22px;font-weight:900;letter-spacing:-0.5px;text-transform:uppercase;color:#fff;">
+            You're Invited, ${firstName}
+          </h1>
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#888;">
+            I've built a private client portal for Luck Images — a hub where you can view all your past shoots, download delivered photos, and track invoices in one place.
+          </p>
+          <p style="margin:0 0 32px;font-size:14px;line-height:1.6;color:#888;">
+            Your info is already on file — just click below to set a password and you're in. Takes about 30 seconds.
+          </p>
+          <table cellpadding="0" cellspacing="0"><tr><td>
+            <a href="${registerUrl}" style="display:inline-block;background:#fff;color:#000;text-decoration:none;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:14px 32px;">
+              Create Your Account →
+            </a>
+          </td></tr></table>
+          <p style="margin:28px 0 0;font-size:11px;color:#555;line-height:1.6;">
+            Questions? Just reply to this email — I'm happy to help.
+          </p>
+        </td></tr>
+        <tr><td style="padding-top:24px;">
+          <p style="margin:0;font-size:11px;color:#333;letter-spacing:1px;">Ryan Luck — Luck Images · Austin, TX · ryan@luckimages.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+        const res = await fetch("/api/admin/send-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contactId: contact.id }),
+          body: JSON.stringify({
+            contactId: contact.id,
+            to: contact.email,
+            subject: `${firstName}, your Luck Images client portal is ready`,
+            html,
+            category: "Portal Invite",
+          }),
         });
-        if (!res.ok) throw new Error("Invite failed");
+        if (!res.ok) throw new Error("Send failed");
         setStatuses(s => ({ ...s, [contact.id]: "done" }));
         setSent(n => n + 1);
       } catch {
