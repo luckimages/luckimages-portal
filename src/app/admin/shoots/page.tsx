@@ -227,12 +227,13 @@ function BoardCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 
-function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
+function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliver }: {
   shoot: Shoot;
   photographers: Photographer[];
   onClose: () => void;
   onMarkPaid: (id: string) => void;
   onSave: (id: string, patch: Partial<Shoot>) => void;
+  onDeliver: () => Promise<void>;
 }) {
   const alert = getAlertStatus(shoot);
   const style = alert ? ALERT_STYLES[alert] : null;
@@ -500,7 +501,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
 
         {tab === "media" && (
           <div className="p-6">
-            <ShootGallery shootId={shoot.id} services={shoot.services || []} />
+            <ShootGallery shootId={shoot.id} services={shoot.services || []} onDeliver={onDeliver} />
           </div>
         )}
       </div>
@@ -817,6 +818,24 @@ function ShootsPage() {
     } : s));
   }
 
+  const [delivering, setDeliveringId] = useState<string | null>(null);
+  async function deliverShoot(id: string) {
+    setStatusError(e => ({ ...e, [id]: "" }));
+    setDeliveringId(id);
+    const res = await fetch("/api/admin/deliver-shoot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shootId: id }),
+    });
+    setDeliveringId(null);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setStatusError(e => ({ ...e, [id]: d.error || "Delivery failed" }));
+      return;
+    }
+    setShoots(prev => prev.map(s => s.id === id ? { ...s, status: "delivered" } : s));
+  }
+
   async function syncSheet() {
     setSyncing(true); setSyncMsg("");
     const res = await fetch("/api/admin/sync-shoots-sheet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trigger: "manual" }) });
@@ -946,7 +965,7 @@ function ShootsPage() {
             </div>
             <div className="px-4 pb-4 border-t border-white/5 pt-4">
               <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">Media</p>
-              <ShootGallery shootId={shoot.id} services={shoot.services || []} />
+              <ShootGallery shootId={shoot.id} services={shoot.services || []} onDeliver={() => deliverShoot(shoot.id)} />
             </div>
             <div className="px-4 pb-4 flex gap-2 flex-wrap border-t border-white/5 pt-3">
               {shoot.status === "pending" && (
@@ -1592,6 +1611,7 @@ function ShootsPage() {
             setShoots(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
             setSelectedShoot(prev => prev?.id === id ? { ...prev, ...patch } : prev);
           }}
+          onDeliver={() => deliverShoot(selectedShoot.id)}
         />
       )}
     </div>

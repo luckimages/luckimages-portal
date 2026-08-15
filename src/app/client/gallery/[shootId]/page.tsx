@@ -21,7 +21,7 @@ export default function GalleryPage() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.replace("/login"); return; }
+      if (!data.user) { router.replace(`/login?redirect=/client/gallery/${shootId}`); return; }
     });
     supabase.from("shoots").select("address,scheduled_at,services").eq("id", shootId).single()
       .then(({ data }) => setShoot(data));

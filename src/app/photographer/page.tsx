@@ -316,16 +316,9 @@ export default function PhotographerPage() {
                                 shootId={s.id}
                                 services={s.services || []}
                                 onMediaChange={count => setCardUploadCount(prev => ({ ...prev, [s.id]: count }))}
+                                onDeliver={() => confirmDelivery(s.id)}
                               />
                             </div>
-                            {(cardUploadCount[s.id] || 0) > 0 && (
-                              <button
-                                onClick={() => confirmDelivery(s.id)}
-                                disabled={advancingId === s.id}
-                                className="w-full text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
-                                {advancingId === s.id ? "Confirming..." : "Confirm Delivery ✓"}
-                              </button>
-                            )}
                           </div>
                         ) : nextStage ? (
                           <button
@@ -392,15 +385,8 @@ export default function PhotographerPage() {
                     shootId={selectedShoot}
                     services={shoot?.services || []}
                     onMediaChange={count => setCardUploadCount(prev => ({ ...prev, [selectedShoot]: count }))}
+                    onDeliver={canConfirm ? () => confirmDelivery(selectedShoot) : undefined}
                   />
-                  {canConfirm && (cardUploadCount[selectedShoot] || 0) > 0 && (
-                    <button
-                      onClick={() => confirmDelivery(selectedShoot)}
-                      disabled={advancingId === selectedShoot}
-                      className="w-full text-xs tracking-[2px] uppercase bg-[#4ade80] text-black font-semibold py-2.5 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-40">
-                      {advancingId === selectedShoot ? "Confirming..." : "Confirm Delivery ✓"}
-                    </button>
-                  )}
                   {shoot?.status === "delivered" && (
                     <div className="text-center py-2">
                       <span className="text-xs tracking-[2px] uppercase text-[#4ade80]">✓ Delivered</span>

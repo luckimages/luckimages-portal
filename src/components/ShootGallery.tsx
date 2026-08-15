@@ -31,6 +31,7 @@ type Props = {
   services?: string[];
   onMediaChange?: (count: number) => void;
   canDownload?: boolean;
+  onDeliver?: () => Promise<void>;
 };
 
 // Convert "HDR Photography" → "hdr-photography" (matches upload slug)
@@ -59,7 +60,7 @@ function isMediaFile(f: File): boolean {
   return MEDIA_EXTENSIONS.includes(ext);
 }
 
-export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true }: Props) {
+export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true, onDeliver }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -75,6 +76,8 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   const [stagedFiles, setStagedFiles] = useState<Record<string, StagedFile[]>>({});
   const [uploadError, setUploadError] = useState("");
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
+  const [confirmedSections, setConfirmedSections] = useState<Set<string>>(new Set());
+  const [delivering, setDelivering] = useState(false);
   const dragCounters = useRef<Record<string, number>>({});
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const filmstripActiveRef = useRef<HTMLButtonElement | null>(null);
@@ -260,6 +263,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     const isDragging = draggingSection === slug;
     const staged = stagedFiles[slug] || [];
     const readyToConfirm = staged.filter(p => p.status === "staged").length;
+    const isConfirmed = confirmedSections.has(slug);
 
     function onDragEnter(e: React.DragEvent) {
       if (!canEdit) return;
@@ -313,6 +317,22 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
               <button onClick={() => downloadAll(section.items)}
                 className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
                 ↓ Download All
+              </button>
+            )}
+            {canEdit && onDeliver && section.items.length > 0 && readyToConfirm === 0 && uploading !== slug && (
+              <button
+                onClick={() => setConfirmedSections(prev => {
+                  const next = new Set(prev);
+                  if (next.has(slug)) next.delete(slug); else next.add(slug);
+                  return next;
+                })}
+                className={`text-xs tracking-[2px] uppercase px-3 py-1.5 transition-colors border font-semibold ${
+                  isConfirmed
+                    ? "border-[#4ade80]/40 text-[#4ade80] bg-[#4ade80]/10 hover:bg-[#4ade80]/5"
+                    : "border-white/20 text-[#888] hover:text-white hover:border-white/40"
+                }`}
+              >
+                {isConfirmed ? "✓ Ready" : "Mark Ready"}
               </button>
             )}
             {canEdit && (
@@ -463,6 +483,30 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
           <SectionGrid section={section} />
         </div>
       ))}
+
+      {/* Deliver to Client banner — shows when all non-empty sections are marked ready */}
+      {(() => {
+        if (!onDeliver || !canEdit) return null;
+        const nonEmpty = serviceSections.filter(s => s.items.length > 0);
+        if (nonEmpty.length === 0) return null;
+        const allReady = nonEmpty.every(s => confirmedSections.has(s.slug));
+        if (!allReady) return null;
+        return (
+          <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#4ade80]/5 border border-[#4ade80]/30 px-6 py-5">
+            <div>
+              <p className="text-sm font-semibold text-[#4ade80]">All media is marked ready</p>
+              <p className="text-xs text-[#555] mt-1">Click to deliver — the client will receive an email with a direct link to their gallery.</p>
+            </div>
+            <button
+              onClick={async () => { setDelivering(true); await onDeliver(); setDelivering(false); }}
+              disabled={delivering}
+              className="shrink-0 text-xs tracking-[3px] uppercase font-semibold bg-[#4ade80] text-black px-6 py-3 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-50"
+            >
+              {delivering ? "Delivering…" : "Deliver to Client →"}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Lightbox */}
       {lightboxIdx !== null && (

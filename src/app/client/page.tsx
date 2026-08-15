@@ -442,8 +442,6 @@ export default function ClientPage() {
                 .filter(sh => !["delivered", "completed"].includes(sh.status))
                 .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0];
               if (!s) return null;
-              return [s];
-            })().map(s => {
               const STAGES = [
                 { key: "pending",   label: "Confirmed" },
                 { key: "en_route",  label: "En Route" },
@@ -486,7 +484,7 @@ export default function ClientPage() {
                   </div>
                 </div>
               );
-            })}
+            })()}
 
             {/* Action blocks grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
