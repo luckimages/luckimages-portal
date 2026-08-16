@@ -36,20 +36,26 @@ export async function POST(req: Request) {
   }
   if (!owns) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  type InvoiceLineItem = { label: string; amount_cents: number };
+  const stripeLineItems = invoice.line_items && invoice.line_items.length > 0
+    ? invoice.line_items.map((li: InvoiceLineItem) => ({
+        quantity: 1,
+        price_data: { currency: "usd", unit_amount: li.amount_cents, product_data: { name: li.label } },
+      }))
+    : [{
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: invoice.amount_cents,
+          product_data: { name: invoice.description || "Luck Images — Real Estate Media" },
+        },
+      }];
+
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: user.email || undefined,
-    line_items: [{
-      quantity: 1,
-      price_data: {
-        currency: "usd",
-        unit_amount: invoice.amount_cents,
-        product_data: {
-          name: invoice.description || "Luck Images — Real Estate Media",
-        },
-      },
-    }],
+    line_items: stripeLineItems,
     success_url: `${SITE_URL}/client?paid=1`,
     cancel_url: `${SITE_URL}/client?tab=invoices`,
     metadata: { invoice_id: invoice.id },

@@ -11,6 +11,8 @@ import { ADMIN_EMAILS } from "@/lib/constants";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
+type LineItem = { label: string; amount_cents: number };
+
 type Shoot = {
   id: string;
   address: string;
@@ -32,6 +34,7 @@ type Shoot = {
   status: string;
   photographer_ids: string[];
   price: number | null;
+  line_items: LineItem[] | null;
   package_name: string | null;
   drive_minutes: number | null;
 };
@@ -551,6 +554,7 @@ function ShootsPage() {
   // Edit modal (log/schedule)
   const [editShoot, setEditShoot] = useState<Shoot | null>(null);
   const [editForm, setEditForm] = useState({ price: "", package_name: "", notes: "", status: "", address: "", square_footage: "" });
+  const [editLineItems, setEditLineItems] = useState<{ label: string; amount: string }[]>([]);
   const [editLat, setEditLat] = useState<number | null>(null);
   const [editLng, setEditLng] = useState<number | null>(null);
   const [editDatetime, setEditDatetime] = useState("");
@@ -573,7 +577,7 @@ function ShootsPage() {
   const [nsDatetime, setNsDatetime] = useState("");
   const [nsSqft, setNsSqft] = useState("");
   const [nsServices, setNsServices] = useState<string[]>([]);
-  const [nsPrice, setNsPrice] = useState("");
+  const [nsLineItems, setNsLineItems] = useState<{ label: string; amount: string }[]>([{ label: "", amount: "" }]);
   const [nsAccess, setNsAccess] = useState("");
   const [nsNotes, setNsNotes] = useState("");
   const [nsContactId, setNsContactId] = useState<string | null>(null);
@@ -590,7 +594,7 @@ function ShootsPage() {
 
   function resetNewShoot() {
     setNsAddress(""); setNsLat(null); setNsLng(null); setNsDatetime("");
-    setNsSqft(""); setNsServices([]); setNsPrice(""); setNsAccess(""); setNsNotes("");
+    setNsSqft(""); setNsServices([]); setNsLineItems([{ label: "", amount: "" }]); setNsAccess(""); setNsNotes("");
     setNsContactId(null); setNsContactName(""); setNsContactSearch(""); setNsContactEmail("");
     setNsPhotographers([]); setNsError(""); setNsInfo("");
   }
@@ -607,6 +611,10 @@ function ShootsPage() {
     if (!nsAddress.trim() || !nsDatetime) { setNsError("Address and date/time are required."); return; }
     setNsSaving(true); setNsError(""); setNsInfo("");
     const combinedNotes = [nsAccess ? `ACCESS: ${nsAccess}` : "", nsNotes].filter(Boolean).join("\n\n") || null;
+    const lineItems = nsLineItems
+      .filter(li => li.label.trim() && parseFloat(li.amount) > 0)
+      .map(li => ({ label: li.label.trim(), amount_cents: Math.round(parseFloat(li.amount) * 100) }));
+    const totalPrice = lineItems.reduce((sum, li) => sum + li.amount_cents / 100, 0);
     const res = await fetch("/api/admin/shoots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -617,7 +625,8 @@ function ShootsPage() {
         scheduled_at: new Date(nsDatetime).toISOString(),
         services: nsServices,
         square_footage: nsSqft || null,
-        price: nsPrice ? Number(nsPrice) : null,
+        price: totalPrice > 0 ? totalPrice : null,
+        line_items: lineItems.length > 0 ? lineItems : null,
         notes: combinedNotes,
         contact_id: nsContactId,
         contact_email: nsContactEmail.trim() || undefined,
@@ -742,6 +751,11 @@ function ShootsPage() {
       address: shoot.address || "",
       square_footage: shoot.square_footage != null ? String(shoot.square_footage) : "",
     });
+    setEditLineItems(
+      shoot.line_items && shoot.line_items.length > 0
+        ? shoot.line_items.map(li => ({ label: li.label, amount: String(li.amount_cents / 100) }))
+        : [{ label: "", amount: "" }]
+    );
     setEditLat(shoot.lat ?? null);
     setEditLng(shoot.lng ?? null);
     setEditDatetime(shoot.scheduled_at ? toDatetimeLocal(shoot.scheduled_at) : "");
@@ -755,13 +769,19 @@ function ShootsPage() {
     e.preventDefault();
     if (!editShoot) return;
     setSaving(true);
+    const lineItems = editLineItems
+      .filter(li => li.label.trim() && parseFloat(li.amount) > 0)
+      .map(li => ({ label: li.label.trim(), amount_cents: Math.round(parseFloat(li.amount) * 100) }));
+    const totalFromItems = lineItems.reduce((sum, li) => sum + li.amount_cents / 100, 0);
+    const finalPrice = totalFromItems > 0 ? totalFromItems : (editForm.price ? Number(editForm.price) : null);
     await fetch("/api/admin/shoots", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: editShoot.id,
         status: editForm.status,
-        price: editForm.price ? Number(editForm.price) : null,
+        price: finalPrice,
+        line_items: lineItems.length > 0 ? lineItems : null,
         package_name: editForm.package_name || null,
         contact_id: editContactId,
         notes: editForm.notes || null,
@@ -1371,12 +1391,34 @@ function ShootsPage() {
               </div>
 
               <div>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Quote</p>
-                <div className="flex items-center bg-[#181818] border border-white/10">
-                  <span className="text-xs text-[#555] px-3">$</span>
-                  <input type="number" min="0" value={nsPrice} onChange={e => setNsPrice(e.target.value)}
-                    placeholder="0" className="flex-1 bg-transparent text-white text-sm px-2 py-2.5 outline-none" />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs tracking-[2px] uppercase text-[#555]">Pricing / Line Items</p>
+                  <button type="button" onClick={() => setNsLineItems(prev => [...prev, { label: "", amount: "" }])}
+                    className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">+ Add Line</button>
                 </div>
+                <div className="space-y-2">
+                  {nsLineItems.map((li, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input value={li.label} onChange={e => setNsLineItems(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                        placeholder="Listing Photos (2,400 sqft)"
+                        className="flex-1 bg-[#181818] border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                      <div className="flex items-center bg-[#181818] border border-white/10 w-28 shrink-0">
+                        <span className="text-xs text-[#555] pl-2 shrink-0">$</span>
+                        <input type="number" min="0" value={li.amount} onChange={e => setNsLineItems(prev => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+                          placeholder="300" className="flex-1 bg-transparent text-white text-sm px-2 py-2 outline-none w-0" />
+                      </div>
+                      {nsLineItems.length > 1 && (
+                        <button type="button" onClick={() => setNsLineItems(prev => prev.filter((_, j) => j !== i))}
+                          className="text-[#444] hover:text-red-400 transition-colors shrink-0">✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {nsLineItems.some(li => parseFloat(li.amount) > 0) && (
+                  <p className="text-xs text-[#4ade80] mt-2 text-right font-semibold">
+                    Total: ${nsLineItems.reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0).toLocaleString()}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1533,12 +1575,34 @@ function ShootsPage() {
               </div>
 
               <div>
-                <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Price</p>
-                <div className="flex items-center bg-[#181818] border border-white/10">
-                  <span className="text-xs text-[#555] px-3">$</span>
-                  <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
-                    placeholder="0" className="flex-1 bg-transparent text-white text-sm px-2 py-2.5 outline-none" />
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs tracking-[2px] uppercase text-[#555]">Pricing / Line Items</p>
+                  <button type="button" onClick={() => setEditLineItems(prev => [...prev, { label: "", amount: "" }])}
+                    className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">+ Add Line</button>
                 </div>
+                <div className="space-y-2">
+                  {editLineItems.map((li, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input value={li.label} onChange={e => setEditLineItems(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                        placeholder="Listing Photos (2,400 sqft)"
+                        className="flex-1 bg-[#181818] border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]" />
+                      <div className="flex items-center bg-[#181818] border border-white/10 w-28 shrink-0">
+                        <span className="text-xs text-[#555] pl-2 shrink-0">$</span>
+                        <input type="number" min="0" value={li.amount} onChange={e => setEditLineItems(prev => prev.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+                          placeholder="300" className="flex-1 bg-transparent text-white text-sm px-2 py-2 outline-none w-0" />
+                      </div>
+                      {editLineItems.length > 1 && (
+                        <button type="button" onClick={() => setEditLineItems(prev => prev.filter((_, j) => j !== i))}
+                          className="text-[#444] hover:text-red-400 transition-colors shrink-0">✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {editLineItems.some(li => parseFloat(li.amount) > 0) && (
+                  <p className="text-xs text-[#4ade80] mt-2 text-right font-semibold">
+                    Total: ${editLineItems.reduce((sum, li) => sum + (parseFloat(li.amount) || 0), 0).toLocaleString()}
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Status</p>

@@ -11,44 +11,23 @@ function service() {
   );
 }
 
-// Fired the moment a photographer confirms delivery. Auto-creates the
-// invoice for the shoot (if one doesn't already exist and a price is set)
-// and emails the client one link to their media and one to pay.
-export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<void> {
+// Fired the moment a photographer confirms delivery. Invoice was already
+// created at shoot confirmation — this just emails + texts the client that
+// their media is ready to view and download (after paying).
+export async function notifyDelivery(shootId: string): Promise<void> {
   const db = service();
 
   const { data: shoot } = await db
     .from("shoots")
-    .select("id, address, price, contact_id, client_id")
+    .select("id, address, contact_id, client_id")
     .eq("id", shootId)
     .single();
   if (!shoot) return;
 
-  if (!shoot.price || shoot.price <= 0) {
-    await db.from("company_updates").insert({
-      message: `⚠️ ${shoot.address} delivered with no price set — invoice not created. Add a price on the shoot, then create an invoice manually.`,
-      created_by: "system",
-      category: "alerts",
-      link: "/dashboard/board",
-    });
-    return;
-  }
-
-  // Idempotency — don't double-invoice if this fires more than once for the same shoot.
-  const { data: existing } = await db.from("invoices").select("id").eq("shoot_id", shootId).limit(1);
-  if (existing && existing.length > 0) return;
-
-  const amountCents = Math.round(shoot.price * 100);
-
-  const { data: invoice, error } = await db.from("invoices").insert({
-    shoot_id: shoot.id,
-    client_id: shoot.client_id || null,
-    contact_id: shoot.contact_id || null,
-    amount_cents: amountCents,
-    description: `Luck Images — ${shoot.address}`,
-    paid: false,
-  }).select().single();
-  if (error || !invoice) return;
+  // Look up the invoice created at confirmation so we can show the amount
+  const { data: invoice } = await db.from("invoices").select("id, amount_cents, paid").eq("shoot_id", shootId).maybeSingle();
+  const amountCents = invoice?.amount_cents ?? 0;
+  const amountStr = amountCents > 0 ? `$${(amountCents / 100).toLocaleString()}` : null;
 
   // Resolve client name/email/phone (contact first, else auth user) + registration state
   let clientName = "there";
@@ -75,7 +54,6 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
   const invoiceUrl = isRegistered
     ? `${SITE_URL}/login?redirect=/client?tab=invoices`
     : `${SITE_URL}/register`;
-  const amountStr = `$${(amountCents / 100).toLocaleString()}`;
 
   const resendKey = process.env.RESEND_API_KEY;
   if (CLIENT_EMAILS_ENABLED && resendKey && clientEmail) {
@@ -89,14 +67,14 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
           <tr><td style="border:1px solid rgba(255,255,255,0.1);padding:34px;">
             <h1 style="margin:0 0 16px;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.5px;color:#fff;">Your Photos Are Ready, ${clientName}</h1>
             <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#888;">${shoot.address}</p>
-            <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#888;">Your media is uploaded and ready to view. An invoice for ${amountStr} is also ready — pay it any time in your portal.</p>
+            <p style="margin:0 0 28px;font-size:14px;line-height:1.6;color:#888;">Your media is uploaded and ready to view and download in your portal.${amountStr && !invoice?.paid ? ` Pay the ${amountStr} invoice to unlock full-resolution downloads.` : ""}</p>
             <table cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr><td>
               <a href="${galleryUrl}" style="display:inline-block;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:13px 26px;text-decoration:none;">View Your Media →</a>
             </td></tr></table>
-            <table cellpadding="0" cellspacing="0"><tr><td>
+            ${amountStr && !invoice?.paid ? `<table cellpadding="0" cellspacing="0"><tr><td>
               <a href="${invoiceUrl}" style="display:inline-block;border:1px solid rgba(255,255,255,0.3);color:#fff;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 26px;text-decoration:none;">Pay Invoice — ${amountStr} →</a>
-            </td></tr></table>
-            <p style="margin:28px 0 0;font-size:12px;color:#555;line-height:1.6;">Both links are also waiting in your Luck Images portal.</p>
+            </td></tr></table>` : ""}
+            <p style="margin:28px 0 0;font-size:12px;color:#555;line-height:1.6;">Everything is waiting in your Luck Images portal.</p>
             <p style="margin:16px 0 0;font-size:12px;color:#fff;font-weight:700;">Ryan Luck · Luck Images</p>
           </td></tr>
         </table>
@@ -137,7 +115,7 @@ export async function createDeliveryInvoiceAndNotify(shootId: string): Promise<v
   }
 
   await db.from("company_updates").insert({
-    message: `📦 Media delivered & invoice sent — ${shoot.address} · ${amountStr}`,
+    message: `📦 Media delivered — ${shoot.address}${amountStr ? ` · ${amountStr} invoice awaiting payment` : ""}`,
     created_by: "system",
     category: "shoots",
     link: "/dashboard/board",

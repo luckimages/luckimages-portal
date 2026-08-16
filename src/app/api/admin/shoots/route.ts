@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
-import { createDeliveryInvoiceAndNotify } from "@/lib/deliveryInvoice";
+import { notifyDelivery } from "@/lib/deliveryInvoice";
 import { notifyShootBooked } from "@/lib/shootConfirmation";
+import { createConfirmationInvoice } from "@/lib/confirmationInvoice";
 
 function service() {
   return createAdminClient();
@@ -198,7 +199,7 @@ export async function PATCH(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { id, status, photographer_ids, price, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type } = await req.json();
+  const { id, status, photographer_ids, price, line_items, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
@@ -235,6 +236,7 @@ export async function PATCH(req: Request) {
 
   if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;
   if (price !== undefined) updatePayload.price = price;
+  if (line_items !== undefined) updatePayload.line_items = line_items;
   if (package_name !== undefined) updatePayload.package_name = package_name;
   if (contact_id !== undefined) updatePayload.contact_id = contact_id;
   if (address !== undefined) updatePayload.address = address;
@@ -262,12 +264,17 @@ export async function PATCH(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // First time this shoot reaches "delivered" — auto-create the invoice and
-  // email the client a link to their media + a link to pay. Awaited (not
-  // fire-and-forget) since Vercel can freeze the function once the response
-  // is sent, killing any work still in flight.
+  // First time this shoot reaches "delivered" — notify the client their media
+  // is ready. Invoice was already created at confirmation; this just sends the
+  // "photos are ready" email + SMS.
   if (status === "delivered" && shoot?.status !== "delivered") {
-    try { await createDeliveryInvoiceAndNotify(id); } catch (e) { console.error("delivery invoice failed", e); }
+    try { await notifyDelivery(id); } catch (e) { console.error("delivery notify failed", e); }
+  }
+
+  // Invoice created at confirmation (pending → scheduled). Idempotent if already
+  // exists (e.g. if the shoot was directly confirmed with status: "scheduled").
+  if (status === "scheduled" && shoot?.status !== "scheduled") {
+    try { await createConfirmationInvoice(id); } catch (e) { console.error("confirmationInvoice failed:", e); }
   }
 
   // Fire a notification for significant status changes

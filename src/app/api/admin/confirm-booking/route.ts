@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { notifyShootBooked } from "@/lib/shootConfirmation";
+import { createConfirmationInvoice } from "@/lib/confirmationInvoice";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 // Admin confirms a pending booking request: locks the time, assigns
@@ -36,6 +37,9 @@ export async function POST(req: Request) {
     confirmed_at: new Date().toISOString(),
   }).eq("id", shootId);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+
+  // Invoice created at confirmation so the client can pay immediately in the portal.
+  try { await createConfirmationInvoice(shootId); } catch (e) { console.error("confirmationInvoice failed:", e); }
 
   // Calendar invite (Ryan's calendar, Leif + client + photographers) and the
   // client confirmation email — shared with New Shoot creation so both paths

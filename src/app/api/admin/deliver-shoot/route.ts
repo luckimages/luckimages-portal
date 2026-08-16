@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { ADMIN_EMAILS } from "@/lib/constants";
-import { createDeliveryInvoiceAndNotify } from "@/lib/deliveryInvoice";
+import { notifyDelivery } from "@/lib/deliveryInvoice";
 
 function service() {
   return createServiceClient(
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (shoot.status !== "delivered") {
-    try { await createDeliveryInvoiceAndNotify(shootId); } catch (e) { console.error("delivery notify failed", e); }
+    try { await notifyDelivery(shootId); } catch (e) { console.error("delivery notify failed", e); }
   }
 
   return NextResponse.json({ ok: true });

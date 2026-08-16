@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
-import { createDeliveryInvoiceAndNotify } from "@/lib/deliveryInvoice";
+import { notifyDelivery } from "@/lib/deliveryInvoice";
 
 // PATCH — photographer advances shoot status
 export async function PATCH(req: Request) {
@@ -36,12 +36,12 @@ export async function PATCH(req: Request) {
   const { error } = await service.from("shoots").update({ status }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // First time this shoot reaches "delivered" — auto-create the invoice and
+  // First time this shoot reaches "delivered" — notify client media is ready.
   // email the client a link to their media + a link to pay. Awaited (not
   // fire-and-forget) since Vercel can freeze the function once the response
   // is sent, killing any work still in flight.
   if (status === "delivered" && shoot.status !== "delivered") {
-    try { await createDeliveryInvoiceAndNotify(id); } catch (e) { console.error("delivery invoice failed", e); }
+    try { await notifyDelivery(id); } catch (e) { console.error("delivery notify failed", e); }
   }
 
   // Get photographer's display name
