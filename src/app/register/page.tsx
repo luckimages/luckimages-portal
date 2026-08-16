@@ -38,6 +38,8 @@ export default function RegisterPage() {
   // input they find. Any value here means it wasn't a human.
   const [honey, setHoney] = useState("");
   const [isInvited, setIsInvited] = useState(false);
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamName, setTeamName] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -52,7 +54,8 @@ export default function RegisterPage() {
     const prefillName  = params.get("name");
     const prefillEmail = params.get("email");
     const prefillPhone = params.get("phone");
-    if (prefillName || prefillEmail || prefillPhone) {
+    const tid = params.get("team_id");
+    if (prefillName || prefillEmail || prefillPhone || tid) {
       setIsInvited(true);
       setForm(f => ({
         ...f,
@@ -60,6 +63,13 @@ export default function RegisterPage() {
         ...(prefillEmail ? { email: prefillEmail }     : {}),
         ...(prefillPhone ? { phone: prefillPhone }     : {}),
       }));
+    }
+    if (tid) {
+      setTeamId(tid);
+      // Fetch team name to show in the UI
+      fetch(`/api/portal/team-name?team_id=${tid}`)
+        .then(r => r.json())
+        .then(d => { if (d.name) setTeamName(d.name); });
     }
   }, []);
 
@@ -92,7 +102,8 @@ export default function RegisterPage() {
     if (error) { setError(error.message); setLoading(false); return; }
 
     // Auto-link contact by email (or by contact_id param if present)
-    const contactId = new URLSearchParams(window.location.search).get("contact_id");
+    const params = new URLSearchParams(window.location.search);
+    const contactId = params.get("contact_id");
     const { data: { user: newUser } } = await supabase.auth.getUser();
     if (newUser) {
       await fetch("/api/auth/link-contact", {
@@ -106,6 +117,15 @@ export default function RegisterPage() {
           referredByContactId: referredBy || null,
         }),
       });
+
+      // Join team if invited via team link
+      if (teamId) {
+        await fetch("/api/portal/join-team", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamId }),
+        });
+      }
     }
 
     router.push("/client");
@@ -129,7 +149,11 @@ export default function RegisterPage() {
             <p className="text-xs tracking-[4px] uppercase text-[#666] mb-3">Luck Images — Client Portal</p>
             <h1 className="text-3xl font-black tracking-tight uppercase">{isInvited ? "Set Up Your Account" : "Create Account"}</h1>
             <p className="text-xs text-[#444] mt-3 tracking-wide">
-              {isInvited ? "Your info is pre-filled — just choose a password to finish." : "For realtors, property managers & interior designers"}
+              {teamName
+                ? `You've been invited to join ${teamName} — just set a password to finish.`
+                : isInvited
+                  ? "Your info is pre-filled — just choose a password to finish."
+                  : "For realtors, property managers & interior designers"}
             </p>
           </div>
 

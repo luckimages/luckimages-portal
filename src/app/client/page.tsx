@@ -144,6 +144,12 @@ export default function ClientPage() {
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
+  const [team, setTeam] = useState<{ id: string; name: string } | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{ contact_id: string; contacts: { name: string; email: string | null } }[]>([]);
+  const [teamInvite, setTeamInvite] = useState({ name: "", email: "" });
+  const [teamInviteStatus, setTeamInviteStatus] = useState<"" | "sending" | "sent" | "error">("");
+  const [newTeamName, setNewTeamName] = useState("");
+  const [creatingTeam, setCreatingTeam] = useState(false);
   const [expandedShootId, setExpandedShootId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
@@ -187,13 +193,32 @@ export default function ClientPage() {
       // Find contact linked to this user (for shoots booked by admin with contact_id)
       const { data: contact } = await supabase.from("contacts").select("id").eq("user_id", uid).single();
       const contactId = contact?.id;
+
+      // Fetch team membership — collect all contact_ids on the team
+      let teamContactIds: string[] = contactId ? [contactId] : [];
+      if (contactId) {
+        const teamRes = await fetch("/api/portal/team");
+        if (teamRes.ok) {
+          const teamData = await teamRes.json();
+          if (teamData.team) {
+            setTeam(teamData.team);
+            setTeamMembers(teamData.members || []);
+            const memberIds = (teamData.members || []).map((m: { contact_id: string }) => m.contact_id);
+            teamContactIds = [...new Set([contactId, ...memberIds])];
+          }
+        }
+      }
+
+      // Build OR filter covering all team members
+      const contactFilter = teamContactIds.map(id => `contact_id.eq.${id}`).join(",");
       const [{ data: shootData }, { data: invData }] = await Promise.all([
-        contactId
-          ? supabase.from("shoots").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).neq("status", "cancelled").order("scheduled_at", { ascending: false })
-          : supabase.from("shoots").select("*").eq("client_id", uid).neq("status", "cancelled").order("scheduled_at", { ascending: false }),
-        contactId
-          ? supabase.from("invoices").select("*").or(`client_id.eq.${uid},contact_id.eq.${contactId}`).order("created_at", { ascending: false })
-          : supabase.from("invoices").select("*").eq("client_id", uid).order("created_at", { ascending: false }),
+        supabase.from("shoots").select("*")
+          .or(`client_id.eq.${uid},${contactFilter}`)
+          .neq("status", "cancelled")
+          .order("scheduled_at", { ascending: false }),
+        supabase.from("invoices").select("*")
+          .or(`client_id.eq.${uid},${contactFilter}`)
+          .order("created_at", { ascending: false }),
       ]);
       setShoots(shootData || []);
       setInvoices(invData || []);
@@ -522,35 +547,85 @@ export default function ClientPage() {
                 </button>
               </div>
 
-              {/* Refer a Friend block */}
+              {/* Team block */}
               <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
-                <div>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Refer a Friend</p>
-                  <p className="text-xs text-[#666]">Know a realtor who needs great media? Send them our way.</p>
-                </div>
-                {referralStatus === "sent" ? (
-                  <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-4 text-center">
-                    <p className="text-[#4ade80] text-xs mb-2">Referral sent!</p>
-                    <button onClick={() => { setReferralStatus(""); setReferral({ name: "", email: "" }); }} className="text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors">Refer Another</button>
-                  </div>
+                {team ? (
+                  <>
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Your Team</p>
+                      <p className="text-base font-bold text-white">{team.name}</p>
+                    </div>
+                    <div className="space-y-2">
+                      {teamMembers.map(m => (
+                        <div key={m.contact_id} className="flex items-center gap-3 py-1.5 border-b border-white/5 last:border-0">
+                          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                            {m.contacts?.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-white">{m.contacts?.name}</p>
+                            {m.contacts?.email && <p className="text-[11px] text-[#555]">{m.contacts.email}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {teamInviteStatus === "sent" ? (
+                      <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-3 text-center">
+                        <p className="text-[#4ade80] text-xs">Invite sent!</p>
+                        <button onClick={() => { setTeamInviteStatus(""); setTeamInvite({ name: "", email: "" }); }} className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white mt-1 transition-colors">Invite Another</button>
+                      </div>
+                    ) : (
+                      <form onSubmit={async e => {
+                        e.preventDefault();
+                        setTeamInviteStatus("sending");
+                        const res = await fetch("/api/portal/team", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
+                        });
+                        setTeamInviteStatus(res.ok ? "sent" : "error");
+                      }} className="flex flex-col gap-2 border-t border-white/5 pt-4">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add Teammate</p>
+                        <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
+                        <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
+                        {teamInviteStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again.</p>}
+                        <button type="submit" disabled={teamInviteStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                          {teamInviteStatus === "sending" ? "Sending..." : "Send Invite →"}
+                        </button>
+                      </form>
+                    )}
+                  </>
                 ) : (
-                  <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    setReferralStatus("sending");
-                    const res = await fetch("/api/portal/referral", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ referrerContactId: contactId, referrerName: userName, friendName: referral.name, friendEmail: referral.email }),
-                    });
-                    setReferralStatus(res.ok ? "sent" : "error");
-                  }} className="flex flex-col gap-3">
-                    <input required value={referral.name} onChange={e => setReferral(r => ({ ...r, name: e.target.value }))} placeholder="Friend's name" className={inputCls} />
-                    <input required type="email" value={referral.email} onChange={e => setReferral(r => ({ ...r, email: e.target.value }))} placeholder="Friend's email" className={inputCls} />
-                    {referralStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again.</p>}
-                    <button type="submit" disabled={referralStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
-                      {referralStatus === "sending" ? "Sending..." : "Send Referral →"}
-                    </button>
-                  </form>
+                  <>
+                    <div>
+                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Start a Team</p>
+                      <p className="text-xs text-[#666]">Share shoots, media, and invoices with your teammates — each with their own login.</p>
+                    </div>
+                    <form onSubmit={async e => {
+                      e.preventDefault();
+                      setCreatingTeam(true);
+                      const res = await fetch("/api/portal/team", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ teamName: newTeamName, inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
+                      });
+                      if (res.ok) {
+                        const d = await res.json();
+                        setTeam(d.team);
+                        setTeamInviteStatus("sent");
+                        // Reload team members
+                        fetch("/api/portal/team").then(r => r.json()).then(d => { if (d.members) setTeamMembers(d.members); });
+                      }
+                      setCreatingTeam(false);
+                    }} className="flex flex-col gap-3">
+                      <input required value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name (e.g. The Horn Co Team)" className={inputCls} />
+                      <p className="text-[10px] tracking-[1px] uppercase text-[#444]">First teammate to invite</p>
+                      <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
+                      <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
+                      <button type="submit" disabled={creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                        {creatingTeam ? "Creating..." : "Create Team & Send Invite →"}
+                      </button>
+                    </form>
+                  </>
                 )}
               </div>
 
