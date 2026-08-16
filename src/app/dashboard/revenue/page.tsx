@@ -15,6 +15,7 @@ type Snapshot = {
   monthly_breakdown: Record<string, number>;
   recent_invoices: { num: string; date: string; paid: boolean; amount: string; client: string }[];
   synced_at: string;
+  connected?: boolean;
 };
 
 function fmt(n: number) {
@@ -27,6 +28,11 @@ function pct(a: number, b: number) {
   return diff;
 }
 
+const emptySnap: Snapshot = {
+  rev_ytd: 0, rev_month: 0, expenses_ytd: 0, net_income: 0,
+  ytd_invoices: 0, unpaid_count: 0, monthly_breakdown: {}, recent_invoices: [], synced_at: "",
+};
+
 export default function RevenuePage() {
   const router = useRouter();
   const [snap, setSnap] = useState<Snapshot | null>(null);
@@ -36,6 +42,9 @@ export default function RevenuePage() {
     createClient().auth.getUser().then(({ data }) => {
       if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) router.replace("/dashboard");
     });
+    fetch("/api/admin/sync-qb")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setSnap(prev => prev ?? { ...emptySnap, connected: d.connected }); });
     fetch("/api/admin/sync-qb", { method: "POST" })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setSnap(d); });
@@ -99,13 +108,22 @@ export default function RevenuePage() {
                 Synced {new Date(snap.synced_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
               </span>
             )}
-            <button
-              onClick={syncNow}
-              disabled={syncing}
-              className="text-[10px] tracking-[2px] uppercase border border-white/20 px-3 py-1.5 text-[#666] hover:text-white hover:border-white/50 transition-all disabled:opacity-40"
-            >
-              {syncing ? "Syncing..." : "↻ Sync QB"}
-            </button>
+            {snap.connected === false ? (
+              <a
+                href="/api/admin/qbo/connect"
+                className="text-[10px] tracking-[2px] uppercase border border-[#fbbf24]/40 px-3 py-1.5 text-[#fbbf24] hover:border-[#fbbf24] transition-all"
+              >
+                Connect QuickBooks
+              </a>
+            ) : (
+              <button
+                onClick={syncNow}
+                disabled={syncing}
+                className="text-[10px] tracking-[2px] uppercase border border-white/20 px-3 py-1.5 text-[#666] hover:text-white hover:border-white/50 transition-all disabled:opacity-40"
+              >
+                {syncing ? "Syncing..." : "↻ Sync QB"}
+              </button>
+            )}
           </div>
         </div>
 
