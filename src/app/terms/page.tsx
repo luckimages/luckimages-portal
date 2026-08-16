@@ -1,9 +1,11 @@
+import { notFound } from "next/navigation";
 import HomeNav from "@/components/HomeNav";
 import Link from "next/link";
 
 export const metadata = { title: "Terms of Service — Luck Images" };
 
 export default function TermsPage() {
+  notFound();
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <HomeNav />
