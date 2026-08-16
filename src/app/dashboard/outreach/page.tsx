@@ -930,9 +930,17 @@ export default function OutreachPage() {
   // Bot clicks have no page_view duration recorded — iOS iMessage prefetches the
   // URL to generate a preview card before the user even sees the message.
   // Only count clicks where we have a real dwell time.
-  // Show all tracked clicks. Dwell time is displayed per-click when available
-  // but not used as a bot gate — link_click_id backfill on page_views pending.
   const realClicks = linkClicks;
+
+  // The confirmation pipeline (page_views.link_click_id) went live the moment
+  // the first confirmed click was recorded. All clicks BEFORE that timestamp
+  // are historical and trusted as real. Clicks AFTER that point must have dwell
+  // data to count — anything without it is a bot prefetch and is hidden entirely.
+  const earliestConfirmedAt = linkClicks
+    .filter(c => dwellByClickId[c.id] !== undefined)
+    .reduce((min, c) => c.clicked_at < min ? c.clicked_at : min, "");
+  const isRealClick = (c: { clicked_at: string; id: string }) =>
+    dwellByClickId[c.id] !== undefined || !earliestConfirmedAt || c.clicked_at < earliestConfirmedAt;
 
   function dwellColor(seconds: number): string {
     if (seconds >= 45) return "#4ade80";  // green — engaged, worth reaching out
@@ -994,8 +1002,7 @@ export default function OutreachPage() {
     }
     const list = [...map.entries()].map(([name, entries]) => {
       const contactIds = new Set(entries.map(e => e.contact.id));
-      // Only count contacts where at least one click has dwell data (JS ran = human, not iMessage preview bot)
-      const clickedContactIds = new Set(entries.filter(e => e.clicks.some(c => dwellByClickId[c.id] !== undefined)).map(e => e.contact.id));
+      const clickedContactIds = new Set(entries.filter(e => e.clicks.some(isRealClick)).map(e => e.contact.id));
       // Registered = converted after being targeted by this campaign. Templates
       // like Portal Invite only ever target unregistered contacts, so any
       // registration afterward is fairly attributed to having been emailed.
@@ -1035,8 +1042,8 @@ export default function OutreachPage() {
   const allCampaignSummary = (() => {
     const reached = engagement.length;
     const clicked = engagement.filter(r =>
-      r.timeline.some(t => t.clicks.some(c => dwellByClickId[c.id] !== undefined)) ||
-      r.orphanClicks.some(c => dwellByClickId[c.id] !== undefined)
+      r.timeline.some(t => t.clicks.some(isRealClick)) ||
+      r.orphanClicks.some(isRealClick)
     ).length;
     const registered = engagement.filter(r => r.contact.registered_at).length;
     return {
@@ -1090,10 +1097,11 @@ export default function OutreachPage() {
   function reactionBadge(row: { contact: Contact; timeline: { clicks: LinkClickRow[] }[]; orphanClicks?: LinkClickRow[] }) {
     if (row.contact.registered_at) return { label: "Registered", color: "#34d399" };
     const allClicks = [...row.timeline.flatMap(t => t.clicks), ...(row.orphanClicks ?? [])];
-    if (allClicks.length > 0) {
-      const hasDwell = allClicks.some(c => dwellByClickId[c.id] !== undefined);
-      const best = allClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
-      return { label: hasDwell ? "Clicked" : "Clicked (unconfirmed)", color: hasDwell ? dwellColor(best) : "#60a5fa" };
+    const visibleClicks = allClicks.filter(isRealClick);
+    if (visibleClicks.length > 0) {
+      const hasDwell = visibleClicks.some(c => dwellByClickId[c.id] !== undefined);
+      const best = visibleClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
+      return { label: "Clicked", color: hasDwell ? dwellColor(best) : "#60a5fa" };
     }
     return { label: "Sent", color: "#666" };
   }
@@ -1203,10 +1211,11 @@ export default function OutreachPage() {
                     const stage = STAGE_PILL[row.contact.stage] || { label: row.contact.stage, color: "#666" };
                     const isOpen = expandedLead === row.contact.id;
                     const orphanClicks: LinkClickRow[] = "orphanClicks" in row ? row.orphanClicks : [];
-                    const totalClicks = row.timeline.reduce((n, t) => n + t.clicks.length, 0) + orphanClicks.length;
                     const allRowClicks = [...row.timeline.flatMap(t => t.clicks), ...orphanClicks];
-                    const bestDwell = allRowClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
-                    const hasDwell = allRowClicks.some(c => dwellByClickId[c.id] !== undefined);
+                    const visibleRowClicks = allRowClicks.filter(isRealClick);
+                    const totalClicks = visibleRowClicks.length;
+                    const hasDwell = visibleRowClicks.some(c => dwellByClickId[c.id] !== undefined);
+                    const bestDwell = visibleRowClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
                     const clickSummaryColor = totalClicks > 0 ? (hasDwell ? dwellColor(bestDwell) : "#60a5fa") : "#444";
                     return (
                       <div key={row.contact.id}>
@@ -1227,7 +1236,7 @@ export default function OutreachPage() {
                             <p className="text-xs text-[#777] mt-1.5">
                               <span className="text-[#999]">{isAllView ? "📤" : isTextCampaign ? "💬" : "📨"} {row.timeline.length} {isAllView ? "send" : isTextCampaign ? "text" : "email"}{row.timeline.length > 1 ? "s" : ""}</span>
                               {totalClicks > 0
-                                ? <span style={{ color: clickSummaryColor }}> · {totalClicks} {hasDwell ? "" : "unconfirmed "}click{totalClicks > 1 ? "s" : ""}</span>
+                                ? <span style={{ color: clickSummaryColor }}> · {totalClicks} click{totalClicks > 1 ? "s" : ""}</span>
                                 : <span className="text-[#444]"> · no clicks yet</span>}
                             </p>
                           </div>
@@ -1247,19 +1256,16 @@ export default function OutreachPage() {
                                   <span className="text-xs text-[#555] tabular-nums">{email.sent_at ? fmtDateTime(email.sent_at) : "—"}</span>
                                 </div>
                                 {email.subject && <p className="text-xs text-[#666] mt-0.5">&ldquo;{email.subject.replace(/^\[DRAFT\]\s*/, "")}&rdquo;</p>}
-                                {clicks.length > 0 ? (
+                                {clicks.filter(isRealClick).length > 0 ? (
                                   <div className="mt-2 space-y-1">
-                                    {clicks.map((c, j) => {
+                                    {clicks.filter(isRealClick).map((c, j) => {
                                       const dwell = dwellByClickId[c.id];
                                       const color = dwell != null ? dwellColor(dwell) : "#60a5fa";
                                       return (
                                       <div key={j} className="flex items-center gap-2 text-xs">
                                         <span style={{ color }}>🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
                                         <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                        {dwell != null
-                                          ? <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
-                                          : <span className="text-[#444] italic">· unconfirmed (may be link preview)</span>
-                                        }
+                                        {dwell != null && <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>}
                                       </div>
                                       );
                                     })}
@@ -1269,22 +1275,19 @@ export default function OutreachPage() {
                                 )}
                               </div>
                             ))}
-                            {orphanClicks.length > 0 && (
+                            {orphanClicks.filter(isRealClick).length > 0 && (
                               <div className="border-l-2 border-white/10 pl-4 pt-2">
                                 <span className="text-sm font-semibold text-[#888]">Other clicks</span>
                                 <p className="text-[10px] text-[#444] mb-1">Not attributed to a specific send</p>
                                 <div className="space-y-1">
-                                  {orphanClicks.map((c, j) => {
+                                  {orphanClicks.filter(isRealClick).map((c, j) => {
                                     const dwell = dwellByClickId[c.id];
                                     const color = dwell != null ? dwellColor(dwell) : "#60a5fa";
                                     return (
                                     <div key={j} className="flex items-center gap-2 text-xs">
                                       <span style={{ color }}>🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
                                       <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                      {dwell != null
-                                        ? <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
-                                        : <span className="text-[#444] italic">· unconfirmed (may be link preview)</span>
-                                      }
+                                      {dwell != null && <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>}
                                     </div>
                                     );
                                   })}
