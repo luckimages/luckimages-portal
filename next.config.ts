@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const securityHeaders = [
   // Prevent browsers from guessing content type — stops MIME-sniffing attacks
   { key: "X-Content-Type-Options", value: "nosniff" },
-  // Block the site from being embedded in iframes — stops clickjacking
-  { key: "X-Frame-Options", value: "DENY" },
+  // Only allow same-origin iframes — stops clickjacking from external sites
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   // Force HTTPS for 2 years, include subdomains
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   // Don't send the full URL as referrer to third parties
