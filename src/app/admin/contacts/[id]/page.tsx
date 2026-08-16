@@ -134,6 +134,8 @@ export default function ContactProfilePage() {
   const [linkedContacts, setLinkedContacts] = useState<LinkedContact[]>([]);
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
+  const [team, setTeam] = useState<{ id: string; name: string } | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [historyTab, setHistoryTab] = useState<"activity" | "actions" | "leads" | "shoots" | "quotes">("activity");
   const [editing, setEditing] = useState(false);
@@ -203,6 +205,19 @@ export default function ContactProfilePage() {
     const quotesRes = await fetch(`/api/admin/quotes?contact_id=${id}`);
     if (quotesRes.ok) setQuotes(await quotesRes.json());
     setAllContacts((allC || []).filter((ct: { id: string }) => ct.id !== id) as Contact[]);
+
+    // Team membership
+    const { data: membership } = await supabase
+      .from("team_members")
+      .select("team_id, teams(id, name)")
+      .eq("contact_id", id)
+      .single();
+    if (membership?.teams) {
+      const t = membership.teams as unknown as { id: string; name: string };
+      setTeam(t);
+    } else {
+      setTeam(null);
+    }
 
     // Load linked contacts
     const { data: links } = await supabase
@@ -488,6 +503,14 @@ export default function ContactProfilePage() {
                 <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Source</p>
                 <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase bg-white/5 border border-white/10 text-[#888]">
                   {CHANNEL_LABELS[contact.lead_source] || contact.lead_source}
+                </span>
+              </div>
+            )}
+            {team && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Team</p>
+                <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase text-[#a78bfa] bg-[#a78bfa]/10 border border-[#a78bfa]/20">
+                  {team.name}
                 </span>
               </div>
             )}
