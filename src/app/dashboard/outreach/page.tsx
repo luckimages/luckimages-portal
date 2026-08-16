@@ -587,6 +587,7 @@ export default function OutreachPage() {
   const [emailLog, setEmailLog] = useState<EmailLogRow[]>([]);
   const [linkClicks, setLinkClicks] = useState<LinkClickRow[]>([]);
   const [dwellByClickId, setDwellByClickId] = useState<Record<string, number>>({});
+  const [botFilterReady, setBotFilterReady] = useState(false);
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [qsSubject, setQsSubject] = useState("");
@@ -639,7 +640,8 @@ export default function OutreachPage() {
         // to capture their session_id to count that time.
         supabase.from("page_views").select("link_click_id, session_id, duration_seconds").not("link_click_id", "is", null),
       ]);
-      if (pageViewsRes.data) {
+      if (pageViewsRes.data && !pageViewsRes.error) {
+        setBotFilterReady(true);
         type LandingView = { link_click_id: string; session_id: string | null; duration_seconds: number | null };
         const landingViews = pageViewsRes.data as LandingView[];
 
@@ -930,7 +932,11 @@ export default function OutreachPage() {
   // Bot clicks have no page_view duration recorded — iOS iMessage prefetches the
   // URL to generate a preview card before the user even sees the message.
   // Only count clicks where we have a real dwell time.
-  const realClicks = linkClicks.filter(c => dwellByClickId[c.id] !== undefined);
+  // Only apply bot filter when the page_views.link_click_id column exists in
+  // production (botFilterReady). If the migration hasn't run, show all clicks.
+  const realClicks = botFilterReady
+    ? linkClicks.filter(c => dwellByClickId[c.id] !== undefined)
+    : linkClicks;
 
   function dwellColor(seconds: number): string {
     if (seconds >= 45) return "#4ade80";  // green — engaged, worth reaching out
