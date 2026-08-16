@@ -25,7 +25,7 @@ interface QboTokens {
 export function getAuthUrl(state: string) {
   const params = new URLSearchParams({
     client_id: process.env.QBO_CLIENT_ID!,
-    redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/qbo/callback`,
+    redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com"}/api/admin/qbo/callback`,
     response_type: "code",
     scope: "com.intuit.quickbooks.accounting",
     state,
@@ -57,7 +57,7 @@ export async function exchangeCode(code: string, realmId: string): Promise<QboTo
   const tokens = await exchangeOrRefresh({
     grant_type: "authorization_code",
     code,
-    redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/qbo/callback`,
+    redirect_uri: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com"}/api/admin/qbo/callback`,
     realm_id: realmId,
   });
   if (tokens) tokens.realm_id = realmId;
