@@ -46,8 +46,19 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      const teamId = params.get("team_id");
       const role = data.user?.user_metadata?.role || "realtor";
+
+      if (teamId) {
+        await fetch("/api/portal/join-team", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teamId }),
+        });
+      }
+
       if (redirect) {
         router.push(redirect);
       } else if (ADMIN_EMAILS.includes(data.user?.email || "")) {

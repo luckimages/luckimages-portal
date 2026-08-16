@@ -103,12 +103,8 @@ async function sendTeamInvite({ team, inviterName, inviteEmail, inviteName }: {
   inviteName: string;
 }) {
   const SITE_URL = "https://www.luckimages.com";
-  const params = new URLSearchParams({
-    team_id: team.id,
-    email: inviteEmail,
-    ...(inviteName ? { name: inviteName } : {}),
-  });
-  const registerUrl = `${SITE_URL}/register?${params.toString()}`;
+  const params = new URLSearchParams({ team_id: team.id });
+  const joinUrl = `${SITE_URL}/join-team?${params.toString()}`;
   const firstName = (inviteName || inviteEmail).split(" ")[0];
 
   const html = `
@@ -125,7 +121,7 @@ async function sendTeamInvite({ team, inviterName, inviteEmail, inviteName }: {
         <p style="margin:0 0 24px;font-size:14px;color:#888;line-height:1.6;">${inviterName} has invited you to join the <strong style="color:#fff;">${team.name}</strong> team on the Luck Images client portal.</p>
         <p style="margin:0 0 32px;font-size:14px;color:#888;line-height:1.6;">Once you register, you'll share access to team shoots, media, and invoices — all under one roof.</p>
         <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 32px;">
-          <a href="${registerUrl}" style="display:inline-block;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:16px 32px;text-decoration:none;">Join the Team →</a>
+          <a href="${joinUrl}" style="display:inline-block;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:16px 32px;text-decoration:none;">Join the Team →</a>
         </td></tr></table>
         <p style="margin:0;font-size:11px;color:#333;text-align:center;">Luck Images · Austin, TX · luckimages.com</p>
       </td></tr>
