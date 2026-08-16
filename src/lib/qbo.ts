@@ -227,6 +227,33 @@ export async function recordQboPayment(
   }, tokens);
 }
 
+export interface QboInvoiceSummary {
+  id: string;
+  docNumber: string;
+  txnDate: string;
+  totalAmt: number;
+  balance: number; // 0 = fully paid
+  customerName: string;
+}
+
+export async function fetchQboInvoices(tokens: QboTokens, year: number): Promise<QboInvoiceSummary[]> {
+  const query = `select * from Invoice where TxnDate >= '${year}-01-01' ORDERBY TxnDate DESC MAXRESULTS 1000`;
+  try {
+    const data = await qboGet(`query?query=${encodeURIComponent(query)}`, tokens);
+    const invoices: Array<Record<string, unknown>> = data?.QueryResponse?.Invoice ?? [];
+    return invoices.map(inv => ({
+      id: String(inv.Id),
+      docNumber: String(inv.DocNumber ?? ""),
+      txnDate: String(inv.TxnDate ?? ""),
+      totalAmt: parseFloat(String(inv.TotalAmt ?? "0")) || 0,
+      balance: parseFloat(String(inv.Balance ?? "0")) || 0,
+      customerName: (inv.CustomerRef as Record<string, string>)?.name ?? "Unknown",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchQboExpenses(tokens: QboTokens): Promise<{ expenses_ytd: number; net_income: number; rev_ytd: number }> {
   const year = new Date().getFullYear();
   const path = `reports/ProfitAndLoss?start_date=${year}-01-01&end_date=${year}-12-31&accounting_method=Accrual`;

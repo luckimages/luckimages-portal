@@ -6,6 +6,7 @@ import {
   createQboInvoice,
   recordQboPayment,
   fetchQboExpenses,
+  fetchQboInvoices,
 } from "@/lib/qbo";
 
 export async function GET() {
@@ -94,62 +95,44 @@ export async function POST() {
     }
   }
 
-  // ── 3. Build revenue snapshot from Supabase + QBO expenses ────────────────
+  // ── 3. Build revenue snapshot from QBO (source of truth for all invoices) ─
   const year = new Date().getFullYear();
-  const yearStart = `${year}-01-01`;
 
-  const { data: allInvoices } = await db
-    .from("invoices")
-    .select("amount_cents, paid, created_at")
-    .gte("created_at", yearStart);
+  const [{ expenses_ytd }, qboInvoices] = await Promise.all([
+    fetchQboExpenses(tokens),
+    fetchQboInvoices(tokens, year),
+  ]);
 
   let rev_ytd = 0;
   let ytd_invoices = 0;
   let unpaid_count = 0;
   const monthly: Record<string, number> = {};
 
-  for (const inv of allInvoices ?? []) {
-    if (inv.paid) {
-      rev_ytd += inv.amount_cents;
+  for (const inv of qboInvoices) {
+    const paid = inv.balance === 0;
+    if (paid) {
+      rev_ytd += inv.totalAmt;
       ytd_invoices++;
-      const key = inv.created_at.slice(0, 7);
-      monthly[key] = (monthly[key] ?? 0) + inv.amount_cents / 100;
+      const key = inv.txnDate.slice(0, 7);
+      monthly[key] = (monthly[key] ?? 0) + inv.totalAmt;
     } else {
       unpaid_count++;
     }
   }
 
-  const { expenses_ytd, net_income } = await fetchQboExpenses(tokens);
-
-  // Recent invoices for the dashboard table
-  const { data: recentRaw } = await db
-    .from("invoices")
-    .select("id, contact_id, amount_cents, paid, created_at")
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  const recent_invoices = await Promise.all(
-    (recentRaw ?? []).map(async (inv, i) => {
-      let client = "Unknown";
-      if (inv.contact_id) {
-        const { data: c } = await db.from("contacts").select("name").eq("id", inv.contact_id).single();
-        if (c?.name) client = c.name;
-      }
-      return {
-        num: `INV-${String(i + 1).padStart(3, "0")}`,
-        date: inv.created_at.slice(0, 10),
-        paid: inv.paid,
-        amount: `$${(inv.amount_cents / 100).toLocaleString()}`,
-        client,
-      };
-    })
-  );
+  const recent_invoices = qboInvoices.slice(0, 10).map(inv => ({
+    num: `INV-${inv.docNumber}`,
+    date: inv.txnDate,
+    paid: inv.balance === 0,
+    amount: `$${inv.totalAmt.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+    client: inv.customerName,
+  }));
 
   const snap = {
-    rev_ytd: rev_ytd / 100,
+    rev_ytd,
     rev_month: monthly[`${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`] ?? 0,
     expenses_ytd,
-    net_income: (rev_ytd / 100) - expenses_ytd,
+    net_income: rev_ytd - expenses_ytd,
     ytd_invoices,
     unpaid_count,
     monthly_breakdown: monthly,
