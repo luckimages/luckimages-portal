@@ -26,11 +26,15 @@ export async function POST(req: Request) {
 
   let { data, error } = await db.from("page_views").insert(payload).select("id").single();
 
-  // link_click_id is a recent addition — if the migration hasn't run yet,
-  // retry without it rather than failing the whole pageview record.
-  if (error && error.message?.includes("link_click_id")) {
-    delete payload.link_click_id;
-    ({ data, error } = await db.from("page_views").insert(payload).select("id").single());
+  if (error) {
+    console.error("[track-pageview] insert error:", error.message, "| link_click_id:", payload.link_click_id ?? "none");
+    if (error.message?.includes("link_click_id")) {
+      delete payload.link_click_id;
+      ({ data, error } = await db.from("page_views").insert(payload).select("id").single());
+      if (error) console.error("[track-pageview] retry without link_click_id also failed:", error.message);
+    }
+  } else {
+    if (payload.link_click_id) console.log("[track-pageview] saved with link_click_id:", payload.link_click_id);
   }
 
   if (error || !data) return NextResponse.json({ error: error?.message || "Insert failed" }, { status: 500 });
