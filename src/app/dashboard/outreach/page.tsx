@@ -1227,7 +1227,7 @@ export default function OutreachPage() {
                             <p className="text-xs text-[#777] mt-1.5">
                               <span className="text-[#999]">{isAllView ? "📤" : isTextCampaign ? "💬" : "📨"} {row.timeline.length} {isAllView ? "send" : isTextCampaign ? "text" : "email"}{row.timeline.length > 1 ? "s" : ""}</span>
                               {totalClicks > 0
-                                ? <span style={{ color: clickSummaryColor }}> · {totalClicks} link click{totalClicks > 1 ? "s" : ""}</span>
+                                ? <span style={{ color: clickSummaryColor }}> · {totalClicks} {hasDwell ? "" : "unconfirmed "}click{totalClicks > 1 ? "s" : ""}</span>
                                 : <span className="text-[#444]"> · no clicks yet</span>}
                             </p>
                           </div>
