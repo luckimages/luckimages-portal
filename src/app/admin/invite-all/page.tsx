@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 const supabase = createClient();
 
@@ -18,6 +20,7 @@ type Contact = {
 type InviteStatus = "idle" | "pending" | "done" | "error";
 
 export default function InviteAllPage() {
+  const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -27,6 +30,8 @@ export default function InviteAllPage() {
 
   useEffect(() => {
     async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !ADMIN_EMAILS.includes(user.email || "")) { router.replace("/dashboard"); return; }
       const { data } = await supabase
         .from("contacts")
         .select("id, name, email, phone, stage, total_revenue, user_id")

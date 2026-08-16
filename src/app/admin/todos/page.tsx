@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
 import TaskBoard, { type TodoList, type Todo } from "@/app/dashboard/TaskBoard";
 
 export default function TodosPage() {
+  const router = useRouter();
   const [lists, setLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [completed, setCompleted] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) { router.replace("/dashboard"); return; }
+    });
     fetch("/api/admin/todos")
       .then(r => r.ok ? r.json() : { lists: [], active: [], completed: [] })
       .then(d => {

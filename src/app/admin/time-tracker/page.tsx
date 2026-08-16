@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
 
 type Entry = {
   id: string;
@@ -134,6 +136,10 @@ export default function TimeTrackerPage() {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
 
   useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) { router.replace("/dashboard"); return; }
+    });
     fetch("/api/admin/time-entries?mode=all")
       .then(r => r.json())
       .then(({ allEntries }) => {
