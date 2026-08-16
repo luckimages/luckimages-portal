@@ -994,7 +994,8 @@ export default function OutreachPage() {
     }
     const list = [...map.entries()].map(([name, entries]) => {
       const contactIds = new Set(entries.map(e => e.contact.id));
-      const clickedContactIds = new Set(entries.filter(e => e.clicks.length > 0).map(e => e.contact.id));
+      // Only count contacts where at least one click has dwell data (JS ran = human, not iMessage preview bot)
+      const clickedContactIds = new Set(entries.filter(e => e.clicks.some(c => dwellByClickId[c.id] !== undefined)).map(e => e.contact.id));
       // Registered = converted after being targeted by this campaign. Templates
       // like Portal Invite only ever target unregistered contacts, so any
       // registration afterward is fairly attributed to having been emailed.
@@ -1033,7 +1034,10 @@ export default function OutreachPage() {
   const isAllView = activeCampaign === ALL_KEY;
   const allCampaignSummary = (() => {
     const reached = engagement.length;
-    const clicked = engagement.filter(r => r.timeline.some(t => t.clicks.length > 0) || r.orphanClicks.length > 0).length;
+    const clicked = engagement.filter(r =>
+      r.timeline.some(t => t.clicks.some(c => dwellByClickId[c.id] !== undefined)) ||
+      r.orphanClicks.some(c => dwellByClickId[c.id] !== undefined)
+    ).length;
     const registered = engagement.filter(r => r.contact.registered_at).length;
     return {
       name: "All",
@@ -1089,7 +1093,7 @@ export default function OutreachPage() {
     if (allClicks.length > 0) {
       const hasDwell = allClicks.some(c => dwellByClickId[c.id] !== undefined);
       const best = allClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
-      return { label: "Clicked", color: hasDwell ? dwellColor(best) : "#60a5fa" };
+      return { label: hasDwell ? "Clicked" : "Clicked (unconfirmed)", color: hasDwell ? dwellColor(best) : "#60a5fa" };
     }
     return { label: "Sent", color: "#666" };
   }
@@ -1252,9 +1256,10 @@ export default function OutreachPage() {
                                       <div key={j} className="flex items-center gap-2 text-xs">
                                         <span style={{ color }}>🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
                                         <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                        {dwell != null && (
-                                          <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
-                                        )}
+                                        {dwell != null
+                                          ? <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
+                                          : <span className="text-[#444] italic">· unconfirmed (may be link preview)</span>
+                                        }
                                       </div>
                                       );
                                     })}
@@ -1276,9 +1281,10 @@ export default function OutreachPage() {
                                     <div key={j} className="flex items-center gap-2 text-xs">
                                       <span style={{ color }}>🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
                                       <span className="text-[#555] tabular-nums">— {fmtDateTime(c.clicked_at)}</span>
-                                      {dwell != null && (
-                                        <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
-                                      )}
+                                      {dwell != null
+                                        ? <span style={{ color }} className="tabular-nums font-semibold">· {fmtDwell(dwell)}</span>
+                                        : <span className="text-[#444] italic">· unconfirmed (may be link preview)</span>
+                                      }
                                     </div>
                                     );
                                   })}
