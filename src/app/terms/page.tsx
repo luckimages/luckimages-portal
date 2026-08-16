@@ -1,11 +1,9 @@
-import { notFound } from "next/navigation";
 import HomeNav from "@/components/HomeNav";
 import Link from "next/link";
 
 export const metadata = { title: "Terms of Service — Luck Images" };
 
 export default function TermsPage() {
-  notFound();
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <HomeNav />
@@ -30,8 +28,8 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xs tracking-[3px] uppercase text-[#555] mb-3">2. Bookings & Payment</h2>
               <p className="mb-3">
-                Shoots are confirmed upon receipt of a booking request and deposit (if required). Full payment
-                is due upon delivery of media unless a separate payment schedule has been agreed upon in writing.
+                Shoots are confirmed upon receipt of a booking request. No deposit is required — payment
+                is due upon delivery of media, at the time of download through the client portal.
               </p>
               <p>
                 Cancellations made within 24 hours of a scheduled shoot may be subject to a cancellation fee.

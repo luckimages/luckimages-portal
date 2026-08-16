@@ -31,7 +31,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     fullName: "", email: "", password: "", phone: "",
     brokerage: "", areas: "", birthday: "",
-    mailingList: false, referralSource: "",
+    mailingList: false, referralSource: "", agreedToTerms: false,
   });
   // Honeypot — invisible to real users (off-screen, not display:none, since
   // some bots specifically skip that), but form-filling bots grab every
@@ -220,6 +220,16 @@ export default function RegisterPage() {
             <label className="flex items-center gap-3 cursor-pointer mt-1">
               <input type="checkbox" checked={form.mailingList} onChange={e => set("mailingList", e.target.checked)} className="accent-white w-4 h-4" />
               <span className="text-xs tracking-[1px] text-[#888]">Sign me up for tips, promotions & market updates</span>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" required checked={form.agreedToTerms} onChange={e => set("agreedToTerms", e.target.checked)} className="accent-white w-4 h-4 mt-0.5 shrink-0" />
+              <span className="text-xs tracking-[1px] text-[#888]">
+                I agree to the{" "}
+                <Link href="/terms" target="_blank" className="text-white underline underline-offset-4 hover:text-[#4ade80] transition-colors">Terms of Service</Link>
+                {" "}and{" "}
+                <Link href="/privacy" target="_blank" className="text-white underline underline-offset-4 hover:text-[#4ade80] transition-colors">Privacy Policy</Link>
+              </span>
             </label>
 
             {error && (
