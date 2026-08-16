@@ -1087,8 +1087,9 @@ export default function OutreachPage() {
     if (row.contact.registered_at) return { label: "Registered", color: "#34d399" };
     const allClicks = [...row.timeline.flatMap(t => t.clicks), ...(row.orphanClicks ?? [])];
     if (allClicks.length > 0) {
+      const hasDwell = allClicks.some(c => dwellByClickId[c.id] !== undefined);
       const best = allClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
-      return { label: "Clicked", color: dwellColor(best) };
+      return { label: "Clicked", color: hasDwell ? dwellColor(best) : "#60a5fa" };
     }
     return { label: "Sent", color: "#666" };
   }
@@ -1201,7 +1202,8 @@ export default function OutreachPage() {
                     const totalClicks = row.timeline.reduce((n, t) => n + t.clicks.length, 0) + orphanClicks.length;
                     const allRowClicks = [...row.timeline.flatMap(t => t.clicks), ...orphanClicks];
                     const bestDwell = allRowClicks.reduce((max, c) => Math.max(max, dwellByClickId[c.id] ?? 0), 0);
-                    const clickSummaryColor = totalClicks > 0 ? dwellColor(bestDwell) : "#444";
+                    const hasDwell = allRowClicks.some(c => dwellByClickId[c.id] !== undefined);
+                    const clickSummaryColor = totalClicks > 0 ? (hasDwell ? dwellColor(bestDwell) : "#60a5fa") : "#444";
                     return (
                       <div key={row.contact.id}>
                         {/* ── Contact bar (click to expand) ── */}
