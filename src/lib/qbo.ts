@@ -2,7 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const QBO_API = "https://quickbooks.api.intuit.com/v3/company";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
-const MINOR_VER = "?minorversion=65";
+function minorVer(path: string) {
+  return path.includes("?") ? `${path}&minorversion=65` : `${path}?minorversion=65`;
+}
 
 function adminDb() {
   return createClient(
@@ -114,7 +116,7 @@ export async function saveInitialTokens(tokens: QboTokens) {
 }
 
 async function qboGet(path: string, tokens: QboTokens) {
-  const res = await fetch(`${QBO_API}/${tokens.realm_id}/${path}${MINOR_VER}`, {
+  const res = await fetch(`${QBO_API}/${tokens.realm_id}/${minorVer(path)}`, {
     headers: { Authorization: `Bearer ${tokens.access_token}`, Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`QBO GET ${path} failed: ${res.status}`);
@@ -122,7 +124,7 @@ async function qboGet(path: string, tokens: QboTokens) {
 }
 
 async function qboPost(path: string, body: unknown, tokens: QboTokens) {
-  const res = await fetch(`${QBO_API}/${tokens.realm_id}/${path}${MINOR_VER}`, {
+  const res = await fetch(`${QBO_API}/${tokens.realm_id}/${minorVer(path)}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
