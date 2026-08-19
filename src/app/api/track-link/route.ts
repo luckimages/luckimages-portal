@@ -31,7 +31,8 @@ export async function GET(req: Request) {
   let destination: string | undefined;
   if (customUrl) {
     try {
-      const parsed = new URL(customUrl);
+      const normalized = /^https?:\/\//i.test(customUrl) ? customUrl : `https://${customUrl}`;
+      const parsed = new URL(normalized);
       if (parsed.protocol === "http:" || parsed.protocol === "https:") destination = parsed.toString();
     } catch { /* invalid URL — fall through to SERVICE_URLS / default */ }
   }
