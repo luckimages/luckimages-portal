@@ -15,14 +15,22 @@ export default function ServicesGrid() {
           viewport={{ once: true, margin: "-40px" }}
           transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] as const, delay: i * 0.06 }}
         >
-          <Link
-            href={`/services/${s.slug}`}
-            className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group h-full"
-          >
-            <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
-            <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
-            <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
-          </Link>
+          {s.slug === "video" ? (
+            <div className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 h-full cursor-default">
+              <span className="text-white/25">{s.icon}</span>
+              <span className="text-xs tracking-[2px] uppercase text-white/30 text-center">{s.name}</span>
+              <span className="text-[10px] tracking-[2px] uppercase text-white/20">Coming Soon</span>
+            </div>
+          ) : (
+            <Link
+              href={`/services/${s.slug}`}
+              className="bg-[#0c0c0c] p-8 flex flex-col items-center gap-4 hover:bg-white/5 transition-colors group h-full"
+            >
+              <span className="text-white/50 group-hover:text-white transition-colors">{s.icon}</span>
+              <span className="text-xs tracking-[2px] uppercase text-white/60 group-hover:text-white transition-colors text-center">{s.name}</span>
+              <span className="text-[10px] tracking-[2px] uppercase text-white/30 group-hover:text-white/60 transition-colors">Learn More →</span>
+            </Link>
+          )}
         </motion.div>
       ))}
     </div>

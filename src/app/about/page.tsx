@@ -3,10 +3,10 @@ import Link from "next/link";
 import FadeUp from "@/components/FadeUp";
 
 const STATS = [
-  { value: "4+", label: "Years in Austin" },
+  { value: "5", label: "Years in Business" },
   { value: "500+", label: "Properties Shot" },
   { value: "24hr", label: "Turnaround" },
-  { value: "10+", label: "Photographers (Goal)" },
+  { value: "10+", label: "Years in Real Estate" },
 ];
 
 export default function AboutPage() {
@@ -73,7 +73,7 @@ export default function AboutPage() {
                 <h2 className="text-4xl font-black tracking-tight uppercase mb-6">Ryan Luck</h2>
               </div>
               <p className="text-[#888] leading-relaxed">
-                Born and raised in Austin, Ryan has spent over a decade behind the camera and the last four years building Luck Images into the go-to real estate media company for agents across Central Texas.
+                Born and raised in Austin, Ryan has spent over a decade behind the camera — with the last 5 years building Luck Images into the go-to real estate media company for agents across Central Texas.
               </p>
               <p className="text-[#888] leading-relaxed">
                 His approach is simple: show up prepared, shoot fast, deliver fast, and make every property look its absolute best. Technical precision meets genuine care for the people he works with — and it shows in the results.

@@ -69,8 +69,6 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
     "drone-1.jpg", "1802MapleDrone-2.jpg", "1136CountyRoad484Drone-5.jpg",
     "1107CountryRoad322Drone-3.jpg", "197BristleconeDr-Drone-15.jpg",
     "104WesthavenDrone-5.jpg", "116MallardDrone-2.jpg",
-    "bernia_interior-3.jpg", "bernia_interior-4.jpg", "bernia_interior-5.jpg",
-    "bernia_interior-6.jpg", "bernia_interior-7.jpg",
   ],
   "twilight": ["WebTwilight-2.jpg", "WebTwilight-3.jpg"],
 };
@@ -126,7 +124,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           <FadeUp delay={0.35}><p className="text-white/80 text-lg max-w-lg mb-12 leading-relaxed">{DESCRIPTIONS[service.slug]}</p></FadeUp>
           <FadeUp delay={0.45}>
             <div className="flex gap-4">
-              <Link href="/login" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
+              <Link href="/register" className="text-xs tracking-[3px] uppercase bg-white text-black px-8 py-4 font-semibold hover:bg-white/90 transition-colors">Book Now</Link>
               <Link href="/" className="text-xs tracking-[3px] uppercase border border-white/40 px-8 py-4 hover:border-white hover:bg-white/5 transition-all">← All Services</Link>
             </div>
           </FadeUp>

@@ -63,7 +63,7 @@ export default function HomeNav() {
           {servicesOpen && (
             <div className="absolute top-full left-1/2 -translate-x-1/2 w-48 pt-3">
               <div className="bg-[#111] border border-white/10 py-1">
-                {SERVICES.map((s) => (
+                {SERVICES.filter((s) => s.slug !== "video").map((s) => (
                   <Link
                     key={s.slug}
                     href={`/services/${s.slug}`}
@@ -82,6 +82,13 @@ export default function HomeNav() {
         <Link href="/about" className={linkCls}>About</Link>
         <Link href="/contact" className={linkCls}>Contact</Link>
 
+        <a href="https://instagram.com/luckimages.atx" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white transition-colors" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+          </svg>
+        </a>
         {loggedIn ? (
           <div className="flex items-center gap-3">
             <Link href={portalHref} className="w-8 h-8 rounded-full bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center hover:border-white/60 transition-colors flex-shrink-0">
@@ -138,7 +145,7 @@ export default function HomeNav() {
           </button>
           {mobileServicesOpen && (
             <div className="border-t border-white/5">
-              {SERVICES.map((s) => (
+              {SERVICES.filter((s) => s.slug !== "video").map((s) => (
                 <Link key={s.slug} href={`/services/${s.slug}`} onClick={() => setMenuOpen(false)}
                   className="px-10 py-2.5 text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors flex items-center gap-3">
                   <span>{s.icon}</span>{s.name}
@@ -149,6 +156,14 @@ export default function HomeNav() {
           <Link href="/pricing" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Pricing</Link>
           <Link href="/about" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">About</Link>
           <Link href="/contact" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors">Contact</Link>
+          <a href="https://instagram.com/luckimages.atx" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} className="px-6 py-3 text-xs tracking-[3px] uppercase text-white/40 hover:text-white transition-colors flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+            </svg>
+            Instagram
+          </a>
         </div>
       )}
     </nav>
