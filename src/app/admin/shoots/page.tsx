@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
 import ContactChip from "@/components/ContactChip";
@@ -1017,6 +1018,12 @@ function ShootsPage() {
                   className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white/5 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">
                   ↩ Reopen
                 </button>
+              )}
+              {["editing", "delivered", "completed"].includes(shoot.status) && (
+                <Link href={`/admin/shoots/${shoot.id}/brochure`}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] hover:bg-[#a78bfa]/20 transition-colors">
+                  + Brochure
+                </Link>
               )}
               <button onClick={() => { setInvoiceOpen(o => !o); setInvoiceMsg(""); }}
                 className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#60a5fa]/10 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/20 transition-colors">
