@@ -18,24 +18,32 @@ export default function SetPasswordPage() {
   useEffect(() => {
     const supabase = createClient();
 
-    // PASSWORD_RECOVERY fires when Supabase processes the token from the
-    // reset link's URL hash — only then is the session valid for updateUser().
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session?.user) {
-        setSessionReady(true);
-        const { data: contact } = await supabase.from("contacts").select("name").eq("user_id", session.user.id).single();
-        const name = contact?.name || session.user.user_metadata?.full_name || "";
-        setFirstName(name.split(" ")[0] || "");
-      }
-    });
-
-    // Also handle already-authenticated users (e.g. admin changing their own password)
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return;
+    async function loadUser(user: { id: string; user_metadata?: Record<string, string> }) {
       setSessionReady(true);
-      const { data: contact } = await supabase.from("contacts").select("name").eq("user_id", data.user.id).single();
-      const name = contact?.name || data.user.user_metadata?.full_name || "";
+      const { data: contact } = await supabase.from("contacts").select("name").eq("user_id", user.id).single();
+      const name = contact?.name || user.user_metadata?.full_name || "";
       setFirstName(name.split(" ")[0] || "");
+    }
+
+    // @supabase/ssr doesn't auto-process the hash — read access_token and
+    // refresh_token from the URL fragment and exchange them explicitly.
+    const hash = typeof window !== "undefined" ? window.location.hash.substring(1) : "";
+    if (hash) {
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      if (accessToken && refreshToken) {
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(({ data }) => { if (data.session?.user) loadUser(data.session.user); });
+      }
+    }
+
+    // Fallback: already-authenticated users (e.g. admin resetting own password)
+    supabase.auth.getUser().then(({ data }) => { if (data.user) loadUser(data.user); });
+
+    // Also listen for PASSWORD_RECOVERY in case Supabase does handle it
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) loadUser(session.user);
     });
 
     return () => subscription.unsubscribe();
