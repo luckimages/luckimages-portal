@@ -13,15 +13,32 @@ export default function SetPasswordPage() {
   const [status, setStatus] = useState<"" | "saving" | "error">("");
   const [error, setError] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
+
+    // PASSWORD_RECOVERY fires when Supabase processes the token from the
+    // reset link's URL hash — only then is the session valid for updateUser().
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session?.user) {
+        setSessionReady(true);
+        const { data: contact } = await supabase.from("contacts").select("name").eq("user_id", session.user.id).single();
+        const name = contact?.name || session.user.user_metadata?.full_name || "";
+        setFirstName(name.split(" ")[0] || "");
+      }
+    });
+
+    // Also handle already-authenticated users (e.g. admin changing their own password)
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
+      setSessionReady(true);
       const { data: contact } = await supabase.from("contacts").select("name").eq("user_id", data.user.id).single();
       const name = contact?.name || data.user.user_metadata?.full_name || "";
       setFirstName(name.split(" ")[0] || "");
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -29,6 +46,7 @@ export default function SetPasswordPage() {
     setError("");
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     if (password !== confirm) { setError("Passwords don't match."); return; }
+    if (!sessionReady) { setError("Your reset link hasn't loaded yet — please wait a moment and try again."); return; }
     setStatus("saving");
     const supabase = createClient();
     const { error: err } = await supabase.auth.updateUser({ password, data: { has_password: true } });
