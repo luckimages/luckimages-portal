@@ -50,6 +50,21 @@ function matterportPrice(sqft: number) {
 }
 function floorPlanPrice(sqft: number) { return sqft < 2500 ? 50 : 75; }
 
+function servicePrice(key: string, sqft: number): number | null {
+  if (!sqft) return null;
+  if (key === "Listing Photos") return listingPhotosPrice(sqft);
+  if (key === "Matterport 3D Tour") return matterportPrice(sqft);
+  if (key === "Floor Plan") return floorPlanPrice(sqft);
+  if (key === "Twilight") return 250;
+  if (key === "Video Walkthrough") return 200;
+  if (key === "Aerial Photos") return 200;
+  if (key === "Headshots") return 200;
+  if (key === "Aerial Add-on") return 100;
+  if (key === "Twilight Add-on") return 150;
+  if (key === "Virtual Staging") return 25;
+  return null;
+}
+
 function calcQuote(services: string[], sqft: string): { low: number; exact: boolean } {
   const sf = parseInt(sqft) || 0;
   let total = 0;
@@ -731,13 +746,15 @@ export default function ClientPage() {
                     <div className="grid grid-cols-2 gap-2">
                       {PRIMARY_SERVICES.map(s => {
                         const checked = booking.services.includes(s.key);
+                        const sf = parseInt(booking.square_footage) || 0;
+                        const price = servicePrice(s.key, sf);
                         return (
-                          <label key={s.key} className={`flex flex-col gap-2 px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
-                            <div className="flex items-center gap-3">
+                          <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
+                            <div className="flex items-center gap-2">
                               <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
-                              <span className="text-xs tracking-[1px] uppercase text-white leading-tight">{s.label}</span>
+                              <span className="text-xs text-white">{s.label}</span>
                             </div>
-                            <span className="text-[10px] text-[#555] ml-6">from ${s.from}</span>
+                            {price !== null && <span className="text-[10px] text-[#555] ml-5">${price}</span>}
                           </label>
                         );
                       })}
@@ -750,13 +767,15 @@ export default function ClientPage() {
                     <div className="grid grid-cols-2 gap-2">
                       {ADDON_SERVICES.map(s => {
                         const checked = booking.services.includes(s.key);
+                        const sf = parseInt(booking.square_footage) || 0;
+                        const price = servicePrice(s.key, sf);
                         return (
-                          <label key={s.key} className={`flex flex-col gap-2 px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
-                            <div className="flex items-center gap-3">
+                          <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                            <div className="flex items-center gap-2">
                               <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
-                              <span className="text-xs tracking-[1px] uppercase text-[#aaa] leading-tight">{s.label}</span>
+                              <span className="text-xs text-[#aaa]">{s.label}</span>
                             </div>
-                            <span className="text-[10px] text-[#444] ml-6">from ${s.from}</span>
+                            {price !== null && <span className="text-[10px] text-[#444] ml-5">${price}</span>}
                           </label>
                         );
                       })}
@@ -1209,12 +1228,34 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
               <div>
                 <label className={rowLabelCls}>Services</label>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {[...PRIMARY_SERVICES, ...ADDON_SERVICES].map(s => {
+                  {PRIMARY_SERVICES.map(s => {
                     const checked = eServices.includes(s.key);
+                    const sf = parseInt(eSqft) || 0;
+                    const price = servicePrice(s.key, sf);
                     return (
-                      <label key={s.key} className={`flex items-center gap-2 px-3 py-2 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3" />
-                        <span className="text-xs text-white">{s.label}</span>
+                      <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                          <span className="text-xs text-white">{s.label}</span>
+                        </div>
+                        {price !== null && <span className="text-[10px] text-[#555] ml-5">${price}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className={rowLabelCls + " mt-3 text-[#444]"}>Add-ons</p>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {ADDON_SERVICES.map(s => {
+                    const checked = eServices.includes(s.key);
+                    const sf = parseInt(eSqft) || 0;
+                    const price = servicePrice(s.key, sf);
+                    return (
+                      <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                          <span className="text-xs text-[#aaa]">{s.label}</span>
+                        </div>
+                        {price !== null && <span className="text-[10px] text-[#444] ml-5">${price}</span>}
                       </label>
                     );
                   })}
