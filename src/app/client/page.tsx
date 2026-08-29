@@ -732,12 +732,12 @@ export default function ClientPage() {
                       {PRIMARY_SERVICES.map(s => {
                         const checked = booking.services.includes(s.key);
                         return (
-                          <label key={s.key} className={`flex items-center justify-between px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
+                          <label key={s.key} className={`flex flex-col gap-2 px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
                             <div className="flex items-center gap-3">
-                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3" />
-                              <span className="text-xs tracking-[1px] uppercase text-white">{s.label}</span>
+                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                              <span className="text-xs tracking-[1px] uppercase text-white leading-tight">{s.label}</span>
                             </div>
-                            <span className="text-[10px] text-[#555] whitespace-nowrap">from ${s.from}</span>
+                            <span className="text-[10px] text-[#555] ml-6">from ${s.from}</span>
                           </label>
                         );
                       })}
@@ -751,12 +751,12 @@ export default function ClientPage() {
                       {ADDON_SERVICES.map(s => {
                         const checked = booking.services.includes(s.key);
                         return (
-                          <label key={s.key} className={`flex items-center justify-between px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                          <label key={s.key} className={`flex flex-col gap-2 px-4 py-3 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
                             <div className="flex items-center gap-3">
-                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3" />
-                              <span className="text-xs tracking-[1px] uppercase text-[#aaa]">{s.label}</span>
+                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                              <span className="text-xs tracking-[1px] uppercase text-[#aaa] leading-tight">{s.label}</span>
                             </div>
-                            <span className="text-[10px] text-[#444] whitespace-nowrap">from ${s.from}</span>
+                            <span className="text-[10px] text-[#444] ml-6">from ${s.from}</span>
                           </label>
                         );
                       })}
