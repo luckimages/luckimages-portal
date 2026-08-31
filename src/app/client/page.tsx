@@ -463,15 +463,15 @@ export default function ClientPage() {
             {/* Stat chips */}
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#60a5fa] overflow-hidden">
-                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#666] mb-2 md:mb-3">Shoots</p>
+                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#999] mb-2 md:mb-3">Shoots</p>
                 <p className="text-2xl md:text-3xl font-bold">{shoots.length}</p>
               </div>
               <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#fbbf24] overflow-hidden">
-                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#666] mb-2 md:mb-3">Sq Ft</p>
+                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#999] mb-2 md:mb-3">Sq Ft</p>
                 <p className="text-lg md:text-3xl font-bold">{totalSqFt > 0 ? totalSqFt.toLocaleString() : "—"}</p>
               </div>
               <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#4ade80] overflow-hidden">
-                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#666] mb-2 md:mb-3">Client For</p>
+                <p className="text-[9px] md:text-xs tracking-[1px] md:tracking-[2px] uppercase text-[#999] mb-2 md:mb-3">Client For</p>
                 <p className="text-base md:text-3xl font-bold leading-tight">{memberSince || "—"}</p>
               </div>
             </div>
