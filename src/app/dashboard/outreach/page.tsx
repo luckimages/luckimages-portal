@@ -932,20 +932,9 @@ export default function OutreachPage() {
   // Only count clicks where we have a real dwell time.
   const realClicks = linkClicks;
 
-  // The confirmation pipeline (page_views.link_click_id) went live the moment
-  // the first confirmed click was recorded. Clicks clearly predating the pipeline
-  // (24+ hours before the first confirmed click) are trusted as real even without
-  // dwell data. Clicks within 24 hours of the first confirmed click must have dwell
-  // data — a bot prefetch arriving minutes before the real click would otherwise
-  // slip through the historical exception and be counted as a second real click.
-  const earliestConfirmedAt = linkClicks
-    .filter(c => dwellByClickId[c.id] !== undefined)
-    .reduce((min, c) => c.clicked_at < min ? c.clicked_at : min, "");
-  const HISTORICAL_GRACE_MS = 24 * 60 * 60 * 1000;
-  const isRealClick = (c: { clicked_at: string; id: string }) =>
-    dwellByClickId[c.id] !== undefined ||
-    (!earliestConfirmedAt) ||
-    (new Date(earliestConfirmedAt).getTime() - new Date(c.clicked_at).getTime() > HISTORICAL_GRACE_MS);
+  // Real clicks always have dwell data (JavaScript ran). Bot prefetches (iMessage,
+  // WhatsApp link previews, etc.) never do. Simple rule: no dwell = not a real click.
+  const isRealClick = (c: { id: string }) => dwellByClickId[c.id] !== undefined;
 
   function dwellColor(seconds: number): string {
     if (seconds >= 45) return "#4ade80";  // green — engaged, worth reaching out
