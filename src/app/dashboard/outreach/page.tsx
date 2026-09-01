@@ -933,14 +933,19 @@ export default function OutreachPage() {
   const realClicks = linkClicks;
 
   // The confirmation pipeline (page_views.link_click_id) went live the moment
-  // the first confirmed click was recorded. All clicks BEFORE that timestamp
-  // are historical and trusted as real. Clicks AFTER that point must have dwell
-  // data to count — anything without it is a bot prefetch and is hidden entirely.
+  // the first confirmed click was recorded. Clicks clearly predating the pipeline
+  // (24+ hours before the first confirmed click) are trusted as real even without
+  // dwell data. Clicks within 24 hours of the first confirmed click must have dwell
+  // data — a bot prefetch arriving minutes before the real click would otherwise
+  // slip through the historical exception and be counted as a second real click.
   const earliestConfirmedAt = linkClicks
     .filter(c => dwellByClickId[c.id] !== undefined)
     .reduce((min, c) => c.clicked_at < min ? c.clicked_at : min, "");
+  const HISTORICAL_GRACE_MS = 24 * 60 * 60 * 1000;
   const isRealClick = (c: { clicked_at: string; id: string }) =>
-    dwellByClickId[c.id] !== undefined || !earliestConfirmedAt || c.clicked_at < earliestConfirmedAt;
+    dwellByClickId[c.id] !== undefined ||
+    (!earliestConfirmedAt) ||
+    (new Date(earliestConfirmedAt).getTime() - new Date(c.clicked_at).getTime() > HISTORICAL_GRACE_MS);
 
   function dwellColor(seconds: number): string {
     if (seconds >= 45) return "#4ade80";  // green — engaged, worth reaching out
@@ -1009,7 +1014,7 @@ export default function OutreachPage() {
       const registeredContactIds = new Set(
         entries.filter(e => e.contact.registered_at).map(e => e.contact.id)
       );
-      const totalClicks = entries.reduce((n, e) => n + e.clicks.length, 0);
+      const totalClicks = entries.reduce((n, e) => n + e.clicks.filter(isRealClick).length, 0);
       const lastSentAt = entries.reduce((max, e) => {
         const t = e.email.sent_at ? new Date(e.email.sent_at).getTime() : 0;
         return t > max ? t : max;
