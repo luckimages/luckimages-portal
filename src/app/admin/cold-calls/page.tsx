@@ -325,6 +325,9 @@ function ColdCallsPage() {
   const [textCopied, setTextCopied] = useState<{ id: string; logged: boolean } | null>(null);
   const [pendingTextCopied, setPendingTextCopied] = useState(false);
   const [pendingTextLinkSent, setPendingTextLinkSent] = useState(false);
+  // ID of the cold_calls row written immediately when the link is copied —
+  // logCall() updates this row instead of inserting a duplicate.
+  const [pendingTextLogId, setPendingTextLogId] = useState<string | null>(null);
 
   const [logTab, setLogTab] = useState<LogTab>("all");
   const [logSearch, setLogSearch] = useState("");
@@ -489,27 +492,27 @@ function ColdCallsPage() {
     const supabase = createClient();
     const outcome = [...selectedTags].join(",");
     const allContactsOnCall = [contact, ...additionalContacts];
-    // Preserve whatever the tracked-link marker needs to look like for the
-    // Outreach "Cold Call Texts" filter (COLD_CALL_TEXT_LINK_NOTE) without
-    // clobbering real call notes typed into the form.
     const finalNotes = pendingTextLinkSent
       ? [notes.trim(), COLD_CALL_TEXT_LINK_NOTE].filter(Boolean).join("\n\n")
       : (notes || null);
-    // One shared log entry — teammates on the same call all point back to it via linked_contact_ids,
-    // so they share one history instead of getting duplicate independent logs.
-    await supabase.from("cold_calls").insert({
-      contact_id: contact.id,
+    const callPayload = {
       linked_contact_ids: additionalContacts.length > 0 ? additionalContacts.map(c => c.id) : null,
       outcome,
       notes: finalNotes,
       quote_amount: quoteAmount || null,
       listing_address: address || null,
       listing_url: listingUrl || null,
-      called_by: callerName,
       service: primaryService || null,
       add_ons: selectedAddOns.size > 0 ? [...selectedAddOns] : null,
       follow_up_date: followUpDate || null,
-    });
+    };
+    // If the text link was already written to DB immediately on copy, update
+    // that row instead of inserting a duplicate.
+    if (pendingTextLinkSent && pendingTextLogId) {
+      await supabase.from("cold_calls").update(callPayload).eq("id", pendingTextLogId);
+    } else {
+      await supabase.from("cold_calls").insert({ contact_id: contact.id, called_by: callerName, ...callPayload });
+    }
     await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).in("id", allContactsOnCall.map(c => c.id));
     setLogging(false);
 
@@ -536,6 +539,7 @@ function ColdCallsPage() {
     setSelectedTags(new Set());
     setFollowUpDate("");
     setPendingTextLinkSent(false);
+    setPendingTextLogId(null);
     await loadData();
   }
 
@@ -568,17 +572,34 @@ function ColdCallsPage() {
     await loadData();
   }
 
-  // Copy the follow-up text link for the call currently being logged (before Save).
-  // No separate DB write here — it just marks "Sent Text" on the in-progress outcome
-  // so it's captured in the same log entry when Save Call Log is clicked, instead of
-  // creating a second row like the post-save copyTextLink() does.
-  function copyPendingTextLink() {
+  // Copy the follow-up text link and immediately write a cold_calls row so the
+  // send is tracked even if the user never clicks Save Call Log. If Save IS
+  // clicked, logCall() updates that same row instead of inserting a duplicate.
+  async function copyPendingTextLink() {
     if (!contact) return;
     navigator.clipboard.writeText(trackedTextLink(contact.id, primaryService));
     setSelectedTags(prev => new Set(prev).add("sent_text"));
     setPendingTextLinkSent(true);
     setPendingTextCopied(true);
     setTimeout(() => setPendingTextCopied(false), 1500);
+
+    // Already logged a text for this contact today — don't double-count.
+    const today = new Date().toDateString();
+    const alreadyLoggedToday = callLogs.some(l =>
+      l.contact_id === contact.id && hasTag(l.outcome, "sent_text") && new Date(l.called_at).toDateString() === today
+    );
+    if (alreadyLoggedToday) return;
+
+    const supabase = createClient();
+    const { data } = await supabase.from("cold_calls").insert({
+      contact_id: contact.id,
+      outcome: "sent_text",
+      called_by: callerName,
+      notes: COLD_CALL_TEXT_LINK_NOTE,
+    }).select("id").single();
+    if (data?.id) setPendingTextLogId(data.id);
+    await supabase.from("contacts").update({ stage: stageFromOutcome("sent_text") }).eq("id", contact.id);
+    await loadData();
   }
 
   // Recompute each contact's stage from their own most recent shared-or-solo call log.
