@@ -266,15 +266,21 @@ export default function RevenuePage() {
                 const address = fullAddress.split(",")[0].trim();
                 const clientName = inv.contacts?.name || "—";
                 const date = new Date(inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
-                const via = inv.stripe_payment_intent_id ? " · Stripe" : inv.qbo_invoice_id ? " · QB" : "";
+                const source = inv.stripe_payment_intent_id ? "stripe" : inv.qbo_invoice_id ? "qbo" : inv.paid ? "historical" : "unpaid";
+                const badge = {
+                  stripe:     { label: "Paid · Stripe",     cls: "text-[#4ade80] bg-[#4ade80]/10" },
+                  qbo:        { label: "Paid · QB",          cls: "text-[#60a5fa] bg-[#60a5fa]/10" },
+                  historical: { label: "Paid · Historical",  cls: "text-[#888] bg-white/[0.06]" },
+                  unpaid:     { label: "Unpaid",             cls: "text-[#fbbf24] bg-[#fbbf24]/10" },
+                }[source];
                 return (
                   <div key={inv.id} className="grid grid-cols-[88px_1fr_130px_80px_90px_110px] gap-x-3 px-4 py-3 border-b border-white/[0.04] hover:bg-white/[0.02] items-center min-w-[600px]">
                     <span className="text-[11px] text-[#555] tabular-nums">{date}</span>
                     <span className="text-sm truncate" title={fullAddress}>{address}</span>
                     <span className="text-[11px] text-[#888] truncate">{clientName}</span>
                     <span className={`text-sm font-semibold tabular-nums transition-all select-none ${blurred ? "blur-sm" : ""}`}>{fmt(inv.amount_cents / 100)}</span>
-                    <span className={`text-[9px] tracking-[1px] uppercase font-semibold px-1.5 py-0.5 w-fit ${inv.paid ? "text-[#4ade80] bg-[#4ade80]/10" : "text-[#fbbf24] bg-[#fbbf24]/10"}`}>
-                      {inv.paid ? `Paid${via}` : "Unpaid"}
+                    <span className={`text-[9px] tracking-[1px] uppercase font-semibold px-1.5 py-0.5 w-fit ${badge.cls}`}>
+                      {badge.label}
                     </span>
                     <div className="flex items-center gap-2 justify-end">
                       {!inv.paid && (
