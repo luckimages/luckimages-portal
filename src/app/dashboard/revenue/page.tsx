@@ -105,23 +105,33 @@ export default function RevenuePage() {
   const now = new Date();
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const lastMonthKey = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
-
-  const thisMonthRevenue = snap.monthly_breakdown[thisMonthKey] || 0;
-  const lastMonthRevenue = snap.monthly_breakdown[lastMonthKey] || 0;
-  const momDiff = lastMonthRevenue ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : null;
-
-  const months = Object.entries(snap.monthly_breakdown).sort(([a], [b]) => a.localeCompare(b));
-  const maxMonth = Math.max(...Object.values(snap.monthly_breakdown), 1);
+  const thisYear = now.getFullYear().toString();
 
   const unpaidInvoices = invoices.filter(i => !i.paid);
   const paidInvoices = invoices.filter(i => i.paid);
   const outstandingCents = unpaidInvoices.reduce((s, i) => s + i.amount_cents, 0);
 
-  // This-month shoot count: invoices created this month
-  const thisMonthShoots = invoices.filter(i => i.created_at.startsWith(thisMonthKey)).length;
+  // Build monthly breakdown from Supabase paid invoices (grouped by created_at month)
+  const monthlyBreakdown: Record<string, number> = {};
+  for (const inv of paidInvoices) {
+    const key = inv.created_at.slice(0, 7);
+    monthlyBreakdown[key] = (monthlyBreakdown[key] ?? 0) + inv.amount_cents / 100;
+  }
+  const months = Object.entries(monthlyBreakdown).sort(([a], [b]) => a.localeCompare(b));
+  const maxMonth = Math.max(...Object.values(monthlyBreakdown), 1);
 
-  const heroIncome = period === "month" ? thisMonthRevenue : snap.rev_ytd;
-  const heroShoots = period === "month" ? thisMonthShoots : snap.ytd_invoices;
+  // Hero stats — all from Supabase invoices
+  const thisMonthPaid = paidInvoices.filter(i => i.created_at.startsWith(thisMonthKey));
+  const lastMonthPaid = paidInvoices.filter(i => i.created_at.startsWith(lastMonthKey));
+  const ytdPaid = paidInvoices.filter(i => i.created_at.startsWith(thisYear));
+
+  const thisMonthIncome = thisMonthPaid.reduce((s, i) => s + i.amount_cents, 0) / 100;
+  const lastMonthIncome = lastMonthPaid.reduce((s, i) => s + i.amount_cents, 0) / 100;
+  const ytdIncome = ytdPaid.reduce((s, i) => s + i.amount_cents, 0) / 100;
+  const momDiff = lastMonthIncome ? ((thisMonthIncome - lastMonthIncome) / lastMonthIncome) * 100 : null;
+
+  const heroIncome = period === "month" ? thisMonthIncome : ytdIncome;
+  const heroShoots = period === "month" ? thisMonthPaid.length : ytdPaid.length;
 
   const filtered = filter === "unpaid" ? unpaidInvoices : filter === "paid" ? paidInvoices : invoices;
 
@@ -194,9 +204,9 @@ export default function RevenuePage() {
                   {momDiff >= 0 ? "▲" : "▼"} {Math.abs(momDiff).toFixed(1)}% vs last month
                 </p>
               )}
-              {period === "ytd" && snap.net_income > 0 && (
+              {period === "ytd" && snap.expenses_ytd > 0 && (
                 <p className={`text-xs mt-2 text-[#555] transition-all select-none ${blurred ? "blur-sm" : ""}`}>
-                  <span className="text-[#4ade80] font-semibold">{fmt(snap.net_income)}</span> net after {fmt(snap.expenses_ytd)} expenses
+                  <span className="text-[#4ade80] font-semibold">{fmt(snap.net_income)}</span> net · {fmt(snap.expenses_ytd)} expenses (QB)
                 </p>
               )}
             </div>
