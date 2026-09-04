@@ -231,13 +231,14 @@ function BoardCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 
-function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliver }: {
+function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliver, isDelivered }: {
   shoot: Shoot;
   photographers: Photographer[];
   onClose: () => void;
   onMarkPaid: (id: string) => void;
   onSave: (id: string, patch: Partial<Shoot>) => void;
   onDeliver: () => Promise<void>;
+  isDelivered?: boolean;
 }) {
   const alert = getAlertStatus(shoot);
   const style = alert ? ALERT_STYLES[alert] : null;
@@ -505,7 +506,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
 
         {tab === "media" && (
           <div className="p-6">
-            <ShootGallery shootId={shoot.id} services={shoot.services || []} onDeliver={onDeliver} />
+            <ShootGallery shootId={shoot.id} services={shoot.services || []} onDeliver={onDeliver} isDelivered={isDelivered} />
           </div>
         )}
       </div>
@@ -986,7 +987,7 @@ function ShootsPage() {
             </div>
             <div className="px-4 pb-4 border-t border-white/5 pt-4">
               <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">Media</p>
-              <ShootGallery shootId={shoot.id} services={shoot.services || []} onDeliver={() => deliverShoot(shoot.id)} />
+              <ShootGallery shootId={shoot.id} services={shoot.services || []} onDeliver={() => deliverShoot(shoot.id)} isDelivered={["delivered", "completed"].includes(shoot.status)} />
             </div>
             <div className="px-4 pb-4 flex gap-2 flex-wrap border-t border-white/5 pt-3">
               {shoot.status === "pending" && (
@@ -1683,6 +1684,7 @@ function ShootsPage() {
             setSelectedShoot(prev => prev?.id === id ? { ...prev, ...patch } : prev);
           }}
           onDeliver={() => deliverShoot(selectedShoot.id)}
+          isDelivered={["delivered", "completed"].includes(selectedShoot.status)}
         />
       )}
     </div>

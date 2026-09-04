@@ -32,6 +32,7 @@ type Props = {
   onMediaChange?: (count: number) => void;
   canDownload?: boolean;
   onDeliver?: () => Promise<void>;
+  isDelivered?: boolean;
 };
 
 // Convert "HDR Photography" → "hdr-photography" (matches upload slug)
@@ -60,7 +61,7 @@ function isMediaFile(f: File): boolean {
   return MEDIA_EXTENSIONS.includes(ext);
 }
 
-export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true, onDeliver }: Props) {
+export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true, onDeliver, isDelivered = false }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const [confirmedSections, setConfirmedSections] = useState<Set<string>>(new Set());
   const [delivering, setDelivering] = useState(false);
+  const [delivered, setDelivered] = useState(isDelivered);
   const [batchMode, setBatchMode] = useState(false);
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
   const [batchDeleting, setBatchDeleting] = useState(false);
@@ -115,6 +117,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxIdx, lightboxItems.length]);
+
+  // Sync delivered state when the parent tells us the shoot is already delivered
+  useEffect(() => { if (isDelivered) setDelivered(true); }, [isDelivered]);
 
   // Keep the active filmstrip thumb in view when navigating via arrows/keys
   useEffect(() => {
@@ -379,10 +384,17 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
             )}
             {canEdit && onDeliver && (
               <button
-                onClick={async () => { setDelivering(true); await onDeliver(); setDelivering(false); }}
+                onClick={delivered ? undefined : async () => {
+                  setDelivering(true);
+                  try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
+                }}
                 disabled={delivering}
-                className="text-xs tracking-[2px] uppercase px-3 py-1.5 bg-white text-black font-semibold hover:bg-white/90 transition-colors disabled:opacity-40">
-                {delivering ? "Delivering..." : "Deliver"}
+                className={`text-xs tracking-[2px] uppercase px-3 py-1.5 font-semibold transition-colors ${
+                  delivered
+                    ? "bg-[#4ade80] text-black cursor-default"
+                    : "bg-white text-black hover:bg-white/90 disabled:opacity-40"
+                }`}>
+                {delivered ? "Delivered ✓" : delivering ? "Delivering..." : "Deliver"}
               </button>
             )}
           </div>
@@ -576,11 +588,14 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
               <p className="text-xs text-[#555] mt-1">Click to deliver — the client will receive an email with a direct link to their gallery.</p>
             </div>
             <button
-              onClick={async () => { setDelivering(true); await onDeliver(); setDelivering(false); }}
+              onClick={delivered ? undefined : async () => {
+                setDelivering(true);
+                try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
+              }}
               disabled={delivering}
               className="shrink-0 text-xs tracking-[3px] uppercase font-semibold bg-[#4ade80] text-black px-6 py-3 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-50"
             >
-              {delivering ? "Delivering…" : "Deliver to Client →"}
+              {delivered ? "Delivered ✓" : delivering ? "Delivering…" : "Deliver to Client →"}
             </button>
           </div>
         );
