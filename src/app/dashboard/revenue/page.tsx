@@ -54,6 +54,7 @@ export default function RevenuePage() {
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [period, setPeriod] = useState<"month" | "ytd">("ytd");
+  const [blurred, setBlurred] = useState(true);
   const [filter, setFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
 
@@ -151,8 +152,8 @@ export default function RevenuePage() {
 
         {/* ── Hero stats ──────────────────────────────────────────────── */}
         <div>
-          {/* Period toggle */}
-          <div className="flex gap-1 mb-5">
+          {/* Period toggle + privacy toggle */}
+          <div className="flex items-center gap-2 mb-5">
             {(["month", "ytd"] as const).map(p => (
               <button
                 key={p}
@@ -164,28 +165,46 @@ export default function RevenuePage() {
                 {p === "month" ? `${monthNames[thisMonthKey.split("-")[1]]} ${now.getFullYear()}` : "YTD"}
               </button>
             ))}
+            <button
+              onClick={() => setBlurred(b => !b)}
+              className="p-1.5 text-[#555] hover:text-white transition-colors"
+              title={blurred ? "Show numbers" : "Hide numbers"}
+            >
+              {blurred ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-px bg-white/[0.07] border border-white/[0.07]">
             <div className="bg-[#0c0c0c] px-8 py-7">
               <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Income</p>
-              <p className="text-5xl font-black tabular-nums tracking-tight">{fmt(heroIncome)}</p>
+              <p className={`text-5xl font-black tabular-nums tracking-tight transition-all select-none ${blurred ? "blur-sm" : ""}`}>{fmt(heroIncome)}</p>
               {period === "month" && momDiff !== null && (
                 <p className={`text-xs mt-2 font-semibold ${momDiff >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
                   {momDiff >= 0 ? "▲" : "▼"} {Math.abs(momDiff).toFixed(1)}% vs last month
                 </p>
               )}
               {period === "ytd" && snap.net_income > 0 && (
-                <p className="text-xs mt-2 text-[#555]">
+                <p className={`text-xs mt-2 text-[#555] transition-all select-none ${blurred ? "blur-sm" : ""}`}>
                   <span className="text-[#4ade80] font-semibold">{fmt(snap.net_income)}</span> net after {fmt(snap.expenses_ytd)} expenses
                 </p>
               )}
             </div>
             <div className="bg-[#0c0c0c] px-8 py-7">
               <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Shoots</p>
-              <p className="text-5xl font-black tabular-nums tracking-tight">{invoicesLoading ? "—" : heroShoots}</p>
+              <p className={`text-5xl font-black tabular-nums tracking-tight transition-all select-none ${blurred ? "blur-sm" : ""}`}>{invoicesLoading ? "—" : heroShoots}</p>
               {outstandingCents > 0 && (
-                <p className="text-xs mt-2 font-semibold text-[#fbbf24]">
+                <p className={`text-xs mt-2 font-semibold text-[#fbbf24] transition-all select-none ${blurred ? "blur-sm" : ""}`}>
                   {fmt(outstandingCents / 100)} outstanding
                 </p>
               )}
@@ -253,7 +272,7 @@ export default function RevenuePage() {
                     <span className="text-[11px] text-[#555] tabular-nums">{date}</span>
                     <span className="text-sm truncate" title={fullAddress}>{address}</span>
                     <span className="text-[11px] text-[#888] truncate">{clientName}</span>
-                    <span className="text-sm font-semibold tabular-nums">{fmt(inv.amount_cents / 100)}</span>
+                    <span className={`text-sm font-semibold tabular-nums transition-all select-none ${blurred ? "blur-sm" : ""}`}>{fmt(inv.amount_cents / 100)}</span>
                     <span className={`text-[9px] tracking-[1px] uppercase font-semibold px-1.5 py-0.5 w-fit ${inv.paid ? "text-[#4ade80] bg-[#4ade80]/10" : "text-[#fbbf24] bg-[#fbbf24]/10"}`}>
                       {inv.paid ? `Paid${via}` : "Unpaid"}
                     </span>
