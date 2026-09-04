@@ -317,7 +317,8 @@ export default function RevenuePage() {
                 ))}
               </div>
               {filtered.map(inv => {
-                const address = inv.shoots?.address || inv.description || "—";
+                const fullAddress = inv.shoots?.address || inv.description || "—";
+                const address = fullAddress.split(",")[0].trim();
                 const clientName = inv.contacts?.name || "—";
                 const amount = fmt(inv.amount_cents / 100);
                 const date = new Date(inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
@@ -328,7 +329,7 @@ export default function RevenuePage() {
                     className="grid grid-cols-[90px_1fr_140px_80px_80px_100px] gap-x-3 px-4 py-3 border-b border-white/[0.04] hover:bg-white/[0.02] items-center min-w-[640px]"
                   >
                     <span className="text-xs text-[#555] tabular-nums">{date}</span>
-                    <span className="text-sm text-white truncate" title={address}>{address}</span>
+                    <span className="text-sm text-white truncate" title={fullAddress}>{address}</span>
                     <span className="text-xs text-[#888] truncate">{clientName}</span>
                     <span className="text-sm font-semibold tabular-nums">{amount}</span>
                     <div>
