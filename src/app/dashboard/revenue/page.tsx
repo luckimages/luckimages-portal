@@ -117,7 +117,9 @@ export default function RevenuePage() {
     const key = inv.created_at.slice(0, 7);
     monthlyBreakdown[key] = (monthlyBreakdown[key] ?? 0) + inv.amount_cents / 100;
   }
-  const months = Object.entries(monthlyBreakdown).sort(([a], [b]) => a.localeCompare(b));
+  const cutoffDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const cutoffKey = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}`;
+  const months = Object.entries(monthlyBreakdown).filter(([k]) => k >= cutoffKey).sort(([a], [b]) => a.localeCompare(b));
   const maxMonth = Math.max(...Object.values(monthlyBreakdown), 1);
 
   // Hero stats — all from Supabase invoices
@@ -226,8 +228,9 @@ export default function RevenuePage() {
         <div className="bg-[#111] border border-white/[0.07] px-6 py-5">
           <div className="flex items-end gap-2 h-36">
             {months.map(([key, val]) => {
-              const [, mo] = key.split("-");
+              const [yr, mo] = key.split("-");
               const isThis = key === thisMonthKey;
+              const showYear = yr !== thisYear;
               const h = Math.max(Math.round((val / maxMonth) * 128), 2);
               return (
                 <div key={key} className="flex-1 flex flex-col items-center gap-1.5 group relative">
@@ -236,7 +239,9 @@ export default function RevenuePage() {
                     <span className="text-[#555] ml-1">{monthNames[mo]}</span>
                   </div>
                   <div className={`w-full transition-colors ${isThis ? "bg-white" : "bg-white/20 group-hover:bg-white/40"}`} style={{ height: `${h}px` }} />
-                  <p className={`text-[9px] tracking-wide ${isThis ? "text-white" : "text-[#444]"}`}>{monthNames[mo]}</p>
+                  <p className={`text-[9px] tracking-wide leading-tight text-center ${isThis ? "text-white" : "text-[#444]"}`}>
+                    {monthNames[mo]}{showYear && <><br /><span className="text-[8px] opacity-60">{yr.slice(2)}</span></>}
+                  </p>
                 </div>
               );
             })}
