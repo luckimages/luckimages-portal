@@ -652,7 +652,7 @@ export default function ClientPage() {
                   <p className="text-2xl mt-3 tracking-widest">★★★★★</p>
                 </div>
                 <a
-                  href="https://g.page/r/CZ9cShOb3iPUEBI/review"
+                  href="https://search.google.com/local/writereview?placeid=ChIJHe2jnlT862ifXEoTm94j1A"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-auto text-xs tracking-[3px] uppercase border border-white/20 py-3 px-6 text-center hover:bg-white/5 transition-colors"

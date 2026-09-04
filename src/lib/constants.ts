@@ -15,6 +15,4 @@ export const CLIENT_EMAILS_ENABLED = false;
 // tracked-link sends for the "Cold Call Texts" engagement tab.
 export const COLD_CALL_TEXT_LINK_NOTE = "Sent via tracked link";
 
-// TODO: replace with the real Google review link. Shared by the Outreach
-// review-request email and the automated post-delivery review text.
-export const GOOGLE_REVIEW_URL = "https://g.page/r/CdYourReviewLink/review";
+export const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJHe2jnlT862ifXEoTm94j1A";

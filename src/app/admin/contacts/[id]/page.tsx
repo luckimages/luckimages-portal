@@ -941,7 +941,7 @@ export default function ContactProfilePage() {
             if (shoots.some(s => ["delivered", "completed"].includes(s.status)) && contact.email) {
               const firstName = contact.name.split(" ")[0];
               const subject = encodeURIComponent("Would you mind leaving us a review?");
-              const body = encodeURIComponent(`Hi ${firstName},\n\nThank you so much for working with Luck Images! If you had a great experience, we'd love it if you could take a moment to leave us a Google review — it helps other clients find us.\n\nhttps://g.page/r/CdYourReviewLink/review\n\nThank you!\nRyan`);
+              const body = encodeURIComponent(`Hi ${firstName},\n\nThank you so much for working with Luck Images! If you had a great experience, we'd love it if you could take a moment to leave us a Google review — it helps other clients find us.\n\nhttps://search.google.com/local/writereview?placeid=ChIJHe2jnlT862ifXEoTm94j1A\n\nThank you!\nRyan`);
               actions.push({ priority: "low", title: "Request a Google review", reason: `${contact.name} has completed shoots — happy clients are your best source of Google reviews.`, cta: "Send Request", href: `/dashboard/outreach?template=google_review&contact=${contact.id}` });
             }
 
