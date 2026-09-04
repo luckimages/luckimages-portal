@@ -53,6 +53,7 @@ export default function RevenuePage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [period, setPeriod] = useState<"month" | "ytd">("ytd");
   const [filter, setFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
 
@@ -104,9 +105,9 @@ export default function RevenuePage() {
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const lastMonthKey = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
 
-  const thisMonth = snap.monthly_breakdown[thisMonthKey] || 0;
-  const lastMonth = snap.monthly_breakdown[lastMonthKey] || 0;
-  const momDiff = lastMonth ? ((thisMonth - lastMonth) / lastMonth) * 100 : null;
+  const thisMonthRevenue = snap.monthly_breakdown[thisMonthKey] || 0;
+  const lastMonthRevenue = snap.monthly_breakdown[lastMonthKey] || 0;
+  const momDiff = lastMonthRevenue ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : null;
 
   const months = Object.entries(snap.monthly_breakdown).sort(([a], [b]) => a.localeCompare(b));
   const maxMonth = Math.max(...Object.values(snap.monthly_breakdown), 1);
@@ -114,17 +115,20 @@ export default function RevenuePage() {
   const unpaidInvoices = invoices.filter(i => !i.paid);
   const paidInvoices = invoices.filter(i => i.paid);
   const outstandingCents = unpaidInvoices.reduce((s, i) => s + i.amount_cents, 0);
-  const collectedThisMonthCents = paidInvoices
-    .filter(i => i.created_at.startsWith(thisMonthKey))
-    .reduce((s, i) => s + i.amount_cents, 0);
+
+  // This-month shoot count: invoices created this month
+  const thisMonthShoots = invoices.filter(i => i.created_at.startsWith(thisMonthKey)).length;
+
+  const heroIncome = period === "month" ? thisMonthRevenue : snap.rev_ytd;
+  const heroShoots = period === "month" ? thisMonthShoots : snap.ytd_invoices;
 
   const filtered = filter === "unpaid" ? unpaidInvoices : filter === "paid" ? paidInvoices : invoices;
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
-      <div className="max-w-5xl mx-auto px-6 md:px-8 py-8 space-y-6">
+      <div className="max-w-5xl mx-auto px-6 md:px-8 py-8 space-y-8">
 
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-black tracking-tight uppercase">Revenue</h1>
           <div className="flex items-center gap-3">
@@ -145,50 +149,70 @@ export default function RevenuePage() {
           </div>
         </div>
 
-        {/* ── Compact stat strip ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 md:grid-cols-6 border border-white/[0.07] divide-x divide-white/[0.07]">
-          {[
-            { label: "Outstanding",  value: invoicesLoading ? "—" : fmt(outstandingCents / 100), color: outstandingCents > 0 ? "#fbbf24" : "#fff" },
-            { label: "This Month",   value: invoicesLoading ? "—" : fmt(collectedThisMonthCents / 100), color: "#4ade80" },
-            { label: "YTD Revenue",  value: fmt(snap.rev_ytd), color: "#fff" },
-            { label: "Net Income",   value: fmt(snap.net_income), color: snap.net_income >= 0 ? "#4ade80" : "#f87171" },
-            { label: "Expenses YTD", value: fmt(snap.expenses_ytd), color: "#f87171" },
-            {
-              label: "vs Last Mo",
-              value: momDiff === null ? "—" : `${momDiff >= 0 ? "▲" : "▼"} ${Math.abs(momDiff).toFixed(0)}%`,
-              color: momDiff === null ? "#555" : momDiff >= 0 ? "#4ade80" : "#f87171",
-            },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="px-4 py-3">
-              <p className="text-[9px] tracking-[2px] uppercase text-[#444] mb-1 whitespace-nowrap">{label}</p>
-              <p className="text-sm font-black tabular-nums" style={{ color }}>{value}</p>
+        {/* ── Hero stats ──────────────────────────────────────────────── */}
+        <div>
+          {/* Period toggle */}
+          <div className="flex gap-1 mb-5">
+            {(["month", "ytd"] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`text-[10px] tracking-[2px] uppercase px-3 py-1.5 transition-all ${
+                  period === p ? "bg-white text-black font-bold" : "text-[#555] border border-white/10 hover:text-white"
+                }`}
+              >
+                {p === "month" ? `${monthNames[thisMonthKey.split("-")[1]]} ${now.getFullYear()}` : "YTD"}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-px bg-white/[0.07] border border-white/[0.07]">
+            <div className="bg-[#0c0c0c] px-8 py-7">
+              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Income</p>
+              <p className="text-5xl font-black tabular-nums tracking-tight">{fmt(heroIncome)}</p>
+              {period === "month" && momDiff !== null && (
+                <p className={`text-xs mt-2 font-semibold ${momDiff >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
+                  {momDiff >= 0 ? "▲" : "▼"} {Math.abs(momDiff).toFixed(1)}% vs last month
+                </p>
+              )}
+              {period === "ytd" && snap.net_income > 0 && (
+                <p className="text-xs mt-2 text-[#555]">
+                  <span className="text-[#4ade80] font-semibold">{fmt(snap.net_income)}</span> net after {fmt(snap.expenses_ytd)} expenses
+                </p>
+              )}
             </div>
-          ))}
+            <div className="bg-[#0c0c0c] px-8 py-7">
+              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Shoots</p>
+              <p className="text-5xl font-black tabular-nums tracking-tight">{invoicesLoading ? "—" : heroShoots}</p>
+              {outstandingCents > 0 && (
+                <p className="text-xs mt-2 font-semibold text-[#fbbf24]">
+                  {fmt(outstandingCents / 100)} outstanding
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* ── Mini bar chart ──────────────────────────────────────────────── */}
-        <div className="flex items-end gap-1.5 h-14 px-1">
+        {/* ── Mini bar chart ──────────────────────────────────────────── */}
+        <div className="flex items-end gap-1.5 h-16 px-1">
           {months.map(([key, val]) => {
             const [, mo] = key.split("-");
             const isThis = key === thisMonthKey;
-            const h = Math.max(Math.round((val / maxMonth) * 52), 2);
+            const h = Math.max(Math.round((val / maxMonth) * 58), 2);
             return (
               <div key={key} className="flex-1 flex flex-col items-center gap-1 group relative">
                 <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
                   <span className="text-white font-semibold">{fmt(val)}</span>
                   <span className="text-[#555] ml-1">{monthNames[mo]}</span>
                 </div>
-                <div
-                  className={`w-full ${isThis ? "bg-white" : "bg-white/20 group-hover:bg-white/35"} transition-colors`}
-                  style={{ height: `${h}px` }}
-                />
+                <div className={`w-full transition-colors ${isThis ? "bg-white" : "bg-white/20 group-hover:bg-white/35"}`} style={{ height: `${h}px` }} />
                 <p className={`text-[8px] tracking-wide ${isThis ? "text-white" : "text-[#383838]"}`}>{monthNames[mo]}</p>
               </div>
             );
           })}
         </div>
 
-        {/* ── Invoice table ───────────────────────────────────────────────── */}
+        {/* ── Invoice table ───────────────────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Invoices</p>
@@ -198,9 +222,7 @@ export default function RevenuePage() {
                   key={f}
                   onClick={() => setFilter(f)}
                   className={`text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 transition-all ${
-                    filter === f
-                      ? "bg-white text-black font-bold"
-                      : "text-[#555] hover:text-white border border-white/10"
+                    filter === f ? "bg-white text-black font-bold" : "text-[#555] hover:text-white border border-white/10"
                   }`}
                 >
                   {f === "all" ? `All (${invoices.length})` : f === "unpaid" ? `Unpaid (${unpaidInvoices.length})` : `Paid (${paidInvoices.length})`}
