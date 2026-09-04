@@ -369,78 +369,100 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
           )
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {staged.map(p => (
-                <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
-                  {p.previewUrl ? (
-                    <img src={p.previewUrl} alt={p.fileName} className={`w-full h-full object-cover ${p.status === "uploading" ? "opacity-50" : "opacity-30"}`} />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 opacity-50">
-                      <span className="text-2xl">📄</span>
-                      <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
-                    </div>
-                  )}
-                  {p.status === "uploading" ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      {p.status === "failed" && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
+            {(() => {
+              // Merge staged + uploaded into one alphabetically sorted grid
+              type GridEntry =
+                | { kind: "staged"; p: StagedFile }
+                | { kind: "uploaded"; m: MediaItem; origIdx: number };
+              const allItems: GridEntry[] = [
+                ...staged.map(p => ({ kind: "staged" as const, p })),
+                ...section.items.map((m, origIdx) => ({ kind: "uploaded" as const, m, origIdx })),
+              ];
+              allItems.sort((a, b) => {
+                const nameA = a.kind === "staged" ? a.p.fileName : a.m.file_name;
+                const nameB = b.kind === "staged" ? b.p.fileName : b.m.file_name;
+                return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+              });
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {allItems.map(entry => {
+                    if (entry.kind === "staged") {
+                      const p = entry.p;
+                      return (
+                        <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                          {p.previewUrl ? (
+                            <img src={p.previewUrl} alt={p.fileName} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                              <span className="text-2xl">📄</span>
+                              <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
+                            </div>
+                          )}
+                          {p.status === "uploading" ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            </div>
+                          ) : (
+                            <>
+                              {p.status === "failed" && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                  <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
+                                </div>
+                              )}
+                              <button onClick={() => removeStagedFile(slug, p.key)}
+                                className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
+                                title="Remove">
+                                ✕
+                              </button>
+                            </>
+                          )}
                         </div>
-                      )}
-                      <button onClick={() => removeStagedFile(slug, p.key)}
-                        className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
-                        title="Remove">
-                        ✕
-                      </button>
-                    </>
-                  )}
+                      );
+                    } else {
+                      const { m, origIdx } = entry;
+                      return (
+                        <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                          <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(origIdx); }}>
+                            {isImage(m) && m.preview_url ? (
+                              <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                                <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
+                                <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
+                              </div>
+                            )}
+                          </button>
+                          {!canDownload && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+                              <span className="text-white/20 text-[9px] tracking-[3px] uppercase font-bold -rotate-[30deg] whitespace-nowrap">Luck Images</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
+                            {canDownload ? (
+                              <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                                className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
+                                ↓
+                              </a>
+                            ) : (
+                              <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
+                                🔒
+                              </span>
+                            )}
+                          </div>
+                          {canEdit && (
+                            <button onClick={() => setConfirmDelete(m.id)}
+                              className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
+                              title="Delete">
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
-              ))}
-              {section.items.map((m, idx) => (
-                <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
-                  <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(idx); }}>
-                    {isImage(m) && m.preview_url ? (
-                      <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                        <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
-                        <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
-                      </div>
-                    )}
-                  </button>
-                  {/* Watermark overlay when downloads are locked */}
-                  {!canDownload && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                      <span className="text-white/20 text-[9px] tracking-[3px] uppercase font-bold -rotate-[30deg] whitespace-nowrap">Luck Images</span>
-                    </div>
-                  )}
-                  {/* Hover: download (if unlocked) or lock icon */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
-                    {canDownload ? (
-                      <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                        className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
-                        ↓
-                      </a>
-                    ) : (
-                      <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
-                        🔒
-                      </span>
-                    )}
-                  </div>
-                  {canEdit && (
-                    <button onClick={() => setConfirmDelete(m.id)}
-                      className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
-                      title="Delete">
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+              );
+            })()}
             {readyToConfirm > 0 && (
               <div className="mt-3 flex items-center justify-between gap-3 bg-[#0c0c0c] border border-white/10 px-4 py-3">
                 <p className="text-xs text-[#888]">{readyToConfirm} file{readyToConfirm !== 1 ? "s" : ""} ready to upload</p>
