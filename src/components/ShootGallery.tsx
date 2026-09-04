@@ -495,10 +495,14 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                               </div>
                             </div>
                           )}
-                          {/* Watermark */}
+                          {/* Watermark — tiled diagonal so screenshotting the preview is useless */}
                           {!canDownload && !batchMode && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-                              <span className="text-white/20 text-[9px] tracking-[3px] uppercase font-bold -rotate-[30deg] whitespace-nowrap">Luck Images</span>
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+                              <div className="absolute -inset-8 flex flex-wrap content-evenly justify-evenly gap-3 -rotate-[25deg]">
+                                {Array.from({ length: 12 }).map((_, i) => (
+                                  <span key={i} className="text-white/30 text-[8px] tracking-[2px] uppercase font-black whitespace-nowrap shrink-0">Luck Images</span>
+                                ))}
+                              </div>
                             </div>
                           )}
                           {/* Hover actions (non-batch mode) */}
@@ -621,7 +625,18 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
               return (
                 <div className="flex flex-col items-center gap-4">
                   {isImage(m) && m.preview_url ? (
-                    <img src={m.preview_url} alt={m.file_name} className="max-h-[72vh] max-w-full object-contain" />
+                    <div className="relative">
+                      <img src={m.preview_url} alt={m.file_name} className="max-h-[72vh] max-w-full object-contain" />
+                      {!canDownload && (
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+                          <div className="absolute -inset-16 flex flex-wrap content-evenly justify-evenly gap-8 -rotate-[20deg]">
+                            {Array.from({ length: 30 }).map((_, i) => (
+                              <span key={i} className="text-white/25 text-xs tracking-[3px] uppercase font-black whitespace-nowrap shrink-0">Luck Images</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : m.file_type?.startsWith("video/") && m.preview_url ? (
                     <video src={m.preview_url} controls className="max-h-[72vh] max-w-full" />
                   ) : (
