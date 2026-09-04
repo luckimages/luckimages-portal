@@ -78,6 +78,10 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const [confirmedSections, setConfirmedSections] = useState<Set<string>>(new Set());
   const [delivering, setDelivering] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
+  const [batchDeleting, setBatchDeleting] = useState(false);
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const dragCounters = useRef<Record<string, number>>({});
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const filmstripActiveRef = useRef<HTMLButtonElement | null>(null);
@@ -220,6 +224,28 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     onMediaChange?.(media.length - 1);
   }
 
+  async function batchDeleteSelected() {
+    setBatchDeleting(true);
+    const ids = Array.from(batchSelected);
+    for (const id of ids) {
+      await fetch("/api/media", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    }
+    setMedia(prev => prev.filter(m => !batchSelected.has(m.id)));
+    onMediaChange?.(media.length - ids.length);
+    setBatchSelected(new Set());
+    setBatchMode(false);
+    setBatchDeleting(false);
+    setConfirmBatchDelete(false);
+  }
+
+  function toggleBatchItem(id: string) {
+    setBatchSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   async function downloadAll(items: MediaItem[]) {
     for (const m of items) {
       if (!m.download_url) continue;
@@ -309,42 +335,55 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
             </div>
           </div>
         )}
+        {/* Hidden file input for drag-and-drop stageFiles ref */}
+        <input
+          ref={el => { fileRefs.current[slug] = el; }}
+          type="file" multiple accept="image/*,video/*" className="hidden"
+          disabled={!!uploading}
+          onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
+        />
+
         {/* Section toolbar */}
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <p className="text-xs text-[#555]">{section.items.length} file{section.items.length !== 1 ? "s" : ""}</p>
           <div className="flex gap-2">
+            {canEdit && section.items.length > 0 && (
+              batchMode ? (
+                <>
+                  {batchSelected.size > 0 && (
+                    <button
+                      onClick={() => setConfirmBatchDelete(true)}
+                      className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors font-semibold">
+                      Delete ({batchSelected.size})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setBatchMode(false); setBatchSelected(new Set()); }}
+                    className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setBatchMode(true)}
+                  className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
+                  Batch Select
+                </button>
+              )
+            )}
             {section.items.length > 0 && canDownload && (
               <button onClick={() => downloadAll(section.items)}
                 className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
                 ↓ Download All
               </button>
             )}
-            {canEdit && onDeliver && section.items.length > 0 && readyToConfirm === 0 && uploading !== slug && (
+            {canEdit && onDeliver && (
               <button
-                onClick={() => setConfirmedSections(prev => {
-                  const next = new Set(prev);
-                  if (next.has(slug)) next.delete(slug); else next.add(slug);
-                  return next;
-                })}
-                className={`text-xs tracking-[2px] uppercase px-3 py-1.5 transition-colors border font-semibold ${
-                  isConfirmed
-                    ? "border-[#4ade80]/40 text-[#4ade80] bg-[#4ade80]/10 hover:bg-[#4ade80]/5"
-                    : "border-white/20 text-[#888] hover:text-white hover:border-white/40"
-                }`}
-              >
-                {isConfirmed ? "✓ Ready" : "Mark Ready"}
+                onClick={async () => { setDelivering(true); await onDeliver(); setDelivering(false); }}
+                disabled={delivering}
+                className="text-xs tracking-[2px] uppercase px-3 py-1.5 bg-white text-black font-semibold hover:bg-white/90 transition-colors disabled:opacity-40">
+                {delivering ? "Delivering..." : "Deliver"}
               </button>
-            )}
-            {canEdit && (
-              <label className="text-xs tracking-[2px] uppercase bg-white text-black px-3 py-1.5 hover:bg-white/90 transition-colors font-semibold cursor-pointer">
-                + Add Files
-                <input
-                  ref={el => { fileRefs.current[slug] = el; }}
-                  type="file" multiple accept="image/*,video/*" className="hidden"
-                  disabled={!!uploading}
-                  onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
-                />
-              </label>
             )}
           </div>
         </div>
@@ -420,11 +459,15 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                       );
                     } else {
                       const { m, origIdx } = entry;
+                      const isSelected = batchSelected.has(m.id);
                       return (
-                        <div key={m.id} className="relative group aspect-square bg-[#111] border border-white/10 overflow-hidden">
-                          <button className="w-full h-full" onClick={() => { setLightboxItems(section.items); setLightboxIdx(origIdx); }}>
+                        <div key={m.id}
+                          className={`relative group aspect-square bg-[#111] border overflow-hidden transition-all ${batchMode ? "cursor-pointer" : ""} ${isSelected ? "border-white" : "border-white/10"}`}
+                          onClick={batchMode ? () => toggleBatchItem(m.id) : undefined}>
+                          <button className="w-full h-full" disabled={batchMode}
+                            onClick={!batchMode ? () => { setLightboxItems(section.items); setLightboxIdx(origIdx); } : undefined}>
                             {isImage(m) && m.preview_url ? (
-                              <img src={m.preview_url} alt={m.file_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                              <img src={m.preview_url} alt={m.file_name} className={`w-full h-full object-cover transition-transform ${!batchMode ? "group-hover:scale-105" : ""}`} />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                                 <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
@@ -432,24 +475,37 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                               </div>
                             )}
                           </button>
-                          {!canDownload && (
+                          {/* Batch select overlay */}
+                          {batchMode && (
+                            <div className={`absolute inset-0 transition-colors ${isSelected ? "bg-white/10" : "hover:bg-white/5"}`}>
+                              <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-white bg-white" : "border-white/40 bg-black/40"}`}>
+                                {isSelected && <span className="text-black text-[10px] font-bold leading-none">✓</span>}
+                              </div>
+                            </div>
+                          )}
+                          {/* Watermark */}
+                          {!canDownload && !batchMode && (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
                               <span className="text-white/20 text-[9px] tracking-[3px] uppercase font-bold -rotate-[30deg] whitespace-nowrap">Luck Images</span>
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
-                            {canDownload ? (
-                              <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                                className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
-                                ↓
-                              </a>
-                            ) : (
-                              <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
-                                🔒
-                              </span>
-                            )}
-                          </div>
-                          {canEdit && (
+                          {/* Hover actions (non-batch mode) */}
+                          {!batchMode && (
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
+                              {canDownload ? (
+                                <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
+                                  ↓
+                                </a>
+                              ) : (
+                                <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
+                                  🔒
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {/* Delete button (non-batch mode) */}
+                          {canEdit && !batchMode && (
                             <button onClick={() => setConfirmDelete(m.id)}
                               className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
                               title="Delete">
@@ -608,7 +664,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
         </div>
       )}
 
-      {/* Delete confirmation */}
+      {/* Single delete confirmation */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" onClick={() => setConfirmDelete(null)}>
           <div className="bg-[#111] border border-white/10 p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
@@ -619,6 +675,23 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
               <button onClick={() => deleteMedia(confirmDelete)} disabled={deleting === confirmDelete}
                 className="flex-1 text-xs tracking-[2px] uppercase bg-[#ef4444] text-white py-2.5 hover:bg-[#ef4444]/80 transition-colors disabled:opacity-40">
                 {deleting === confirmDelete ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch delete confirmation */}
+      {confirmBatchDelete && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center" onClick={() => setConfirmBatchDelete(false)}>
+          <div className="bg-[#111] border border-white/10 p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-semibold mb-2">Delete {batchSelected.size} file{batchSelected.size !== 1 ? "s" : ""}?</p>
+            <p className="text-xs text-[#555] mb-6">This permanently removes all selected files from storage. Cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmBatchDelete(false)} className="flex-1 text-xs tracking-[2px] uppercase border border-white/10 py-2.5 text-[#555] hover:text-white transition-colors">Cancel</button>
+              <button onClick={batchDeleteSelected} disabled={batchDeleting}
+                className="flex-1 text-xs tracking-[2px] uppercase bg-[#ef4444] text-white py-2.5 hover:bg-[#ef4444]/80 transition-colors disabled:opacity-40">
+                {batchDeleting ? "Deleting..." : `Delete ${batchSelected.size}`}
               </button>
             </div>
           </div>
