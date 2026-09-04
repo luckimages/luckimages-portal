@@ -40,6 +40,7 @@ type Contact = {
   created_at: string;
   lead_source: string | null;
   referred_by_contact_id: string | null;
+  sourced_by: string | null;
 };
 
 type CallLog = {
@@ -142,7 +143,7 @@ export default function ContactProfilePage() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "", lead_source: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "lead", notes: "", lead_source: "", sourced_by: "" });
   const [referralCount, setReferralCount] = useState(0);
 
   // Invite
@@ -192,7 +193,7 @@ export default function ContactProfilePage() {
       .order("scheduled_at", { ascending: false });
     if (!c) { router.replace("/admin/contacts"); return; }
     setContact(c);
-    setForm({ name: c.name, email: c.email || "", phone: c.phone || "", brokerage: c.brokerage || "", stage: c.stage, notes: c.notes || "", lead_source: c.lead_source || "" });
+    setForm({ name: c.name, email: c.email || "", phone: c.phone || "", brokerage: c.brokerage || "", stage: c.stage, notes: c.notes || "", lead_source: c.lead_source || "", sourced_by: c.sourced_by || "" });
 
     // Count contacts who were referred by this person
     const { count } = await supabase.from("contacts").select("id", { count: "exact", head: true }).eq("referred_by_contact_id", id);
@@ -257,7 +258,7 @@ export default function ContactProfilePage() {
     if (!contact) return;
     setSaving(true);
     const supabase = createClient();
-    const { data } = await supabase.from("contacts").update({ ...form, phone: normalizePhone(form.phone), lead_source: form.lead_source || null, updated_at: new Date().toISOString() }).eq("id", contact.id).select().single();
+    const { data } = await supabase.from("contacts").update({ ...form, phone: normalizePhone(form.phone), lead_source: form.lead_source || null, sourced_by: form.sourced_by || null, updated_at: new Date().toISOString() }).eq("id", contact.id).select().single();
     if (data) setContact(data);
     setSaving(false);
     setEditing(false);
@@ -503,6 +504,14 @@ export default function ContactProfilePage() {
                 <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Source</p>
                 <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase bg-white/5 border border-white/10 text-[#888]">
                   {CHANNEL_LABELS[contact.lead_source] || contact.lead_source}
+                </span>
+              </div>
+            )}
+            {contact.sourced_by && (
+              <div>
+                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Sourced By</p>
+                <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase text-[#fbbf24] bg-[#fbbf24]/10 border border-[#fbbf24]/20">
+                  {contact.sourced_by}
                 </span>
               </div>
             )}
@@ -1184,6 +1193,12 @@ export default function ContactProfilePage() {
                 className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
                 <option value="">Source — how did they find us?</option>
                 {Object.entries(CHANNEL_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <select value={form.sourced_by} onChange={e => setForm(f => ({ ...f, sourced_by: e.target.value }))}
+                className="w-full bg-[#181818] border border-white/10 text-white text-sm px-4 py-2.5 outline-none focus:border-white/30">
+                <option value="">Sourced by — who brought this client?</option>
+                <option value="Ryan">Ryan</option>
+                <option value="Leif">Leif</option>
               </select>
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 placeholder="Notes"
