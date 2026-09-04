@@ -9,10 +9,12 @@ export async function POST() {
 
   const db = createAdminClient();
 
-  // All shoots (including $0 / comped)
+  // All shoots that actually happened (not cancelled or scheduled), with a price
   const { data: shoots, error } = await db
     .from("shoots")
     .select("id, address, price, line_items, contact_id, client_id, scheduled_at, status")
+    .not("status", "in", '("cancelled","scheduled")')
+    .gt("price", 0)
     .order("scheduled_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
