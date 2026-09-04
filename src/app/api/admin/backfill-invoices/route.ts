@@ -9,11 +9,10 @@ export async function POST() {
 
   const db = createAdminClient();
 
-  // All shoots with a price
+  // All shoots (including $0 / comped)
   const { data: shoots, error } = await db
     .from("shoots")
     .select("id, address, price, line_items, contact_id, client_id, scheduled_at, status")
-    .gt("price", 0)
     .order("scheduled_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -36,8 +35,6 @@ export async function POST() {
     const totalCents = lineItems.length > 0
       ? lineItems.reduce((sum: number, li: { label: string; amount_cents: number }) => sum + li.amount_cents, 0)
       : Math.round((shoot.price ?? 0) * 100);
-
-    if (totalCents <= 0) { skipped++; continue; }
 
     const { error: insErr } = await db.from("invoices").insert({
       shoot_id: shoot.id,
