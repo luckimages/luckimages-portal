@@ -212,23 +212,25 @@ export default function RevenuePage() {
           </div>
         </div>
 
-        {/* ── Mini bar chart ──────────────────────────────────────────── */}
-        <div className="flex items-end gap-1.5 h-16 px-1">
-          {months.map(([key, val]) => {
-            const [, mo] = key.split("-");
-            const isThis = key === thisMonthKey;
-            const h = Math.max(Math.round((val / maxMonth) * 58), 2);
-            return (
-              <div key={key} className="flex-1 flex flex-col items-center gap-1 group relative">
-                <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-                  <span className="text-white font-semibold">{fmt(val)}</span>
-                  <span className="text-[#555] ml-1">{monthNames[mo]}</span>
+        {/* ── Monthly bar chart ───────────────────────────────────────── */}
+        <div className="bg-[#111] border border-white/[0.07] px-6 py-5">
+          <div className="flex items-end gap-2 h-36">
+            {months.map(([key, val]) => {
+              const [, mo] = key.split("-");
+              const isThis = key === thisMonthKey;
+              const h = Math.max(Math.round((val / maxMonth) * 128), 2);
+              return (
+                <div key={key} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
+                    <span className="text-white font-semibold">{fmt(val)}</span>
+                    <span className="text-[#555] ml-1">{monthNames[mo]}</span>
+                  </div>
+                  <div className={`w-full transition-colors ${isThis ? "bg-white" : "bg-white/20 group-hover:bg-white/40"}`} style={{ height: `${h}px` }} />
+                  <p className={`text-[9px] tracking-wide ${isThis ? "text-white" : "text-[#444]"}`}>{monthNames[mo]}</p>
                 </div>
-                <div className={`w-full transition-colors ${isThis ? "bg-white" : "bg-white/20 group-hover:bg-white/35"}`} style={{ height: `${h}px` }} />
-                <p className={`text-[8px] tracking-wide ${isThis ? "text-white" : "text-[#383838]"}`}>{monthNames[mo]}</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* ── Invoice table ───────────────────────────────────────────── */}
