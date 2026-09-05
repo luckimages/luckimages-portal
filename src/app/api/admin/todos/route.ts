@@ -10,6 +10,15 @@ function service() {
   );
 }
 
+// The task board only renders todos whose list_id matches one of the named
+// lists — a null list_id doesn't error, it just silently never appears
+// anywhere in the UI. "General" is the catch-all list; every todo needs to
+// land somewhere.
+async function getDefaultListId(db: ReturnType<typeof service>): Promise<string | null> {
+  const { data } = await db.from("todo_lists").select("id").eq("name", "General").maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -41,7 +50,7 @@ export async function POST(req: Request) {
       text: (title || text || "").trim(),
       title: (title || text || "").trim(),
       notes: notes?.trim() || null,
-      list_id: list_id || null,
+      list_id: list_id || await getDefaultListId(db),
       assigned_to: assigned_to || "both",
       due_date: due_date || null,
       created_by: name,
@@ -59,7 +68,7 @@ export async function POST(req: Request) {
     if (is_urgent !== undefined) patch.is_urgent = is_urgent;
     if (assigned_to !== undefined) patch.assigned_to = assigned_to;
     if (due_date !== undefined) patch.due_date = due_date || null;
-    if (list_id !== undefined) patch.list_id = list_id || null;
+    if (list_id !== undefined) patch.list_id = list_id || await getDefaultListId(db);
     const { error } = await db.from("todos").update(patch).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -99,6 +108,12 @@ export async function POST(req: Request) {
   }
 
   if (action === "delete_list" && id) {
+    // Move this list's todos to General first — otherwise they're left with
+    // a list_id pointing at nothing, which the board can't render either.
+    const defaultListId = await getDefaultListId(db);
+    if (defaultListId && defaultListId !== id) {
+      await db.from("todos").update({ list_id: defaultListId }).eq("list_id", id);
+    }
     const { error } = await db.from("todo_lists").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });

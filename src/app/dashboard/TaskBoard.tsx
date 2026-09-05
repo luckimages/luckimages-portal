@@ -304,10 +304,14 @@ export default function TaskBoard({ lists, todos, completedTodos, onTodosChange,
   }
 
   async function handleDeleteList(id: string) {
-    if (!confirm("Delete this list and all its tasks?")) return;
+    if (!confirm("Delete this list? Its tasks move to General.")) return;
     await apiTodo({ action: "delete_list", id });
+    // Server reassigns this list's todos to General rather than deleting
+    // them — mirror that here instead of dropping them from view, or
+    // they'd look deleted client-side until the next full reload.
+    const generalId = lists.find(l => l.name === "General")?.id ?? null;
     onListsChange(lists.filter(l => l.id !== id));
-    onTodosChange(todos.filter(t => t.list_id !== id));
+    onTodosChange(todos.map(t => t.list_id === id ? { ...t, list_id: generalId } : t));
   }
 
   return (
