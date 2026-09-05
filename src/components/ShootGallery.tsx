@@ -12,6 +12,10 @@ type MediaItem = {
   preview_url: string | null;
   download_url: string | null;
   created_at: string;
+  // Set by /api/media only for pre-existing uploads that predate the baked-in
+  // server-side watermark — the CSS overlay below is a fallback for those,
+  // not the primary protection anymore.
+  needsCssWatermark?: boolean;
 };
 
 // A file picked (or dropped) but not yet uploaded — shown with a local,
@@ -61,6 +65,35 @@ function isMediaFile(f: File): boolean {
   return MEDIA_EXTENSIONS.includes(ext);
 }
 
+type DownloadSize = "small" | "large";
+
+// Popover shown wherever a download is triggered — client picks web-optimized
+// (small) or full-resolution (large) before anything actually downloads.
+function DownloadSizeMenu({ onSelect, onClose, align = "right" }: { onSelect: (size: DownloadSize) => void; onClose: () => void; align?: "left" | "right" }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={e => { e.stopPropagation(); onClose(); }} />
+      <div
+        onClick={e => e.stopPropagation()}
+        className={`absolute z-50 top-full mt-2 ${align === "right" ? "right-0" : "left-0"} w-72 bg-[#111] border border-white/15 shadow-xl p-1.5`}
+      >
+        <button onClick={() => onSelect("small")} className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors">
+          <p className="text-xs font-semibold text-white flex items-center gap-2 flex-wrap">
+            Small — Web &amp; MLS
+            <span className="text-[9px] tracking-[1px] uppercase text-[#4ade80] border border-[#4ade80]/30 px-1.5 py-0.5">Recommended</span>
+          </p>
+          <p className="text-[11px] text-[#666] mt-1 leading-relaxed">Optimized for MLS listings, social media, and websites — loads faster and uploads without a fight.</p>
+        </button>
+        <div className="h-px bg-white/5 my-1" />
+        <button onClick={() => onSelect("large")} className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors">
+          <p className="text-xs font-semibold text-white">Large — Full Resolution</p>
+          <p className="text-[11px] text-[#666] mt-1 leading-relaxed">Untouched full quality. Best for print, brochures, and professional use.</p>
+        </button>
+      </div>
+    </>
+  );
+}
+
 export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true, onDeliver, isDelivered = false }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [canEdit, setCanEdit] = useState(false);
@@ -84,6 +117,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
   const [batchDeleting, setBatchDeleting] = useState(false);
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  // Which download-size menu is open, if any: a media id (per-item), a
+  // section slug prefixed "all:" (Download All), or "lightbox".
+  const [downloadMenuFor, setDownloadMenuFor] = useState<string | null>(null);
   const dragCounters = useRef<Record<string, number>>({});
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const filmstripActiveRef = useRef<HTMLButtonElement | null>(null);
@@ -125,6 +161,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   useEffect(() => {
     filmstripActiveRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [lightboxIdx]);
+
+  // Close any open download-size menu when the lightbox navigates or closes
+  useEffect(() => { setDownloadMenuFor(null); }, [lightboxIdx]);
 
   // Picking/dropping files only stages them locally — nothing touches the
   // server until "Confirm Upload". Appends to any already-staged files for
@@ -251,16 +290,31 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     });
   }
 
-  async function downloadAll(items: MediaItem[]) {
+  function downloadHref(m: MediaItem, size: DownloadSize): string | null {
+    if (size === "large") return m.download_url;
+    // Small/web is generated on demand — every image gets a URL regardless
+    // of whether a signed large download_url exists, as long as we're
+    // allowed to download at all (canDownload already gates whether this
+    // function is ever reachable in the UI).
+    return `/api/portal/download-web?media_id=${m.id}`;
+  }
+
+  function triggerDownload(m: MediaItem, size: DownloadSize) {
+    const href = downloadHref(m, size);
+    if (!href) return;
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = size === "large" ? m.file_name : `${m.file_name.replace(/\.[^.]+$/, "")}-web.jpg`;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  async function downloadAll(items: MediaItem[], size: DownloadSize) {
     for (const m of items) {
-      if (!m.download_url) continue;
-      const a = document.createElement("a");
-      a.href = m.download_url;
-      a.download = m.file_name;
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      if (!isImage(m) && size === "small") { triggerDownload(m, "large"); await new Promise(r => setTimeout(r, 250)); continue; }
+      triggerDownload(m, size);
       await new Promise(r => setTimeout(r, 250));
     }
   }
@@ -377,10 +431,18 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
               )
             )}
             {section.items.length > 0 && canDownload && (
-              <button onClick={() => downloadAll(section.items)}
-                className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
-                ↓ Download All
-              </button>
+              <div className="relative">
+                <button onClick={() => setDownloadMenuFor(downloadMenuFor === `all:${slug}` ? null : `all:${slug}`)}
+                  className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
+                  ↓ Download All
+                </button>
+                {downloadMenuFor === `all:${slug}` && (
+                  <DownloadSizeMenu
+                    onClose={() => setDownloadMenuFor(null)}
+                    onSelect={size => { setDownloadMenuFor(null); downloadAll(section.items, size); }}
+                  />
+                )}
+              </div>
             )}
             {canEdit && onDeliver && (
               <button
@@ -495,8 +557,9 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                               </div>
                             </div>
                           )}
-                          {/* Watermark — tiled diagonal so screenshotting the preview is useless */}
-                          {!canDownload && !batchMode && (
+                          {/* Fallback CSS watermark — only for uploads that predate the
+                              baked-in server-side watermark on the thumbnail itself */}
+                          {!canDownload && !batchMode && m.needsCssWatermark && (
                             <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
                               <div className="absolute -inset-8 flex flex-wrap content-evenly justify-evenly gap-3 -rotate-[25deg]">
                                 {Array.from({ length: 12 }).map((_, i) => (
@@ -509,10 +572,26 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                           {!batchMode && (
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
                               {canDownload ? (
-                                <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors pointer-events-auto">
-                                  ↓
-                                </a>
+                                isImage(m) ? (
+                                  <div className="relative pointer-events-auto">
+                                    <button onClick={() => setDownloadMenuFor(downloadMenuFor === m.id ? null : m.id)}
+                                      className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
+                                      ↓
+                                    </button>
+                                    {downloadMenuFor === m.id && (
+                                      <DownloadSizeMenu
+                                        align="left"
+                                        onClose={() => setDownloadMenuFor(null)}
+                                        onSelect={size => { setDownloadMenuFor(null); triggerDownload(m, size); }}
+                                      />
+                                    )}
+                                  </div>
+                                ) : (
+                                  <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                                    className="pointer-events-auto text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
+                                    ↓
+                                  </a>
+                                )
                               ) : (
                                 <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
                                   🔒
@@ -627,7 +706,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                   {isImage(m) && m.preview_url ? (
                     <div className="relative">
                       <img src={m.preview_url} alt={m.file_name} className="max-h-[72vh] max-w-full object-contain" />
-                      {!canDownload && (
+                      {!canDownload && m.needsCssWatermark && (
                         <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
                           <div className="absolute -inset-16 flex flex-wrap content-evenly justify-evenly gap-8 -rotate-[20deg]">
                             {Array.from({ length: 30 }).map((_, i) => (
@@ -648,10 +727,26 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
                   <div className="flex items-center gap-4">
                     <p className="text-xs text-[#555]">{m.file_name} · {lightboxIdx + 1} of {lightboxItems.length}</p>
                     {canDownload ? (
-                      <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                        className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
-                        ↓ Download
-                      </a>
+                      isImage(m) ? (
+                        <div className="relative">
+                          <button onClick={() => setDownloadMenuFor(downloadMenuFor === "lightbox" ? null : "lightbox")}
+                            className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
+                            ↓ Download
+                          </button>
+                          {downloadMenuFor === "lightbox" && (
+                            <DownloadSizeMenu
+                              align="left"
+                              onClose={() => setDownloadMenuFor(null)}
+                              onSelect={size => { setDownloadMenuFor(null); triggerDownload(m, size); }}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                          className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-4 py-2 hover:bg-white/5 transition-colors">
+                          ↓ Download
+                        </a>
+                      )
                     ) : (
                       <span className="text-xs tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-4 py-2">
                         🔒 Pay to Download

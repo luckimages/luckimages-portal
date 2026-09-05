@@ -61,7 +61,11 @@ export async function POST(req: NextRequest) {
   // signed token, so it's actually cacheable (unlike shoot-media's signed
   // URLs), and it's what the gallery grid/lightbox should load instead of
   // the multi-MB original. Only for images; video/other files have none.
+  // A second, watermarked copy of that same thumbnail is what unpaid clients
+  // actually see — /api/media decides which of the two to hand back based on
+  // invoice status, so the clean version never reaches an unpaid browser.
   let thumbPath: string | null = null;
+  let thumbWatermarkedPath: string | null = null;
   if (fileType.startsWith("image/")) {
     try {
       // Dynamic import so a broken sharp/libvips install (a real incident —
@@ -70,6 +74,7 @@ export async function POST(req: NextRequest) {
       // this try/catch even runs) degrades to "no thumbnail" instead of
       // taking the whole upload down with it.
       const sharp = (await import("sharp")).default;
+      const { applyWatermark } = await import("@/lib/watermark");
       const thumbBuffer = await sharp(buffer, { failOn: "none" })
         .rotate() // apply EXIF orientation before resizing
         .resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true })
@@ -81,6 +86,19 @@ export async function POST(req: NextRequest) {
         .from("shoot-thumbnails")
         .upload(candidateThumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
       if (!thumbError) thumbPath = candidateThumbPath;
+
+      try {
+        const watermarkedBuffer = await applyWatermark(thumbBuffer);
+        const candidateWmPath = `${shootId}/${serviceSlug ? serviceSlug + "/" : ""}${timestamp}_thumb_wm.jpg`;
+        const { error: wmError } = await service.storage
+          .from("shoot-thumbnails")
+          .upload(candidateWmPath, watermarkedBuffer, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
+        if (!wmError) thumbWatermarkedPath = candidateWmPath;
+      } catch {
+        // Watermarked preview is what gates pre-payment viewing — if it fails
+        // to generate, fall back to the clean thumb everywhere in /api/media
+        // rather than failing the upload outright.
+      }
     } catch {
       // Thumbnail generation is a bandwidth optimization, not a requirement —
       // if a file sharp can't parse (odd RAW variant, etc.) just skip it and
@@ -97,14 +115,17 @@ export async function POST(req: NextRequest) {
     file_type: fileType,
   };
   if (thumbPath) insertPayload.thumb_path = thumbPath;
+  if (thumbWatermarkedPath) insertPayload.thumb_watermarked_path = thumbWatermarkedPath;
 
-  // thumb_path is a recent addition — if the migration hasn't run yet in this
-  // environment, fall back to inserting without it rather than failing the
-  // whole upload.
+  // thumb_path / thumb_watermarked_path are recent additions — if a migration
+  // hasn't run yet in this environment, drop whichever column is missing and
+  // retry rather than failing the whole upload.
   let { data: media, error: dbError } = await service.from("media").insert(insertPayload).select().single();
 
-  if (dbError && dbError.message?.includes("thumb_path")) {
-    delete insertPayload.thumb_path;
+  while (dbError && (dbError.message?.includes("thumb_path") || dbError.message?.includes("thumb_watermarked_path"))) {
+    if (dbError.message?.includes("thumb_watermarked_path")) delete insertPayload.thumb_watermarked_path;
+    else if (dbError.message?.includes("thumb_path")) delete insertPayload.thumb_path;
+    else break;
     ({ data: media, error: dbError } = await service.from("media").insert(insertPayload).select().single());
   }
 
