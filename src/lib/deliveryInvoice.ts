@@ -11,6 +11,44 @@ function service() {
   );
 }
 
+// Normally the invoice already exists from shoot confirmation. This is the
+// safety net for shoots that reach delivery without one (skipped
+// confirmation step, manually-created shoot, etc.) — without it, a shoot
+// with no invoice reads as "free" (canDownload defaults true when there's no
+// invoice to check), handing out unwatermarked full-res downloads for free.
+// Delivery can be triggered from either the admin board or the photographer
+// portal, so both call this before notifyDelivery.
+export async function ensureDeliveryInvoice(shootId: string): Promise<void> {
+  const db = service();
+
+  const { data: existing } = await db.from("invoices").select("id").eq("shoot_id", shootId).maybeSingle();
+  if (existing) return;
+
+  const { data: shoot } = await db
+    .from("shoots")
+    .select("id, address, price, line_items, contact_id, client_id, scheduled_at")
+    .eq("id", shootId)
+    .single();
+  if (!shoot) return;
+
+  const lineItems: Array<{ label: string; amount_cents: number }> = shoot.line_items || [];
+  const totalCents = lineItems.length > 0
+    ? lineItems.reduce((sum, li) => sum + li.amount_cents, 0)
+    : Math.round((shoot.price ?? 0) * 100);
+  if (totalCents <= 0) return;
+
+  await db.from("invoices").insert({
+    shoot_id: shoot.id,
+    contact_id: shoot.contact_id || null,
+    client_id: shoot.client_id || null,
+    amount_cents: totalCents,
+    line_items: lineItems.length > 0 ? lineItems : null,
+    description: `Luck Images — ${shoot.address}`,
+    paid: false,
+    created_at: shoot.scheduled_at || new Date().toISOString(),
+  });
+}
+
 // Fired the moment a photographer confirms delivery. Invoice was already
 // created at shoot confirmation — this just emails + texts the client that
 // their media is ready to view and download (after paying).

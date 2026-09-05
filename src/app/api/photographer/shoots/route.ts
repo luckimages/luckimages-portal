@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
-import { notifyDelivery } from "@/lib/deliveryInvoice";
+import { notifyDelivery, ensureDeliveryInvoice } from "@/lib/deliveryInvoice";
 
 // PATCH — photographer advances shoot status
 export async function PATCH(req: Request) {
@@ -41,6 +41,7 @@ export async function PATCH(req: Request) {
   // fire-and-forget) since Vercel can freeze the function once the response
   // is sent, killing any work still in flight.
   if (status === "delivered" && shoot.status !== "delivered") {
+    try { await ensureDeliveryInvoice(id); } catch (e) { console.error("ensure invoice failed", e); }
     try { await notifyDelivery(id); } catch (e) { console.error("delivery notify failed", e); }
   }
 
