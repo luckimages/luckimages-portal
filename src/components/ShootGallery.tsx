@@ -92,6 +92,336 @@ function DownloadSizeMenu({ onSelect, onClose, align = "right" }: { onSelect: (s
     </>
   );
 }
+type SectionGridProps = {
+  section: { slug: string; label: string; items: MediaItem[] };
+  canEdit: boolean;
+  canDownload: boolean;
+  uploading: string | null;
+  draggingSection: string | null;
+  setDraggingSection: (v: string | null) => void;
+  stagedFiles: Record<string, StagedFile[]>;
+  confirmedSections: Set<string>;
+  batchMode: boolean;
+  setBatchMode: (v: boolean) => void;
+  batchSelected: Set<string>;
+  setBatchSelected: (v: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
+  setConfirmBatchDelete: (v: boolean) => void;
+  downloadMenuFor: string | null;
+  setDownloadMenuFor: (v: string | null) => void;
+  delivered: boolean;
+  delivering: boolean;
+  setDelivered: (v: boolean) => void;
+  setDelivering: (v: boolean) => void;
+  onDeliver?: () => Promise<void>;
+  fileRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
+  dragCounters: React.MutableRefObject<Record<string, number>>;
+  setUploadError: (v: string) => void;
+  stageFiles: (files: File[], slug: string) => void;
+  removeStagedFile: (slug: string, key: string) => void;
+  toggleBatchItem: (id: string) => void;
+  setLightboxItems: (items: MediaItem[]) => void;
+  setLightboxIdx: (idx: number) => void;
+  isImage: (m: MediaItem) => boolean;
+  triggerDownload: (m: MediaItem, size: DownloadSize) => void;
+  setConfirmDelete: (id: string) => void;
+  confirmUpload: (slug: string) => Promise<void>;
+  downloadAll: (items: MediaItem[], size: DownloadSize) => Promise<void>;
+};
+
+function SectionGrid(props: SectionGridProps) {
+  const {
+    section, canEdit, canDownload, uploading,
+    draggingSection, setDraggingSection, stagedFiles, confirmedSections,
+    batchMode, setBatchMode, batchSelected, setBatchSelected, setConfirmBatchDelete,
+    downloadMenuFor, setDownloadMenuFor, delivered, delivering, setDelivered, setDelivering, onDeliver,
+    fileRefs, dragCounters, setUploadError, stageFiles, removeStagedFile, toggleBatchItem,
+    setLightboxItems, setLightboxIdx, isImage, triggerDownload, setConfirmDelete, confirmUpload, downloadAll,
+  } = props;
+  const slug = section.slug;
+  const isDragging = draggingSection === slug;
+  const staged = stagedFiles[slug] || [];
+  const readyToConfirm = staged.filter(p => p.status === "staged").length;
+  const isConfirmed = confirmedSections.has(slug);
+
+  function onDragEnter(e: React.DragEvent) {
+    if (!canEdit) return;
+    e.preventDefault();
+    dragCounters.current[slug] = (dragCounters.current[slug] || 0) + 1;
+    if (dragCounters.current[slug] === 1) setDraggingSection(slug);
+  }
+  function onDragLeave(e: React.DragEvent) {
+    if (!canEdit) return;
+    e.preventDefault();
+    dragCounters.current[slug] = (dragCounters.current[slug] || 0) - 1;
+    if (dragCounters.current[slug] <= 0) setDraggingSection(null);
+  }
+  function onDragOver(e: React.DragEvent) { e.preventDefault(); }
+  function onDrop(e: React.DragEvent) {
+    if (!canEdit) return;
+    e.preventDefault();
+    setDraggingSection(null);
+    dragCounters.current[slug] = 0;
+    const dropped = Array.from(e.dataTransfer.files);
+    const files = dropped.filter(isMediaFile);
+    if (files.length) {
+      stageFiles(files, slug);
+    } else if (dropped.length) {
+      setUploadError(`${dropped.length} file(s) weren't recognized as photos/videos and weren't added.`);
+    }
+  }
+
+  return (
+    <div
+      className="relative"
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-20 border-2 border-dashed border-white/60 bg-black/70 flex items-center justify-center pointer-events-none">
+          <div className="text-center">
+            <p className="text-2xl mb-1">↑</p>
+            <p className="text-xs font-semibold tracking-[2px] uppercase">Drop to Upload{section.label ? ` — ${section.label}` : ""}</p>
+          </div>
+        </div>
+      )}
+      {/* Hidden file input for drag-and-drop stageFiles ref */}
+      <input
+        ref={el => { fileRefs.current[slug] = el; }}
+        type="file" multiple accept="image/*,video/*" className="hidden"
+        disabled={!!uploading}
+        onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
+      />
+
+      {/* Section toolbar */}
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <p className="text-xs text-[#555]">{section.items.length} file{section.items.length !== 1 ? "s" : ""}</p>
+        <div className="flex gap-2">
+          {canEdit && section.items.length > 0 && (
+            batchMode ? (
+              <>
+                {batchSelected.size > 0 && (
+                  <button
+                    onClick={() => setConfirmBatchDelete(true)}
+                    className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors font-semibold">
+                    Delete ({batchSelected.size})
+                  </button>
+                )}
+                <button
+                  onClick={() => { setBatchMode(false); setBatchSelected(new Set()); }}
+                  className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setBatchMode(true)}
+                className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
+                Batch Select
+              </button>
+            )
+          )}
+          {section.items.length > 0 && canDownload && (
+            <div className="relative">
+              <button onClick={() => setDownloadMenuFor(downloadMenuFor === `all:${slug}` ? null : `all:${slug}`)}
+                className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
+                ↓ Download All
+              </button>
+              {downloadMenuFor === `all:${slug}` && (
+                <DownloadSizeMenu
+                  onClose={() => setDownloadMenuFor(null)}
+                  onSelect={size => { setDownloadMenuFor(null); downloadAll(section.items, size); }}
+                />
+              )}
+            </div>
+          )}
+          {canEdit && onDeliver && (
+            <button
+              onClick={delivered ? undefined : async () => {
+                setDelivering(true);
+                try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
+              }}
+              disabled={delivering}
+              className={`text-xs tracking-[2px] uppercase px-3 py-1.5 font-semibold transition-colors ${
+                delivered
+                  ? "bg-[#4ade80] text-black cursor-default"
+                  : "bg-white text-black hover:bg-white/90 disabled:opacity-40"
+              }`}>
+              {delivered ? "Delivered ✓" : delivering ? "Delivering..." : "Deliver"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Grid or empty state */}
+      {section.items.length === 0 && staged.length === 0 ? (
+        canEdit ? (
+          <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-6 cursor-pointer hover:bg-white/[0.02] transition-colors">
+            <span className="text-xl mb-1">↑</span>
+            <span className="text-xs text-[#555]">Click to select or drag files here</span>
+            <input
+              ref={el => { fileRefs.current[slug] = el; }}
+              type="file" multiple accept="image/*,video/*" className="hidden"
+              disabled={!!uploading}
+              onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
+            />
+          </label>
+        ) : (
+          <div className="bg-[#0c0c0c] border border-white/5 p-6 text-center">
+            <p className="text-xs text-[#333]">No media yet</p>
+          </div>
+        )
+      ) : (
+        <>
+          {(() => {
+            // Merge staged + uploaded into one alphabetically sorted grid
+            type GridEntry =
+              | { kind: "staged"; p: StagedFile }
+              | { kind: "uploaded"; m: MediaItem; origIdx: number };
+            const allItems: GridEntry[] = [
+              ...staged.map(p => ({ kind: "staged" as const, p })),
+              ...section.items.map((m, origIdx) => ({ kind: "uploaded" as const, m, origIdx })),
+            ];
+            allItems.sort((a, b) => {
+              const nameA = a.kind === "staged" ? a.p.fileName : a.m.file_name;
+              const nameB = b.kind === "staged" ? b.p.fileName : b.m.file_name;
+              return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+            });
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {allItems.map(entry => {
+                  if (entry.kind === "staged") {
+                    const p = entry.p;
+                    return (
+                      <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
+                        {p.previewUrl ? (
+                          <img src={p.previewUrl} alt={p.fileName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                            <span className="text-2xl">📄</span>
+                            <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
+                          </div>
+                        )}
+                        {p.status === "uploading" ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            {p.status === "failed" && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
+                              </div>
+                            )}
+                            <button onClick={() => removeStagedFile(slug, p.key)}
+                              className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
+                              title="Remove">
+                              ✕
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    const { m, origIdx } = entry;
+                    const isSelected = batchSelected.has(m.id);
+                    return (
+                      <div key={m.id}
+                        className={`relative group aspect-square bg-[#111] border overflow-hidden transition-all ${batchMode ? "cursor-pointer" : ""} ${isSelected ? "border-white" : "border-white/10"}`}
+                        onClick={batchMode ? () => toggleBatchItem(m.id) : undefined}>
+                        <button className="w-full h-full" disabled={batchMode}
+                          onClick={!batchMode ? () => { setLightboxItems(section.items); setLightboxIdx(origIdx); } : undefined}>
+                          {isImage(m) && m.preview_url ? (
+                            <img src={m.preview_url} alt={m.file_name} className={`w-full h-full object-cover transition-transform ${!batchMode ? "group-hover:scale-105" : ""}`} />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                              <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
+                              <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
+                            </div>
+                          )}
+                        </button>
+                        {/* Batch select overlay */}
+                        {batchMode && (
+                          <div className={`absolute inset-0 transition-colors ${isSelected ? "bg-white/10" : "hover:bg-white/5"}`}>
+                            <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-white bg-white" : "border-white/40 bg-black/40"}`}>
+                              {isSelected && <span className="text-black text-[10px] font-bold leading-none">✓</span>}
+                            </div>
+                          </div>
+                        )}
+                        {/* Fallback CSS watermark — only for uploads that predate the
+                            baked-in server-side watermark on the thumbnail itself */}
+                        {!canDownload && !batchMode && m.needsCssWatermark && (
+                          <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+                            <div className="absolute -inset-8 flex flex-wrap content-evenly justify-evenly gap-3 -rotate-[25deg]">
+                              {Array.from({ length: 12 }).map((_, i) => (
+                                <span key={i} className="text-white/30 text-[8px] tracking-[2px] uppercase font-black whitespace-nowrap shrink-0">Luck Images</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Hover actions (non-batch mode) */}
+                        {!batchMode && (
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
+                            {canDownload ? (
+                              isImage(m) ? (
+                                <div className="relative pointer-events-auto">
+                                  <button onClick={() => setDownloadMenuFor(downloadMenuFor === m.id ? null : m.id)}
+                                    className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
+                                    ↓
+                                  </button>
+                                  {downloadMenuFor === m.id && (
+                                    <DownloadSizeMenu
+                                      align="left"
+                                      onClose={() => setDownloadMenuFor(null)}
+                                      onSelect={size => { setDownloadMenuFor(null); triggerDownload(m, size); }}
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
+                                  className="pointer-events-auto text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
+                                  ↓
+                                </a>
+                              )
+                            ) : (
+                              <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
+                                🔒
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {/* Delete button (non-batch mode) */}
+                        {canEdit && !batchMode && (
+                          <button onClick={() => setConfirmDelete(m.id)}
+                            className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
+                            title="Delete">
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            );
+          })()}
+          {readyToConfirm > 0 && (
+            <div className="mt-3 flex items-center justify-between gap-3 bg-[#0c0c0c] border border-white/10 px-4 py-3">
+              <p className="text-xs text-[#888]">{readyToConfirm} file{readyToConfirm !== 1 ? "s" : ""} ready to upload</p>
+              <button onClick={() => confirmUpload(slug)} disabled={uploading === slug}
+                className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 hover:bg-white/90 transition-colors font-semibold disabled:opacity-40">
+                {uploading === slug ? "Uploading..." : `Confirm Upload (${readyToConfirm})`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 
 export default function ShootGallery({ shootId, services = [], onMediaChange, canDownload = true, onDeliver, isDelivered = false }: Props) {
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -355,291 +685,6 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     return <div className="py-8 text-center text-xs text-[#444] tracking-[2px] uppercase">Loading media...</div>;
   }
 
-  function SectionGrid({ section }: { section: typeof serviceSections[0] }) {
-    const slug = section.slug;
-    const isDragging = draggingSection === slug;
-    const staged = stagedFiles[slug] || [];
-    const readyToConfirm = staged.filter(p => p.status === "staged").length;
-    const isConfirmed = confirmedSections.has(slug);
-
-    function onDragEnter(e: React.DragEvent) {
-      if (!canEdit) return;
-      e.preventDefault();
-      dragCounters.current[slug] = (dragCounters.current[slug] || 0) + 1;
-      if (dragCounters.current[slug] === 1) setDraggingSection(slug);
-    }
-    function onDragLeave(e: React.DragEvent) {
-      if (!canEdit) return;
-      e.preventDefault();
-      dragCounters.current[slug] = (dragCounters.current[slug] || 0) - 1;
-      if (dragCounters.current[slug] <= 0) setDraggingSection(null);
-    }
-    function onDragOver(e: React.DragEvent) { e.preventDefault(); }
-    function onDrop(e: React.DragEvent) {
-      if (!canEdit) return;
-      e.preventDefault();
-      setDraggingSection(null);
-      dragCounters.current[slug] = 0;
-      const dropped = Array.from(e.dataTransfer.files);
-      const files = dropped.filter(isMediaFile);
-      if (files.length) {
-        stageFiles(files, slug);
-      } else if (dropped.length) {
-        setUploadError(`${dropped.length} file(s) weren't recognized as photos/videos and weren't added.`);
-      }
-    }
-
-    return (
-      <div
-        className="relative"
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-      >
-        {/* Drag overlay */}
-        {isDragging && (
-          <div className="absolute inset-0 z-20 border-2 border-dashed border-white/60 bg-black/70 flex items-center justify-center pointer-events-none">
-            <div className="text-center">
-              <p className="text-2xl mb-1">↑</p>
-              <p className="text-xs font-semibold tracking-[2px] uppercase">Drop to Upload{section.label ? ` — ${section.label}` : ""}</p>
-            </div>
-          </div>
-        )}
-        {/* Hidden file input for drag-and-drop stageFiles ref */}
-        <input
-          ref={el => { fileRefs.current[slug] = el; }}
-          type="file" multiple accept="image/*,video/*" className="hidden"
-          disabled={!!uploading}
-          onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
-        />
-
-        {/* Section toolbar */}
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <p className="text-xs text-[#555]">{section.items.length} file{section.items.length !== 1 ? "s" : ""}</p>
-          <div className="flex gap-2">
-            {canEdit && section.items.length > 0 && (
-              batchMode ? (
-                <>
-                  {batchSelected.size > 0 && (
-                    <button
-                      onClick={() => setConfirmBatchDelete(true)}
-                      className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-red-500/40 text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors font-semibold">
-                      Delete ({batchSelected.size})
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setBatchMode(false); setBatchSelected(new Set()); }}
-                    className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setBatchMode(true)}
-                  className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
-                  Batch Select
-                </button>
-              )
-            )}
-            {section.items.length > 0 && canDownload && (
-              <div className="relative">
-                <button onClick={() => setDownloadMenuFor(downloadMenuFor === `all:${slug}` ? null : `all:${slug}`)}
-                  className="text-xs tracking-[2px] uppercase text-white border border-white/20 px-3 py-1.5 hover:bg-white/5 transition-colors">
-                  ↓ Download All
-                </button>
-                {downloadMenuFor === `all:${slug}` && (
-                  <DownloadSizeMenu
-                    onClose={() => setDownloadMenuFor(null)}
-                    onSelect={size => { setDownloadMenuFor(null); downloadAll(section.items, size); }}
-                  />
-                )}
-              </div>
-            )}
-            {canEdit && onDeliver && (
-              <button
-                onClick={delivered ? undefined : async () => {
-                  setDelivering(true);
-                  try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
-                }}
-                disabled={delivering}
-                className={`text-xs tracking-[2px] uppercase px-3 py-1.5 font-semibold transition-colors ${
-                  delivered
-                    ? "bg-[#4ade80] text-black cursor-default"
-                    : "bg-white text-black hover:bg-white/90 disabled:opacity-40"
-                }`}>
-                {delivered ? "Delivered ✓" : delivering ? "Delivering..." : "Deliver"}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Grid or empty state */}
-        {section.items.length === 0 && staged.length === 0 ? (
-          canEdit ? (
-            <label className="flex flex-col items-center justify-center bg-[#0c0c0c] border border-white/10 border-dashed p-6 cursor-pointer hover:bg-white/[0.02] transition-colors">
-              <span className="text-xl mb-1">↑</span>
-              <span className="text-xs text-[#555]">Click to select or drag files here</span>
-              <input
-                ref={el => { fileRefs.current[slug] = el; }}
-                type="file" multiple accept="image/*,video/*" className="hidden"
-                disabled={!!uploading}
-                onChange={e => { if (e.target.files?.length) stageFiles(Array.from(e.target.files), slug); }}
-              />
-            </label>
-          ) : (
-            <div className="bg-[#0c0c0c] border border-white/5 p-6 text-center">
-              <p className="text-xs text-[#333]">No media yet</p>
-            </div>
-          )
-        ) : (
-          <>
-            {(() => {
-              // Merge staged + uploaded into one alphabetically sorted grid
-              type GridEntry =
-                | { kind: "staged"; p: StagedFile }
-                | { kind: "uploaded"; m: MediaItem; origIdx: number };
-              const allItems: GridEntry[] = [
-                ...staged.map(p => ({ kind: "staged" as const, p })),
-                ...section.items.map((m, origIdx) => ({ kind: "uploaded" as const, m, origIdx })),
-              ];
-              allItems.sort((a, b) => {
-                const nameA = a.kind === "staged" ? a.p.fileName : a.m.file_name;
-                const nameB = b.kind === "staged" ? b.p.fileName : b.m.file_name;
-                return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
-              });
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {allItems.map(entry => {
-                    if (entry.kind === "staged") {
-                      const p = entry.p;
-                      return (
-                        <div key={p.key} className="relative aspect-square bg-[#111] border border-white/10 overflow-hidden">
-                          {p.previewUrl ? (
-                            <img src={p.previewUrl} alt={p.fileName} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                              <span className="text-2xl">📄</span>
-                              <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{p.fileName}</p>
-                            </div>
-                          )}
-                          {p.status === "uploading" ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            </div>
-                          ) : (
-                            <>
-                              {p.status === "failed" && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                                  <span className="text-[10px] tracking-[1px] uppercase text-red-400 bg-black/70 px-2 py-1">Failed</span>
-                                </div>
-                              )}
-                              <button onClick={() => removeStagedFile(slug, p.key)}
-                                className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
-                                title="Remove">
-                                ✕
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      );
-                    } else {
-                      const { m, origIdx } = entry;
-                      const isSelected = batchSelected.has(m.id);
-                      return (
-                        <div key={m.id}
-                          className={`relative group aspect-square bg-[#111] border overflow-hidden transition-all ${batchMode ? "cursor-pointer" : ""} ${isSelected ? "border-white" : "border-white/10"}`}
-                          onClick={batchMode ? () => toggleBatchItem(m.id) : undefined}>
-                          <button className="w-full h-full" disabled={batchMode}
-                            onClick={!batchMode ? () => { setLightboxItems(section.items); setLightboxIdx(origIdx); } : undefined}>
-                            {isImage(m) && m.preview_url ? (
-                              <img src={m.preview_url} alt={m.file_name} className={`w-full h-full object-cover transition-transform ${!batchMode ? "group-hover:scale-105" : ""}`} />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                                <span className="text-2xl">{m.file_type?.startsWith("video/") ? "▶" : "📄"}</span>
-                                <p className="text-[10px] text-[#555] px-2 text-center truncate w-full">{m.file_name}</p>
-                              </div>
-                            )}
-                          </button>
-                          {/* Batch select overlay */}
-                          {batchMode && (
-                            <div className={`absolute inset-0 transition-colors ${isSelected ? "bg-white/10" : "hover:bg-white/5"}`}>
-                              <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-white bg-white" : "border-white/40 bg-black/40"}`}>
-                                {isSelected && <span className="text-black text-[10px] font-bold leading-none">✓</span>}
-                              </div>
-                            </div>
-                          )}
-                          {/* Fallback CSS watermark — only for uploads that predate the
-                              baked-in server-side watermark on the thumbnail itself */}
-                          {!canDownload && !batchMode && m.needsCssWatermark && (
-                            <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-                              <div className="absolute -inset-8 flex flex-wrap content-evenly justify-evenly gap-3 -rotate-[25deg]">
-                                {Array.from({ length: 12 }).map((_, i) => (
-                                  <span key={i} className="text-white/30 text-[8px] tracking-[2px] uppercase font-black whitespace-nowrap shrink-0">Luck Images</span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {/* Hover actions (non-batch mode) */}
-                          {!batchMode && (
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-start p-2 pointer-events-none">
-                              {canDownload ? (
-                                isImage(m) ? (
-                                  <div className="relative pointer-events-auto">
-                                    <button onClick={() => setDownloadMenuFor(downloadMenuFor === m.id ? null : m.id)}
-                                      className="text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
-                                      ↓
-                                    </button>
-                                    {downloadMenuFor === m.id && (
-                                      <DownloadSizeMenu
-                                        align="left"
-                                        onClose={() => setDownloadMenuFor(null)}
-                                        onSelect={size => { setDownloadMenuFor(null); triggerDownload(m, size); }}
-                                      />
-                                    )}
-                                  </div>
-                                ) : (
-                                  <a href={m.download_url || "#"} download={m.file_name} target="_blank" rel="noopener noreferrer"
-                                    className="pointer-events-auto text-[10px] tracking-[1px] uppercase text-white border border-white/30 px-2 py-1 hover:bg-white/10 transition-colors">
-                                    ↓
-                                  </a>
-                                )
-                              ) : (
-                                <span className="text-[10px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-1">
-                                  🔒
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {/* Delete button (non-batch mode) */}
-                          {canEdit && !batchMode && (
-                            <button onClick={() => setConfirmDelete(m.id)}
-                              className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-black/70 text-white/80 hover:bg-red-500 hover:text-white text-xs leading-none transition-colors"
-                              title="Delete">
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      );
-                    }
-                  })}
-                </div>
-              );
-            })()}
-            {readyToConfirm > 0 && (
-              <div className="mt-3 flex items-center justify-between gap-3 bg-[#0c0c0c] border border-white/10 px-4 py-3">
-                <p className="text-xs text-[#888]">{readyToConfirm} file{readyToConfirm !== 1 ? "s" : ""} ready to upload</p>
-                <button onClick={() => confirmUpload(slug)} disabled={uploading === slug}
-                  className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 hover:bg-white/90 transition-colors font-semibold disabled:opacity-40">
-                  {uploading === slug ? "Uploading..." : `Confirm Upload (${readyToConfirm})`}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -665,7 +710,21 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
               <div className="flex-1 h-px bg-white/5" />
             </div>
           )}
-          <SectionGrid section={section} />
+          <SectionGrid
+            section={section}
+            canEdit={canEdit} canDownload={canDownload} uploading={uploading}
+            draggingSection={draggingSection} setDraggingSection={setDraggingSection}
+            stagedFiles={stagedFiles} confirmedSections={confirmedSections}
+            batchMode={batchMode} setBatchMode={setBatchMode}
+            batchSelected={batchSelected} setBatchSelected={setBatchSelected} setConfirmBatchDelete={setConfirmBatchDelete}
+            downloadMenuFor={downloadMenuFor} setDownloadMenuFor={setDownloadMenuFor}
+            delivered={delivered} delivering={delivering} setDelivered={setDelivered} setDelivering={setDelivering} onDeliver={onDeliver}
+            fileRefs={fileRefs} dragCounters={dragCounters} setUploadError={setUploadError}
+            stageFiles={stageFiles} removeStagedFile={removeStagedFile} toggleBatchItem={toggleBatchItem}
+            setLightboxItems={setLightboxItems} setLightboxIdx={setLightboxIdx} isImage={isImage}
+            triggerDownload={triggerDownload} setConfirmDelete={setConfirmDelete}
+            confirmUpload={confirmUpload} downloadAll={downloadAll}
+          />
         </div>
       ))}
 
