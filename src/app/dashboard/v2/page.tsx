@@ -341,7 +341,15 @@ function DashboardV2Page() {
   }
 
   // Board view — mirrors the live shoot board's alert detection
-  const boardShoots = shoots.filter(s => s.status !== "cancelled");
+  const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000;
+  const boardShoots = shoots.filter(s => {
+    if (s.status === "cancelled") return false;
+    // Paid shoots fall off the board after 7 days
+    if (s.status === "completed") {
+      return !!s.paid_at && nowMs - new Date(s.paid_at).getTime() < SEVEN_DAYS_MS;
+    }
+    return true;
+  });
   const nowMs = Date.now();
   function isRed(sh: Shoot): boolean {
     const scheduledMs = sh.scheduled_at ? new Date(sh.scheduled_at).getTime() : null;
