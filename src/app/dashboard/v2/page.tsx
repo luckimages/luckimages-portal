@@ -341,6 +341,7 @@ function DashboardV2Page() {
   }
 
   // Board view — mirrors the live shoot board's alert detection
+  const nowMs = Date.now();
   const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000;
   const boardShoots = shoots.filter(s => {
     if (s.status === "cancelled") return false;
@@ -350,7 +351,6 @@ function DashboardV2Page() {
     }
     return true;
   });
-  const nowMs = Date.now();
   function isRed(sh: Shoot): boolean {
     const scheduledMs = sh.scheduled_at ? new Date(sh.scheduled_at).getTime() : null;
     if (sh.status === "scheduled" && !sh.checked_in_at && scheduledMs && nowMs > scheduledMs + 5 * 60000) return true;
