@@ -395,6 +395,15 @@ function DashboardV2Page() {
             )
           )}
           <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
+          <button
+            onClick={() => {
+              const form = document.createElement("form");
+              form.method = "post"; form.action = "/api/auth/signout";
+              document.body.appendChild(form); form.submit();
+            }}
+            className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">
+            Log Out
+          </button>
         </div>
       </header>
 
