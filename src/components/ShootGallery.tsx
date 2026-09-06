@@ -210,6 +210,13 @@ function SectionGrid(props: SectionGridProps) {
                   </button>
                 )}
                 <button
+                  onClick={() => setBatchSelected(
+                    batchSelected.size === section.items.length ? new Set() : new Set(section.items.map(m => m.id))
+                  )}
+                  className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
+                  {batchSelected.size === section.items.length ? "Deselect All" : "Select All"}
+                </button>
+                <button
                   onClick={() => { setBatchMode(false); setBatchSelected(new Set()); }}
                   className="text-xs tracking-[2px] uppercase px-3 py-1.5 border border-white/20 text-[#888] hover:text-white hover:border-white/40 transition-colors">
                   Cancel
