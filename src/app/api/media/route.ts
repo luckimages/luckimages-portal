@@ -24,32 +24,25 @@ export async function GET(req: Request) {
   const canDownload = await checkCanDownload(db, canEdit, shootId);
 
   // thumb_path / thumb_watermarked_path are recent additions — degrade
-  // gracefully if a migration hasn't run yet in this environment.
-  const first = await db
-    .from("media")
-    .select("id, file_name, file_type, file_path, original_path, thumb_path, thumb_watermarked_path, created_at")
-    .eq("shoot_id", shootId)
-    .order("created_at");
-  let items: Array<Record<string, any>> | null = first.data; // eslint-disable-line @typescript-eslint/no-explicit-any
-  let error = first.error;
-
-  if (error && (error.message?.includes("thumb_watermarked_path") || error.message?.includes("thumb_path"))) {
-    const second = await db
-      .from("media")
-      .select("id, file_name, file_type, file_path, original_path, thumb_path, created_at")
-      .eq("shoot_id", shootId)
-      .order("created_at");
-    items = second.data;
-    error = second.error;
-    if (error && error.message?.includes("thumb_path")) {
-      const third = await db
-        .from("media")
-        .select("id, file_name, file_type, file_path, original_path, created_at")
-        .eq("shoot_id", shootId)
-        .order("created_at");
-      items = third.data;
-      error = third.error;
-    }
+  // gracefully if a migration hasn't run yet in this environment. Retries by
+  // dropping whichever specific column the error names, independently — a
+  // fixed two-step fallback that assumed thumb_path always exists silently
+  // never returned thumb_watermarked_path in an environment where only that
+  // one existed (exactly what happened here: thumb_path was never actually
+  // migrated, so this always fell through to the no-thumbnails-at-all case).
+  type MediaRow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const optionalCols = ["thumb_path", "thumb_watermarked_path"];
+  let cols = ["id", "file_name", "file_type", "file_path", "original_path", ...optionalCols, "created_at"];
+  let items: MediaRow[] | null = null;
+  let error: { message?: string } | null = null;
+  for (let attempt = 0; attempt <= optionalCols.length; attempt++) {
+    const res = await db.from("media").select(cols.join(", ")).eq("shoot_id", shootId).order("created_at");
+    items = (res.data ?? null) as MediaRow[] | null;
+    error = res.error;
+    if (!error) break;
+    const missing = optionalCols.find(c => cols.includes(c) && error?.message?.includes(c));
+    if (!missing) break; // a different error — no point retrying
+    cols = cols.filter(c => c !== missing);
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
