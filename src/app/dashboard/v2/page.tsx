@@ -391,7 +391,11 @@ function DashboardV2Page() {
                 <button onClick={saveLayout} className="text-xs tracking-[3px] uppercase text-black bg-white px-4 py-2 hover:bg-white/90 transition-colors font-semibold">Save</button>
               </>
             ) : (
-              <button onClick={openEditMode} className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Edit</button>
+              <button onClick={openEditMode} aria-label="Edit layout" title="Edit layout" className="flex items-center justify-center text-white/60 hover:text-white transition-colors border border-white/20 hover:border-white/50 w-9 h-9 shrink-0">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </button>
             )
           )}
           <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
