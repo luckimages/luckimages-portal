@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
-import { notifyDelivery, ensureDeliveryInvoice } from "@/lib/deliveryInvoice";
+import { notifyDelivery, ensureDeliveryInvoice, maybeCompleteShoot } from "@/lib/deliveryInvoice";
 
 // PATCH — photographer advances shoot status
 export async function PATCH(req: Request) {
@@ -43,6 +43,9 @@ export async function PATCH(req: Request) {
   if (status === "delivered" && shoot.status !== "delivered") {
     try { await ensureDeliveryInvoice(id); } catch (e) { console.error("ensure invoice failed", e); }
     try { await notifyDelivery(id); } catch (e) { console.error("delivery notify failed", e); }
+    // Covers a $0 shoot, or one already paid before delivery — otherwise
+    // this fires later from the Stripe webhook once the client pays.
+    try { await maybeCompleteShoot(id); } catch (e) { console.error("maybeCompleteShoot failed", e); }
   }
 
   // Get photographer's display name

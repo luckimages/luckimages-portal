@@ -997,23 +997,16 @@ function ShootsPage() {
                 </button>
               )}
               {(shoot.status === "pending" || shoot.status === "scheduled") && (
-                <>
-                  <button onClick={() => quickStatus(shoot.id, "completed")}
-                    className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white/5 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">
-                    Mark Complete
-                  </button>
-                  <button onClick={() => quickStatus(shoot.id, "cancelled")}
-                    className="text-xs tracking-[1px] uppercase px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
-                    Cancel
-                  </button>
-                </>
-              )}
-              {shoot.status === "completed" && (
-                <button onClick={() => quickStatus(shoot.id, "scheduled")}
-                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#fbbf24]/10 border border-[#fbbf24]/20 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors">
-                  ↩ Undo Complete
+                <button onClick={() => quickStatus(shoot.id, "cancelled")}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
+                  Cancel
                 </button>
               )}
+              {/* "completed" is not a manual toggle — it's set automatically
+                  once a shoot is delivered AND its invoice is paid (see
+                  maybeCompleteShoot in src/lib/deliveryInvoice.ts). No undo
+                  button either: media delivery emails a client-facing link,
+                  so there's no real "undelivering" to walk back. */}
               {shoot.status === "cancelled" && (
                 <button onClick={() => quickStatus(shoot.id, "scheduled")}
                   className="text-xs tracking-[1px] uppercase px-4 py-2 bg-white/5 border border-white/10 text-[#888] hover:border-white/30 hover:text-white transition-colors">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { getStripe } from "@/lib/stripe";
+import { maybeCompleteShoot } from "@/lib/deliveryInvoice";
 
 // Stripe calls this when a payment completes. Verifies the signature, then
 // marks the matching invoice paid. Configure the endpoint + signing secret in
@@ -43,8 +44,8 @@ export async function POST(req: Request) {
       stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
     });
     const { data: updated } = invoiceId
-      ? await query.eq("id", invoiceId).select("id, description, amount_cents").maybeSingle()
-      : await query.eq("stripe_session_id", session.id).select("id, description, amount_cents").maybeSingle();
+      ? await query.eq("id", invoiceId).select("id, shoot_id, description, amount_cents").maybeSingle()
+      : await query.eq("stripe_session_id", session.id).select("id, shoot_id, description, amount_cents").maybeSingle();
 
     if (updated) {
       await db.from("company_updates").insert({
@@ -52,6 +53,10 @@ export async function POST(req: Request) {
         created_by: "system",
         category: "finance",
       });
+      // Payment is the second (and usually last) of the two conditions for
+      // "completed" — the shoot may already be sitting at "delivered" if the
+      // client paid after receiving their photos.
+      if (updated.shoot_id) await maybeCompleteShoot(updated.shoot_id);
     }
   }
 

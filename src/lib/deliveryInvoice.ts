@@ -49,6 +49,24 @@ export async function ensureDeliveryInvoice(shootId: string): Promise<void> {
   });
 }
 
+// "completed" is not a manual toggle anywhere in the UI — it's only ever
+// reached automatically once BOTH halves are true: media has been delivered,
+// and the invoice is paid (or there's no invoice to pay — e.g. a $0 shoot).
+// Call this after anything that could satisfy the second half: a delivery,
+// or a payment webhook. A no-op if the shoot isn't sitting at "delivered"
+// yet, so it's safe to call speculatively from either trigger.
+export async function maybeCompleteShoot(shootId: string): Promise<void> {
+  const db = service();
+
+  const { data: shoot } = await db.from("shoots").select("id, status").eq("id", shootId).maybeSingle();
+  if (!shoot || shoot.status !== "delivered") return;
+
+  const { data: invoice } = await db.from("invoices").select("paid").eq("shoot_id", shootId).maybeSingle();
+  if (invoice && !invoice.paid) return;
+
+  await db.from("shoots").update({ status: "completed" }).eq("id", shootId);
+}
+
 // Fired the moment a photographer confirms delivery. Invoice was already
 // created at shoot confirmation — this just emails + texts the client that
 // their media is ready to view and download (after paying).

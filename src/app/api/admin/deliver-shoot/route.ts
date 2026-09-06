@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { ADMIN_EMAILS } from "@/lib/constants";
-import { notifyDelivery, ensureDeliveryInvoice } from "@/lib/deliveryInvoice";
+import { notifyDelivery, ensureDeliveryInvoice, maybeCompleteShoot } from "@/lib/deliveryInvoice";
 
 function service() {
   return createServiceClient(
@@ -38,6 +38,11 @@ export async function POST(req: Request) {
   if (shoot.status !== "delivered") {
     try { await notifyDelivery(shootId); } catch (e) { console.error("delivery notify failed", e); }
   }
+
+  // Covers the case where there's no invoice to pay (e.g. a $0 shoot) or the
+  // invoice was already paid before delivery — otherwise this fires later
+  // from the Stripe webhook once the client actually pays.
+  await maybeCompleteShoot(shootId);
 
   return NextResponse.json({ ok: true });
 }
