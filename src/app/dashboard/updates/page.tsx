@@ -222,7 +222,7 @@ export default function UpdatesPage() {
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <div className="flex-1 px-4 md:px-8 py-8 max-w-4xl mx-auto w-full space-y-8">
+      <div className="flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full space-y-8">
 
         <div>
           <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Command Center</p>

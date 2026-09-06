@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
 
 
-      <div className="flex-1 px-4 md:px-8 py-8 md:py-12 max-w-6xl mx-auto w-full space-y-10">
+      <div className="flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full space-y-10">
 
         <div className="flex items-end justify-between flex-wrap gap-4">
           <div>
@@ -78,7 +78,7 @@ export default function AnalyticsPage() {
               <p className="text-xs tracking-[4px] uppercase text-[#a78bfa]">Website</p>
               <HelpTip title="Website Analytics" content="Tracks visits to luckimages.com's public pages (home, services, pricing, about, contact) — not the portal or admin tools. Unique visitors are counted per browser session. Time on page is measured until the visitor leaves or switches tabs. Location (country/city) comes from Vercel's edge network, not stored IP addresses. The funnel connects visitors → quote requests → portal registrations so you can see where the drop-off is." />
             </div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">Traffic Analytics</h1>
+            <h1 className="text-3xl font-black tracking-tight uppercase">Traffic Analytics</h1>
           </div>
           <div className="flex gap-2">
             {RANGE_OPTIONS.map((r) => (

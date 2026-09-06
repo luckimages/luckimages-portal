@@ -139,11 +139,11 @@ export default function RevenuePage() {
 
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-white">
-      <div className="max-w-5xl mx-auto px-6 md:px-8 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 space-y-8">
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-black tracking-tight uppercase">Revenue</h1>
+          <h1 className="text-3xl font-black tracking-tight uppercase">Revenue</h1>
           <div className="flex items-center gap-3">
             {snap.synced_at && (
               <span className="text-[10px] text-[#444] hidden md:block">

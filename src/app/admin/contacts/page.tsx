@@ -254,9 +254,9 @@ function ContactsPageInner() {
     <div className="min-h-screen bg-[#0c0c0c] text-white">
 
       {/* Page title + stats */}
-      <div className="max-w-4xl mx-auto px-4 pt-10 pb-6">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-black tracking-tight leading-none uppercase">Contacts</h1>
+          <h1 className="text-3xl font-black tracking-tight uppercase">Contacts</h1>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setViewMode(v => v === "brokerages" ? "list" : "brokerages")}
@@ -362,7 +362,7 @@ function ContactsPageInner() {
       </div>
 
       {/* Filters + Table */}
-      <div className="max-w-4xl mx-auto px-4 pb-16">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 pb-16">
         <div className="flex items-center gap-3 flex-wrap mb-4">
           <input
             value={search}

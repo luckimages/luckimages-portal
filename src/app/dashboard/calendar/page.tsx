@@ -176,12 +176,12 @@ export default function CalendarPage() {
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <div className="flex-1 flex flex-col px-6 py-6 gap-4">
+      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 gap-4">
         {/* Page title + legend */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
           <div>
             <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Unified</p>
-            <h1 className="text-2xl font-black tracking-tight uppercase">Master Calendar</h1>
+            <h1 className="text-3xl font-black tracking-tight uppercase">Master Calendar</h1>
             <div className="flex items-center gap-2 mt-2">
               <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">‹</button>
               <span className="text-sm tracking-[2px] uppercase text-[#888] min-w-[140px] text-center">{monthLabel}</span>

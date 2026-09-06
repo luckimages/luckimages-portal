@@ -259,9 +259,9 @@ function PhoneInner() {
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/10">
+      <div className="px-4 md:px-8 pt-6 pb-4 shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/10">
         <div>
-          <h1 className="text-2xl font-black tracking-tight uppercase">Phone</h1>
+          <h1 className="text-3xl font-black tracking-tight uppercase">Phone</h1>
           <p className="text-xs text-[#444] mt-0.5 tracking-wide">Shared line — calls, texts &amp; voicemail for the whole team.</p>
         </div>
         <div className="flex gap-1 shrink-0">
@@ -279,7 +279,7 @@ function PhoneInner() {
           <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
         </div>
       ) : (
-        <div className="flex-1 px-6 md:px-8 py-6 max-w-6xl mx-auto w-full">
+        <div className="flex-1 px-4 md:px-8 py-6 max-w-6xl mx-auto w-full">
           {mode === "messages" && (
             <div className="space-y-4">
               {twilio && !twilio.smsConfigured && <ConfigNotice what="Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER to send/receive real texts." />}

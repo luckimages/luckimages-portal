@@ -1104,8 +1104,8 @@ function ShootsPage() {
       {/* ── LOG VIEW ── */}
       {view === "log" && (
         <>
-          <div className="max-w-4xl mx-auto px-4 md:px-8 pt-10 pb-4 flex items-end justify-between">
-            <h1 className="text-4xl font-black tracking-tight leading-none uppercase">Shoot Log</h1>
+          <div className="max-w-6xl mx-auto px-4 md:px-8 pt-10 pb-4 flex items-end justify-between">
+            <h1 className="text-3xl font-black tracking-tight uppercase">Shoot Log</h1>
             <div className="flex items-center gap-3">
               <button onClick={() => { resetNewShoot(); setShowNewShoot(true); }}
                 className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">
@@ -1117,7 +1117,7 @@ function ShootsPage() {
             </div>
           </div>
 
-          <div className="max-w-4xl mx-auto px-4 md:px-8 pb-4 flex items-center gap-3 flex-wrap">
+          <div className="max-w-6xl mx-auto px-4 md:px-8 pb-4 flex items-center gap-3 flex-wrap">
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search address, client, package..."
               className="flex-1 min-w-[200px] bg-[#111] border border-white/10 text-white text-xs px-4 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]" />
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
@@ -1147,7 +1147,7 @@ function ShootsPage() {
           {loading ? (
             <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
           ) : (
-            <div className="max-w-4xl mx-auto px-4 md:px-8 py-8">
+            <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
               {filtered.length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-xs text-[#444] tracking-[3px] uppercase">No shoots found</p>
@@ -1278,11 +1278,11 @@ function ShootsPage() {
         loading ? (
           <div className="flex items-center justify-center py-20 text-xs text-[#444] tracking-[3px] uppercase">Loading...</div>
         ) : (
-          <div className="px-6 py-6">
+          <div className="px-4 md:px-8 py-6">
             <div className="flex items-end justify-between mb-6">
               <div>
                 <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Live</p>
-                <h1 className="text-2xl font-black tracking-tight uppercase">Shoot Board</h1>
+                <h1 className="text-3xl font-black tracking-tight uppercase">Shoot Board</h1>
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-xs text-[#444]">{boardShoots.length} active shoot{boardShoots.length !== 1 ? "s" : ""}</span>

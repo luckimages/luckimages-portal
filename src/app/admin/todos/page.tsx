@@ -33,7 +33,7 @@ export default function TodosPage() {
       <div className="px-4 md:px-8 py-8 w-full max-w-[1900px] mx-auto">
         <div className="mb-6">
           <p className="text-xs tracking-[4px] uppercase text-[#555] mb-1">Command Center</p>
-          <h1 className="text-2xl font-black tracking-tight uppercase">Task Lists</h1>
+          <h1 className="text-3xl font-black tracking-tight uppercase">Task Lists</h1>
           <p className="text-xs text-[#444] mt-1">Drag tasks to reorder or move between lists. Double-click a list name to rename it.</p>
         </div>
 
