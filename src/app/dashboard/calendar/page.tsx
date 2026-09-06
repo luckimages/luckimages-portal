@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type Shoot = { id: string; address: string; status: string; scheduled_at: string | null; delivered_at: string | null; paid_at: string | null; contact_id: string | null; price: number | null };
+type Shoot = { id: string; address: string; status: string; scheduled_at: string | null; delivered_at: string | null; paid_at: string | null; contact_id: string | null; contact_name: string | null; price: number | null };
 type Update = { id: string; message: string; category: string; created_at: string; created_by: string; link?: string };
 type Contact = { id: string; name: string; created_at: string; stage: string };
 type Call = { id: string; called_at: string; outcome: string; called_by: string; contact_id: string; listing_address: string | null; contact_name: string | null };
@@ -55,6 +55,14 @@ const LEGEND = [
   { type: "update_nocturne",  label: "Nocturne Dev" },
 ];
 
+// Matches the shoot-card status coloring from the old Shoot Log schedule tab.
+const SHOOT_CHIP_CLASS: Record<string, string> = {
+  pending:   "bg-[#fbbf24]/10 border-[#fbbf24]/20 text-[#fbbf24]",
+  completed: "bg-[#4ade80]/10 border-[#4ade80]/20 text-[#4ade80]",
+  cancelled: "bg-white/[0.03] border-white/5 text-[#444]",
+};
+const SHOOT_CHIP_DEFAULT = "bg-[#4ade80]/5 border-[#4ade80]/15 text-[#aaa]";
+
 function toDateStr(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -80,7 +88,10 @@ export default function CalendarPage() {
   const [eventMap, setEventMap] = useState<Record<string, CalEvent[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [activeTypes, setActiveTypes] = useState<Set<string>>(new Set(Object.keys(TYPE_STYLE)));
+  // Single-select — exactly one filter is ever active, defaulting to shoots
+  // (this page absorbed the old Shoot Log "Schedule" tab, whose whole job
+  // was showing scheduled shoots on a month grid).
+  const [activeType, setActiveType] = useState<string>("shoot");
 
   const year = calMonth.getFullYear();
   const month = calMonth.getMonth();
@@ -155,24 +166,23 @@ export default function CalendarPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Calendar grid
-  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+  // Calendar grid — Monday-first, matching the old Shoot Log schedule look
+  const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7; // 0=Mon
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = toDateStr(new Date().toISOString());
-  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const monthLabel = calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const selectedEvents = selectedDay
-    ? (eventMap[selectedDay] || []).filter(e => activeTypes.has(e.type))
-    : [];
+  const allEvents = Object.values(eventMap).flat();
+  const monthCount = allEvents.filter(e => e.type === activeType).length;
+  const monthRevenue = activeType === "shoot"
+    ? allEvents.filter(e => e.type === "shoot").reduce((sum, e) => sum + ((e.raw as Shoot | undefined)?.price || 0), 0)
+    : 0;
+  const activeLegendLabel = LEGEND.find(l => l.type === activeType)?.label || "event";
 
-  function toggleType(t: string) {
-    setActiveTypes(prev => {
-      const next = new Set(prev);
-      next.has(t) ? next.delete(t) : next.add(t);
-      return next;
-    });
-  }
+  const selectedEvents = selectedDay
+    ? (eventMap[selectedDay] || []).filter(e => e.type === activeType)
+    : [];
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -182,19 +192,25 @@ export default function CalendarPage() {
           <div>
             <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Unified</p>
             <h1 className="text-3xl font-black tracking-tight uppercase">Master Calendar</h1>
-            <div className="flex items-center gap-2 mt-2">
-              <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">‹</button>
-              <span className="text-sm tracking-[2px] uppercase text-[#888] min-w-[140px] text-center">{monthLabel}</span>
-              <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">›</button>
-              <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-3 py-1.5">Today</button>
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">‹</button>
+                <span className="text-sm tracking-[2px] uppercase text-[#888] min-w-[140px] text-center">{monthLabel}</span>
+                <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">›</button>
+                <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-3 py-1.5">Today</button>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-[#555]">{monthCount} {activeLegendLabel.toLowerCase()}{monthCount !== 1 ? "s" : ""}</p>
+                {monthRevenue > 0 && <p className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</p>}
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 md:justify-end">
             {LEGEND.map(l => {
               const s = TYPE_STYLE[l.type];
-              const on = activeTypes.has(l.type);
+              const on = activeType === l.type;
               return (
-                <button key={l.type} onClick={() => toggleType(l.type)}
+                <button key={l.type} onClick={() => { setActiveType(l.type); setSelectedDay(null); }}
                   className={`flex items-center gap-1.5 px-2.5 py-1 border text-[10px] tracking-wide transition-all ${on ? `${s.border} ${s.text}` : "border-white/5 text-[#2a2a2a]"}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${on ? s.dot : "bg-white/10"}`} />
                   {l.label}
@@ -208,76 +224,63 @@ export default function CalendarPage() {
           {/* ── Calendar grid ── */}
           <div className="flex-1 min-w-0 flex flex-col">
             {/* Day headers */}
-            <div className="grid grid-cols-7 border-b border-white/10 mb-1">
+            <div className="grid grid-cols-7 mb-1">
               {DAY_NAMES.map(d => (
-                <div key={d} className="text-[9px] tracking-[2px] uppercase text-[#333] text-center py-2">{d}</div>
+                <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#444] py-2">{d}</div>
               ))}
             </div>
 
-            {/* Week rows */}
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
                 <p className="text-xs tracking-[3px] uppercase text-[#333]">Loading...</p>
               </div>
             ) : (
-              <div className="flex-1 grid auto-rows-fr" style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, 1fr)` }}>
-                {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) }).map((_, weekIdx) => (
-                  <div key={weekIdx} className="grid grid-cols-7 border-b border-white/5">
-                    {Array.from({ length: 7 }).map((_, dayOfWeek) => {
-                      const dayNum = weekIdx * 7 + dayOfWeek - firstDayOfWeek + 1;
-                      if (dayNum < 1 || dayNum > daysInMonth) return <div key={dayOfWeek} className="border-r border-white/5 last:border-r-0" />;
-                      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                      const dayEvents = (eventMap[dateStr] || []).filter(e => activeTypes.has(e.type));
-                      const isToday = dateStr === todayStr;
-                      const isSelected = selectedDay === dateStr;
-                      const hasEvents = dayEvents.length > 0;
+              <div className="grid grid-cols-7 gap-px bg-white/5">
+                {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7 }).map((_, i) => {
+                  const dayNum = i - firstDayOfWeek + 1;
+                  if (dayNum < 1 || dayNum > daysInMonth) return <div key={i} className="bg-[#0c0c0c] min-h-[110px]" />;
 
-                      // Group dots by type (unique)
-                      const dotTypes = [...new Set(dayEvents.map(e => e.type))];
+                  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+                  const dayEvents = (eventMap[dateStr] || []).filter(e => e.type === activeType);
+                  const isToday = dateStr === todayStr;
+                  const isSelected = selectedDay === dateStr;
 
-                      return (
-                        <div
-                          key={dayOfWeek}
-                          onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                          className={`border-r border-white/5 last:border-r-0 p-2 min-h-[80px] flex flex-col gap-1 cursor-pointer transition-colors ${
-                            isSelected ? "bg-white/[0.05]" : hasEvents ? "hover:bg-white/[0.02]" : "hover:bg-white/[0.01]"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className={`text-xs font-bold leading-none ${isToday ? "text-white bg-[#a78bfa] w-5 h-5 rounded-full flex items-center justify-center text-[10px]" : isSelected ? "text-white" : dayEvents.length > 0 ? "text-[#666]" : "text-[#2a2a2a]"}`}>
-                              {dayNum}
-                            </span>
-                            {dayEvents.length > 0 && (
-                              <span className="text-[9px] text-[#333]">{dayEvents.length}</span>
-                            )}
-                          </div>
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                      className={`bg-[#0e0e0e] min-h-[110px] p-2 flex flex-col gap-1 cursor-pointer transition-colors hover:brightness-125 ${
+                        isSelected ? "ring-2 ring-inset ring-[#a78bfa]" : isToday ? "ring-1 ring-inset ring-white/20" : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs font-bold mb-1 ${isToday || isSelected ? "text-white" : dayEvents.length > 0 ? "text-[#666]" : "text-[#444]"}`}>{dayNum}</p>
+                        {dayEvents.length > 0 && <span className="text-[9px] text-[#333]">{dayEvents.length}</span>}
+                      </div>
 
-                          {/* Event chips — show up to 3, then +N */}
-                          <div className="flex flex-col gap-0.5 flex-1">
-                            {dayEvents.slice(0, 3).map(ev => {
-                              const s = TYPE_STYLE[ev.type];
-                              return (
-                                <div key={ev.id} className={`text-[9px] px-1 py-0.5 truncate ${s.text} ${s.bg} leading-tight`}>
-                                  {ev.label}
-                                </div>
-                              );
-                            })}
-                            {dayEvents.length > 3 && (
-                              <div className="text-[9px] text-[#333] px-1">+{dayEvents.length - 3} more</div>
-                            )}
-                          </div>
-
-                          {/* Dots for event types present */}
-                          {dotTypes.length > 0 && dayEvents.length === 0 && (
-                            <div className="flex gap-0.5 flex-wrap mt-auto">
-                              {dotTypes.map(t => <span key={t} className={`w-1.5 h-1.5 rounded-full ${TYPE_STYLE[t].dot}`} />)}
+                      {dayEvents.map(ev => {
+                        if (ev.type === "shoot") {
+                          const shoot = ev.raw as Shoot | undefined;
+                          const chipTitle = shoot?.contact_name || ev.label.split(",")[0];
+                          const chipClass = SHOOT_CHIP_CLASS[ev.meta || ""] || SHOOT_CHIP_DEFAULT;
+                          return (
+                            <div key={ev.id} className={`px-1.5 py-1 text-[10px] leading-tight rounded-sm border truncate ${chipClass}`}>
+                              <p className="font-semibold truncate">{chipTitle}</p>
+                              <p className="opacity-60 truncate mt-0.5">{fmtTime(ev.time)}</p>
+                              {ev.meta && <p className="text-[9px] tracking-[1px] uppercase opacity-50 mt-0.5">{ev.meta.replace(/_/g, " ")}</p>}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                          );
+                        }
+                        const s = TYPE_STYLE[ev.type];
+                        return (
+                          <div key={ev.id} className={`px-1.5 py-1 text-[10px] rounded-sm border truncate ${s.bg} ${s.border} ${s.text}`}>
+                            {ev.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

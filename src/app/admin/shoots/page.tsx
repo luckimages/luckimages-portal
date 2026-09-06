@@ -516,7 +516,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-const VIEWS = ["log", "schedule", "board"] as const;
+const VIEWS = ["log", "board"] as const;
 type View = (typeof VIEWS)[number];
 
 function ShootsPage() {
@@ -539,11 +539,6 @@ function ShootsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [showCancelled, setShowCancelled] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
-
-  // Schedule-view state
-  const [calMonth, setCalMonth] = useState(() => {
-    const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() };
-  });
 
   // Board-view state
   const [selectedShoot, setSelectedShoot] = useState<Shoot | null>(null);
@@ -1047,7 +1042,7 @@ function ShootsPage() {
     );
   }
 
-  const VIEW_LABELS: Record<View, string> = { log: "Shoot Log", schedule: "Schedule", board: "Board" };
+  const VIEW_LABELS: Record<View, string> = { log: "Shoot Log", board: "Board" };
 
   return (
     <div
@@ -1066,7 +1061,7 @@ function ShootsPage() {
     >
       {/* Nav */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
-        {/* 3-tab toggle */}
+        {/* View toggle */}
         <div className="flex border border-white/10 overflow-hidden">
           {VIEWS.map(v => (
             <button key={v} onClick={() => setView(v)}
@@ -1176,102 +1171,6 @@ function ShootsPage() {
           )}
         </>
       )}
-
-      {/* ── SCHEDULE VIEW ── */}
-      {view === "schedule" && (() => {
-        const { year, month } = calMonth;
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const startOffset = (firstDay.getDay() + 6) % 7;
-        const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
-        const cells = Array.from({ length: totalCells }, (_, i) => {
-          const dayNum = i - startOffset + 1;
-          return dayNum >= 1 && dayNum <= lastDay.getDate() ? dayNum : null;
-        });
-        const today = new Date();
-        const monthLabel = firstDay.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-        const monthShoots = shoots.filter(s => s.scheduled_at?.startsWith(monthStr));
-        const monthRevenue = monthShoots.reduce((sum, s) => sum + (s.price || 0), 0);
-        const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-        function prevMonth() { setCalMonth(({ year, month }) => month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }); }
-        function nextMonth() { setCalMonth(({ year, month }) => month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }); }
-
-        return (
-          <div className="px-4 md:px-8 py-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <button onClick={prevMonth} className="text-[#555] hover:text-white transition-colors text-lg px-1">‹</button>
-                <h2 className="text-sm font-bold tracking-[3px] uppercase">{monthLabel}</h2>
-                <button onClick={nextMonth} className="text-[#555] hover:text-white transition-colors text-lg px-1">›</button>
-                {(year !== today.getFullYear() || month !== today.getMonth()) && (
-                  <button onClick={() => setCalMonth({ year: today.getFullYear(), month: today.getMonth() })}
-                    className="text-xs tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">Today</button>
-                )}
-              </div>
-              <div className="flex items-center gap-4 text-right">
-                <div>
-                  <p className="text-xs text-[#555]">{monthShoots.length} shoot{monthShoots.length !== 1 ? "s" : ""}</p>
-                  {monthRevenue > 0 && <p className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</p>}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 mb-1">
-              {DAY_NAMES.map(d => (
-                <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#444] py-2">{d}</div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-px bg-white/5">
-              {cells.map((dayNum, i) => {
-                if (dayNum === null) return <div key={i} className="bg-[#0c0c0c] min-h-[110px]" />;
-                const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNum;
-                const dayEvents = shoots.filter(s => s.scheduled_at && new Date(s.scheduled_at).toISOString().split("T")[0] === dateStr);
-                return (
-                  <div key={i} className={`bg-[#0e0e0e] min-h-[110px] p-2 flex flex-col gap-1 ${isToday ? "ring-1 ring-inset ring-white/20" : ""}`}>
-                    <p className={`text-xs font-bold mb-1 ${isToday ? "text-white" : "text-[#444]"}`}>{dayNum}</p>
-                    {dayEvents.map(shoot => {
-                      const time = new Date(shoot.scheduled_at!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-                      const clientDisplay = shoot.contact_name || shoot.client_name || null;
-                      return (
-                        <button key={shoot.id} onClick={() => openEdit(shoot)}
-                          className={`w-full text-left px-1.5 py-1 text-[10px] leading-tight rounded-sm border transition-colors hover:brightness-125 ${
-                            shoot.status === "pending"   ? "bg-[#fbbf24]/10 border-[#fbbf24]/20 text-[#fbbf24]" :
-                            shoot.status === "completed" ? "bg-[#4ade80]/10 border-[#4ade80]/20 text-[#4ade80]" :
-                            shoot.status === "cancelled" ? "bg-white/[0.03] border-white/5 text-[#444]" :
-                                                          "bg-[#4ade80]/5 border-[#4ade80]/15 text-[#aaa]"
-                          }`}>
-                          <p className="font-semibold truncate">{clientDisplay || shoot.address.split(",")[0]}</p>
-                          <p className="opacity-60 truncate mt-0.5">{time}</p>
-                          <p className={`text-[9px] tracking-[1px] uppercase opacity-50 mt-0.5 ${STATUS_COLORS[shoot.status]?.split(" ")[0] || ""}`}>
-                            {shoot.status.replace(/_/g, " ")}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-
-            {monthShoots.filter(s => !s.scheduled_at).length > 0 && (
-              <div className="mt-6">
-                <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-2">No date scheduled</p>
-                <div className="flex flex-wrap gap-2">
-                  {monthShoots.filter(s => !s.scheduled_at).map(s => (
-                    <button key={s.id} onClick={() => openEdit(s)}
-                      className="text-xs px-3 py-1.5 bg-[#fbbf24]/10 border border-[#fbbf24]/20 text-[#fbbf24] hover:bg-[#fbbf24]/20 transition-colors">
-                      {s.address.split(",")[0]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
 
       {/* ── BOARD VIEW ── */}
       {view === "board" && (

@@ -55,15 +55,18 @@ export async function GET(req: Request) {
       .order("started_at", { ascending: true }),
   ]);
 
-  // Merge contact names into calls
-  const callContactIds = [...new Set((calls || []).map((c: { contact_id: string }) => c.contact_id).filter(Boolean))];
-  const { data: callContacts } = callContactIds.length
-    ? await db.from("contacts").select("id, name").in("id", callContactIds)
+  // Merge contact names into calls and shoots (one lookup covers both)
+  const contactIds = [...new Set([
+    ...(calls || []).map((c: { contact_id: string }) => c.contact_id),
+    ...(shoots || []).map((s: { contact_id: string | null }) => s.contact_id),
+  ].filter(Boolean))];
+  const { data: relatedContacts } = contactIds.length
+    ? await db.from("contacts").select("id, name").in("id", contactIds)
     : { data: [] };
-  const nameMap = Object.fromEntries((callContacts || []).map((c: { id: string; name: string }) => [c.id, c.name]));
+  const nameMap = Object.fromEntries((relatedContacts || []).map((c: { id: string; name: string }) => [c.id, c.name]));
 
   return NextResponse.json({
-    shoots: shoots || [],
+    shoots: (shoots || []).map((s: { contact_id: string | null }) => ({ ...s, contact_name: s.contact_id ? nameMap[s.contact_id] || null : null })),
     updates: updates || [],
     contacts: contacts || [],
     calls: (calls || []).map((c: { id: string; called_at: string; outcome: string; called_by: string; contact_id: string; listing_address: string | null }) => ({
