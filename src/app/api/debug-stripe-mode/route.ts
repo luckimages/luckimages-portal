@@ -7,7 +7,7 @@ import { getStripe } from "@/lib/stripe";
 // not a public endpoint. Delete this file once the question is answered.
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (auth !== `Bearer ${process.env.DEBUG_STRIPE_TOKEN}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
