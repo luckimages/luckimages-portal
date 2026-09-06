@@ -244,19 +244,16 @@ function SectionGrid(props: SectionGridProps) {
               )}
             </div>
           )}
-          {canEdit && onDeliver && (
+          {canEdit && onDeliver && !delivered && (
             <button
-              onClick={delivered ? undefined : async () => {
+              onClick={async () => {
                 setDelivering(true);
                 try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
               }}
               disabled={delivering}
-              className={`text-xs tracking-[2px] uppercase px-3 py-1.5 font-semibold transition-colors ${
-                delivered
-                  ? "bg-[#4ade80] text-black cursor-default"
-                  : "bg-white text-black hover:bg-white/90 disabled:opacity-40"
-              }`}>
-              {delivered ? "Delivered ✓" : delivering ? "Delivering..." : "Deliver"}
+              title="Delivers the whole shoot early, using only what's uploaded to this service so far"
+              className="text-[10px] tracking-[1.5px] uppercase px-2 py-1 text-[#555] border border-white/10 hover:text-[#888] hover:border-white/20 transition-colors disabled:opacity-40 font-normal">
+              {delivering ? "Delivering..." : "Deliver Individual Service"}
             </button>
           )}
         </div>
@@ -708,6 +705,55 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
         <p className="text-xs text-[#444] mb-4">{media.length} total file{media.length !== 1 ? "s" : ""}</p>
       )}
 
+      {/* Deliver to Client — the one main delivery control, gated until every
+          non-empty service section has been marked ready. Individual sections
+          still get a low-key "Deliver Individual Service" escape hatch below,
+          for the rare case a client needs one service ahead of the rest. */}
+      {onDeliver && canEdit && (() => {
+        const nonEmpty = serviceSections.filter(s => s.items.length > 0);
+        if (nonEmpty.length === 0) return null;
+        const readyCount = nonEmpty.filter(s => confirmedSections.has(s.slug)).length;
+        const allReady = readyCount === nonEmpty.length;
+        return (
+          <div className={`mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-5 border transition-colors ${
+            delivered
+              ? "bg-[#4ade80]/5 border-[#4ade80]/30"
+              : allReady
+              ? "bg-[#4ade80]/5 border-[#4ade80]/30"
+              : "bg-white/[0.02] border-white/10"
+          }`}>
+            <div>
+              <p className={`text-sm font-semibold ${delivered || allReady ? "text-[#4ade80]" : "text-[#888]"}`}>
+                {delivered ? "Delivered to client" : allReady ? "All media is marked ready" : `${readyCount} of ${nonEmpty.length} services ready`}
+              </p>
+              <p className="text-xs text-[#555] mt-1">
+                {delivered
+                  ? "The client has been emailed a direct link to their gallery."
+                  : allReady
+                  ? "Click to deliver — the client will receive an email with a direct link to their gallery."
+                  : "Mark every service ready below to unlock delivery."}
+              </p>
+            </div>
+            <button
+              onClick={!allReady || delivered ? undefined : async () => {
+                setDelivering(true);
+                try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
+              }}
+              disabled={!allReady || delivering || delivered}
+              className={`shrink-0 text-xs tracking-[3px] uppercase font-semibold px-6 py-3 transition-colors ${
+                delivered
+                  ? "bg-[#4ade80] text-black cursor-default"
+                  : allReady
+                  ? "bg-[#4ade80] text-black hover:bg-[#4ade80]/90 disabled:opacity-50"
+                  : "bg-white/5 text-[#555] cursor-not-allowed"
+              }`}
+            >
+              {delivered ? "Delivered ✓" : delivering ? "Delivering…" : "Deliver to Client →"}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Sections */}
       {serviceSections.map((section, i) => (
         <div key={section.slug || "__all__"} className={i > 0 ? "mt-6" : ""}>
@@ -734,33 +780,6 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
           />
         </div>
       ))}
-
-      {/* Deliver to Client banner — shows when all non-empty sections are marked ready */}
-      {(() => {
-        if (!onDeliver || !canEdit) return null;
-        const nonEmpty = serviceSections.filter(s => s.items.length > 0);
-        if (nonEmpty.length === 0) return null;
-        const allReady = nonEmpty.every(s => confirmedSections.has(s.slug));
-        if (!allReady) return null;
-        return (
-          <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#4ade80]/5 border border-[#4ade80]/30 px-6 py-5">
-            <div>
-              <p className="text-sm font-semibold text-[#4ade80]">All media is marked ready</p>
-              <p className="text-xs text-[#555] mt-1">Click to deliver — the client will receive an email with a direct link to their gallery.</p>
-            </div>
-            <button
-              onClick={delivered ? undefined : async () => {
-                setDelivering(true);
-                try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
-              }}
-              disabled={delivering}
-              className="shrink-0 text-xs tracking-[3px] uppercase font-semibold bg-[#4ade80] text-black px-6 py-3 hover:bg-[#4ade80]/90 transition-colors disabled:opacity-50"
-            >
-              {delivered ? "Delivered ✓" : delivering ? "Delivering…" : "Deliver to Client →"}
-            </button>
-          </div>
-        );
-      })()}
 
       {/* Lightbox */}
       {lightboxIdx !== null && (
