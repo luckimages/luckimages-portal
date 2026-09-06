@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+import { avatarUrl } from "@/lib/avatarUrl";
 
 interface Props {
   contactId: string | null | undefined;
@@ -18,7 +17,7 @@ export default function ContactAvatar({ contactId, name, size = 28 }: Props) {
   if (contactId && !imgError) {
     return (
       <img
-        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${contactId}`}
+        src={avatarUrl(contactId)}
         alt={name}
         width={size}
         height={size}

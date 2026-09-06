@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import ShootGallery from "@/components/ShootGallery";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const r2PublicBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL;
 
 type Shoot = {
   id: string; address: string; scheduled_at: string;
@@ -53,7 +53,7 @@ export default function PhotographerPage() {
       const { data: contactRow } = await supabase.from("contacts").select("id").eq("user_id", uid).single();
       if (contactRow?.id) {
         setContactId(contactRow.id);
-        setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactRow.id}?t=${Date.now()}`);
+        setAvatarUrl(`${r2PublicBaseUrl}/avatars/${contactRow.id}?t=${Date.now()}`);
       }
       const [{ data: shootData }, { data: payData }] = await Promise.all([
         supabase.from("shoots").select("*").contains("photographer_ids", [uid]).order("scheduled_at", { ascending: true }),
@@ -74,29 +74,41 @@ export default function PhotographerPage() {
     });
   }, [router]);
 
+  // Straight to R2 from the browser via a presigned URL — real estate/drone
+  // originals routinely exceed Vercel's ~4.5MB serverless request-body
+  // limit, which used to silently fail every file that size.
+  async function uploadOneFile(file: File, shootId: string): Promise<boolean> {
+    const urlRes = await fetch("/api/photographer/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shoot_id: shootId, file_name: file.name, file_type: file.type || "application/octet-stream" }),
+    });
+    if (!urlRes.ok) return false;
+    const { uploadUrl, filePath } = await urlRes.json();
+
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!putRes.ok) return false;
+
+    const res = await fetch("/api/photographer/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shoot_id: shootId, file_path: filePath, file_name: file.name, file_type: file.type || "application/octet-stream" }),
+    });
+    return res.ok;
+  }
+
   async function uploadFiles(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files?.length || !selectedShoot) return;
     setUploading(true); setUploadStatus("");
     const files = Array.from(e.target.files);
     let errors = 0;
-    const supabase = createClient();
     // Upload sequentially to avoid overwhelming the server watermarking process
     for (const file of files) {
-      // Straight to Storage from the browser — real estate/drone originals
-      // routinely exceed Vercel's ~4.5MB serverless request-body limit,
-      // which used to silently fail every file that size.
-      const filePath = `${selectedShoot}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("shoot-media")
-        .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
-      if (uploadErr) { errors++; continue; }
-
-      const res = await fetch("/api/photographer/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shoot_id: selectedShoot, file_path: filePath, file_name: file.name, file_type: file.type || "application/octet-stream" }),
-      });
-      if (!res.ok) errors++;
+      if (!(await uploadOneFile(file, selectedShoot))) errors++;
     }
     setUploading(false);
     setUploadStatus(errors === 0 ? `success:${files.length}` : `error:${errors}`);
@@ -141,20 +153,8 @@ export default function PhotographerPage() {
     setCardUploading(true);
     const files = Array.from(e.target.files);
     let ok = 0;
-    const supabase = createClient();
     for (const file of files) {
-      const filePath = `${shootId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("shoot-media")
-        .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
-      if (uploadErr) continue;
-
-      const res = await fetch("/api/photographer/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shoot_id: shootId, file_path: filePath, file_name: file.name, file_type: file.type || "application/octet-stream" }),
-      });
-      if (res.ok) ok++;
+      if (await uploadOneFile(file, shootId)) ok++;
     }
     setCardUploading(false);
     setCardUploadCount(prev => ({ ...prev, [shootId]: (prev[shootId] || 0) + ok }));
@@ -167,9 +167,10 @@ export default function PhotographerPage() {
     const fd = new FormData();
     fd.append("file", e.target.files[0]);
     const res = await fetch("/api/portal/upload-avatar", { method: "POST", body: fd });
-    if (res.ok && contactId) {
+    if (res.ok) {
+      const { url } = await res.json();
       setAvatarError(false);
-      setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactId}?t=${Date.now()}`);
+      setAvatarUrl(`${url}?t=${Date.now()}`);
     }
     setUploadingAvatar(false);
     if (avatarFileRef.current) avatarFileRef.current.value = "";

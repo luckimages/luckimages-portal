@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createClient } from "@/lib/supabase";
 
 type MediaItem = {
   id: string;
@@ -200,7 +199,6 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     let failed = 0;
     // Find the original service name from slug
     const serviceType = services.find(s => slugify(s) === serviceSlug) || serviceSlug;
-    const supabase = createClient();
 
     setStagedFiles(prev => ({
       ...prev,
@@ -210,21 +208,35 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
     for (const item of staged) {
       const file = item.file;
 
-      // Upload straight from the browser to Supabase Storage — real estate
-      // (and especially drone/HDR) originals routinely blow past Vercel's
-      // hard 4.5MB serverless request-body limit, which silently failed
-      // every file that size regardless of our own code. Only a small JSON
-      // pointer goes through our API route now; the bytes never do.
-      const timestamp = Date.now();
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = serviceSlug
-        ? `${shootId}/${serviceSlug}/${timestamp}_${safeName}`
-        : `${shootId}/${timestamp}_${safeName}`;
+      // Upload straight from the browser to R2 via a presigned URL — real
+      // estate (and especially drone/HDR) originals routinely blow past
+      // Vercel's hard 4.5MB serverless request-body limit, which silently
+      // failed every file that size regardless of our own code. Only a
+      // small JSON pointer goes through our API routes now; the bytes
+      // themselves go straight from the browser to R2.
+      const urlRes = await fetch("/api/photographer/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shoot_id: shootId,
+          file_name: file.name,
+          file_type: file.type || "application/octet-stream",
+          service_type: serviceSlug ? serviceType : undefined,
+        }),
+      });
+      if (!urlRes.ok) {
+        failed++;
+        setStagedFiles(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === item.key ? { ...p, status: "failed" } : p) }));
+        continue;
+      }
+      const { uploadUrl, filePath } = await urlRes.json();
 
-      const { error: uploadErr } = await supabase.storage
-        .from("shoot-media")
-        .upload(filePath, file, { contentType: file.type || "application/octet-stream", upsert: false, cacheControl: "31536000" });
-      if (uploadErr) {
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) {
         failed++;
         setStagedFiles(prev => ({ ...prev, [serviceSlug]: (prev[serviceSlug] || []).map(p => p.key === item.key ? { ...p, status: "failed" } : p) }));
         continue;

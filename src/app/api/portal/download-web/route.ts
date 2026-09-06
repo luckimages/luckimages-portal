@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { serviceClient, checkShootAccess, checkCanDownload } from "@/lib/shootAccess";
+import { r2Download, R2_MEDIA_BUCKET } from "@/lib/r2";
 
 export const maxDuration = 30;
 
 // Streams a web-optimized (long edge capped, compressed) JPEG for one media
 // item, generated on demand — this is the "Small — Web & MLS" download
 // option. The full-resolution original (the "Large — Print" option) is just
-// the existing signed URL to shoot-media; this route exists only because the
+// the existing signed URL to the private R2 bucket; this route exists only because the
 // web-sized derivative doesn't exist ahead of time and has to be resized here.
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -33,10 +34,12 @@ export async function GET(req: NextRequest) {
   const canDownload = await checkCanDownload(db, canEdit, m.shoot_id);
   if (!canDownload) return NextResponse.json({ error: "Payment required" }, { status: 402 });
 
-  const { data: file, error } = await db.storage.from("shoot-media").download(m.original_path || m.file_path);
-  if (error || !file) return NextResponse.json({ error: error?.message || "Could not read file" }, { status: 500 });
-
-  const buffer = Buffer.from(await file.arrayBuffer());
+  let buffer: Buffer;
+  try {
+    buffer = await r2Download(R2_MEDIA_BUCKET, m.original_path || m.file_path);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read file" }, { status: 500 });
+  }
   const sharp = (await import("sharp")).default;
   const webBuffer = await sharp(buffer, { failOn: "none" })
     .rotate()

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 
 type Contact = {
   id: string;
@@ -116,7 +117,6 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   const loadContact = useCallback(async () => {
     const supabase = createClient();
@@ -170,9 +170,9 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
   useEffect(() => {
     setLoading(true);
     setAvatarError(false);
-    setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactId}?t=${Date.now()}`);
+    setAvatarUrl(`${getAvatarUrl(contactId)}?t=${Date.now()}`);
     loadContact();
-  }, [contactId, loadContact, supabaseUrl]);
+  }, [contactId, loadContact]);
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault();
@@ -217,7 +217,7 @@ export default function ContactModal({ contactId, onClose, onContactUpdated }: P
     const res = await fetch("/api/admin/upload-avatar", { method: "POST", body: fd });
     if (res.ok) {
       setAvatarError(false);
-      setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contact.id}?t=${Date.now()}`);
+      setAvatarUrl(`${getAvatarUrl(contact.id)}?t=${Date.now()}`);
     }
     setUploadingAvatar(false);
     if (avatarFileRef.current) avatarFileRef.current.value = "";

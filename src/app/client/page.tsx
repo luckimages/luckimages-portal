@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import HomeNav from "@/components/HomeNav";
 import AddressMapPicker from "@/components/AddressMapPicker";
+import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 type Shoot = {
   id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
@@ -186,7 +186,7 @@ export default function ClientPage() {
       const { data: contactRow } = await supabase.from("contacts").select("id, name, email, phone, brokerage, lead_source").eq("user_id", uid).single();
       if (contactRow?.id) {
         setContactId(contactRow.id);
-        setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactRow.id}?t=${Date.now()}`);
+        setAvatarUrl(`${getAvatarUrl(contactRow.id)}?t=${Date.now()}`);
         const meta = data.user.user_metadata || {};
         setProfile({
           name: contactRow.name || "",
@@ -342,7 +342,7 @@ export default function ClientPage() {
     const res = await fetch("/api/portal/upload-avatar", { method: "POST", body: fd });
     if (res.ok && contactId) {
       setAvatarError(false);
-      setAvatarUrl(`${supabaseUrl}/storage/v1/object/public/avatars/${contactId}?t=${Date.now()}`);
+      setAvatarUrl(`${getAvatarUrl(contactId)}?t=${Date.now()}`);
     }
     setUploadingAvatar(false);
     if (avatarFileRef.current) avatarFileRef.current.value = "";

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { serviceClient, checkShootAccess, checkCanDownload } from "@/lib/shootAccess";
+import { r2SignedUrl, r2PublicUrl, r2Delete, R2_MEDIA_BUCKET, R2_PUBLIC_BUCKET } from "@/lib/r2";
 
 export async function GET(req: Request) {
   const supabase = await createClient();
@@ -70,8 +71,7 @@ export async function GET(req: Request) {
     // cacheable by the browser, unlike a fresh signed URL on every request.
     let download_url: string | null = null;
     if (canDownload) {
-      const { data: download } = await db.storage.from("shoot-media").createSignedUrl(m.original_path || m.file_path, 7200);
-      download_url = download?.signedUrl || null;
+      download_url = await r2SignedUrl(R2_MEDIA_BUCKET, m.original_path || m.file_path, 7200);
     }
 
     let preview_url: string | null = null;
@@ -79,10 +79,9 @@ export async function GET(req: Request) {
     const thumbWatermarkedPath = (m as { thumb_watermarked_path?: string | null }).thumb_watermarked_path;
     const chosenThumb = canDownload ? (thumbPath || thumbWatermarkedPath) : (thumbWatermarkedPath || thumbPath);
     if (chosenThumb) {
-      preview_url = db.storage.from("shoot-thumbnails").getPublicUrl(chosenThumb).data.publicUrl;
+      preview_url = r2PublicUrl(chosenThumb);
     } else if (canDownload) {
-      const { data: signedPreview } = await db.storage.from("shoot-media").createSignedUrl(m.file_path, 7200);
-      preview_url = signedPreview?.signedUrl || null;
+      preview_url = await r2SignedUrl(R2_MEDIA_BUCKET, m.file_path, 7200);
     }
     // No watermarked thumb exists (older upload, pre-dates this feature) and
     // the client hasn't paid — fall back to the CSS overlay in ShootGallery
@@ -120,11 +119,11 @@ export async function DELETE(req: Request) {
   if (!allowed || !canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const pathsToDelete = [m.file_path, m.original_path].filter(Boolean) as string[];
-  await db.storage.from("shoot-media").remove(pathsToDelete);
+  await r2Delete(R2_MEDIA_BUCKET, [...new Set(pathsToDelete)]);
   const thumbPath = (m as { thumb_path?: string | null }).thumb_path;
   const thumbWatermarkedPath = (m as { thumb_watermarked_path?: string | null }).thumb_watermarked_path;
   const thumbsToDelete = [thumbPath, thumbWatermarkedPath].filter(Boolean) as string[];
-  if (thumbsToDelete.length) await db.storage.from("shoot-thumbnails").remove(thumbsToDelete);
+  if (thumbsToDelete.length) await r2Delete(R2_PUBLIC_BUCKET, thumbsToDelete);
   await db.from("media").delete().eq("id", id);
 
   return NextResponse.json({ ok: true });

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { SERVICES } from "@/lib/services";
 import { createClient } from "@/lib/supabase";
+import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 
 const linkCls = "text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors";
 
@@ -30,7 +31,7 @@ export default function HomeNav() {
       setPortalHref(role === "admin" ? "/dashboard" : role === "photographer" ? "/photographer" : "/client");
       // Try to load avatar
       const { data: contact } = await supabase.from("contacts").select("id").eq("user_id", user.id).single();
-      if (contact?.id) setAvatarUrl(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}`);
+      if (contact?.id) setAvatarUrl(getAvatarUrl(contact.id));
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setLoggedIn(!!session);

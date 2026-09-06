@@ -8,6 +8,7 @@ import ContactAvatar from "@/components/ContactAvatar";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
 import AddressMapPicker from "@/components/AddressMapPicker";
+import { avatarUrl } from "@/lib/avatarUrl";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -229,7 +230,6 @@ function BoardCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
 
 // ── Board modal ───────────────────────────────────────────────────────────────
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 
 function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliver, isDelivered }: {
   shoot: Shoot;
@@ -395,7 +395,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
                 <div className="flex gap-2 flex-wrap">
                   {assignedPhotographers.map(p => (
                     <div key={p.id} className="flex items-center gap-2 text-xs text-[#888]">
-                      <img src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${p.id}`} alt={p.name}
+                      <img src={avatarUrl(p.id)} alt={p.name}
                         className="w-5 h-5 rounded-full object-cover bg-white/5" onError={e => { e.currentTarget.style.display = "none"; }} />
                       {p.name}
                     </div>
@@ -461,7 +461,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
                   return (
                     <button key={p.id} type="button" onClick={() => { setEsPhotographers(prev => assigned ? prev.filter(id => id !== p.id) : [...prev, p.id]); setEsSaved(false); }}
                       className={`flex items-center gap-2 px-3 py-1.5 text-xs border transition-all ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white"}`}>
-                      <img src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${p.id}`} alt={p.name}
+                      <img src={avatarUrl(p.id)} alt={p.name}
                         className="w-5 h-5 rounded-full object-cover bg-white/5 shrink-0" onError={e => { e.currentTarget.style.display = "none"; }} />
                       {p.name}
                     </button>

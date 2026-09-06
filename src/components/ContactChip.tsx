@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 
 type Props = {
   contactId: string | null;
@@ -12,9 +13,7 @@ type Props = {
 export default function ContactChip({ contactId, name, email, size = "md" }: Props) {
   const [imgError, setImgError] = useState(false);
   const initial = (name || email || "?").charAt(0).toUpperCase();
-  const avatarUrl = contactId && !imgError
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contactId}`
-    : null;
+  const avatarUrl = contactId && !imgError ? getAvatarUrl(contactId) : null;
 
   const href = contactId ? `/admin/contacts/${contactId}` : undefined;
 

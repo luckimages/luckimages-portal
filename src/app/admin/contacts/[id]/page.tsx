@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { avatarUrl } from "@/lib/avatarUrl";
 
 const CHANNEL_LABELS: Record<string, string> = {
   "referral":          "Referral",
@@ -399,7 +400,7 @@ export default function ContactProfilePage() {
           >
             {!avatarError && (
               <img
-                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}${avatarTs ? `?t=${avatarTs}` : ""}`}
+                src={`${avatarUrl(contact.id)}${avatarTs ? `?t=${avatarTs}` : ""}`}
                 alt={contact.name}
                 className="w-full h-full object-cover"
                 onError={() => setAvatarError(true)}

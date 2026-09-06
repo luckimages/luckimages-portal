@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+import { avatarUrl } from "@/lib/avatarUrl";
 
 type Member = {
   id: string;
@@ -117,7 +116,7 @@ export default function TeamPage() {
                 <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 shrink-0 relative">
                   {!avatarErrors.has(m.id) ? (
                     <img
-                      src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${m.id}`}
+                      src={avatarUrl(m.id)}
                       alt={m.name}
                       className="w-full h-full object-cover"
                       onError={() => setAvatarErrors(prev => new Set([...prev, m.id]))}

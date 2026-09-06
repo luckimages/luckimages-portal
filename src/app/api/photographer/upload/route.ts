@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { r2Download, r2Upload, R2_MEDIA_BUCKET, R2_PUBLIC_BUCKET } from "@/lib/r2";
 
 export const maxDuration = 60;
 
@@ -43,22 +44,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not your shoot" }, { status: 403 });
   }
 
-  // The browser already uploaded the original straight to Storage (bypassing
-  // Vercel's ~4.5MB serverless request-body limit, which silently failed
-  // every real estate/drone original over that size when the raw bytes used
-  // to be routed through this route). Download it back server-side — this
-  // is our own outbound fetch, not an inbound request body, so it isn't
-  // subject to that limit — just to generate the compressed thumbnail.
-  const { data: downloaded, error: downloadError } = await service.storage
-    .from("shoot-media")
-    .download(filePath);
-  if (downloadError || !downloaded) {
-    return NextResponse.json({ error: downloadError?.message || "Could not read uploaded file" }, { status: 500 });
+  // The browser already uploaded the original straight to R2 via a presigned
+  // URL (bypassing Vercel's ~4.5MB serverless request-body limit, which
+  // silently failed every real estate/drone original over that size when the
+  // raw bytes used to be routed through this route). Download it back
+  // server-side — this is our own outbound fetch, not an inbound request
+  // body, so it isn't subject to that limit — just to generate the thumbnail.
+  let buffer: Buffer;
+  try {
+    buffer = await r2Download(R2_MEDIA_BUCKET, filePath);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read uploaded file" }, { status: 500 });
   }
-  const buffer = Buffer.from(await downloaded.arrayBuffer());
 
   // Compressed thumbnail in a PUBLIC bucket — a public URL has no rotating
-  // signed token, so it's actually cacheable (unlike shoot-media's signed
+  // signed token, so it's actually cacheable (unlike the private bucket's signed
   // URLs), and it's what the gallery grid/lightbox should load instead of
   // the multi-MB original. Only for images; video/other files have none.
   // A second, watermarked copy of that same thumbnail is what unpaid clients
@@ -82,18 +82,19 @@ export async function POST(req: NextRequest) {
         .toBuffer();
 
       const candidateThumbPath = `${shootId}/${serviceSlug ? serviceSlug + "/" : ""}${timestamp}_thumb.jpg`;
-      const { error: thumbError } = await service.storage
-        .from("shoot-thumbnails")
-        .upload(candidateThumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
-      if (!thumbError) thumbPath = candidateThumbPath;
+      try {
+        await r2Upload(R2_PUBLIC_BUCKET, candidateThumbPath, thumbBuffer, "image/jpeg");
+        thumbPath = candidateThumbPath;
+      } catch {
+        // Thumbnail is a bandwidth optimization — fall back to the original
+        // everywhere thumb_path is missing rather than failing the upload.
+      }
 
       try {
         const watermarkedBuffer = await applyWatermark(thumbBuffer);
         const candidateWmPath = `${shootId}/${serviceSlug ? serviceSlug + "/" : ""}${timestamp}_thumb_wm.jpg`;
-        const { error: wmError } = await service.storage
-          .from("shoot-thumbnails")
-          .upload(candidateWmPath, watermarkedBuffer, { contentType: "image/jpeg", upsert: false, cacheControl: "31536000" });
-        if (!wmError) thumbWatermarkedPath = candidateWmPath;
+        await r2Upload(R2_PUBLIC_BUCKET, candidateWmPath, watermarkedBuffer, "image/jpeg");
+        thumbWatermarkedPath = candidateWmPath;
       } catch {
         // Watermarked preview is what gates pre-payment viewing — if it fails
         // to generate, fall back to the clean thumb everywhere in /api/media

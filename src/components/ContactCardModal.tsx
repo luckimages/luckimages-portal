@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 import { formatPhone } from "@/lib/format";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { avatarUrl } from "@/lib/avatarUrl";
 
 const CHANNEL_LABELS: Record<string, string> = {
   "referral":          "Referral",
@@ -186,7 +187,7 @@ export default function ContactCardModal({ contactId, onClose }: Props) {
                 <div className="relative w-14 h-14 rounded-full overflow-hidden bg-white/10 shrink-0">
                   {!imgError && (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}`}
+                      src={avatarUrl(contact.id)}
                       alt={contact.name}
                       className="w-full h-full object-cover"
                       onError={() => setImgError(true)}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
+import { avatarUrl } from "@/lib/avatarUrl";
 
 type Shoot = {
   id: string;
@@ -170,7 +171,6 @@ function ShootCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
   );
 }
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 
 function ShootTracker({ status }: { status: string }) {
   const TRACKER_STAGES = [
@@ -330,7 +330,7 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
                   <div className="flex items-center gap-2 mt-1">
                     {shoot.contact_id && (
                       <img
-                        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${shoot.contact_id}`}
+                        src={avatarUrl(shoot.contact_id)}
                         alt={shoot.client_name}
                         className="w-8 h-8 rounded-full object-cover shrink-0 bg-white/5"
                         onError={e => {
@@ -411,7 +411,7 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
                   {assignedPhotographers.map(p => (
                     <div key={p.id} className="flex items-center gap-2">
                       <img
-                        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${p.id}`}
+                        src={avatarUrl(p.id)}
                         alt={p.name}
                         className="w-7 h-7 rounded-full object-cover bg-white/5"
                         onError={e => {
@@ -497,7 +497,7 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
                       onClick={() => { setEsSaved(false); setEsPhotographers(prev => assigned ? prev.filter(x => x !== p.id) : [...prev, p.id]); }}
                       className={`flex items-center gap-2 text-xs px-3 py-2 border transition-colors ${assigned ? "border-white/40 text-white bg-white/10" : "border-white/10 text-[#555] hover:text-white hover:border-white/20"}`}>
                       <img
-                        src={`${SUPABASE_URL}/storage/v1/object/public/avatars/${p.id}`}
+                        src={avatarUrl(p.id)}
                         alt={p.name}
                         className="w-5 h-5 rounded-full object-cover bg-white/5 shrink-0"
                         onError={e => { e.currentTarget.style.display = "none"; }}

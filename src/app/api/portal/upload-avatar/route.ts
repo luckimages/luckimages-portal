@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { r2Upload, r2PublicUrl, R2_PUBLIC_BUCKET } from "@/lib/r2";
 import sharp from "sharp";
 
 export async function POST(req: NextRequest) {
@@ -30,20 +30,12 @@ export async function POST(req: NextRequest) {
     .jpeg({ quality: 85 })
     .toBuffer();
 
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const key = `avatars/${contact.id}`;
+  try {
+    await r2Upload(R2_PUBLIC_BUCKET, key, compressed, "image/jpeg");
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Upload failed" }, { status: 500 });
+  }
 
-  const { error } = await supabaseAdmin.storage.from("avatars").upload(contact.id, compressed, {
-    contentType: "image/jpeg",
-    upsert: true,
-    cacheControl: "public, max-age=86400",
-  });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({
-    url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${contact.id}`,
-  });
+  return NextResponse.json({ url: r2PublicUrl(key) });
 }
