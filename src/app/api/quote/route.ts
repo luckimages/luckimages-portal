@@ -49,16 +49,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to send" }, { status: 500 });
   }
 
-  // Log to web_leads table
-  await db().from("web_leads").insert({
-    name,
-    email: email || null,
-    sqft: sqft || null,
-    primary_service: service?.name || null,
-    primary_price: service?.price || null,
-    addons: addons ?? [],
-    total: total || null,
+  // Log to company_updates so the lead survives even if the email above
+  // gets missed/junked — this used to insert into a "web_leads" table that
+  // was referenced in code but never actually existed in the database, so
+  // every quote request was silently dropped everywhere except the email.
+  const { error: logError } = await db().from("company_updates").insert({
+    message: `💬 New quote request — ${name} · ${service?.name || "Unknown service"} ($${total ?? service?.price ?? "?"})${email ? ` · ${email}` : ""}`,
+    created_by: "system",
+    category: "clients",
   });
+  if (logError) console.error("quote: failed to log company_updates row", logError);
 
   return NextResponse.json({ ok: true });
 }
