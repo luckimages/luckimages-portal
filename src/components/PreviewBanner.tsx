@@ -19,7 +19,7 @@ export default function PreviewBanner({ role }: { role: "realtor" | "photographe
   }
 
   return (
-    <div className="bg-[#a78bfa]/10 border-b border-[#a78bfa]/30 px-8 py-2 flex items-center justify-between">
+    <div className="relative z-20 bg-[#a78bfa]/10 border-b border-[#a78bfa]/30 px-8 py-2 flex items-center justify-between">
       <p className="text-xs tracking-[2px] uppercase text-[#a78bfa]">
         Previewing as {role} — changes here are real
       </p>
