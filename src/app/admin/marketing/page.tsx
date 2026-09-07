@@ -55,7 +55,7 @@ export default function MarketingPage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user || !ADMIN_EMAILS.includes(data.user.email || "")) { router.replace("/dashboard"); return; }
       const [{ data: logs }, { data: cts }] = await Promise.all([
-        supabase.from("call_logs").select("*").order("called_at", { ascending: false }),
+        supabase.from("cold_calls").select("*").order("called_at", { ascending: false }),
         supabase.from("contacts").select("id, name, stage").order("name"),
       ]);
       setCallLogs(logs || []);
