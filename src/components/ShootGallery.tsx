@@ -100,7 +100,6 @@ type SectionGridProps = {
   draggingSection: string | null;
   setDraggingSection: (v: string | null) => void;
   stagedFiles: Record<string, StagedFile[]>;
-  confirmedSections: Set<string>;
   batchMode: boolean;
   setBatchMode: (v: boolean) => void;
   batchSelected: Set<string>;
@@ -131,7 +130,7 @@ type SectionGridProps = {
 function SectionGrid(props: SectionGridProps) {
   const {
     section, canEdit, canDownload, uploading,
-    draggingSection, setDraggingSection, stagedFiles, confirmedSections,
+    draggingSection, setDraggingSection, stagedFiles,
     batchMode, setBatchMode, batchSelected, setBatchSelected, setConfirmBatchDelete,
     downloadMenuFor, setDownloadMenuFor, delivered, delivering, setDelivered, setDelivering, onDeliver,
     fileRefs, dragCounters, setUploadError, stageFiles, removeStagedFile, toggleBatchItem,
@@ -141,7 +140,6 @@ function SectionGrid(props: SectionGridProps) {
   const isDragging = draggingSection === slug;
   const staged = stagedFiles[slug] || [];
   const readyToConfirm = staged.filter(p => p.status === "staged").length;
-  const isConfirmed = confirmedSections.has(slug);
 
   function onDragEnter(e: React.DragEvent) {
     if (!canEdit) return;
@@ -443,7 +441,6 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   const [stagedFiles, setStagedFiles] = useState<Record<string, StagedFile[]>>({});
   const [uploadError, setUploadError] = useState("");
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
-  const [confirmedSections, setConfirmedSections] = useState<Set<string>>(new Set());
   const [delivering, setDelivering] = useState(false);
   const [delivered, setDelivered] = useState(isDelivered);
   const [batchMode, setBatchMode] = useState(false);
@@ -706,13 +703,15 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
       )}
 
       {/* Deliver to Client — the one main delivery control, gated until every
-          non-empty service section has been marked ready. Individual sections
-          still get a low-key "Deliver Individual Service" escape hatch below,
-          for the rare case a client needs one service ahead of the rest. */}
+          non-empty service section has at least one uploaded file and isn't
+          mid-upload. Individual sections still get a low-key "Deliver
+          Individual Service" escape hatch below, for the rare case a client
+          needs one service ahead of the rest. */}
       {onDeliver && canEdit && (() => {
         const nonEmpty = serviceSections.filter(s => s.items.length > 0);
         if (nonEmpty.length === 0) return null;
-        const readyCount = nonEmpty.filter(s => confirmedSections.has(s.slug)).length;
+        const isReady = (s: typeof nonEmpty[number]) => (stagedFiles[s.slug] || []).length === 0;
+        const readyCount = nonEmpty.filter(isReady).length;
         const allReady = readyCount === nonEmpty.length;
         return (
           <div className={`mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-5 border transition-colors ${
@@ -724,14 +723,14 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
           }`}>
             <div>
               <p className={`text-sm font-semibold ${delivered || allReady ? "text-[#4ade80]" : "text-[#888]"}`}>
-                {delivered ? "Delivered to client" : allReady ? "All media is marked ready" : `${readyCount} of ${nonEmpty.length} services ready`}
+                {delivered ? "Delivered to client" : allReady ? "All media is uploaded" : `${readyCount} of ${nonEmpty.length} services ready`}
               </p>
               <p className="text-xs text-[#555] mt-1">
                 {delivered
                   ? "The client has been emailed a direct link to their gallery."
                   : allReady
                   ? "Click to deliver — the client will receive an email with a direct link to their gallery."
-                  : "Mark every service ready below to unlock delivery."}
+                  : "Every service needs at least one uploaded file, with nothing still uploading, to unlock delivery."}
               </p>
             </div>
             <button
@@ -767,7 +766,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
             section={section}
             canEdit={canEdit} canDownload={canDownload} uploading={uploading}
             draggingSection={draggingSection} setDraggingSection={setDraggingSection}
-            stagedFiles={stagedFiles} confirmedSections={confirmedSections}
+            stagedFiles={stagedFiles}
             batchMode={batchMode} setBatchMode={setBatchMode}
             batchSelected={batchSelected} setBatchSelected={setBatchSelected} setConfirmBatchDelete={setConfirmBatchDelete}
             downloadMenuFor={downloadMenuFor} setDownloadMenuFor={setDownloadMenuFor}
