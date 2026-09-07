@@ -195,7 +195,7 @@ export default function CalendarPage() {
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 gap-4">
+      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 gap-4 max-w-[1700px] mx-auto w-full">
         {/* Page title + legend */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
           <div>
@@ -235,7 +235,7 @@ export default function CalendarPage() {
             {/* Day headers */}
             <div className="grid grid-cols-7 mb-1">
               {DAY_NAMES.map(d => (
-                <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#444] py-2">{d}</div>
+                <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#777] py-2">{d}</div>
               ))}
             </div>
 
@@ -245,7 +245,7 @@ export default function CalendarPage() {
               </div>
             ) : (
               <div
-                className="flex-1 grid grid-cols-7 gap-px bg-white/5"
+                className="flex-1 grid grid-cols-7 gap-px bg-white/20"
                 style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, 1fr)` }}
               >
                 {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7 }).map((_, i) => {
@@ -261,13 +261,13 @@ export default function CalendarPage() {
                     <div
                       key={i}
                       onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                      className={`bg-[#0e0e0e] min-h-[110px] p-2 flex flex-col gap-1 cursor-pointer transition-colors hover:brightness-125 ${
-                        isSelected ? "ring-2 ring-inset ring-[#a78bfa]" : isToday ? "ring-1 ring-inset ring-white/20" : ""
+                      className={`bg-[#131313] min-h-[110px] p-2 flex flex-col gap-1 cursor-pointer transition-colors hover:brightness-125 ${
+                        isSelected ? "ring-2 ring-inset ring-[#a78bfa]" : isToday ? "ring-1 ring-inset ring-white/40" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <p className={`text-xs font-bold mb-1 ${isToday || isSelected ? "text-white" : dayEvents.length > 0 ? "text-[#666]" : "text-[#444]"}`}>{dayNum}</p>
-                        {dayEvents.length > 0 && <span className="text-[9px] text-[#333]">{dayEvents.length}</span>}
+                        <p className={`text-xs font-bold mb-1 ${isToday || isSelected ? "text-white" : dayEvents.length > 0 ? "text-[#999]" : "text-[#777]"}`}>{dayNum}</p>
+                        {dayEvents.length > 0 && <span className="text-[9px] text-[#777]">{dayEvents.length}</span>}
                       </div>
 
                       {dayEvents.map(ev => {
