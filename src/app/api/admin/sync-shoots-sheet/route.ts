@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/supabase-server";
 
 function service() {
   return createClient(
@@ -69,15 +70,15 @@ async function getGoogleAccessToken(): Promise<string> {
 }
 
 export async function POST(req: Request) {
-  // Allow both cron calls (with CRON_SECRET) and admin calls
+  // Allow both cron calls (with CRON_SECRET) and logged-in admin calls.
+  // The old manual-trigger check accepted the public, guessable string
+  // {"trigger":"manual"} from anyone unauthenticated — this dumps every
+  // client's name, email, address, and notes (including lockbox codes)
+  // into a Google Sheet, so it needs a real check.
   const authHeader = req.headers.get("authorization");
   const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
-  if (!isCron) {
-    // Manual trigger — still require something
-    const { trigger } = await req.json().catch(() => ({}));
-    if (trigger !== "manual") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!isCron && !(await requireAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const sheetId = process.env.GOOGLE_SHEET_ID;

@@ -380,10 +380,11 @@ function DashboardV2Page() {
         }
       }}
     >
-      {/* Shared header — stays fixed while pages slide */}
-      <header className="relative z-10 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 shrink-0">
+      {/* Shared header — stays fixed while pages slide. Wraps instead of
+          overflowing off-screen on narrower desktop windows. */}
+      <header className="relative z-10 flex items-center justify-between flex-wrap gap-y-2 px-4 md:px-8 py-4 md:py-5 shrink-0">
         <a href="/" className="text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase hover:opacity-70 transition-opacity whitespace-nowrap leading-none">Luck Images</a>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap justify-end gap-3">
           {swipePage === 1 && (
             editMode ? (
               <>

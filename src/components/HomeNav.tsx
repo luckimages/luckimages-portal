@@ -47,8 +47,10 @@ export default function HomeNav() {
         <span className="text-base font-black tracking-tight uppercase whitespace-nowrap">Luck Images</span>
       </Link>
 
-      {/* Desktop nav */}
-      <div className="hidden md:flex items-center gap-8">
+      {/* Desktop nav — wraps instead of overflowing off-screen on
+          moderately-narrow desktop windows (there's no breakpoint between
+          this and the mobile hamburger, so it has to hold its own). */}
+      <div className="hidden md:flex items-center flex-wrap justify-end gap-x-6 gap-y-2">
         <Link href="/" className={linkCls}>Home</Link>
 
         <div
