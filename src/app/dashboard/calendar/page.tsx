@@ -79,6 +79,15 @@ function fmtDuration(sec: number | null) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+// Naive "+s" breaks on words like "Delivery" → "deliverys" — handle the
+// consonant-+-y case (delivery → deliveries) since that's the one legend
+// label it actually applies to.
+function pluralize(word: string, count: number) {
+  if (count === 1) return word;
+  if (/[^aeiou]y$/i.test(word)) return word.slice(0, -1) + "ies";
+  return word + "s";
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function CalendarPage() {
   const [calMonth, setCalMonth] = useState(() => {
@@ -200,7 +209,7 @@ export default function CalendarPage() {
                 <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-3 py-1.5">Today</button>
               </div>
               <div className="text-right">
-                <p className="text-xs text-[#555]">{monthCount} {activeLegendLabel.toLowerCase()}{monthCount !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-[#555]">{monthCount} {pluralize(activeLegendLabel.toLowerCase(), monthCount)}</p>
                 {monthRevenue > 0 && <p className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</p>}
               </div>
             </div>
