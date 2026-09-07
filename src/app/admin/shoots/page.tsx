@@ -861,8 +861,17 @@ function ShootsPage() {
     setSyncing(false);
   }
 
-  // Board computed
-  const boardShoots = shoots.filter(s => s.status !== "cancelled");
+  // Board computed. Paid/completed shoots fall off the board after 7 days —
+  // otherwise every shoot ever completed piles up in "Delivered" forever
+  // (149 and counting, found live-testing the night before launch).
+  const BOARD_SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000;
+  const boardShoots = shoots.filter(s => {
+    if (s.status === "cancelled") return false;
+    if (s.status === "completed") {
+      return !!s.paid_at && Date.now() - new Date(s.paid_at).getTime() < BOARD_SEVEN_DAYS_MS;
+    }
+    return true;
+  });
   const behindCount = boardShoots.filter(s => ["no-show", "editing-due"].includes(getAlertStatus(s) ?? "")).length;
 
   // Log shoot card
