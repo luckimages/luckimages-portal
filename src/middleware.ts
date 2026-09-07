@@ -46,13 +46,14 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Client portal — any authenticated user
+  // Client portal — realtors and admins only (not photographers)
   if (path.startsWith('/client') || path === '/choose-portal') {
     if (!user) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', path)
       return NextResponse.redirect(loginUrl)
     }
+    if (role === 'photographer' && !isAdmin) return NextResponse.redirect(new URL('/photographer', request.url))
     return response
   }
 
