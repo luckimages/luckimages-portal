@@ -235,10 +235,13 @@ export default function CalendarPage() {
                 <p className="text-xs tracking-[3px] uppercase text-[#333]">Loading...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-7 gap-px bg-white/5">
+              <div
+                className="flex-1 grid grid-cols-7 gap-px bg-white/5"
+                style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, 1fr)` }}
+              >
                 {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7 }).map((_, i) => {
                   const dayNum = i - firstDayOfWeek + 1;
-                  if (dayNum < 1 || dayNum > daysInMonth) return <div key={i} className="bg-[#0c0c0c] min-h-[110px]" />;
+                  if (dayNum < 1 || dayNum > daysInMonth) return <div key={i} className="bg-[#0c0c0c]" />;
 
                   const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
                   const dayEvents = (eventMap[dateStr] || []).filter(e => e.type === activeType);
