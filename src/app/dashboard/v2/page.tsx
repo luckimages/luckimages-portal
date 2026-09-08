@@ -685,7 +685,7 @@ function DashboardV2Page() {
                                 className="text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#4ade80] hover:bg-[#34d399] px-2.5 py-1 transition-colors disabled:opacity-40">
                                 {confirmingShoot === s.id ? "Confirming…" : "Confirm & Notify"}
                               </button>
-                              <button onClick={() => editingPendingId === s.id ? setEditingPendingId(null) : openEditPending(s)}
+                              <button onClick={() => openEditPending(s)}
                                 className="text-[10px] tracking-[1px] uppercase font-bold text-[#fbbf24] border border-[#fbbf24]/30 hover:bg-[#fbbf24]/10 px-2.5 py-1 transition-colors">
                                 Edit
                               </button>
@@ -698,37 +698,6 @@ function DashboardV2Page() {
                                 <span className="text-[10px] text-[#4ade80]">Sent ✓</span>
                               )}
                             </div>
-
-                            {editingPendingId === s.id && (
-                              <div className="mt-2 p-2.5 bg-black/40 border border-white/10 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
-                                <p className="text-[10px] text-white/50 leading-relaxed">
-                                  Their requested time doesn't work? Propose a new one — it updates the shoot and emails {s.client_name || "the realtor"} asking them to confirm or suggest another time.
-                                </p>
-                                <input
-                                  type="datetime-local"
-                                  value={proposedTime}
-                                  onChange={e => setProposedTime(e.target.value)}
-                                  className="bg-[#181818] border border-white/10 text-white text-xs px-2.5 py-2 outline-none focus:border-white/30 w-full"
-                                />
-                                <textarea
-                                  value={proposedMessage}
-                                  onChange={e => setProposedMessage(e.target.value)}
-                                  placeholder="Optional note (e.g. why the original time doesn't work)…"
-                                  rows={2}
-                                  className="bg-[#181818] border border-white/10 text-white text-xs px-2.5 py-2 outline-none focus:border-white/30 w-full resize-none placeholder:text-white/20"
-                                />
-                                <div className="flex gap-2">
-                                  <button onClick={() => sendRebuttal(s.id)} disabled={sendingRebuttal || !proposedTime}
-                                    className="flex-1 text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#fbbf24] hover:bg-[#fbbf24]/90 px-2.5 py-1.5 transition-colors disabled:opacity-40">
-                                    {sendingRebuttal ? "Sending…" : "Send Rebuttal"}
-                                  </button>
-                                  <button onClick={() => setEditingPendingId(null)}
-                                    className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white/70 px-2.5 py-1.5 border border-white/10 transition-colors">
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -862,6 +831,60 @@ function DashboardV2Page() {
       </div>{/* end page 2 */}
 
       </div>{/* end sliding track */}
+
+      {/* Reschedule-request modal — propose a new time for a pending booking */}
+      {editingPendingId && (() => {
+        const s = pendingShoots.find(p => p.id === editingPendingId);
+        if (!s) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingPendingId(null)}>
+            <div className="absolute inset-0 bg-black/70" />
+            <div
+              className="relative bg-[#141414] border border-[#fbbf24]/30 w-full max-w-lg p-6"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between mb-1">
+                <div>
+                  <p className="text-[10px] tracking-[3px] uppercase text-[#fbbf24]">Propose a New Time</p>
+                  <p className="text-sm font-semibold mt-1">{s.address}</p>
+                </div>
+                <button onClick={() => setEditingPendingId(null)} className="text-white/40 hover:text-white transition-colors text-lg leading-none shrink-0">✕</button>
+              </div>
+              <p className="text-xs text-white/50 leading-relaxed mt-3 mb-5">
+                Their requested time doesn't work? Propose a new one below — it updates the shoot and emails {s.client_name || "the realtor"} asking them to confirm or suggest another time.
+              </p>
+
+              <p className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5">New Date &amp; Time</p>
+              <input
+                type="datetime-local"
+                value={proposedTime}
+                onChange={e => setProposedTime(e.target.value)}
+                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 w-full mb-4"
+              />
+
+              <p className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5">Note (optional)</p>
+              <textarea
+                value={proposedMessage}
+                onChange={e => setProposedMessage(e.target.value)}
+                placeholder="e.g. why the original time doesn't work…"
+                rows={4}
+                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 w-full resize-none placeholder:text-white/20 mb-5"
+              />
+
+              <div className="flex gap-3">
+                <button onClick={() => sendRebuttal(s.id)} disabled={sendingRebuttal || !proposedTime}
+                  className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-[#fbbf24] hover:bg-[#fbbf24]/90 py-3 transition-colors disabled:opacity-40">
+                  {sendingRebuttal ? "Sending…" : "Send Rebuttal"}
+                </button>
+                <button onClick={() => setEditingPendingId(null)}
+                  className="text-xs tracking-[2px] uppercase text-white/50 hover:text-white px-6 py-3 border border-white/10 hover:border-white/30 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
