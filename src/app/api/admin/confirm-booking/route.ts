@@ -29,12 +29,19 @@ export async function POST(req: Request) {
   const finalTime = scheduledAt || shoot.scheduled_at;
   const finalPhotographers = photographerIds && photographerIds.length ? photographerIds : shoot.photographer_ids;
 
+  // Confirming settles any pending reschedule negotiation — strip the
+  // leading "[REBUTTAL:<original>:<proposed>]" marker (see
+  // reschedule-request/route.ts) so it doesn't leak into the calendar
+  // invite description or linger once there's nothing left to compare.
+  const cleanNotes = (shoot.notes || "").replace(/^\[REBUTTAL:[^:]+:[^\]]+\]\n?/, "") || null;
+
   // Update the shoot → confirmed/scheduled
   const { error: updErr } = await db.from("shoots").update({
     status: "scheduled",
     scheduled_at: finalTime,
     photographer_ids: finalPhotographers || null,
     confirmed_at: new Date().toISOString(),
+    notes: cleanNotes,
   }).eq("id", shootId);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
@@ -48,7 +55,7 @@ export async function POST(req: Request) {
     address: shoot.address,
     scheduledAt: finalTime,
     services: shoot.services || [],
-    notes: shoot.notes || undefined,
+    notes: cleanNotes || undefined,
     contactId: shoot.contact_id,
     clientId: shoot.client_id,
     photographerIds: finalPhotographers || [],

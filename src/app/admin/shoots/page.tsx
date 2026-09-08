@@ -164,11 +164,23 @@ const ALERT_STYLES: Record<string, { border: string; bg: string; dot: string; te
   "editing-due": { border: "border-red-500/40",    bg: "bg-red-500/5",    dot: "bg-red-500",    text: "text-red-400",    label: "Delivery overdue" },
 };
 
-function parseNotes(raw: string | null): { access: string; notes: string } {
+// A pending reschedule proposal is stashed as a leading
+// "[REBUTTAL:<originalISO>:<proposedISO>]" line in notes (see
+// api/admin/reschedule-request) — stripped here before the ACCESS:/free-notes
+// parsing runs, so it never leaks into the notes shown/editable here. Cleared
+// by confirm-booking once the admin locks the time in.
+function parseRebuttal(raw: string | null): { original: string | null; proposed: string | null; rest: string } {
   const str = raw || "";
-  const m = str.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
+  const m = str.match(/^\[REBUTTAL:([^:]+):([^\]]+)\]\n?([\s\S]*)$/);
+  if (m) return { original: m[1], proposed: m[2], rest: m[3] || "" };
+  return { original: null, proposed: null, rest: str };
+}
+
+function parseNotes(raw: string | null): { access: string; notes: string } {
+  const { rest } = parseRebuttal(raw);
+  const m = rest.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
   if (m) return { access: m[1] || "", notes: (m[2] || "").replace(/^\n\n/, "").trim() };
-  return { access: "", notes: str };
+  return { access: "", notes: rest };
 }
 
 function toDatetimeLocal(iso: string) {
@@ -901,6 +913,7 @@ function ShootsPage() {
     const err = statusError[shoot.id];
     const shootPhotographers = photographers.filter(p => (shoot.photographer_ids || []).includes(p.id));
     const inProgress = !["pending", "cancelled", "delivered", "completed"].includes(shoot.status);
+    const rebuttal = parseRebuttal(shoot.notes);
     return (
       <div className={`bg-[#111] border border-white/10 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""} ${expanded ? "border-white/20" : "hover:border-white/20"}`}>
         <div className="flex items-start justify-between gap-4 p-4 cursor-pointer" onClick={toggleExpanded}>
@@ -927,6 +940,9 @@ function ShootsPage() {
               </div>
             )}
             {inProgress && <ShootTracker status={shoot.status} />}
+            {rebuttal.proposed && (
+              <p className="text-[10px] text-[#fbbf24] mt-2">⏳ Awaiting reply to your proposed time — {formatDate(rebuttal.proposed)}</p>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-[10px] tracking-[2px] uppercase px-2 py-1 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status.replace(/_/g, " ")}</span>

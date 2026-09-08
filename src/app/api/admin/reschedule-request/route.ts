@@ -58,12 +58,26 @@ export async function POST(req: Request) {
   }
 
   const db = service();
-  const { data: shoot } = await db.from("shoots").select("id, address, scheduled_at, contact_id, client_id").eq("id", shootId).single();
+  const { data: shoot } = await db.from("shoots").select("id, address, scheduled_at, contact_id, client_id, notes").eq("id", shootId).single();
   if (!shoot) return NextResponse.json({ error: "Shoot not found" }, { status: 404 });
 
   const originalTime = shoot.scheduled_at;
 
-  const { error: updErr } = await db.from("shoots").update({ scheduled_at: proposedTime }).eq("id", shootId);
+  // Stash "originally requested vs. now proposed" so the realtor portal can
+  // show both — no dedicated column for this, so it's a leading
+  // "[REBUTTAL:<original>:<proposed>]" line in notes (client/page.tsx and
+  // admin/shoots/page.tsx both strip it before displaying/editing notes).
+  // If a rebuttal was already pending, keep the TRUE original rather than
+  // overwriting it with the last-proposed time.
+  const existingNotes = shoot.notes || "";
+  const existingMatch = existingNotes.match(/^\[REBUTTAL:([^:]+):([^\]]+)\]\n?([\s\S]*)$/);
+  const trueOriginal = existingMatch ? existingMatch[1] : originalTime;
+  const restOfNotes = existingMatch ? existingMatch[3] : existingNotes;
+  const newNotes = trueOriginal
+    ? `[REBUTTAL:${trueOriginal}:${proposedTime}]${restOfNotes ? `\n${restOfNotes}` : ""}`
+    : restOfNotes; // no prior time on file to contrast against — skip the marker
+
+  const { error: updErr } = await db.from("shoots").update({ scheduled_at: proposedTime, notes: newNotes }).eq("id", shootId);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
   const { clientFirstName, clientEmail } = await resolveClientContact(shoot.contact_id, shoot.client_id);

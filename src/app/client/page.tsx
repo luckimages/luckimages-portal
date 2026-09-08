@@ -85,22 +85,66 @@ function calcQuote(services: string[], sqft: string): { low: number; exact: bool
 
 // Property Access is folded into the notes column with an "ACCESS: " prefix
 // (same convention the admin board's shoot editor uses) so it round-trips.
-function parseNotes(raw: string | null): { access: string; notes: string } {
+// A pending reschedule proposal from the admin side is stashed as a leading
+// "[REBUTTAL:<originalISO>:<proposedISO>]" line in notes (no dedicated
+// column for it) — stripped here before the existing ACCESS:/free-notes
+// parsing runs, so it never leaks into the notes the realtor can edit.
+// Cleared by the admin confirming the booking.
+function parseRebuttal(raw: string | null): { original: string | null; proposed: string | null; rest: string } {
   const str = raw || "";
-  const m = str.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
+  const m = str.match(/^\[REBUTTAL:([^:]+):([^\]]+)\]\n?([\s\S]*)$/);
+  if (m) return { original: m[1], proposed: m[2], rest: m[3] || "" };
+  return { original: null, proposed: null, rest: str };
+}
+
+function parseNotes(raw: string | null): { access: string; notes: string } {
+  const { rest } = parseRebuttal(raw);
+  const m = rest.match(/^ACCESS: (.*?)(\n\n[\s\S]*)?$/);
   if (m) return { access: m[1] || "", notes: (m[2] || "").replace(/^\n\n/, "").trim() };
-  return { access: "", notes: str };
+  return { access: "", notes: rest };
+}
+
+function formatDateTime(iso: string | null) {
+  if (!iso) return "TBD";
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) +
+    " · " + new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+const TRACKER_STAGES = [
+  { key: "scheduled", label: "Scheduled" },
+  { key: "en_route",  label: "En Route" },
+  { key: "on_site",   label: "On Site" },
+  { key: "wrapping",  label: "Wrapped Up" },
+  { key: "delivered", label: "Delivered" },
+];
+const TRACKER_ORDER = ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing", "delivered", "completed"];
+
+function ShootTracker({ status }: { status: string }) {
+  const cur = TRACKER_ORDER.indexOf(status);
+  return (
+    <div className="flex items-start gap-0 mt-3">
+      {TRACKER_STAGES.map((stage, i) => {
+        const idx = TRACKER_ORDER.indexOf(stage.key);
+        const effectiveIdx = status === "editing" ? TRACKER_ORDER.indexOf("editing") : cur;
+        const isDone = effectiveIdx > idx || status === "completed";
+        const isActive = !isDone && (effectiveIdx === idx || (stage.key === "wrapping" && status === "editing"));
+        return (
+          <div key={stage.key} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${isDone ? "bg-[#4ade80]" : isActive ? "bg-white" : "bg-white/15"}`} />
+              <span className={`text-[8px] tracking-[1px] uppercase whitespace-nowrap ${isActive ? "text-white" : isDone ? "text-[#4ade80]/70" : "text-[#333]"}`}>{stage.label}</span>
+            </div>
+            {i < TRACKER_STAGES.length - 1 && (
+              <div className={`w-8 h-px mb-3.5 ${isDone ? "bg-[#4ade80]/30" : "bg-white/10"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 const EDITABLE_STATUSES = ["pending", "scheduled"];
-
-// Compact "6/18" style date — no year, no leading zeros — for the collapsed
-// Shoot Log row. The expanded detail view still shows the full date/time.
-function shortDate(iso: string | null): string {
-  if (!iso) return "TBD";
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
 
 const STREET_SUFFIXES = new Set([
   "st", "street", "ave", "avenue", "blvd", "boulevard", "dr", "drive", "ln", "lane",
@@ -1130,23 +1174,30 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
 
   const visual = statusVisual(shoot.status);
   const quote = calcQuote(shoot.services || [], shoot.square_footage ? String(shoot.square_footage) : "");
+  const rebuttal = parseRebuttal(shoot.notes);
+  const inProgress = ["scheduled", "en_route", "on_site", "wrapping", "editing"].includes(shoot.status);
 
   return (
     <div className="py-4">
-      <button onClick={onToggle} className="w-full flex items-center justify-between gap-4 text-left">
+      <button onClick={onToggle} className="w-full flex items-start justify-between gap-4 text-left">
         <div className="min-w-0 flex-1">
-          <p className="font-medium truncate">
-            {shortDate(shoot.scheduled_at)} - {truncateAddressToStreet(shoot.address)}
-            {shoot.square_footage ? <span className="text-[#888] font-normal"> ({shoot.square_footage.toLocaleString()}sf)</span> : null}
-          </p>
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {(shoot.services || []).map(s => (
-              <span key={s} className="text-[10px] tracking-wide uppercase text-white border border-white px-2 py-0.5">{s}</span>
-            ))}
-            {quote.low > 0 && (
-              <span className={`text-xs font-bold ${visual.text}`}>${quote.low.toLocaleString()}</span>
-            )}
+          <p className="text-sm font-semibold truncate">{truncateAddressToStreet(shoot.address)}</p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <span className="text-xs text-[#888]">{formatDateTime(shoot.scheduled_at)}</span>
+            {shoot.square_footage ? <span className="text-xs text-[#666]">{shoot.square_footage.toLocaleString()} sf</span> : null}
+            {quote.low > 0 && <span className={`text-xs font-bold ${visual.text}`}>${quote.low.toLocaleString()}</span>}
           </div>
+          {(shoot.services?.length ?? 0) > 0 && (
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              {(shoot.services || []).map(s => (
+                <span key={s} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{s}</span>
+              ))}
+            </div>
+          )}
+          {inProgress && <ShootTracker status={shoot.status} />}
+          {rebuttal.proposed && (
+            <p className="text-[10px] text-[#fbbf24] mt-2">⏳ We proposed a new time — tap to review</p>
+          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${visual.bg} ${visual.text}`}>{shoot.status.replace("_", " ")}</span>
@@ -1158,6 +1209,16 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
         <div className="mt-4 bg-white/[0.02] border border-white/10 p-4">
           {!editing ? (
             <div className="flex flex-col gap-3">
+              {rebuttal.proposed && (
+                <div className="bg-[#fbbf24]/5 border border-[#fbbf24]/30 p-3 flex flex-col gap-1">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#fbbf24]">New Time Proposed</p>
+                  <p className="text-sm text-white">{formatDateTime(rebuttal.proposed)}</p>
+                  {rebuttal.original && (
+                    <p className="text-xs text-[#888] mt-1">Originally requested: {formatDateTime(rebuttal.original)}</p>
+                  )}
+                  <p className="text-xs text-[#666] mt-1">Check your email for the full note — reply there to confirm, or book/cancel here to make other arrangements.</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className={rowLabelCls}>Date &amp; Time</p>
