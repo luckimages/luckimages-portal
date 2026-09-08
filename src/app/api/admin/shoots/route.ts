@@ -9,12 +9,10 @@ function service() {
   return createAdminClient();
 }
 
-// The board polls this route on a loop. Pulling every auth user (up to 1000
-// records) on every poll just to map a handful of client ids → emails was a
-// big chunk of our Supabase egress, so cache that id→email map in the warm
-// lambda for 5 minutes. Emails effectively never change; worst case a
-// brand-new client's email takes up to 5 min to appear (their name shows
-// immediately — that comes from `profiles`).
+// Fallback only: client emails now come from the linked contact row (always
+// live). This id→email map from auth is a last resort for a client_id with no
+// contact row at all — cached in the warm lambda for 5 minutes so the board's
+// polling loop doesn't pull all ~1000 auth users on every request.
 type EmailCache = { at: number; map: Record<string, string> };
 let emailCache: EmailCache | null = null;
 const EMAIL_CACHE_MS = 5 * 60 * 1000;
@@ -77,25 +75,39 @@ export async function GET(req: Request) {
       nameMap[p.id] = p.full_name ?? "";
     }
 
-    // Emails from auth, via the 5-minute cache (see getClientEmailMap)
-    const allEmails = await getClientEmailMap(supabase);
-    for (const id of clientIds) {
-      if (allEmails[id]) emailMap[id] = allEmails[id];
+    // Emails: prefer the linked contact row (always live), which covers every
+    // registered client. The cached auth map is only a fallback for the rare
+    // client_id with no contact row at all.
+    const { data: clientContacts } = await supabase
+      .from("contacts")
+      .select("user_id, email")
+      .in("user_id", clientIds);
+    for (const c of clientContacts ?? []) {
+      if (c.user_id && c.email) emailMap[c.user_id] = c.email;
+    }
+    const missing = clientIds.filter(id => !emailMap[id]);
+    if (missing.length > 0) {
+      const allEmails = await getClientEmailMap(supabase);
+      for (const id of missing) if (allEmails[id]) emailMap[id] = allEmails[id];
     }
   }
 
-  // Also resolve contact names for contact_id-based shoots
+  // Also resolve contact names/emails for contact_id-based shoots
   const contactIds = [...new Set((shoots ?? []).map(s => s.contact_id).filter(Boolean))];
   const contactNameMap: Record<string, string> = {};
+  const contactEmailMap: Record<string, string> = {};
   if (contactIds.length > 0) {
-    const { data: contacts } = await supabase.from("contacts").select("id, name").in("id", contactIds);
-    for (const c of contacts ?? []) contactNameMap[c.id] = c.name;
+    const { data: contacts } = await supabase.from("contacts").select("id, name, email").in("id", contactIds);
+    for (const c of contacts ?? []) {
+      contactNameMap[c.id] = c.name;
+      if (c.email) contactEmailMap[c.id] = c.email;
+    }
   }
 
   const result = (shoots ?? []).map(s => ({
     ...s,
-    client_name: contactNameMap[s.contact_id] || nameMap[s.client_id] || emailMap[s.client_id] || "",
-    client_email: emailMap[s.client_id] || "",
+    client_name: contactNameMap[s.contact_id] || nameMap[s.client_id] || contactEmailMap[s.contact_id] || emailMap[s.client_id] || "",
+    client_email: contactEmailMap[s.contact_id] || emailMap[s.client_id] || "",
     photographer_ids: s.photographer_ids || [],
   }));
 
