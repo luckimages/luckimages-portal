@@ -224,17 +224,25 @@ export default function ClientPage() {
         }
       }
 
-      // Build OR filter covering all team members
-      const contactFilter = teamContactIds.map(id => `contact_id.eq.${id}`).join(",");
-      const [{ data: shootData }, { data: invData }] = await Promise.all([
+      // Build OR filter covering all team members. teamContactIds is empty
+      // for any account with no linked contacts row (e.g. an admin booking
+      // via "Preview as Realtor") — joining that in unconditionally left a
+      // trailing comma with nothing after it ("client_id.eq.x,"), which
+      // Postgres rejects outright, silently emptying the whole shoot log
+      // and invoice list with no error surfaced anywhere.
+      const orParts = [`client_id.eq.${uid}`, ...teamContactIds.map(id => `contact_id.eq.${id}`)];
+      const orFilter = orParts.join(",");
+      const [{ data: shootData, error: shootErr }, { data: invData, error: invErr }] = await Promise.all([
         supabase.from("shoots").select("*")
-          .or(`client_id.eq.${uid},${contactFilter}`)
+          .or(orFilter)
           .neq("status", "cancelled")
           .order("scheduled_at", { ascending: false }),
         supabase.from("invoices").select("*")
-          .or(`client_id.eq.${uid},${contactFilter}`)
+          .or(orFilter)
           .order("created_at", { ascending: false }),
       ]);
+      if (shootErr) console.error("client portal: shoots load failed", shootErr);
+      if (invErr) console.error("client portal: invoices load failed", invErr);
       setShoots(shootData || []);
       setInvoices(invData || []);
     });
