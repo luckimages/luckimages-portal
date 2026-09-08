@@ -9,6 +9,7 @@ import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
 import AddressMapPicker from "@/components/AddressMapPicker";
 import ShootLocationMap from "@/components/ShootLocationMap";
+import PendingShootModal from "@/components/PendingShootModal";
 import { avatarUrl } from "@/lib/avatarUrl";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -250,13 +251,14 @@ function BoardCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
 // ── Board modal ───────────────────────────────────────────────────────────────
 
 
-function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliver, isDelivered }: {
+function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliver, onReschedule, isDelivered }: {
   shoot: Shoot;
   photographers: Photographer[];
   onClose: () => void;
   onMarkPaid: (id: string) => void;
   onSave: (id: string, patch: Partial<Shoot>) => void;
   onDeliver: () => Promise<void>;
+  onReschedule?: () => void;
   isDelivered?: boolean;
 }) {
   const alert = getAlertStatus(shoot);
@@ -453,6 +455,12 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
                 {shoot.status === "pending" ? "Adjust Time / Photographer" : "Edit Details"}
               </button>
             </div>
+            {shoot.status === "pending" && onReschedule && (
+              <button onClick={onReschedule}
+                className="w-full py-2.5 text-xs tracking-[2px] uppercase font-semibold bg-[#fbbf24] text-black hover:bg-[#fbbf24]/90 transition-colors">
+                Propose a New Time to Realtor →
+              </button>
+            )}
           </div>
         )}
 
@@ -559,6 +567,10 @@ function ShootsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [showCancelled, setShowCancelled] = useState(false);
   const [filterMonth, setFilterMonth] = useState("");
+
+  // Confirm-or-reschedule modal for a pending booking request (shared across
+  // the Shoot Log and the board)
+  const [pendingModalId, setPendingModalId] = useState<string | null>(null);
 
   // Board-view state
   const [selectedShoot, setSelectedShoot] = useState<Shoot | null>(null);
@@ -830,29 +842,17 @@ function ShootsPage() {
     setShoots(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   }
 
-  // Confirm a pending booking: emails the client, creates the calendar invite,
-  // and flips it to scheduled. Optional overrides for time/photographers.
-  const [confirming, setConfirming] = useState<string | null>(null);
-  async function confirmBooking(id: string, scheduledAt?: string | null, photographerIds?: string[]) {
-    setStatusError(e => ({ ...e, [id]: "" }));
-    setConfirming(id);
-    const res = await fetch("/api/admin/confirm-booking", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shootId: id, scheduledAt, photographerIds }),
-    });
-    setConfirming(null);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      setStatusError(e => ({ ...e, [id]: d.error || "Confirm failed" }));
-      return;
-    }
-    setShoots(prev => prev.map(s => s.id === id ? {
-      ...s,
-      status: "scheduled",
-      ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
-      ...(photographerIds ? { photographer_ids: photographerIds } : {}),
-    } : s));
+  // Local echo of a rebuttal sent from the shared modal: shoot stays pending,
+  // scheduled_at moves to our proposed time, notes gain the REBUTTAL marker.
+  function onPendingProposed(id: string, proposedIso: string) {
+    setShoots(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const notes = s.notes || "";
+      const next = /^\[REBUTTAL:/.test(notes)
+        ? notes.replace(/^\[REBUTTAL:([^|]+)\|[^\]]+\]/, `[REBUTTAL:$1|${proposedIso}]`)
+        : `[REBUTTAL:${s.scheduled_at || proposedIso}|${proposedIso}]${notes ? `\n${notes}` : ""}`;
+      return { ...s, scheduled_at: proposedIso, notes: next };
+    }));
   }
 
   const [delivering, setDeliveringId] = useState<string | null>(null);
@@ -954,6 +954,12 @@ function ShootsPage() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-[10px] tracking-[2px] uppercase px-2 py-1 ${STATUS_COLORS[shoot.status] || "text-[#555] bg-white/5"}`}>{shoot.status.replace(/_/g, " ")}</span>
+            {shoot.status === "pending" && (
+              <button onClick={e => { e.stopPropagation(); setPendingModalId(shoot.id); }}
+                className="text-[10px] uppercase tracking-[1px] font-bold text-black bg-[#4ade80] hover:bg-[#34d399] transition-colors px-2 py-1">
+                {rebuttal.proposed ? "Reschedule" : "Confirm / Reschedule"}
+              </button>
+            )}
             <button onClick={e => { e.stopPropagation(); openEdit(shoot); }} className="text-[10px] uppercase tracking-[1px] text-[#444] hover:text-white transition-colors px-2">Edit</button>
             <span className="text-[#555] text-xs px-1 select-none">{expanded ? "▲" : "▼"}</span>
           </div>
@@ -1006,10 +1012,22 @@ function ShootsPage() {
                   </div>
                 </div>
               )}
-              {shoot.notes && (
+              {rebuttal.proposed && (
+                <div className="col-span-2 md:col-span-3 flex gap-4 text-xs">
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Realtor requested</p>
+                    <p className="text-[#ccc]">{rebuttal.original ? formatDate(rebuttal.original) : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] tracking-[2px] uppercase text-[#fbbf24]/70 mb-1">We proposed</p>
+                    <p className="text-[#fbbf24]">{formatDate(rebuttal.proposed)}</p>
+                  </div>
+                </div>
+              )}
+              {rebuttal.rest && (
                 <div className="col-span-2 md:col-span-3">
                   <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
-                  <p className="text-[#888] text-xs">{shoot.notes}</p>
+                  <p className="text-[#888] text-xs whitespace-pre-wrap">{rebuttal.rest}</p>
                 </div>
               )}
             </div>
@@ -1019,9 +1037,9 @@ function ShootsPage() {
             </div>
             <div className="px-4 pb-4 flex gap-2 flex-wrap border-t border-white/5 pt-3">
               {shoot.status === "pending" && (
-                <button onClick={() => confirmBooking(shoot.id)} disabled={confirming === shoot.id}
-                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#4ade80]/10 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/20 transition-colors disabled:opacity-40">
-                  {confirming === shoot.id ? "Confirming…" : "Confirm & Notify"}
+                <button onClick={() => setPendingModalId(shoot.id)}
+                  className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#4ade80]/10 border border-[#4ade80]/30 text-[#4ade80] hover:bg-[#4ade80]/20 transition-colors">
+                  Confirm / Reschedule
                 </button>
               )}
               {(shoot.status === "pending" || shoot.status === "scheduled") && (
@@ -1597,12 +1615,27 @@ function ShootsPage() {
         </div>
       )}
 
+      {/* Confirm-or-reschedule a pending booking request (shared: Shoot Log + board) */}
+      {pendingModalId && (() => {
+        const s = shoots.find(x => x.id === pendingModalId);
+        if (!s) return null;
+        return (
+          <PendingShootModal
+            shoot={{ id: s.id, address: s.address, scheduled_at: s.scheduled_at, notes: s.notes, client_name: s.contact_name || s.client_name || s.client_email || null }}
+            onClose={() => setPendingModalId(null)}
+            onConfirmed={id => setShoots(prev => prev.map(x => x.id === id ? { ...x, status: "scheduled" } : x))}
+            onProposed={onPendingProposed}
+          />
+        );
+      })()}
+
       {/* Board modal */}
       {selectedShoot && (
         <BoardModal
           shoot={selectedShoot}
           photographers={photographers}
           onClose={() => setSelectedShoot(null)}
+          onReschedule={() => { setPendingModalId(selectedShoot.id); setSelectedShoot(null); }}
           onMarkPaid={id => setShoots(prev => prev.map(s => s.id === id ? { ...s, paid_at: new Date().toISOString(), status: "paid" } : s))}
           onSave={(id, patch) => {
             setShoots(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));

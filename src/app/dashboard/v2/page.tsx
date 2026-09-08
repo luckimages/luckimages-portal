@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import PendingShootModal from "@/components/PendingShootModal";
 
 const APPS = [
   { label: "Contacts",    href: "/admin/contacts",        color: "#888" },
@@ -72,6 +73,7 @@ type PendingShootPreview = {
   scheduled_at: string | null;
   drive_minutes: number | null;
   price: number | null;
+  notes: string | null;
 };
 
 type RegistrationPreview = {
@@ -127,10 +129,7 @@ function DashboardV2Page() {
   const [pendingAcked, setPendingAcked] = useState<Set<string>>(new Set());
   const [regAcked, setRegAcked] = useState<Set<string>>(new Set());
   const [confirmingShoot, setConfirmingShoot] = useState<string | null>(null);
-  const [editingPendingId, setEditingPendingId] = useState<string | null>(null);
-  const [proposedTime, setProposedTime] = useState("");
-  const [proposedMessage, setProposedMessage] = useState("");
-  const [sendingRebuttal, setSendingRebuttal] = useState(false);
+  const [pendingModalId, setPendingModalId] = useState<string | null>(null);
   const [rebuttalSentId, setRebuttalSentId] = useState<string | null>(null);
 
   // Drag-resizable split between the Schedule/Board section and the Pending
@@ -304,34 +303,20 @@ function DashboardV2Page() {
     }
   }
 
-  function toDatetimeLocal(iso: string) {
-    const d = new Date(iso);
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 16);
-  }
-
-  function openEditPending(s: PendingShootPreview) {
-    setEditingPendingId(s.id);
-    setProposedTime(s.scheduled_at ? toDatetimeLocal(s.scheduled_at) : "");
-    setProposedMessage("");
-    setRebuttalSentId(null);
-  }
-
-  async function sendRebuttal(id: string) {
-    if (!proposedTime) return;
-    setSendingRebuttal(true);
-    const res = await fetch("/api/admin/reschedule-request", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shootId: id, proposedTime: new Date(proposedTime).toISOString(), message: proposedMessage || undefined }),
-    });
-    setSendingRebuttal(false);
-    if (res.ok) {
-      const newIso = new Date(proposedTime).toISOString();
-      setPendingShoots(prev => prev.map(s => s.id === id ? { ...s, scheduled_at: newIso } : s));
-      setEditingPendingId(null);
-      setRebuttalSentId(id);
-      setTimeout(() => setRebuttalSentId(cur => cur === id ? null : cur), 4000);
-    }
+  function onPendingProposed(id: string, proposedIso: string) {
+    // Reflect the rebuttal locally: the shoot stays pending, but scheduled_at
+    // now points at our proposed time and the notes carry the REBUTTAL marker.
+    setPendingShoots(prev => prev.map(s => s.id === id
+      ? {
+          ...s,
+          scheduled_at: proposedIso,
+          notes: s.notes && /^\[REBUTTAL:/.test(s.notes)
+            ? s.notes.replace(/^\[REBUTTAL:([^|]+)\|[^\]]+\]/, `[REBUTTAL:$1|${proposedIso}]`)
+            : `[REBUTTAL:${s.scheduled_at || proposedIso}|${proposedIso}]${s.notes ? `\n${s.notes}` : ""}`,
+        }
+      : s));
+    setRebuttalSentId(id);
+    setTimeout(() => setRebuttalSentId(cur => cur === id ? null : cur), 4000);
   }
 
   // Auto-refresh the shoot board every 30s while it's the active view, matching the live board page
@@ -741,9 +726,9 @@ function DashboardV2Page() {
                                 className="text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#4ade80] hover:bg-[#34d399] px-2.5 py-1 transition-colors disabled:opacity-40">
                                 {confirmingShoot === s.id ? "Confirming…" : "Confirm & Notify"}
                               </button>
-                              <button onClick={() => openEditPending(s)}
+                              <button onClick={() => setPendingModalId(s.id)}
                                 className="text-[10px] tracking-[1px] uppercase font-bold text-[#fbbf24] border border-[#fbbf24]/30 hover:bg-[#fbbf24]/10 px-2.5 py-1 transition-colors">
-                                Edit
+                                {s.notes && /^\[REBUTTAL:/.test(s.notes) ? "Reschedule" : "Confirm / Reschedule"}
                               </button>
                               {isUnacked && (
                                 <button onClick={() => ackPendingShoot(s.id)} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">
@@ -890,57 +875,17 @@ function DashboardV2Page() {
 
       </div>{/* end sliding track */}
 
-      {/* Reschedule-request modal — propose a new time for a pending booking */}
-      {editingPendingId && (() => {
-        const s = pendingShoots.find(p => p.id === editingPendingId);
+      {/* Confirm-or-reschedule a pending booking request */}
+      {pendingModalId && (() => {
+        const s = pendingShoots.find(p => p.id === pendingModalId);
         if (!s) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditingPendingId(null)}>
-            <div className="absolute inset-0 bg-black/70" />
-            <div
-              className="relative bg-[#141414] border border-[#fbbf24]/30 w-full max-w-lg p-6"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between mb-1">
-                <div>
-                  <p className="text-[10px] tracking-[3px] uppercase text-[#fbbf24]">Propose a New Time</p>
-                  <p className="text-sm font-semibold mt-1">{s.address}</p>
-                </div>
-                <button onClick={() => setEditingPendingId(null)} className="text-white/40 hover:text-white transition-colors text-lg leading-none shrink-0">✕</button>
-              </div>
-              <p className="text-xs text-white/50 leading-relaxed mt-3 mb-5">
-                Their requested time doesn't work? Propose a new one below — it updates the shoot and emails {s.client_name || "the realtor"} asking them to confirm or suggest another time.
-              </p>
-
-              <p className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5">New Date &amp; Time</p>
-              <input
-                type="datetime-local"
-                value={proposedTime}
-                onChange={e => setProposedTime(e.target.value)}
-                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 w-full mb-4"
-              />
-
-              <p className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5">Note (optional)</p>
-              <textarea
-                value={proposedMessage}
-                onChange={e => setProposedMessage(e.target.value)}
-                placeholder="e.g. why the original time doesn't work…"
-                rows={4}
-                className="bg-[#181818] border border-white/10 text-white text-sm px-4 py-3 outline-none focus:border-white/30 w-full resize-none placeholder:text-white/20 mb-5"
-              />
-
-              <div className="flex gap-3">
-                <button onClick={() => sendRebuttal(s.id)} disabled={sendingRebuttal || !proposedTime}
-                  className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-[#fbbf24] hover:bg-[#fbbf24]/90 py-3 transition-colors disabled:opacity-40">
-                  {sendingRebuttal ? "Sending…" : "Send Rebuttal"}
-                </button>
-                <button onClick={() => setEditingPendingId(null)}
-                  className="text-xs tracking-[2px] uppercase text-white/50 hover:text-white px-6 py-3 border border-white/10 hover:border-white/30 transition-colors">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+          <PendingShootModal
+            shoot={s}
+            onClose={() => setPendingModalId(null)}
+            onConfirmed={id => setPendingShoots(prev => prev.filter(p => p.id !== id))}
+            onProposed={onPendingProposed}
+          />
         );
       })()}
     </div>

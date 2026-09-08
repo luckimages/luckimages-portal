@@ -97,7 +97,9 @@ export async function POST(req: Request) {
           html: rescheduleEmailHtml(
             clientFirstName,
             shoot.address,
-            originalTime ? whenStr(originalTime) : null,
+            // Always contrast against what the realtor actually asked for,
+            // not our own last counter-proposal.
+            trueOriginal ? whenStr(trueOriginal) : null,
             whenStr(proposedTime),
             message || null
           ),
