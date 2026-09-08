@@ -616,8 +616,9 @@ export default function ClientPage() {
                 </button>
               </div>
 
-              {/* Team block */}
-              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+              {/* Team block — self-start so it hugs its content instead of
+                  stretching to match the Review + Referral stack beside it */}
+              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4 self-start">
                 {team ? (
                   <>
                     <div>
