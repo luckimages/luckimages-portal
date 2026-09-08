@@ -86,13 +86,14 @@ function calcQuote(services: string[], sqft: string): { low: number; exact: bool
 // Property Access is folded into the notes column with an "ACCESS: " prefix
 // (same convention the admin board's shoot editor uses) so it round-trips.
 // A pending reschedule proposal from the admin side is stashed as a leading
-// "[REBUTTAL:<originalISO>:<proposedISO>]" line in notes (no dedicated
-// column for it) — stripped here before the existing ACCESS:/free-notes
-// parsing runs, so it never leaks into the notes the realtor can edit.
-// Cleared by the admin confirming the booking.
+// "[REBUTTAL:<originalISO>|<proposedISO>]" line in notes (no dedicated
+// column for it) — pipe-delimited since ISO timestamps contain colons
+// themselves. Stripped here before the existing ACCESS:/free-notes parsing
+// runs, so it never leaks into the notes the realtor can edit. Cleared by
+// the admin confirming the booking.
 function parseRebuttal(raw: string | null): { original: string | null; proposed: string | null; rest: string } {
   const str = raw || "";
-  const m = str.match(/^\[REBUTTAL:([^:]+):([^\]]+)\]\n?([\s\S]*)$/);
+  const m = str.match(/^\[REBUTTAL:([^|]+)\|([^\]]+)\]\n?([\s\S]*)$/);
   if (m) return { original: m[1], proposed: m[2], rest: m[3] || "" };
   return { original: null, proposed: null, rest: str };
 }

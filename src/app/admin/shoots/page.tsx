@@ -165,13 +165,14 @@ const ALERT_STYLES: Record<string, { border: string; bg: string; dot: string; te
 };
 
 // A pending reschedule proposal is stashed as a leading
-// "[REBUTTAL:<originalISO>:<proposedISO>]" line in notes (see
-// api/admin/reschedule-request) — stripped here before the ACCESS:/free-notes
+// "[REBUTTAL:<originalISO>|<proposedISO>]" line in notes (see
+// api/admin/reschedule-request) — pipe-delimited since ISO timestamps
+// contain colons themselves. Stripped here before the ACCESS:/free-notes
 // parsing runs, so it never leaks into the notes shown/editable here. Cleared
 // by confirm-booking once the admin locks the time in.
 function parseRebuttal(raw: string | null): { original: string | null; proposed: string | null; rest: string } {
   const str = raw || "";
-  const m = str.match(/^\[REBUTTAL:([^:]+):([^\]]+)\]\n?([\s\S]*)$/);
+  const m = str.match(/^\[REBUTTAL:([^|]+)\|([^\]]+)\]\n?([\s\S]*)$/);
   if (m) return { original: m[1], proposed: m[2], rest: m[3] || "" };
   return { original: null, proposed: null, rest: str };
 }

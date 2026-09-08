@@ -65,16 +65,17 @@ export async function POST(req: Request) {
 
   // Stash "originally requested vs. now proposed" so the realtor portal can
   // show both — no dedicated column for this, so it's a leading
-  // "[REBUTTAL:<original>:<proposed>]" line in notes (client/page.tsx and
+  // "[REBUTTAL:<original>|<proposed>]" line in notes (pipe-delimited since
+  // ISO timestamps contain colons themselves; client/page.tsx and
   // admin/shoots/page.tsx both strip it before displaying/editing notes).
   // If a rebuttal was already pending, keep the TRUE original rather than
   // overwriting it with the last-proposed time.
   const existingNotes = shoot.notes || "";
-  const existingMatch = existingNotes.match(/^\[REBUTTAL:([^:]+):([^\]]+)\]\n?([\s\S]*)$/);
+  const existingMatch = existingNotes.match(/^\[REBUTTAL:([^|]+)\|([^\]]+)\]\n?([\s\S]*)$/);
   const trueOriginal = existingMatch ? existingMatch[1] : originalTime;
   const restOfNotes = existingMatch ? existingMatch[3] : existingNotes;
   const newNotes = trueOriginal
-    ? `[REBUTTAL:${trueOriginal}:${proposedTime}]${restOfNotes ? `\n${restOfNotes}` : ""}`
+    ? `[REBUTTAL:${trueOriginal}|${proposedTime}]${restOfNotes ? `\n${restOfNotes}` : ""}`
     : restOfNotes; // no prior time on file to contrast against — skip the marker
 
   const { error: updErr } = await db.from("shoots").update({ scheduled_at: proposedTime, notes: newNotes }).eq("id", shootId);

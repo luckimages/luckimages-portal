@@ -30,10 +30,10 @@ export async function POST(req: Request) {
   const finalPhotographers = photographerIds && photographerIds.length ? photographerIds : shoot.photographer_ids;
 
   // Confirming settles any pending reschedule negotiation — strip the
-  // leading "[REBUTTAL:<original>:<proposed>]" marker (see
+  // leading "[REBUTTAL:<original>|<proposed>]" marker (see
   // reschedule-request/route.ts) so it doesn't leak into the calendar
   // invite description or linger once there's nothing left to compare.
-  const cleanNotes = (shoot.notes || "").replace(/^\[REBUTTAL:[^:]+:[^\]]+\]\n?/, "") || null;
+  const cleanNotes = (shoot.notes || "").replace(/^\[REBUTTAL:[^|]+\|[^\]]+\]\n?/, "") || null;
 
   // Update the shoot → confirmed/scheduled
   const { error: updErr } = await db.from("shoots").update({
