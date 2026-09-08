@@ -698,21 +698,60 @@ export default function ClientPage() {
                 )}
               </div>
 
-              {/* Leave a Review block */}
-              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
-                <div>
-                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Leave a Review</p>
-                  <p className="text-xs text-[#666]">Enjoyed working with us? A Google review helps other realtors find us.</p>
-                  <p className="text-2xl mt-3 tracking-widest">★★★★★</p>
+              {/* Review + Referral — stacked to pair with the Team box */}
+              <div className="flex flex-col gap-4">
+
+                {/* Leave a Review block */}
+                <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-3">
+                  <div>
+                    <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Leave a Review</p>
+                    <p className="text-xs text-[#666]">Enjoyed working with us? A Google review helps other realtors find us.</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mt-auto">
+                    <span className="text-xl tracking-widest leading-none">★★★★★</span>
+                    <a
+                      href="https://search.google.com/local/writereview?placeid=ChIJHe2jnlT862ifXEoTm94j1A"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs tracking-[2px] uppercase border border-white/20 py-2.5 px-4 hover:bg-white/5 transition-colors whitespace-nowrap"
+                    >
+                      Review on Google →
+                    </a>
+                  </div>
                 </div>
-                <a
-                  href="https://search.google.com/local/writereview?placeid=ChIJHe2jnlT862ifXEoTm94j1A"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-auto text-xs tracking-[3px] uppercase border border-white/20 py-3 px-6 text-center hover:bg-white/5 transition-colors"
-                >
-                  Review on Google →
-                </a>
+
+                {/* Refer a Realtor block */}
+                <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-3">
+                  <div>
+                    <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Refer a Realtor</p>
+                    <p className="text-xs text-[#666]">Know an agent who needs great media? Drop their info and we&apos;ll set them up with an account and take care of them.</p>
+                  </div>
+                  {referralStatus === "sent" ? (
+                    <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-3 text-center">
+                      <p className="text-[#4ade80] text-xs">Referral sent — we&apos;ll reach out to them.</p>
+                      <button onClick={() => { setReferralStatus(""); setReferral({ name: "", email: "" }); }} className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white mt-1 transition-colors">Refer Another</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={async e => {
+                      e.preventDefault();
+                      setReferralStatus("sending");
+                      const res = await fetch("/api/portal/referral", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ friendName: referral.name, friendEmail: referral.email }),
+                      });
+                      setReferralStatus(res.ok ? "sent" : "error");
+                    }} className="flex flex-col gap-2 mt-auto">
+                      <input required value={referral.name} onChange={e => setReferral(r => ({ ...r, name: e.target.value }))} placeholder="Name" className={inputCls} />
+                      <input required type="email" value={referral.email} onChange={e => setReferral(r => ({ ...r, email: e.target.value }))} placeholder="Email" className={inputCls} />
+                      {referralStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again or email ryan@luckimages.com.</p>}
+                      <button type="submit" disabled={referralStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                        {referralStatus === "sending" ? "Sending..." : "Send Referral →"}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
               </div>
 
             </div>
