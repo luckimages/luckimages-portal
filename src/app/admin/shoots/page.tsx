@@ -11,6 +11,7 @@ import AddressMapPicker from "@/components/AddressMapPicker";
 import ShootLocationMap from "@/components/ShootLocationMap";
 import PendingShootModal from "@/components/PendingShootModal";
 import { avatarUrl } from "@/lib/avatarUrl";
+import { useVisiblePolling } from "@/lib/useVisiblePolling";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -714,12 +715,9 @@ function ShootsPage() {
     });
   }, [router, loadShoots]);
 
-  // Auto-refresh board every 30s
-  useEffect(() => {
-    if (view !== "board") return;
-    const id = setInterval(loadShoots, 30000);
-    return () => clearInterval(id);
-  }, [view, loadShoots]);
+  // Auto-refresh the board every 2 min, and only while the tab is visible —
+  // the Log view doesn't poll at all. Manual "↻ Refresh" is always available.
+  useVisiblePolling(loadShoots, 120000, view === "board");
 
   // Arrow key navigation
   useEffect(() => {

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import PendingShootModal from "@/components/PendingShootModal";
+import { useVisiblePolling } from "@/lib/useVisiblePolling";
 
 const APPS = [
   { label: "Contacts",    href: "/admin/contacts",        color: "#888" },
@@ -319,12 +320,9 @@ function DashboardV2Page() {
     setTimeout(() => setRebuttalSentId(cur => cur === id ? null : cur), 4000);
   }
 
-  // Auto-refresh the shoot board every 30s while it's the active view, matching the live board page
-  useEffect(() => {
-    if (!checked || middleView !== "board") return;
-    const id = setInterval(loadShoots, 30000);
-    return () => clearInterval(id);
-  }, [checked, middleView, loadShoots]);
+  // Auto-refresh the shoot board every 2 min while it's the active view, and
+  // only while the tab is visible. Manual refresh button is in the board header.
+  useVisiblePolling(loadShoots, 120000, checked && middleView === "board");
 
   // Header fade cycle every 15s
   useEffect(() => {
@@ -541,7 +539,10 @@ function DashboardV2Page() {
               </div>
             )}
             {middleView === "board" && (
-              <a href="/dashboard/board" className="text-[10px] tracking-[2px] uppercase text-white/40 hover:text-white/70 transition-colors">Full Board →</a>
+              <div className="flex items-center gap-3">
+                <button onClick={() => loadShoots()} className="text-[10px] tracking-[2px] uppercase text-white/40 hover:text-white/70 transition-colors">↻ Refresh</button>
+                <a href="/dashboard/board" className="text-[10px] tracking-[2px] uppercase text-white/40 hover:text-white/70 transition-colors">Full Board →</a>
+              </div>
             )}
           </div>
 

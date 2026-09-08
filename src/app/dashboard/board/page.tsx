@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
 import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl } from "@/lib/avatarUrl";
+import { useVisiblePolling } from "@/lib/useVisiblePolling";
 
 type Shoot = {
   id: string;
@@ -572,11 +573,8 @@ export default function BoardPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
-  }, [load]);
+  // Initial load + auto-refresh every 2 min, but only while the tab is visible.
+  useVisiblePolling(load, 120000);
 
   const activeStages = STAGES;
 

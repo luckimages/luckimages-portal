@@ -9,6 +9,25 @@ function service() {
   return createAdminClient();
 }
 
+// The board polls this route on a loop. Pulling every auth user (up to 1000
+// records) on every poll just to map a handful of client ids → emails was a
+// big chunk of our Supabase egress, so cache that id→email map in the warm
+// lambda for 5 minutes. Emails effectively never change; worst case a
+// brand-new client's email takes up to 5 min to appear (their name shows
+// immediately — that comes from `profiles`).
+type EmailCache = { at: number; map: Record<string, string> };
+let emailCache: EmailCache | null = null;
+const EMAIL_CACHE_MS = 5 * 60 * 1000;
+
+async function getClientEmailMap(supabase: ReturnType<typeof createAdminClient>): Promise<Record<string, string>> {
+  if (emailCache && Date.now() - emailCache.at < EMAIL_CACHE_MS) return emailCache.map;
+  const map: Record<string, string> = {};
+  const { data } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  for (const u of data?.users ?? []) if (u.email) map[u.id] = u.email;
+  emailCache = { at: Date.now(), map };
+  return map;
+}
+
 export async function GET(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -58,10 +77,10 @@ export async function GET(req: Request) {
       nameMap[p.id] = p.full_name ?? "";
     }
 
-    // Also grab emails from auth
-    const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    for (const u of users?.users ?? []) {
-      if (clientIds.includes(u.id)) emailMap[u.id] = u.email ?? "";
+    // Emails from auth, via the 5-minute cache (see getClientEmailMap)
+    const allEmails = await getClientEmailMap(supabase);
+    for (const id of clientIds) {
+      if (allEmails[id]) emailMap[id] = allEmails[id];
     }
   }
 
