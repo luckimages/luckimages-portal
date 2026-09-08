@@ -1,5 +1,5 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { createShootEvent } from "@/lib/googleCalendar";
+import { createShootEvent, deleteShootEvent } from "@/lib/googleCalendar";
 import { CLIENT_EMAILS_ENABLED } from "@/lib/constants";
 
 function service() {
@@ -78,6 +78,7 @@ export async function notifyShootBooked({
   contactId,
   clientId,
   photographerIds,
+  shootId,
 }: {
   address: string;
   scheduledAt: string | null | undefined;
@@ -86,7 +87,10 @@ export async function notifyShootBooked({
   contactId?: string | null;
   clientId?: string | null;
   photographerIds?: string[];
-}): Promise<{ calendarOk: boolean; emailed: boolean; clientEmail?: string }> {
+  /** When given, the created calendar event id is persisted to this shoot so
+   *  it can be deleted/updated later (e.g. on cancellation). */
+  shootId?: string | null;
+}): Promise<{ calendarOk: boolean; emailed: boolean; clientEmail?: string; calendarEventId?: string }> {
   const db = service();
   const { clientFirstName, clientFullName, clientEmail, clientPhone } = await resolveClientContact(contactId, clientId);
 
@@ -97,9 +101,10 @@ export async function notifyShootBooked({
   }
 
   let calendarOk = false;
+  let calendarEventId: string | undefined;
   if (scheduledAt) {
     try {
-      await createShootEvent({
+      const ev = await createShootEvent({
         address,
         scheduledAt,
         services: services || [],
@@ -110,6 +115,16 @@ export async function notifyShootBooked({
         photographerEmails,
       });
       calendarOk = true;
+      calendarEventId = ev?.id || undefined;
+
+      // Persist the event id so a later cancel can delete it. Degrade
+      // gracefully if the column isn't in this environment yet.
+      if (shootId && calendarEventId) {
+        const { error } = await db.from("shoots").update({ calendar_event_id: calendarEventId }).eq("id", shootId);
+        if (error && !error.message?.includes("calendar_event_id")) {
+          console.error("notifyShootBooked: could not save calendar_event_id", error);
+        }
+      }
     } catch (e) {
       console.error("notifyShootBooked: calendar event failed", e);
     }
@@ -139,5 +154,24 @@ export async function notifyShootBooked({
     }
   }
 
-  return { calendarOk, emailed, clientEmail };
+  return { calendarOk, emailed, clientEmail, calendarEventId };
+}
+
+// Delete a shoot's Google Calendar event (attendees get a cancellation
+// notice) and clear the stored id. Called when a shoot is cancelled from
+// either the admin board or the realtor portal. No-ops quietly when the
+// shoot has no event on file or the column doesn't exist yet.
+export async function removeShootCalendarEvent(shootId: string): Promise<void> {
+  if (!shootId) return;
+  const db = service();
+  const { data, error } = await db.from("shoots").select("calendar_event_id").eq("id", shootId).single();
+  if (error) {
+    if (!error.message?.includes("calendar_event_id")) console.error("removeShootCalendarEvent: lookup failed", error);
+    return;
+  }
+  const eventId = data?.calendar_event_id;
+  if (!eventId) return;
+
+  await deleteShootEvent(eventId);
+  await db.from("shoots").update({ calendar_event_id: null }).eq("id", shootId);
 }

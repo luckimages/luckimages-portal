@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
+import { removeShootCalendarEvent } from "@/lib/shootConfirmation";
 
 // A realtor edits or cancels a shoot they booked themselves. Ownership is
 // checked server-side (client_id or linked contact_id must match the caller)
@@ -36,6 +37,11 @@ export async function PATCH(req: Request) {
   if (cancel) {
     const { error } = await db.from("shoots").update({ status: "cancelled" }).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Pull the Google Calendar event so the team + photographers stop
+    // seeing it and reminders stop firing.
+    try { await removeShootCalendarEvent(id); }
+    catch (e) { console.error("portal cancel: calendar event cleanup failed", e); }
 
     await db.from("company_updates").insert({
       message: `🚫 Booking cancelled by client — ${shoot.address || ""}`.trim(),

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
 import { notifyDelivery } from "@/lib/deliveryInvoice";
-import { notifyShootBooked } from "@/lib/shootConfirmation";
+import { notifyShootBooked, removeShootCalendarEvent } from "@/lib/shootConfirmation";
 import { createConfirmationInvoice } from "@/lib/confirmationInvoice";
 
 function service() {
@@ -168,6 +168,7 @@ export async function POST(req: Request) {
         contactId: contact_id || null,
         clientId: resolvedClientId,
         photographerIds: photographer_ids || [],
+        shootId: data.id,
       });
     } catch (e) { console.error("notifyShootBooked failed:", e); }
   }
@@ -264,6 +265,13 @@ export async function PATCH(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Shoot cancelled — pull its Google Calendar event so Leif, the client and
+  // photographers stop seeing it (and stop getting reminders).
+  if (status === "cancelled" && shoot?.status !== "cancelled") {
+    try { await removeShootCalendarEvent(id); }
+    catch (e) { console.error("cancel: calendar event cleanup failed", e); }
+  }
+
   // First time this shoot reaches "delivered" — notify the client their media
   // is ready. Invoice was already created at confirmation; this just sends the
   // "photos are ready" email + SMS.
@@ -318,9 +326,11 @@ export async function PATCH(req: Request) {
     } catch (e) { console.error("Push notification failed:", e); }
   }
 
-  // Only fire the calendar invite + confirmation email when transitioning
-  // pending → scheduled (not on every edit to an already-scheduled shoot).
-  if (status === "scheduled" && shoot?.scheduled_at && shoot?.status === "pending") {
+  // Fire the calendar invite + confirmation email when a shoot becomes
+  // scheduled from pending (normal confirm) or from cancelled (un-cancel) —
+  // in both cases there's no live calendar event, so create a fresh one.
+  // Not on every edit to an already-scheduled shoot.
+  if (status === "scheduled" && shoot?.scheduled_at && (shoot?.status === "pending" || shoot?.status === "cancelled")) {
     try {
       await notifyShootBooked({
         address: shoot.address,
@@ -330,6 +340,7 @@ export async function PATCH(req: Request) {
         contactId: contact_id ?? shoot.contact_id,
         clientId: shoot.client_id,
         photographerIds: photographer_ids ?? shoot.photographer_ids ?? [],
+        shootId: id,
       });
     } catch (calErr) {
       console.error("notifyShootBooked failed:", calErr);

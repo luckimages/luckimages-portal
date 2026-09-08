@@ -59,6 +59,7 @@ export async function POST(req: Request) {
     contactId: shoot.contact_id,
     clientId: shoot.client_id,
     photographerIds: finalPhotographers || [],
+    shootId,
   });
 
   const whenStr = new Date(finalTime).toLocaleString("en-US", {

@@ -94,3 +94,26 @@ export async function createShootEvent({
 
   return event.data;
 }
+
+// Remove a shoot's calendar event (e.g. the shoot was cancelled). Emails a
+// cancellation notice to every attendee. Safe to call with a stale/unknown
+// id — Google returns 404/410 and we swallow it.
+export async function deleteShootEvent(eventId: string): Promise<boolean> {
+  if (!eventId) return false;
+  const auth = getOAuthClient();
+  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN! });
+  const calendar = google.calendar({ version: "v3", auth });
+  try {
+    await calendar.events.delete({
+      calendarId: "ryan@luckimages.com",
+      eventId,
+      sendUpdates: "all",
+    });
+    return true;
+  } catch (e: unknown) {
+    const code = (e as { code?: number })?.code;
+    if (code === 404 || code === 410) return false; // already gone
+    console.error("deleteShootEvent failed", e);
+    return false;
+  }
+}
