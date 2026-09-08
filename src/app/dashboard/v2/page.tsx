@@ -824,8 +824,11 @@ function DashboardV2Page() {
           const activeApp = visibleApps.find(a => a.label === activeLabel) ?? null;
           return (
             <div className="hidden md:flex flex-1 min-h-0">
-              {/* Sidebar */}
-              <div className="w-20 flex flex-col justify-center border-r border-white/10 overflow-y-auto shrink-0">
+              {/* Sidebar — justify-start (not center): on a shorter window the
+                  app list can be taller than the sidebar, and centering it
+                  pushed the top item above the visible area with no obvious
+                  way to scroll back up to it. */}
+              <div className="w-20 flex flex-col justify-start border-r border-white/10 overflow-y-auto shrink-0">
                 {visibleApps.map(app => {
                   const isActive = app.label === activeLabel;
                   return (
