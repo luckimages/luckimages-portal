@@ -127,6 +127,11 @@ function DashboardV2Page() {
   const [pendingAcked, setPendingAcked] = useState<Set<string>>(new Set());
   const [regAcked, setRegAcked] = useState<Set<string>>(new Set());
   const [confirmingShoot, setConfirmingShoot] = useState<string | null>(null);
+  const [editingPendingId, setEditingPendingId] = useState<string | null>(null);
+  const [proposedTime, setProposedTime] = useState("");
+  const [proposedMessage, setProposedMessage] = useState("");
+  const [sendingRebuttal, setSendingRebuttal] = useState(false);
+  const [rebuttalSentId, setRebuttalSentId] = useState<string | null>(null);
   const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
   const [headerFlip, setHeaderFlip] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -252,6 +257,36 @@ function DashboardV2Page() {
     if (res.ok) {
       await ackPendingShoot(id);
       setPendingShoots(prev => prev.filter(s => s.id !== id));
+    }
+  }
+
+  function toDatetimeLocal(iso: string) {
+    const d = new Date(iso);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+
+  function openEditPending(s: PendingShootPreview) {
+    setEditingPendingId(s.id);
+    setProposedTime(s.scheduled_at ? toDatetimeLocal(s.scheduled_at) : "");
+    setProposedMessage("");
+    setRebuttalSentId(null);
+  }
+
+  async function sendRebuttal(id: string) {
+    if (!proposedTime) return;
+    setSendingRebuttal(true);
+    const res = await fetch("/api/admin/reschedule-request", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shootId: id, proposedTime: new Date(proposedTime).toISOString(), message: proposedMessage || undefined }),
+    });
+    setSendingRebuttal(false);
+    if (res.ok) {
+      const newIso = new Date(proposedTime).toISOString();
+      setPendingShoots(prev => prev.map(s => s.id === id ? { ...s, scheduled_at: newIso } : s));
+      setEditingPendingId(null);
+      setRebuttalSentId(id);
+      setTimeout(() => setRebuttalSentId(cur => cur === id ? null : cur), 4000);
     }
   }
 
@@ -650,12 +685,50 @@ function DashboardV2Page() {
                                 className="text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#4ade80] hover:bg-[#34d399] px-2.5 py-1 transition-colors disabled:opacity-40">
                                 {confirmingShoot === s.id ? "Confirming…" : "Confirm & Notify"}
                               </button>
+                              <button onClick={() => editingPendingId === s.id ? setEditingPendingId(null) : openEditPending(s)}
+                                className="text-[10px] tracking-[1px] uppercase font-bold text-[#fbbf24] border border-[#fbbf24]/30 hover:bg-[#fbbf24]/10 px-2.5 py-1 transition-colors">
+                                Edit
+                              </button>
                               {isUnacked && (
                                 <button onClick={() => ackPendingShoot(s.id)} className="text-[10px] text-white/40 hover:text-white/70 transition-colors">
                                   Acknowledge
                                 </button>
                               )}
+                              {rebuttalSentId === s.id && (
+                                <span className="text-[10px] text-[#4ade80]">Sent ✓</span>
+                              )}
                             </div>
+
+                            {editingPendingId === s.id && (
+                              <div className="mt-2 p-2.5 bg-black/40 border border-white/10 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
+                                <p className="text-[10px] text-white/50 leading-relaxed">
+                                  Their requested time doesn't work? Propose a new one — it updates the shoot and emails {s.client_name || "the realtor"} asking them to confirm or suggest another time.
+                                </p>
+                                <input
+                                  type="datetime-local"
+                                  value={proposedTime}
+                                  onChange={e => setProposedTime(e.target.value)}
+                                  className="bg-[#181818] border border-white/10 text-white text-xs px-2.5 py-2 outline-none focus:border-white/30 w-full"
+                                />
+                                <textarea
+                                  value={proposedMessage}
+                                  onChange={e => setProposedMessage(e.target.value)}
+                                  placeholder="Optional note (e.g. why the original time doesn't work)…"
+                                  rows={2}
+                                  className="bg-[#181818] border border-white/10 text-white text-xs px-2.5 py-2 outline-none focus:border-white/30 w-full resize-none placeholder:text-white/20"
+                                />
+                                <div className="flex gap-2">
+                                  <button onClick={() => sendRebuttal(s.id)} disabled={sendingRebuttal || !proposedTime}
+                                    className="flex-1 text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#fbbf24] hover:bg-[#fbbf24]/90 px-2.5 py-1.5 transition-colors disabled:opacity-40">
+                                    {sendingRebuttal ? "Sending…" : "Send Rebuttal"}
+                                  </button>
+                                  <button onClick={() => setEditingPendingId(null)}
+                                    className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white/70 px-2.5 py-1.5 border border-white/10 transition-colors">
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
