@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import HomeNav from "@/components/HomeNav";
 import AddressMapPicker from "@/components/AddressMapPicker";
+import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 
 
@@ -1205,6 +1206,12 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
           <span className={`text-[#555] text-sm transition-transform ${expanded ? "rotate-90" : ""}`}>▸</span>
         </div>
       </button>
+
+      {shoot.lat != null && shoot.lng != null && (
+        <div className="mt-2">
+          <ShootLocationMap lat={shoot.lat} lng={shoot.lng} address={shoot.address} />
+        </div>
+      )}
 
       {expanded && (
         <div className="mt-4 bg-white/[0.02] border border-white/10 p-4">

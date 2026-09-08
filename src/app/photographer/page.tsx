@@ -5,12 +5,14 @@ import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import ShootGallery from "@/components/ShootGallery";
+import ShootLocationMap from "@/components/ShootLocationMap";
 
 const r2PublicBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL;
 
 type Shoot = {
   id: string; address: string; scheduled_at: string;
   services: string[]; status: string; notes: string;
+  lat?: number | null; lng?: number | null;
 };
 type PayStub = {
   id: string; amount_cents: number; paid: boolean;
@@ -283,9 +285,12 @@ export default function PhotographerPage() {
                     const statusColor = s.status === "delivered" ? "#4ade80" : s.status === "editing" ? "#a78bfa" : s.status === "on_site" || s.status === "wrapping" ? "#fbbf24" : "#60a5fa";
                     return (
                       <div key={s.id} className="bg-[#111] border border-white/10 p-5">
-                        <div className="flex items-start justify-between mb-2">
-                          <p className="font-medium">{s.address}</p>
-                          <span className="text-xs tracking-[1px] uppercase px-2 py-1" style={{ backgroundColor: `${statusColor}18`, color: statusColor }}>{s.status.replace("_", " ")}</span>
+                        <div className="flex items-start justify-between mb-2 gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium">{s.address}</p>
+                            <div className="mt-1"><ShootLocationMap lat={s.lat} lng={s.lng} address={s.address} /></div>
+                          </div>
+                          <span className="text-xs tracking-[1px] uppercase px-2 py-1 shrink-0" style={{ backgroundColor: `${statusColor}18`, color: statusColor }}>{s.status.replace("_", " ")}</span>
                         </div>
                         <p className="text-xs text-[#555] mb-1">{new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} at {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>
                         <p className="text-xs text-[#666] mb-3">{s.services?.join(" · ")}</p>

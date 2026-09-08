@@ -8,10 +8,20 @@ function getOAuthClient() {
   );
 }
 
-// Google Places returns "123 Main St, City, ST ZIP, Country" — the calendar
-// title only wants the street portion, not the whole formatted address.
+// Geocoders return the street portion in one of two shapes:
+//   "123 Main St, City, ST ZIP, Country"   → street number + name in segment 0
+//   "123, Main St, Neighborhood, City, ..." → street number split into its own
+//                                             segment (Nominatim house numbers)
+// The calendar title wants "123 Main St" — the number and street name, but no
+// city, neighborhood, county, state, or ZIP.
 function streetOnly(address: string): string {
-  return address.split(",")[0].trim() || address.trim();
+  const segments = address.split(",").map(s => s.trim()).filter(Boolean);
+  if (segments.length === 0) return address.trim();
+  // Leading bare house number → join it with the next segment (the street name).
+  if (/^\d+[a-z]?$/i.test(segments[0]) && segments[1]) {
+    return `${segments[0]} ${segments[1]}`;
+  }
+  return segments[0];
 }
 
 export async function createShootEvent({

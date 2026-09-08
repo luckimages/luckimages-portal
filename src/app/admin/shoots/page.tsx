@@ -8,6 +8,7 @@ import ContactAvatar from "@/components/ContactAvatar";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
 import AddressMapPicker from "@/components/AddressMapPicker";
+import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl } from "@/lib/avatarUrl";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -222,6 +223,11 @@ function BoardCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
         )}
       </div>
       <p className="text-[10px] text-[#666] truncate leading-snug">{shoot.address}</p>
+      {shoot.lat != null && shoot.lng != null && (
+        <div onClick={e => e.stopPropagation()}>
+          <ShootLocationMap lat={shoot.lat} lng={shoot.lng} address={shoot.address} />
+        </div>
+      )}
       {(shoot.package_name || shoot.services?.length > 0) && (
         <p className="text-[10px] text-[#444] truncate">
           {shoot.package_name || shoot.services?.slice(0, 2).join(", ")}
@@ -356,6 +362,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
               )}
             </div>
             <h2 className="text-lg font-black tracking-tight leading-tight">{shoot.address}</h2>
+            <div className="mt-1"><ShootLocationMap lat={shoot.lat} lng={shoot.lng} address={shoot.address} /></div>
             {shoot.scheduled_at && <p className="text-xs text-[#555] mt-1">{fmtScheduled(shoot.scheduled_at)}</p>}
             {shoot.drive_minutes != null && <p className="text-xs text-[#60a5fa] mt-1">🚗 {shoot.drive_minutes} min drive from home base</p>}
           </div>

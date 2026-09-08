@@ -3,11 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
+import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl } from "@/lib/avatarUrl";
 
 type Shoot = {
   id: string;
   address: string;
+  lat: number | null;
+  lng: number | null;
   scheduled_at: string | null;
   checked_in_at: string | null;
   delivered_at: string | null;
@@ -146,6 +149,11 @@ function ShootCard({ shoot, onClick }: { shoot: Shoot; onClick: () => void }) {
 
       {/* Address */}
       <p className="text-[10px] text-[#666] truncate leading-snug">{shoot.address}</p>
+      {shoot.lat != null && shoot.lng != null && (
+        <div onClick={e => e.stopPropagation()}>
+          <ShootLocationMap lat={shoot.lat} lng={shoot.lng} address={shoot.address} />
+        </div>
+      )}
 
       {/* Services / package */}
       {(shoot.package_name || shoot.services?.length > 0) && (
@@ -298,6 +306,7 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
               )}
             </div>
             <p className="text-sm font-semibold">{shoot.address}</p>
+            <div className="mt-1"><ShootLocationMap lat={shoot.lat} lng={shoot.lng} address={shoot.address} /></div>
             {!["pending", "cancelled", "delivered", "completed", "paid"].includes(shoot.status) && (
               <ShootTracker status={shoot.status} />
             )}
