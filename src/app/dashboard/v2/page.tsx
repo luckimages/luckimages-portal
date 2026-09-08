@@ -132,6 +132,50 @@ function DashboardV2Page() {
   const [proposedMessage, setProposedMessage] = useState("");
   const [sendingRebuttal, setSendingRebuttal] = useState(false);
   const [rebuttalSentId, setRebuttalSentId] = useState<string | null>(null);
+
+  // Drag-resizable split between the Schedule/Board section and the Pending
+  // Shoots / New Registrations row below it. bottomFraction is the bottom
+  // row's share of their shared space (0.15–0.75); 1/3 matches the old fixed
+  // flex-[2]/flex-[1] ratio, kept as the default. Persisted per-browser so it
+  // doesn't reset every visit.
+  const [bottomFraction, setBottomFraction] = useState(1 / 3);
+  const liveFractionRef = useRef(1 / 3);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("nocturne_dashboard_split");
+      const v = saved ? parseFloat(saved) : NaN;
+      if (!isNaN(v) && v >= 0.15 && v <= 0.75) {
+        setBottomFraction(v);
+        liveFractionRef.current = v;
+      }
+    } catch {}
+  }, []);
+
+  function onSplitPointerDown(e: React.PointerEvent) {
+    e.preventDefault();
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const startY = e.clientY;
+    const startFraction = liveFractionRef.current;
+    const containerHeight = container.getBoundingClientRect().height;
+
+    function move(ev: PointerEvent) {
+      const deltaY = ev.clientY - startY;
+      const deltaFraction = -deltaY / containerHeight;
+      const next = Math.min(0.75, Math.max(0.15, startFraction + deltaFraction));
+      liveFractionRef.current = next;
+      setBottomFraction(next);
+    }
+    function up() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      try { localStorage.setItem("nocturne_dashboard_split", String(liveFractionRef.current)); } catch {}
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
   const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
   const [headerFlip, setHeaderFlip] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -479,8 +523,12 @@ function DashboardV2Page() {
           </h1>
         </div>
 
+        {/* Middle + Bottom share their space via a drag-resizable split (default
+            matches the old fixed 2:1 ratio) */}
+        <div ref={splitContainerRef} className="flex-1 min-h-0 flex flex-col">
+
         {/* Middle ~2/3: Schedule / Shoot Board toggle */}
-        <div className="flex-[2] min-h-0 pb-8 flex flex-col">
+        <div className="min-h-0 pb-8 flex flex-col" style={{ flex: `${1 - bottomFraction} 1 0%` }}>
           <div className="flex items-center justify-between gap-3 pb-3 mb-3 shrink-0">
             <div className="flex items-center gap-3">
               <button
@@ -645,8 +693,16 @@ function DashboardV2Page() {
           )}
         </div>
 
+        {/* Drag handle — resizes the split between the section above and below */}
+        <div
+          onPointerDown={onSplitPointerDown}
+          className="shrink-0 h-4 -my-2 flex items-center justify-center cursor-row-resize group touch-none"
+        >
+          <div className="w-14 h-1 rounded-full bg-white/10 group-hover:bg-white/40 group-active:bg-white/60 transition-colors" />
+        </div>
+
         {/* Bottom third: Pending Shoots + New Registrations, side by side */}
-        <div className="flex-[1] min-h-0 pb-8 md:pb-10 flex gap-4">
+        <div className="min-h-0 pb-8 md:pb-10 flex gap-4" style={{ flex: `${bottomFraction} 1 0%` }}>
           {/* Pending Shoots */}
           <div className="flex-1 min-w-0 flex flex-col min-h-0 border-2 border-white px-4 pt-3">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20 shrink-0">
@@ -746,6 +802,8 @@ function DashboardV2Page() {
             </div>
           </div>
         </div>
+
+        </div>{/* end resizable split */}
       </div>
     </main>
       </div>{/* end page 1 */}
