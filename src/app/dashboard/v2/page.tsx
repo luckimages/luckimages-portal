@@ -398,7 +398,7 @@ function DashboardV2Page() {
   function shootsOnDay(d: Date) {
     const ds = d.toDateString();
     return shoots
-      .filter(s => s.scheduled_at && new Date(s.scheduled_at).toDateString() === ds)
+      .filter(s => s.status !== "cancelled" && s.scheduled_at && new Date(s.scheduled_at).toDateString() === ds)
       .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime());
   }
 
@@ -564,13 +564,10 @@ function DashboardV2Page() {
                         {dayShoots.length === 0 ? (
                           <p className="text-[10px] text-white/20 pt-1">—</p>
                         ) : dayShoots.map(s => (
-                          <a key={s.id} href="/dashboard/board" className="flex items-start gap-2 hover:bg-white/5 transition-colors rounded-sm py-1">
-                            <div className="w-1 h-full min-h-[32px] rounded-full shrink-0 mt-1" style={{ background: STATUS_COLOR[s.status] || "#888" }} />
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
-                              <p className="text-[10px] text-white/50 truncate">{s.address}</p>
-                              {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
-                            </div>
+                          <a key={s.id} href="/dashboard/board" className="block border rounded-sm px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0" style={{ borderColor: STATUS_COLOR[s.status] || "#888" }}>
+                            <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
+                            <p className="text-[10px] text-white/50 truncate">{s.address}</p>
+                            {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
                           </a>
                         ))}
                       </div>
@@ -593,13 +590,10 @@ function DashboardV2Page() {
                         {dayShoots.length === 0 ? (
                           <p className="text-[10px] text-white/20">—</p>
                         ) : dayShoots.map(s => (
-                          <a key={s.id} href="/dashboard/board" className="flex items-start gap-1.5 hover:bg-white/5 transition-colors rounded-sm py-1">
-                            <div className="w-1 min-h-[28px] rounded-full shrink-0 mt-0.5" style={{ background: STATUS_COLOR[s.status] || "#888" }} />
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-semibold text-white truncate">{s.client_name || "Client"}</p>
-                              <p className="text-[10px] text-white/50 truncate">{s.address}</p>
-                              {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
-                            </div>
+                          <a key={s.id} href="/dashboard/board" className="block border rounded-sm px-1.5 py-1 hover:bg-white/5 transition-colors min-w-0" style={{ borderColor: STATUS_COLOR[s.status] || "#888" }}>
+                            <p className="text-[11px] font-semibold text-white truncate">{s.client_name || "Client"}</p>
+                            <p className="text-[10px] text-white/50 truncate">{s.address}</p>
+                            {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
                           </a>
                         ))}
                       </div>
