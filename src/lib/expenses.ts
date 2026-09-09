@@ -150,12 +150,14 @@ export async function buildPnl(
   let incomeCents = 0;
   let paidCount = 0;
   const stripeLines: ExpenseLine[] = [];
+  const paidInRange: { shoot_id: string | null; amount_cents: number; fee_cents: number }[] = [];
   for (const inv of invoices ?? []) {
     const when = inv.paid_at ?? inv.created_at;
     if (!inRange(when)) continue;
     incomeCents += inv.amount_cents ?? 0;
     paidCount++;
     const fee = stripeFeeCents(inv.amount_cents ?? 0, stripePct, stripeFlat);
+    paidInRange.push({ shoot_id: inv.shoot_id, amount_cents: inv.amount_cents ?? 0, fee_cents: fee });
     if (fee > 0) {
       const addr = (inv.shoots as { address?: string } | null)?.address;
       stripeLines.push({
@@ -238,6 +240,38 @@ export async function buildPnl(
   }));
   const opsTotal = opLines.reduce((s, l) => s + l.amount_cents, 0);
 
+  // ── Leif's commission: 50% of profit on shoots HE sourced ────────────────
+  // Per the agreement, Leif gets 50% of profit only on shoots from a lead he
+  // generated (contacts.sourced_by ~ "Leif"). Shoot-level profit = invoice −
+  // that shoot's Stripe fee − editing − allocated gas. Company overhead (the
+  // operating budget) is not netted against his shoots.
+  let leifShareCents = 0;
+  const shootIds = [...new Set(paidInRange.map(p => p.shoot_id).filter((v): v is string => !!v))];
+  if (shootIds.length) {
+    const [{ data: attrShoots }, { data: shootGas }] = await Promise.all([
+      db.from("shoots").select("id, contact_id, editing_cost_cents").in("id", shootIds),
+      db.from("shoot_mileage").select("shoot_id, allocated_gas_cents").in("shoot_id", shootIds),
+    ]);
+    const contactIds = [...new Set((attrShoots ?? []).map(s => s.contact_id).filter((v): v is string => !!v))];
+    const { data: contacts } = contactIds.length
+      ? await db.from("contacts").select("id, sourced_by").in("id", contactIds)
+      : { data: [] as { id: string; sourced_by: string | null }[] };
+    const sourcedBy = new Map((contacts ?? []).map(c => [c.id, (c.sourced_by || "").toLowerCase()]));
+    const editingByShoot = new Map((attrShoots ?? []).map(s => [s.id, s.editing_cost_cents ?? 0]));
+    const contactByShoot = new Map((attrShoots ?? []).map(s => [s.id, s.contact_id]));
+    const gasByShoot = new Map<string, number>();
+    for (const g of shootGas ?? []) gasByShoot.set(g.shoot_id, (gasByShoot.get(g.shoot_id) ?? 0) + (g.allocated_gas_cents ?? 0));
+
+    let leifNet = 0;
+    for (const p of paidInRange) {
+      if (!p.shoot_id) continue;
+      const cid = contactByShoot.get(p.shoot_id);
+      if (!cid || !sourcedBy.get(cid)?.includes("leif")) continue;
+      leifNet += p.amount_cents - p.fee_cents - (editingByShoot.get(p.shoot_id) ?? 0) - (gasByShoot.get(p.shoot_id) ?? 0);
+    }
+    leifShareCents = Math.max(0, Math.round(leifNet / 2));
+  }
+
   // ── Totals ───────────────────────────────────────────────────────────────
   const expenseCents = stripeTotal + gasCents + editingTotal + opsTotal;
   const profitCents = incomeCents - expenseCents;
@@ -261,7 +295,7 @@ export async function buildPnl(
     memo: {
       mileage_miles: Math.round(miles),
       mileage_deduction_cents: deductionCents,
-      leif_profit_share_cents: Math.max(0, Math.round(profitCents / 2)),
+      leif_profit_share_cents: leifShareCents,
     },
   };
 }

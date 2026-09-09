@@ -114,6 +114,7 @@ export default function RevenuePage() {
   const [blurred, setBlurred] = useState(true);
   const [filter, setFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"income" | "expenses">("income");
 
   const thisMonthKey0 = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const [expMonth, setExpMonth] = useState(thisMonthKey0);
@@ -278,17 +279,27 @@ export default function RevenuePage() {
         {/* ── Hero: Income · Expenses · Net Profit ─────────────────────── */}
         <div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/[0.07] border border-white/[0.07]">
-            <div className="bg-[#0c0c0c] px-6 py-7">
-              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Income</p>
+            <button
+              onClick={() => setTab("income")}
+              className={`bg-[#0c0c0c] px-6 py-7 text-left border-t-2 transition-colors ${
+                tab === "income" ? "border-t-white bg-[#111]" : "border-t-transparent hover:bg-white/[0.02]"
+              }`}
+            >
+              <p className={`text-[10px] tracking-[3px] uppercase mb-3 ${tab === "income" ? "text-[#888]" : "text-[#444]"}`}>Income</p>
               <p className={`text-4xl font-black tabular-nums tracking-tight transition-all select-none ${blur}`}>{fmt(heroIncome)}</p>
               {period === "month" && momDiff !== null && (
                 <p className={`text-xs mt-2 font-semibold ${momDiff >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
                   {momDiff >= 0 ? "▲" : "▼"} {Math.abs(momDiff).toFixed(1)}% vs last month
                 </p>
               )}
-            </div>
-            <div className="bg-[#0c0c0c] px-6 py-7">
-              <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Expenses</p>
+            </button>
+            <button
+              onClick={() => setTab("expenses")}
+              className={`bg-[#0c0c0c] px-6 py-7 text-left border-t-2 transition-colors ${
+                tab === "expenses" ? "border-t-[#f87171] bg-[#111]" : "border-t-transparent hover:bg-white/[0.02]"
+              }`}
+            >
+              <p className={`text-[10px] tracking-[3px] uppercase mb-3 ${tab === "expenses" ? "text-[#888]" : "text-[#444]"}`}>Expenses</p>
               <p className={`text-4xl font-black tabular-nums tracking-tight text-[#f87171] transition-all select-none ${blur}`}>
                 {pnlLoading && !pnl ? "—" : fmt(heroExpenses)}
               </p>
@@ -299,13 +310,13 @@ export default function RevenuePage() {
                   {fmtc((pnl.by_category.find(c => c.category === "Editing")?.amount_cents) ?? 0)} editing
                 </p>
               )}
-            </div>
-            <div className="bg-[#0c0c0c] px-6 py-7">
+            </button>
+            <div className="bg-[#0c0c0c] px-6 py-7 border-t-2 border-t-transparent">
               <p className="text-[10px] tracking-[3px] uppercase text-[#444] mb-3">Net Profit</p>
               <p className={`text-4xl font-black tabular-nums tracking-tight transition-all select-none ${blur} ${heroProfit >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
                 {pnlLoading && !pnl ? "—" : fmt(heroProfit)}
               </p>
-              {pnl && (
+              {pnl && pnl.memo.leif_profit_share_cents > 0 && (
                 <p className={`text-xs mt-2 text-[#555] select-none ${blur}`}>
                   Leif&apos;s 50%: {fmtc(pnl.memo.leif_profit_share_cents)}
                 </p>
@@ -342,18 +353,21 @@ export default function RevenuePage() {
           </div>
         </div>
 
-        {/* ── Expenses ────────────────────────────────────────────────── */}
-        <ExpensesSection
-          pnl={pnl}
-          loading={pnlLoading}
-          period={period}
-          expMonth={expMonth}
-          setExpMonth={setExpMonth}
-          onChanged={loadPnl}
-          blur={blur}
-        />
+        {/* ── Expenses tab ───────────────────────────────────────────── */}
+        {tab === "expenses" && (
+          <ExpensesSection
+            pnl={pnl}
+            loading={pnlLoading}
+            period={period}
+            expMonth={expMonth}
+            setExpMonth={setExpMonth}
+            onChanged={loadPnl}
+            blur={blur}
+          />
+        )}
 
-        {/* ── Invoice table ───────────────────────────────────────────── */}
+        {/* ── Income tab: invoices ───────────────────────────────────── */}
+        {tab === "income" && (
         <section>
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Invoices</p>
@@ -422,6 +436,7 @@ export default function RevenuePage() {
             </div>
           )}
         </section>
+        )}
 
       </div>
     </div>
@@ -643,10 +658,12 @@ function ExpensesSection({
                 <span>IRS mileage deduction ({pnl.memo.mileage_miles.toLocaleString()} mi · tax season)</span>
                 <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.mileage_deduction_cents)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Leif&apos;s share (50% of net profit)</span>
-                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.leif_profit_share_cents)}</span>
-              </div>
+              {pnl.memo.leif_profit_share_cents > 0 && (
+                <div className="flex justify-between">
+                  <span>Leif&apos;s share (50% of profit on shoots he sourced)</span>
+                  <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.leif_profit_share_cents)}</span>
+                </div>
+              )}
             </div>
           )}
 
