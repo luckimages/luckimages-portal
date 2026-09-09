@@ -84,17 +84,44 @@ type RegistrationPreview = {
   registered_at: string;
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  pending: "#888",
-  scheduled: "#60a5fa",
-  en_route: "#60a5fa",
-  on_site: "#fbbf24",
-  wrapping: "#fbbf24",
-  editing: "#a78bfa",
-  delivered: "#4ade80",
-  completed: "#4ade80",
-  cancelled: "#f87171",
+// Weekly Schedule uses a health signal, not a status color:
+//   yellow  = pending, awaiting confirmation
+//   red     = something needs attention (photographer late to arrive / check
+//             in, media delivery overdue, or invoice unpaid 24h+)
+//   green   = active and on schedule
+//   purple  = done (completed / paid)
+type ScheduleHealth = "pending" | "attention" | "ontrack" | "done";
+const HEALTH_COLOR: Record<ScheduleHealth, string> = {
+  pending: "#fbbf24",
+  attention: "#f87171",
+  ontrack: "#4ade80",
+  done: "#a78bfa",
 };
+
+function scheduleHealth(s: Shoot, nowMs: number): ScheduleHealth {
+  if (s.status === "pending") return "pending";
+  if (s.status === "completed" || s.paid_at) return "done";
+
+  const scheduledMs = s.scheduled_at ? new Date(s.scheduled_at).getTime() : null;
+
+  // Photographer late — not checked in 5+ min past the scheduled start
+  if (["scheduled", "en_route", "on_site", "wrapping"].includes(s.status) && !s.checked_in_at && scheduledMs && nowMs > scheduledMs + 5 * 60000) {
+    return "attention";
+  }
+  // Media delivery overdue — not delivered by 4pm the day after the shoot
+  if (["editing", "wrapping"].includes(s.status) && scheduledMs) {
+    const due = new Date(scheduledMs);
+    due.setDate(due.getDate() + 1);
+    due.setHours(16, 0, 0, 0);
+    if (nowMs > due.getTime()) return "attention";
+  }
+  // Delivered but unpaid 24h+
+  if (["delivered", "completed"].includes(s.status) && s.delivered_at && !s.paid_at && nowMs > new Date(s.delivered_at).getTime() + 24 * 3600000) {
+    return "attention";
+  }
+
+  return "ontrack";
+}
 
 const BOARD_STAGES: { key: string; label: string; color: string; dbStatuses: string[] }[] = [
   { key: "pending",   label: "Pending",   color: "#fbbf24", dbStatuses: ["pending"] },
@@ -115,7 +142,6 @@ const TODO_TABS: { key: string; label: string; color: string }[] = [
 function DashboardV2Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [userName, setUserName] = useState("");
   const [checked, setChecked] = useState(false);
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -177,7 +203,6 @@ function DashboardV2Page() {
     window.addEventListener("pointerup", up);
   }
   const [swipePage, setSwipePage] = useState(() => searchParams.get("page") === "apps" ? 1 : 0);
-  const [headerFlip, setHeaderFlip] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
@@ -206,7 +231,6 @@ function DashboardV2Page() {
         router.replace("/choose-portal");
         return;
       }
-      setUserName(data.user.user_metadata?.full_name?.split(" ")[0] || "");
       const meta = data.user.user_metadata || {};
       if (meta.app_order) {
         // Merge: keep saved order but append any new apps not yet in it
@@ -324,11 +348,6 @@ function DashboardV2Page() {
   // only while the tab is visible. Manual refresh button is in the board header.
   useVisiblePolling(loadShoots, 120000, checked && middleView === "board");
 
-  // Header fade cycle every 15s
-  useEffect(() => {
-    const id = setInterval(() => setHeaderFlip(f => !f), 15000);
-    return () => clearInterval(id);
-  }, []);
 
   // Arrow keys: left/right = swipe pages; up/down = context-aware
   useEffect(() => {
@@ -494,18 +513,6 @@ function DashboardV2Page() {
       {/* Centered content column — matches the classic dashboard's max-w container */}
       <div className="relative z-10 flex-1 min-h-0 flex flex-col max-w-7xl mx-auto w-full px-4 md:px-8">
 
-        {/* Fading header — alternates between "Luck Images" and "Welcome Ryan" */}
-        <div className="pb-4 shrink-0 relative" style={{ height: "clamp(32px,5vw,52px)" }}>
-          <h1 className="absolute inset-0 text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase leading-none transition-opacity duration-[2000ms]"
-            style={{ opacity: headerFlip ? 0 : 1 }}>
-            Luck Images
-          </h1>
-          <h1 className="absolute inset-0 text-[clamp(24px,4vw,40px)] font-black tracking-tight uppercase leading-none transition-opacity duration-[2000ms]"
-            style={{ opacity: headerFlip ? 1 : 0 }}>
-            Welcome {userName}
-          </h1>
-        </div>
-
         {/* Middle + Bottom share their space via a drag-resizable split (default
             matches the old fixed 2:1 ratio) */}
         <div ref={splitContainerRef} className="flex-1 min-h-0 flex flex-col">
@@ -546,6 +553,22 @@ function DashboardV2Page() {
             )}
           </div>
 
+          {middleView === "schedule" && (
+            <div className="flex items-center gap-4 flex-wrap pb-2 mb-1 shrink-0">
+              {([
+                ["ontrack", "On track"],
+                ["attention", "Needs attention"],
+                ["pending", "Pending"],
+                ["done", "Completed"],
+              ] as [ScheduleHealth, string][]).map(([k, label]) => (
+                <span key={k} className="flex items-center gap-1.5 text-[9px] tracking-[1.5px] uppercase text-white/40">
+                  <span className="w-2 h-2 rounded-full" style={{ background: HEALTH_COLOR[k] }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
+
           {middleView === "schedule" ? (
             /* Mobile: rows. Desktop: 7 columns */
             <div className="flex-1 min-h-0 overflow-auto">
@@ -564,7 +587,7 @@ function DashboardV2Page() {
                         {dayShoots.length === 0 ? (
                           <p className="text-[10px] text-white/20 pt-1">—</p>
                         ) : dayShoots.map(s => (
-                          <a key={s.id} href="/dashboard/board" className="block border rounded-sm px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0" style={{ borderColor: STATUS_COLOR[s.status] || "#888" }}>
+                          <a key={s.id} href="/dashboard/board" className="block border rounded-sm px-2 py-1.5 hover:bg-white/5 transition-colors min-w-0" style={{ borderColor: HEALTH_COLOR[scheduleHealth(s, nowMs)] }}>
                             <p className="text-xs font-semibold text-white truncate">{s.client_name || "Client"}</p>
                             <p className="text-[10px] text-white/50 truncate">{s.address}</p>
                             {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
@@ -590,7 +613,7 @@ function DashboardV2Page() {
                         {dayShoots.length === 0 ? (
                           <p className="text-[10px] text-white/20">—</p>
                         ) : dayShoots.map(s => (
-                          <a key={s.id} href="/dashboard/board" className="block border rounded-sm px-1.5 py-1 hover:bg-white/5 transition-colors min-w-0" style={{ borderColor: STATUS_COLOR[s.status] || "#888" }}>
+                          <a key={s.id} href="/dashboard/board" className="block border rounded-sm px-1.5 py-1 hover:bg-white/5 transition-colors min-w-0" style={{ borderColor: HEALTH_COLOR[scheduleHealth(s, nowMs)] }}>
                             <p className="text-[11px] font-semibold text-white truncate">{s.client_name || "Client"}</p>
                             <p className="text-[10px] text-white/50 truncate">{s.address}</p>
                             {s.scheduled_at && <p className="text-[10px] text-white/30">{new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</p>}
