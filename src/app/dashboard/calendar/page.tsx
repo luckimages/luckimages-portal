@@ -454,10 +454,10 @@ function BlockTimeModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/75" />
-      <div className="relative bg-[#141414] border border-[#f87171]/30 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-[#141414] border border-white/10 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
           <div>
-            <p className="text-[10px] tracking-[3px] uppercase text-[#f87171]">Block Time</p>
+            <p className="text-[10px] tracking-[3px] uppercase text-[#666]">Block Time</p>
             <p className="text-sm font-semibold mt-1">Mark when you can&apos;t shoot</p>
           </div>
           <button onClick={onClose} className="text-white/40 hover:text-white transition-colors text-lg leading-none">✕</button>
@@ -506,7 +506,7 @@ function BlockTimeModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
         <div className="flex gap-3 mt-5">
           <button onClick={save} disabled={saving}
-            className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-[#f87171] hover:bg-[#f87171]/90 py-3 transition-colors disabled:opacity-40">
+            className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-white hover:bg-white/90 py-3 transition-colors disabled:opacity-40">
             {saving ? "Saving…" : "Block This Time"}
           </button>
           <button onClick={onClose} className="text-xs tracking-[2px] uppercase text-white/50 hover:text-white px-6 py-3 border border-white/10 hover:border-white/30 transition-colors">
