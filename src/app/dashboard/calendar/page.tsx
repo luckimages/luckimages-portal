@@ -472,35 +472,40 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
   const hours = Array.from({ length: WEEK_SPAN + 1 }, (_, i) => WEEK_HOUR_START + i);
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const pct = (h: number) => ((h - WEEK_HOUR_START) / WEEK_SPAN) * 100;
-  const cols = { gridTemplateColumns: "52px repeat(7, 1fr)" };
+  const cols = { gridTemplateColumns: "52px 1fr" };
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col border border-white/[0.07]">
-      {/* Day header */}
-      <div className="grid shrink-0 border-b border-white/[0.07]" style={cols}>
+    <div className="flex-1 min-h-0 flex flex-col">
+      {/* Day header — no borders, labels only */}
+      <div className="grid shrink-0" style={cols}>
         <div />
-        {days.map((d, i) => {
-          const isToday = dayStrs[i] === todayStr;
-          return (
-            <button key={i} onClick={() => onSelectDay(dayStrs[i])}
-              className={`py-1.5 text-center border-l border-white/[0.07] hover:bg-white/[0.03] transition-colors ${isToday ? "bg-white/[0.06]" : ""}`}>
-              <span className="text-[9px] tracking-[1.5px] uppercase text-[#666]">{DOW[d.getDay()]}</span>
-              <span className={`block text-sm font-bold ${isToday ? "text-white" : "text-[#999]"}`}>{d.getDate()}</span>
-            </button>
-          );
-        })}
+        <div className="grid grid-cols-7">
+          {days.map((d, i) => {
+            const isToday = dayStrs[i] === todayStr;
+            return (
+              <button key={i} onClick={() => onSelectDay(dayStrs[i])}
+                className="py-2 text-center hover:opacity-80 transition-opacity">
+                <span className="text-[9px] tracking-[1.5px] uppercase text-[#666]">{DOW[d.getDay()]}</span>
+                <span className={`block text-sm font-bold ${isToday ? "text-white" : "text-[#888]"}`}>
+                  {isToday ? <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white text-black">{d.getDate()}</span> : d.getDate()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Hour grid */}
+      {/* Hour grid — the box wraps only the day columns */}
       <div className="flex-1 min-h-0 grid overflow-hidden py-3" style={cols}>
         <div className="relative">
           {hours.map(h => (
-            <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[9px] text-[#555] tabular-nums" style={{ top: `${pct(h)}%` }}>
+            <div key={h} className="absolute right-2 -translate-y-1/2 text-[9px] text-[#555] tabular-nums" style={{ top: `${pct(h)}%` }}>
               {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
             </div>
           ))}
         </div>
 
+        <div className="relative grid grid-cols-7 border border-white/[0.07]">
         {days.map((_, di) => {
           const ds = dayStrs[di];
           const evs = (eventMap[ds] || []).filter(e => e.type === activeType);
@@ -516,7 +521,7 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
 
           return (
             <div key={di} onClick={() => onSelectDay(ds)}
-              className={`relative border-l border-white/[0.07] cursor-pointer ${isToday ? "bg-white/[0.02]" : ""}`}>
+              className={`relative cursor-pointer ${di > 0 ? "border-l border-white/[0.07]" : ""} ${isToday ? "bg-white/[0.02]" : ""}`}>
               {hours.slice(1).map(h => (
                 <div key={h} className="absolute left-0 right-0 border-t border-white/[0.04]" style={{ top: `${pct(h)}%` }} />
               ))}
@@ -561,6 +566,7 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
