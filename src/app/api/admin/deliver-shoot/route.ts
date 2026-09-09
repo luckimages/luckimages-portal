@@ -25,10 +25,18 @@ export async function POST(req: Request) {
 
   const { data: shoot } = await db
     .from("shoots")
-    .select("id, status, address, price, line_items, contact_id, client_id, scheduled_at")
+    .select("id, status, address, price, line_items, contact_id, client_id, scheduled_at, editing_cost_cents")
     .eq("id", shootId)
     .single();
   if (!shoot) return NextResponse.json({ error: "Shoot not found" }, { status: 404 });
+
+  // Editing cost must be recorded before a shoot can be delivered.
+  if (shoot.status !== "delivered" && shoot.status !== "completed" && shoot.editing_cost_cents == null) {
+    return NextResponse.json(
+      { error: "Record the editing cost for this shoot before delivering." },
+      { status: 400 }
+    );
+  }
 
   const { error } = await db.from("shoots").update({ status: "delivered" }).eq("id", shootId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

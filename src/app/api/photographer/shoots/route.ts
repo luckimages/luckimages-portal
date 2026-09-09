@@ -25,12 +25,20 @@ export async function PATCH(req: Request) {
   // Verify this photographer is assigned to this shoot
   const { data: shoot } = await service
     .from("shoots")
-    .select("id, address, scheduled_at, photographer_ids, status")
+    .select("id, address, scheduled_at, photographer_ids, status, editing_cost_cents")
     .eq("id", id)
     .single();
 
   if (!shoot || !shoot.photographer_ids?.includes(user.id)) {
     return NextResponse.json({ error: "Not your shoot" }, { status: 403 });
+  }
+
+  // Editing cost must be recorded before a shoot can be delivered.
+  if (status === "delivered" && shoot.status !== "delivered" && shoot.editing_cost_cents == null) {
+    return NextResponse.json(
+      { error: "Record the editing cost for this shoot before delivering." },
+      { status: 400 }
+    );
   }
 
   const { error } = await service.from("shoots").update({ status }).eq("id", id);

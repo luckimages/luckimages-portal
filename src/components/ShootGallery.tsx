@@ -112,6 +112,7 @@ type SectionGridProps = {
   setDelivered: (v: boolean) => void;
   setDelivering: (v: boolean) => void;
   onDeliver?: () => Promise<void>;
+  canDeliver: boolean;
   fileRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
   dragCounters: React.MutableRefObject<Record<string, number>>;
   setUploadError: (v: string) => void;
@@ -132,7 +133,7 @@ function SectionGrid(props: SectionGridProps) {
     section, canEdit, canDownload, uploading,
     draggingSection, setDraggingSection, stagedFiles,
     batchMode, setBatchMode, batchSelected, setBatchSelected, setConfirmBatchDelete,
-    downloadMenuFor, setDownloadMenuFor, delivered, delivering, setDelivered, setDelivering, onDeliver,
+    downloadMenuFor, setDownloadMenuFor, delivered, delivering, setDelivered, setDelivering, onDeliver, canDeliver,
     fileRefs, dragCounters, setUploadError, stageFiles, removeStagedFile, toggleBatchItem,
     setLightboxItems, setLightboxIdx, isImage, triggerDownload, setConfirmDelete, confirmUpload, downloadAll,
   } = props;
@@ -244,12 +245,14 @@ function SectionGrid(props: SectionGridProps) {
           )}
           {canEdit && onDeliver && !delivered && (
             <button
-              onClick={async () => {
+              onClick={!canDeliver ? undefined : async () => {
                 setDelivering(true);
                 try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
               }}
-              disabled={delivering}
-              title="Delivers the whole shoot early, using only what's uploaded to this service so far"
+              disabled={delivering || !canDeliver}
+              title={canDeliver
+                ? "Delivers the whole shoot early, using only what's uploaded to this service so far"
+                : "Record the editing cost above before delivering"}
               className="text-[10px] tracking-[1.5px] uppercase px-2 py-1 text-[#555] border border-white/10 hover:text-[#888] hover:border-white/20 transition-colors disabled:opacity-40 font-normal">
               {delivering ? "Delivering..." : "Deliver Individual Service"}
             </button>
@@ -443,6 +446,13 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   const [draggingSection, setDraggingSection] = useState<string | null>(null);
   const [delivering, setDelivering] = useState(false);
   const [delivered, setDelivered] = useState(isDelivered);
+  // Per-shoot editing cost — required before "Deliver to Client" unlocks.
+  const [editingCostCents, setEditingCostCents] = useState<number | null>(null);
+  const [editingCostBy, setEditingCostBy] = useState<string | null>(null);
+  const [editingCostInput, setEditingCostInput] = useState("");
+  const [savingEditingCost, setSavingEditingCost] = useState(false);
+  const [editingCostError, setEditingCostError] = useState("");
+  const [editingCostOpen, setEditingCostOpen] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
   const [batchDeleting, setBatchDeleting] = useState(false);
@@ -472,6 +482,44 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
   }, [shootId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load any editing cost already on file (admin-only endpoint — a 401 for
+  // non-admins is fine, the field just stays hidden).
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/editing-cost?shootId=${shootId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (cancelled || !d) return;
+        setEditingCostCents(d.editing_cost_cents ?? null);
+        setEditingCostBy(d.editing_cost_by ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [shootId]);
+
+  async function saveEditingCost() {
+    const dollars = parseFloat(editingCostInput);
+    if (!Number.isFinite(dollars) || dollars < 0) {
+      setEditingCostError("Enter a dollar amount ($0 is fine if you did the editing yourself).");
+      return;
+    }
+    setSavingEditingCost(true);
+    setEditingCostError("");
+    const r = await fetch("/api/admin/editing-cost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shootId, amountCents: Math.round(dollars * 100) }),
+    });
+    setSavingEditingCost(false);
+    if (!r.ok) {
+      setEditingCostError((await r.json().catch(() => ({}))).error || "Could not save. Try again.");
+      return;
+    }
+    setEditingCostCents(Math.round(dollars * 100));
+    setEditingCostInput("");
+    setEditingCostOpen(false);
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -712,43 +760,103 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
         if (nonEmpty.length === 0) return null;
         const isReady = (s: typeof nonEmpty[number]) => (stagedFiles[s.slug] || []).length === 0;
         const readyCount = nonEmpty.filter(isReady).length;
-        const allReady = readyCount === nonEmpty.length;
+        const mediaReady = readyCount === nonEmpty.length;
+        const editingReady = editingCostCents != null;
+        const allReady = mediaReady && editingReady;
+        const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         return (
-          <div className={`mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-5 border transition-colors ${
-            delivered
-              ? "bg-[#4ade80]/5 border-[#4ade80]/30"
-              : allReady
-              ? "bg-[#4ade80]/5 border-[#4ade80]/30"
-              : "bg-white/[0.02] border-white/10"
+          <div className={`mb-6 px-6 py-5 border transition-colors ${
+            delivered || allReady ? "bg-[#4ade80]/5 border-[#4ade80]/30" : "bg-white/[0.02] border-white/10"
           }`}>
-            <div>
-              <p className={`text-sm font-semibold ${delivered || allReady ? "text-[#4ade80]" : "text-[#888]"}`}>
-                {delivered ? "Delivered to client" : allReady ? "All media is uploaded" : `${readyCount} of ${nonEmpty.length} services ready`}
-              </p>
-              <p className="text-xs text-[#555] mt-1">
-                {delivered
-                  ? "The client has been emailed a direct link to their gallery."
-                  : allReady
-                  ? "Click to deliver — the client will receive an email with a direct link to their gallery."
-                  : "Every service needs at least one uploaded file, with nothing still uploading, to unlock delivery."}
-              </p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <p className={`text-sm font-semibold ${delivered || allReady ? "text-[#4ade80]" : "text-[#888]"}`}>
+                  {delivered
+                    ? "Delivered to client"
+                    : allReady
+                    ? "Ready to deliver"
+                    : !mediaReady
+                    ? `${readyCount} of ${nonEmpty.length} services ready`
+                    : "Editing cost needed"}
+                </p>
+                <p className="text-xs text-[#555] mt-1">
+                  {delivered
+                    ? "The client has been emailed a direct link to their gallery."
+                    : allReady
+                    ? "Click to deliver — the client will receive an email with a direct link to their gallery."
+                    : !mediaReady
+                    ? "Every service needs at least one uploaded file, with nothing still uploading, to unlock delivery."
+                    : "Record what you spent on editing this shoot before it can be delivered."}
+                </p>
+              </div>
+              <button
+                onClick={!allReady || delivered ? undefined : async () => {
+                  setDelivering(true);
+                  try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
+                }}
+                disabled={!allReady || delivering || delivered}
+                className={`shrink-0 text-xs tracking-[3px] uppercase font-semibold px-6 py-3 transition-colors ${
+                  delivered
+                    ? "bg-[#4ade80] text-black cursor-default"
+                    : allReady
+                    ? "bg-[#4ade80] text-black hover:bg-[#4ade80]/90 disabled:opacity-50"
+                    : "bg-white/5 text-[#555] cursor-not-allowed"
+                }`}
+              >
+                {delivered ? "Delivered ✓" : delivering ? "Delivering…" : "Deliver to Client →"}
+              </button>
             </div>
-            <button
-              onClick={!allReady || delivered ? undefined : async () => {
-                setDelivering(true);
-                try { await onDeliver(); setDelivered(true); } finally { setDelivering(false); }
-              }}
-              disabled={!allReady || delivering || delivered}
-              className={`shrink-0 text-xs tracking-[3px] uppercase font-semibold px-6 py-3 transition-colors ${
-                delivered
-                  ? "bg-[#4ade80] text-black cursor-default"
-                  : allReady
-                  ? "bg-[#4ade80] text-black hover:bg-[#4ade80]/90 disabled:opacity-50"
-                  : "bg-white/5 text-[#555] cursor-not-allowed"
-              }`}
-            >
-              {delivered ? "Delivered ✓" : delivering ? "Delivering…" : "Deliver to Client →"}
-            </button>
+
+            {/* Editing cost — required gate */}
+            {!delivered && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                {editingCostCents != null && !editingCostOpen ? (
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-xs text-[#888]">
+                      Editing cost: <span className="text-white font-semibold tabular-nums">{money(editingCostCents)}</span>
+                      {editingCostBy && <span className="text-[#555]"> · logged by {editingCostBy}</span>}
+                    </p>
+                    <button
+                      onClick={() => { setEditingCostInput((editingCostCents / 100).toString()); setEditingCostOpen(true); }}
+                      className="text-[10px] tracking-[1.5px] uppercase text-[#555] border border-white/10 px-2.5 py-1 hover:text-white hover:border-white/30 transition-colors">
+                      Edit
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-[10px] tracking-[2px] uppercase text-[#666] block mb-1.5">
+                      How much did you spend on editing this shoot?
+                    </label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center border border-white/15 focus-within:border-white/40 transition-colors">
+                        <span className="text-[#555] text-sm pl-2.5">$</span>
+                        <input
+                          type="number" min="0" step="0.01" inputMode="decimal"
+                          value={editingCostInput}
+                          onChange={e => setEditingCostInput(e.target.value)}
+                          placeholder="0.00"
+                          className="bg-transparent text-sm text-white px-2 py-2 w-28 outline-none tabular-nums"
+                        />
+                      </div>
+                      <button
+                        onClick={saveEditingCost}
+                        disabled={savingEditingCost}
+                        className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 hover:bg-white/90 transition-colors font-semibold disabled:opacity-40">
+                        {savingEditingCost ? "Saving…" : "Save"}
+                      </button>
+                      {editingCostCents != null && (
+                        <button onClick={() => setEditingCostOpen(false)}
+                          className="text-[10px] tracking-[1.5px] uppercase text-[#555] px-2 py-1 hover:text-white transition-colors">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[#555] mt-1.5">Enter $0 if you edited it yourself. This is logged as an expense on the Revenue page.</p>
+                    {editingCostError && <p className="text-[11px] text-red-400 mt-1.5">{editingCostError}</p>}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -771,6 +879,7 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
             batchSelected={batchSelected} setBatchSelected={setBatchSelected} setConfirmBatchDelete={setConfirmBatchDelete}
             downloadMenuFor={downloadMenuFor} setDownloadMenuFor={setDownloadMenuFor}
             delivered={delivered} delivering={delivering} setDelivered={setDelivered} setDelivering={setDelivering} onDeliver={onDeliver}
+            canDeliver={editingCostCents != null}
             fileRefs={fileRefs} dragCounters={dragCounters} setUploadError={setUploadError}
             stageFiles={stageFiles} removeStagedFile={removeStagedFile} toggleBatchItem={toggleBatchItem}
             setLightboxItems={setLightboxItems} setLightboxIdx={setLightboxIdx} isImage={isImage}
