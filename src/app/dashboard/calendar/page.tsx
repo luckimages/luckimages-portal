@@ -103,15 +103,6 @@ function fmtDuration(sec: number | null) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// Naive "+s" breaks on words like "Delivery" → "deliverys" — handle the
-// consonant-+-y case (delivery → deliveries) since that's the one legend
-// label it actually applies to.
-function pluralize(word: string, count: number) {
-  if (count === 1) return word;
-  if (/[^aeiou]y$/i.test(word)) return word.slice(0, -1) + "ies";
-  return word + "s";
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function CalendarPage() {
   const [calMonth, setCalMonth] = useState(() => {
@@ -229,13 +220,6 @@ export default function CalendarPage() {
   const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const monthLabel = calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const allEvents = Object.values(eventMap).flat();
-  const monthCount = allEvents.filter(e => e.type === activeType).length;
-  const monthRevenue = activeType === "shoot"
-    ? allEvents.filter(e => e.type === "shoot").reduce((sum, e) => sum + ((e.raw as Shoot | undefined)?.price || 0), 0)
-    : 0;
-  const activeLegendLabel = LEGEND.find(l => l.type === activeType)?.label || "event";
-
   // Blocks indexed by day (for the always-visible strip on each cell).
   const blocksByDay: Record<string, Block[]> = {};
   for (const b of blocks) for (const d of blockDays(b)) (blocksByDay[d] ||= []).push(b);
@@ -253,44 +237,35 @@ export default function CalendarPage() {
     : [];
 
   return (
-    <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 gap-5 max-w-[1500px] mx-auto w-full">
+    <main className="h-screen overflow-hidden bg-[#0c0c0c] text-white flex flex-col">
+      <div className="flex-1 min-h-0 flex flex-col px-4 md:px-8 py-4 gap-3 max-w-[1500px] mx-auto w-full">
 
         {/* Header */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Unified</p>
-              <h1 className="text-3xl font-black tracking-tight uppercase">Master Calendar</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <h1 className="text-2xl font-black tracking-tight uppercase">Master Calendar</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center border border-white/10">
+              <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">‹</button>
+              <span className="text-xs tracking-[2px] uppercase text-white px-2 min-w-[130px] text-center">{monthLabel}</span>
+              <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">›</button>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center border border-white/10">
-                <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">‹</button>
-                <span className="text-xs tracking-[2px] uppercase text-white px-2 min-w-[130px] text-center">{monthLabel}</span>
-                <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">›</button>
-              </div>
-              <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className={btnCls}>Today</button>
-              <select
-                value={activeType}
-                onChange={e => { setActiveType(e.target.value); setSelectedDay(null); }}
-                className="text-xs tracking-[1px] uppercase text-[#888] bg-[#0c0c0c] border border-white/10 px-3 py-1.5 outline-none focus:border-white/30 cursor-pointer hover:text-white transition-colors"
-              >
-                {LEGEND.map(l => <option key={l.type} value={l.type} className="bg-[#141414] normal-case tracking-normal">{l.label}</option>)}
-              </select>
-              <button onClick={() => setShowBlockModal(true)} className={btnCls}>Block Time</button>
-            </div>
+            <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className={btnCls}>Today</button>
+            <select
+              value={activeType}
+              onChange={e => { setActiveType(e.target.value); setSelectedDay(null); }}
+              className="text-xs tracking-[1px] uppercase text-[#888] bg-[#0c0c0c] border border-white/10 px-3 py-1.5 outline-none focus:border-white/30 cursor-pointer hover:text-white transition-colors"
+            >
+              {LEGEND.map(l => <option key={l.type} value={l.type} className="bg-[#141414] normal-case tracking-normal">{l.label}</option>)}
+            </select>
+            <button onClick={() => setShowBlockModal(true)} className={btnCls}>Block Time</button>
           </div>
-          <p className="text-xs text-[#555]">
-            {monthCount} {pluralize(activeLegendLabel.toLowerCase(), monthCount)} this month
-            {monthRevenue > 0 && <span className="text-[#4ade80] font-semibold"> · ${monthRevenue.toLocaleString()}</span>}
-          </p>
         </div>
 
         {/* Calendar grid */}
         <div className="flex-1 min-h-0 flex flex-col">
-          <div className="grid grid-cols-7">
+          <div className="grid grid-cols-7 shrink-0">
             {DAY_NAMES.map(d => (
-              <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#666] py-2">{d}</div>
+              <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#666] py-1.5">{d}</div>
             ))}
           </div>
 
@@ -300,8 +275,8 @@ export default function CalendarPage() {
             </div>
           ) : (
             <div
-              className="flex-1 grid grid-cols-7 gap-px bg-white/[0.07] border border-white/[0.07]"
-              style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, minmax(96px, 1fr))` }}
+              className="flex-1 min-h-0 grid grid-cols-7 gap-px bg-white/[0.07] border border-white/[0.07]"
+              style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, minmax(0, 1fr))` }}
             >
               {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7 }).map((_, i) => {
                 const dayNum = i - firstDayOfWeek + 1;
