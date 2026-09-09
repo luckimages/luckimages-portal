@@ -47,6 +47,20 @@ type ExpenseLine = {
   editable: boolean;
 };
 
+type ShootExpenseRow = {
+  shoot_id: string;
+  date: string;
+  address: string;
+  client: string;
+  stripe_cents: number;
+  gas_cents: number;
+  editing_cents: number;
+  expense_cents: number;
+  revenue_cents: number;
+  revenue_paid: boolean;
+  profit_cents: number;
+};
+
 type Pnl = {
   scope: "month" | "ytd";
   month: string | null;
@@ -56,6 +70,8 @@ type Pnl = {
   profit_cents: number;
   by_category: { category: string; amount_cents: number }[];
   lines: ExpenseLine[];
+  shoot_expenses: ShootExpenseRow[];
+  shoot_expense_cents: number;
   memo: {
     mileage_miles: number;
     mileage_deduction_cents: number;
@@ -222,7 +238,13 @@ export default function RevenuePage() {
   const heroExpenses = pnl ? pnl.expense_cents / 100 : 0;
   const heroProfit = pnl ? pnl.profit_cents / 100 : heroIncome - heroExpenses;
 
-  const filtered = filter === "unpaid" ? unpaidInvoices : filter === "paid" ? paidInvoices : invoices;
+  // Invoice table is scoped to the selected period so it lines up with the
+  // Shoot Expenses table on the other tab.
+  const periodKey = period === "month" ? thisMonthKey : thisYear;
+  const scopedInvoices = invoices.filter(i => i.created_at.startsWith(periodKey));
+  const scopedUnpaid = scopedInvoices.filter(i => !i.paid);
+  const scopedPaid = scopedInvoices.filter(i => i.paid);
+  const filtered = filter === "unpaid" ? scopedUnpaid : filter === "paid" ? scopedPaid : scopedInvoices;
 
   const blur = blurred ? "blur-sm" : "";
 
@@ -378,7 +400,7 @@ export default function RevenuePage() {
         {tab === "income" && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Invoices</p>
+            <p className="text-[10px] tracking-[3px] uppercase text-[#555]">Invoices — {period === "month" ? monthNames[thisMonthKey.split("-")[1]] : thisYear}</p>
             <div className="flex gap-1">
               {(["all", "unpaid", "paid"] as const).map(f => (
                 <button
@@ -388,7 +410,7 @@ export default function RevenuePage() {
                     filter === f ? "bg-white text-black font-bold" : "text-[#555] hover:text-white border border-white/10"
                   }`}
                 >
-                  {f === "all" ? `All (${invoices.length})` : f === "unpaid" ? `Unpaid (${unpaidInvoices.length})` : `Paid (${paidInvoices.length})`}
+                  {f === "all" ? `All (${scopedInvoices.length})` : f === "unpaid" ? `Unpaid (${scopedUnpaid.length})` : `Paid (${scopedPaid.length})`}
                 </button>
               ))}
             </div>
@@ -477,14 +499,12 @@ function ExpensesSection({
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const toggleCat = (c: string) => setExpandedCats(prev => {
     const next = new Set(prev);
-    next.has(c) ? next.delete(c) : next.add(c);
+    if (next.has(c)) next.delete(c); else next.add(c);
     return next;
   });
 
   const operating = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "operating"), [pnl]);
-  const gasLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "gas"), [pnl]);
-  const editingLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "editing"), [pnl]);
-  const stripeLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "stripe"), [pnl]);
+  const [shootExpOpen, setShootExpOpen] = useState(false);
 
   // Operating lines grouped by category, in the canonical order.
   const byCat = useMemo(() => {
@@ -722,12 +742,24 @@ function ExpensesSection({
             </div>
           </div>
 
-          {/* Auto-tracked */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <AutoBucket title="Stripe fees" note="2.9% + $0.30 per paid invoice" lines={stripeLines} blur={blur} />
-            <AutoBucket title="Gas" note="From the mileage tracker" lines={gasLines} blur={blur} />
-            <AutoBucket title="Editing" note="Logged at delivery, per shoot" lines={editingLines} blur={blur} />
-          </div>
+          {/* Shoot expenses — per-shoot Stripe fee + gas + editing */}
+          {pnl && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#666] mb-2">Shoot expenses</p>
+              <div className="border border-white/[0.07]">
+                <button onClick={() => setShootExpOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.05] transition-colors text-left">
+                  <span className="flex items-center gap-2">
+                    <span className={`text-[#666] text-[10px] transition-transform ${shootExpOpen ? "rotate-90" : ""}`}>▶</span>
+                    <span className="text-[10px] tracking-[2px] uppercase text-[#999]">Stripe fees · gas · editing</span>
+                    <span className="text-[9px] text-[#555]">({pnl.shoot_expenses.length} shoot{pnl.shoot_expenses.length === 1 ? "" : "s"})</span>
+                  </span>
+                  <span className={`text-[12px] font-semibold tabular-nums text-white select-none ${blur}`}>{fmtc2(pnl.shoot_expense_cents)}</span>
+                </button>
+                {shootExpOpen && <ShootExpenseTable rows={pnl.shoot_expenses} blur={blur} />}
+              </div>
+            </div>
+          )}
 
           {/* Memo / reference lines */}
           {pnl && (
@@ -762,35 +794,58 @@ function ExpensesSection({
   );
 }
 
-function AutoBucket({ title, note, lines, blur }: { title: string; note: string; lines: ExpenseLine[]; blur: string }) {
-  const [open, setOpen] = useState(false);
-  const total = lines.reduce((s, l) => s + l.amount_cents, 0);
+const COLS = "grid grid-cols-[52px_1fr_100px_74px_66px_72px_86px_92px] gap-x-3 min-w-[680px]";
+
+function ShootExpenseTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: string }) {
+  if (rows.length === 0) {
+    return <p className="px-4 py-5 text-center text-[#444] text-xs tracking-widest uppercase border-t border-white/[0.07]">No shoots this month</p>;
+  }
+  const t = rows.reduce(
+    (a, r) => ({
+      stripe: a.stripe + r.stripe_cents, gas: a.gas + r.gas_cents, editing: a.editing + r.editing_cents,
+      expense: a.expense + r.expense_cents, profit: a.profit + r.profit_cents,
+    }),
+    { stripe: 0, gas: 0, editing: 0, expense: 0, profit: 0 }
+  );
+  const md = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
   return (
-    <div className="border border-white/[0.07] px-4 py-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] tracking-[1px] uppercase text-[#888]">{title}</p>
-          <p className="text-[10px] text-[#555] mt-0.5">{note}</p>
-        </div>
-        <span className={`text-lg font-bold tabular-nums select-none ${blur}`}>{fmtc2(total)}</span>
+    <div className="border-t border-white/[0.07] overflow-x-auto">
+      <div className={`${COLS} px-4 py-2 border-b border-white/[0.07]`}>
+        {["Date", "Property", "Client", "Stripe", "Gas", "Editing", "Shoot exp.", "Profit"].map(h => (
+          <span key={h} className="text-[9px] tracking-[1.5px] uppercase text-[#333]">{h}</span>
+        ))}
       </div>
-      {lines.length > 0 && (
-        <>
-          <button onClick={() => setOpen(o => !o)} className="text-[9px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors mt-2">
-            {open ? "Hide" : `Show ${lines.length} item${lines.length === 1 ? "" : "s"}`}
-          </button>
-          {open && (
-            <div className="mt-2 space-y-1 border-t border-white/[0.07] pt-2">
-              {lines.map(l => (
-                <div key={l.id} className="flex justify-between gap-2 text-[11px]">
-                  <span className="text-[#888] truncate">{l.label}</span>
-                  <span className={`text-[#aaa] tabular-nums shrink-0 select-none ${blur}`}>{fmtc2(l.amount_cents)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+      {rows.map(r => (
+        <div key={r.shoot_id} className={`${COLS} px-4 py-2 border-b border-white/[0.04] items-center`}>
+          <span className="text-[11px] text-[#555] tabular-nums">{md(r.date)}</span>
+          <span className="text-[12px] truncate" title={r.address}>{r.address}</span>
+          <span className="text-[11px] text-[#888] truncate">{r.client}</span>
+          <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.stripe_cents)}</span>
+          <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.gas_cents)}</span>
+          <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.editing_cents)}</span>
+          <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(r.expense_cents)}</span>
+          <span
+            className={`text-[11px] tabular-nums font-semibold select-none ${blur} ${
+              !r.revenue_paid ? "text-[#fbbf24]" : r.profit_cents >= 0 ? "text-[#4ade80]" : "text-[#f87171]"
+            }`}
+            title={r.revenue_paid ? "" : "Invoice not paid yet — expected"}
+          >
+            {fmtc2(r.profit_cents)}
+          </span>
+        </div>
+      ))}
+      <div className={`${COLS} px-4 py-2.5 bg-white/[0.04] items-center`}>
+        <span className="text-[9px] tracking-[1px] uppercase text-[#888]">Total</span>
+        <span /><span />
+        <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(t.stripe)}</span>
+        <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(t.gas)}</span>
+        <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(t.editing)}</span>
+        <span className={`text-[12px] tabular-nums font-bold select-none ${blur}`}>{fmtc2(t.expense)}</span>
+        <span className={`text-[12px] tabular-nums font-bold select-none ${blur} ${t.profit >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>{fmtc2(t.profit)}</span>
+      </div>
     </div>
   );
 }

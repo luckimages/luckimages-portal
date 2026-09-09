@@ -29,6 +29,20 @@ export type ExpenseLine = {
   editable: boolean;
 };
 
+export type ShootExpenseRow = {
+  shoot_id: string;
+  date: string;                 // shoot scheduled_at (ISO)
+  address: string;              // condensed — first segment only
+  client: string;
+  stripe_cents: number;
+  gas_cents: number;
+  editing_cents: number;
+  expense_cents: number;        // stripe + gas + editing
+  revenue_cents: number;        // the shoot's invoice total
+  revenue_paid: boolean;        // invoice(s) fully paid
+  profit_cents: number;         // revenue − expense (expected until paid)
+};
+
 export type Pnl = {
   scope: "month" | "ytd";
   month: string | null;            // "YYYY-MM" when scope === "month"
@@ -38,6 +52,8 @@ export type Pnl = {
   profit_cents: number;
   by_category: { category: string; amount_cents: number }[];
   lines: ExpenseLine[];
+  shoot_expenses: ShootExpenseRow[];
+  shoot_expense_cents: number;
   memo: {
     mileage_miles: number;
     mileage_deduction_cents: number;   // IRS standard-rate — reporting only, not in profit
@@ -205,12 +221,11 @@ export async function buildPnl(
     try { await refreshAutoExpenses(db, currentMonth, true); } catch (e) { console.error("refreshAutoExpenses failed", e); }
   }
 
-  // ── Income + Stripe fees: from paid invoices in range (by paid_at, falling
-  //    back to created_at for historical rows with no paid_at) ──────────────
+  // ── Invoices (all) — income is the paid ones in range; unpaid ones still
+  //    pull their shoot into the Shoot Expenses table ───────────────────────
   const { data: invoices } = await db
     .from("invoices")
-    .select("id, shoot_id, amount_cents, paid, paid_at, created_at, description, shoots:shoot_id ( address )")
-    .eq("paid", true);
+    .select("id, shoot_id, amount_cents, paid, paid_at, created_at");
 
   const inRange = (iso: string | null) => {
     if (!iso) return false;
@@ -220,76 +235,107 @@ export async function buildPnl(
 
   let incomeCents = 0;
   let paidCount = 0;
-  const stripeLines: ExpenseLine[] = [];
   const paidInRange: { shoot_id: string | null; amount_cents: number; fee_cents: number }[] = [];
+  // Shoots referenced by any invoice that shows in this month's view (paid or
+  // created in range) — they must also appear in Shoot Expenses.
+  const invoiceShootIds = new Set<string>();
   for (const inv of invoices ?? []) {
-    const when = inv.paid_at ?? inv.created_at;
-    if (!inRange(when)) continue;
-    incomeCents += inv.amount_cents ?? 0;
-    paidCount++;
-    const fee = stripeFeeCents(inv.amount_cents ?? 0, stripePct, stripeFlat);
-    paidInRange.push({ shoot_id: inv.shoot_id, amount_cents: inv.amount_cents ?? 0, fee_cents: fee });
-    if (fee > 0) {
-      const addr = (inv.shoots as { address?: string } | null)?.address;
-      stripeLines.push({
-        id: `stripe:${inv.id}`,
-        kind: "stripe",
-        category: "Stripe fees",
-        label: addr || inv.description || "Invoice",
-        amount_cents: fee,
+    const paidWhen = inv.paid && (inv.paid_at ?? inv.created_at);
+    if (inv.paid && inRange(inv.paid_at ?? inv.created_at)) {
+      incomeCents += inv.amount_cents ?? 0;
+      paidCount++;
+      paidInRange.push({
         shoot_id: inv.shoot_id,
-        editable: false,
+        amount_cents: inv.amount_cents ?? 0,
+        fee_cents: stripeFeeCents(inv.amount_cents ?? 0, stripePct, stripeFlat),
       });
     }
+    if (inv.shoot_id && (inRange(inv.created_at) || (paidWhen && inRange(paidWhen)))) {
+      invoiceShootIds.add(inv.shoot_id);
+    }
   }
-  const stripeTotal = stripeLines.reduce((s, l) => s + l.amount_cents, 0);
 
-  // ── Gas + mileage: from mileage_days in range ──────────────────────────────
+  // ── IRS mileage deduction (memo only) — from mileage_days in range ─────────
   const { data: mdays } = await db
     .from("mileage_days")
-    .select("day, effective_miles, gas_cost_cents, deduction_cents, shoot_ids")
+    .select("effective_miles, deduction_cents")
     .gte("day", range.start)
     .lte("day", range.end);
 
-  let gasCents = 0;
   let miles = 0;
   let deductionCents = 0;
   for (const d of mdays ?? []) {
-    gasCents += d.gas_cost_cents ?? 0;
     miles += Number(d.effective_miles ?? 0);
     deductionCents += d.deduction_cents ?? Math.round(Number(d.effective_miles ?? 0) * irsRate * 100);
   }
-  const gasLine: ExpenseLine[] = gasCents > 0 ? [{
-    id: "gas:total",
-    kind: "gas",
-    category: "Gas (mileage)",
-    label: `${miles.toFixed(0)} mi driven to & from shoots`,
-    amount_cents: gasCents,
-    note: "From the mileage tracker",
-    editable: false,
-  }] : [];
 
-  // ── Editing: per-shoot editing cost, by the shoot's scheduled month ───────
-  const { data: shoots } = await db
+  // ── Shoot expenses: per-shoot Stripe fee + gas + editing, for every
+  //    non-cancelled shoot scheduled in the month PLUS any shoot with an
+  //    invoice in this month's view, ordered by date ─────────────────────────
+  const { data: schedShoots } = await db
     .from("shoots")
-    .select("id, address, scheduled_at, editing_cost_cents, editing_cost_by")
-    .not("editing_cost_cents", "is", null)
+    .select("id, address, scheduled_at, contact_id, editing_cost_cents, status")
     .gte("scheduled_at", `${range.start}T00:00:00`)
-    .lte("scheduled_at", `${range.end}T23:59:59`);
+    .lte("scheduled_at", `${range.end}T23:59:59`)
+    .neq("status", "cancelled");
 
-  const editingLines: ExpenseLine[] = (shoots ?? [])
-    .filter(s => (s.editing_cost_cents ?? 0) > 0)
-    .map(s => ({
-      id: `editing:${s.id}`,
-      kind: "editing" as const,
-      category: "Editing",
-      label: s.address || "Shoot",
-      amount_cents: s.editing_cost_cents as number,
+  const haveIds = new Set((schedShoots ?? []).map(s => s.id));
+  const extraIds = [...invoiceShootIds].filter(id => !haveIds.has(id));
+  const { data: extraShoots } = extraIds.length
+    ? await db.from("shoots").select("id, address, scheduled_at, contact_id, editing_cost_cents, status").in("id", extraIds)
+    : { data: [] as NonNullable<typeof schedShoots> };
+
+  const monthShoots = [...(schedShoots ?? []), ...(extraShoots ?? [])]
+    .sort((a, b) => new Date(a.scheduled_at ?? 0).getTime() - new Date(b.scheduled_at ?? 0).getTime());
+
+  const sIds = monthShoots.map(s => s.id);
+  const sGasRes = sIds.length
+    ? await db.from("shoot_mileage").select("shoot_id, allocated_gas_cents").in("shoot_id", sIds)
+    : { data: [] as { shoot_id: string; allocated_gas_cents: number }[] };
+  const cIds = [...new Set(monthShoots.map(s => s.contact_id).filter((v): v is string => !!v))];
+  const { data: cRows } = cIds.length
+    ? await db.from("contacts").select("id, name").in("id", cIds)
+    : { data: [] as { id: string; name: string }[] };
+  const nameByContact = new Map((cRows ?? []).map(c => [c.id, c.name]));
+
+  const invByShoot = new Map<string, { total: number; paid: number }>();
+  for (const inv of invoices ?? []) {
+    if (!inv.shoot_id) continue;
+    const cur = invByShoot.get(inv.shoot_id) ?? { total: 0, paid: 0 };
+    cur.total += inv.amount_cents ?? 0;
+    if (inv.paid) cur.paid += inv.amount_cents ?? 0;
+    invByShoot.set(inv.shoot_id, cur);
+  }
+  const gasByShoot = new Map<string, number>();
+  for (const g of sGasRes.data ?? []) gasByShoot.set(g.shoot_id, (gasByShoot.get(g.shoot_id) ?? 0) + (g.allocated_gas_cents ?? 0));
+
+  const shoot_expenses: ShootExpenseRow[] = monthShoots.map(s => {
+    const inv = invByShoot.get(s.id) ?? { total: 0, paid: 0 };
+    const revenue = inv.total;
+    const revenuePaid = inv.total > 0 && inv.paid >= inv.total;
+    const stripe = stripeFeeCents(revenue, stripePct, stripeFlat);
+    const gas = gasByShoot.get(s.id) ?? 0;
+    const editing = s.editing_cost_cents ?? 0;
+    const expense = stripe + gas + editing;
+    return {
       shoot_id: s.id,
-      note: s.editing_cost_by ? `Logged by ${s.editing_cost_by}` : null,
-      editable: false,
-    }));
-  const editingTotal = editingLines.reduce((s, l) => s + l.amount_cents, 0);
+      date: s.scheduled_at,
+      address: (s.address || "").split(",")[0].trim() || "—",
+      client: (s.contact_id && nameByContact.get(s.contact_id)) || "—",
+      stripe_cents: stripe,
+      gas_cents: gas,
+      editing_cents: editing,
+      expense_cents: expense,
+      revenue_cents: revenue,
+      revenue_paid: revenuePaid,
+      profit_cents: revenue - expense,
+    };
+  });
+
+  const stripeTotal = shoot_expenses.reduce((s, r) => s + r.stripe_cents, 0);
+  const gasTotal = shoot_expenses.reduce((s, r) => s + r.gas_cents, 0);
+  const editingTotal = shoot_expenses.reduce((s, r) => s + r.editing_cents, 0);
+  const shootExpenseTotal = shoot_expenses.reduce((s, r) => s + r.expense_cents, 0);
 
   // ── Operating budget: manual rows in range ───────────────────────────────
   const { data: ops } = await db
@@ -333,26 +379,29 @@ export async function buildPnl(
     const sourcedBy = new Map((contacts ?? []).map(c => [c.id, (c.sourced_by || "").toLowerCase()]));
     const editingByShoot = new Map((attrShoots ?? []).map(s => [s.id, s.editing_cost_cents ?? 0]));
     const contactByShoot = new Map((attrShoots ?? []).map(s => [s.id, s.contact_id]));
-    const gasByShoot = new Map<string, number>();
-    for (const g of shootGas ?? []) gasByShoot.set(g.shoot_id, (gasByShoot.get(g.shoot_id) ?? 0) + (g.allocated_gas_cents ?? 0));
+    const leifGasByShoot = new Map<string, number>();
+    for (const g of shootGas ?? []) leifGasByShoot.set(g.shoot_id, (leifGasByShoot.get(g.shoot_id) ?? 0) + (g.allocated_gas_cents ?? 0));
 
     let leifNet = 0;
     for (const p of paidInRange) {
       if (!p.shoot_id) continue;
       const cid = contactByShoot.get(p.shoot_id);
       if (!cid || !sourcedBy.get(cid)?.includes("leif")) continue;
-      leifNet += p.amount_cents - p.fee_cents - (editingByShoot.get(p.shoot_id) ?? 0) - (gasByShoot.get(p.shoot_id) ?? 0);
+      leifNet += p.amount_cents - p.fee_cents - (editingByShoot.get(p.shoot_id) ?? 0) - (leifGasByShoot.get(p.shoot_id) ?? 0);
     }
     leifShareCents = Math.max(0, Math.round(leifNet / 2));
   }
 
   // ── Totals ───────────────────────────────────────────────────────────────
-  const expenseCents = stripeTotal + gasCents + editingTotal + opsTotal;
+  const expenseCents = shootExpenseTotal + opsTotal;
   const profitCents = incomeCents - expenseCents;
 
-  const lines = [...opLines, ...gasLine, ...editingLines, ...stripeLines];
+  const lines = opLines;
   const byCategoryMap = new Map<string, number>();
   for (const l of lines) byCategoryMap.set(l.category, (byCategoryMap.get(l.category) ?? 0) + (l.monthly_cents ?? l.amount_cents));
+  if (stripeTotal > 0) byCategoryMap.set("Stripe fees", stripeTotal);
+  if (gasTotal > 0) byCategoryMap.set("Gas (mileage)", gasTotal);
+  if (editingTotal > 0) byCategoryMap.set("Editing", editingTotal);
   const by_category = [...byCategoryMap.entries()]
     .map(([category, amount_cents]) => ({ category, amount_cents }))
     .sort((a, b) => b.amount_cents - a.amount_cents);
@@ -366,6 +415,8 @@ export async function buildPnl(
     profit_cents: profitCents,
     by_category,
     lines,
+    shoot_expenses,
+    shoot_expense_cents: shootExpenseTotal,
     memo: {
       mileage_miles: Math.round(miles),
       mileage_deduction_cents: deductionCents,
