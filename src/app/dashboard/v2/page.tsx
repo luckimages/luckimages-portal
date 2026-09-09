@@ -92,7 +92,7 @@ type RegistrationPreview = {
 //   purple  = done (completed / paid)
 type ScheduleHealth = "pending" | "attention" | "ontrack" | "done";
 const HEALTH_COLOR: Record<ScheduleHealth, string> = {
-  pending: "#fbbf24",
+  pending: "rgba(251, 191, 36, 0.5)", // #fbbf24 @ 50% — matches the Shoot Log's pending stripe
   attention: "#f87171",
   ontrack: "#4ade80",
   done: "#a78bfa",
