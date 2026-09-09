@@ -246,7 +246,11 @@ export default function CalendarPage() {
   }
 
   const btnCls = "text-xs tracking-[1px] uppercase text-[#888] hover:text-white hover:border-white/30 transition-colors border border-white/10 px-3 py-1.5";
-  const selectedAll = selectedDay ? (eventMap[selectedDay] || []) : [];
+  // Modal shows the active filter's events for that day, plus availability
+  // blocks always (they're conflict info you need whatever you're looking at).
+  const selectedAll = selectedDay
+    ? (eventMap[selectedDay] || []).filter(e => e.type === activeType || e.type === "unavailable")
+    : [];
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -380,7 +384,7 @@ export default function CalendarPage() {
                         <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${s.dot}`} />
                         <div className="min-w-0 flex-1">
                           <p className={`text-[10px] font-semibold tracking-[1px] uppercase ${s.text} mb-0.5`}>{s.label}</p>
-                          <p className="text-sm text-white leading-snug">{ev.label}</p>
+                          <p className="text-sm text-white leading-snug line-clamp-3">{ev.label}</p>
                           {ev.meta && <p className="text-[11px] text-[#666] mt-0.5 capitalize">{ev.meta}</p>}
                           {ev.type !== "unavailable" && <p className="text-[11px] text-[#444] mt-0.5">{fmtTime(ev.time)}</p>}
                           <div className="flex items-center gap-4 mt-1.5">
