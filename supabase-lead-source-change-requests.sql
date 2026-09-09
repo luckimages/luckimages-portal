@@ -23,3 +23,9 @@ CREATE TABLE IF NOT EXISTS lead_source_change_requests (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_lscr_one_pending_per_contact
   ON lead_source_change_requests (contact_id)
   WHERE status = 'pending';
+
+-- All reads/writes go through the service-role key in
+-- /api/admin/lead-source-request (which bypasses RLS and runs its own admin
+-- check). Enable RLS with no policy so the anon/authenticated keys can't
+-- touch this commission-sensitive table directly.
+ALTER TABLE lead_source_change_requests ENABLE ROW LEVEL SECURITY;
