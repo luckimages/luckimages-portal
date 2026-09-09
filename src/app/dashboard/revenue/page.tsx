@@ -75,8 +75,9 @@ type MileageRow = {
 function fmt(n: number) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
-function fmtc(cents: number) {
-  return "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+// Exact cents — used everywhere in the Expenses breakdown.
+function fmtc2(cents: number) {
+  return "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const monthNames: Record<string, string> = {
@@ -307,9 +308,9 @@ export default function RevenuePage() {
               </p>
               {pnl && (
                 <p className={`text-xs mt-2 text-[#555] select-none ${blur}`}>
-                  {fmtc((pnl.by_category.find(c => c.category === "Stripe fees")?.amount_cents) ?? 0)} Stripe ·{" "}
-                  {fmtc((pnl.by_category.find(c => c.category === "Gas (mileage)")?.amount_cents) ?? 0)} gas ·{" "}
-                  {fmtc((pnl.by_category.find(c => c.category === "Editing")?.amount_cents) ?? 0)} editing
+                  {fmtc2((pnl.by_category.find(c => c.category === "Stripe fees")?.amount_cents) ?? 0)} Stripe ·{" "}
+                  {fmtc2((pnl.by_category.find(c => c.category === "Gas (mileage)")?.amount_cents) ?? 0)} gas ·{" "}
+                  {fmtc2((pnl.by_category.find(c => c.category === "Editing")?.amount_cents) ?? 0)} editing
                 </p>
               )}
             </button>
@@ -320,7 +321,7 @@ export default function RevenuePage() {
               </p>
               {pnl && (
                 <p className={`text-xs mt-2 text-[#555] select-none ${blur}`}>
-                  Leif&apos;s 50%: {fmtc(pnl.memo.leif_profit_share_cents)}
+                  Leif&apos;s 50%: {fmtc2(pnl.memo.leif_profit_share_cents)}
                 </p>
               )}
             </div>
@@ -460,12 +461,10 @@ function ExpensesSection({
   onChanged: () => void;
   blur: string;
 }) {
+  const blankForm = { label: "", amount: "", category: "software", cadence: "monthly", recurring: true, note: "" };
   const [adding, setAdding] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
-  const [newAmount, setNewAmount] = useState("");
-  const [newCat, setNewCat] = useState("software");
-  const [newCadence, setNewCadence] = useState("monthly");
-  const [newRecurring, setNewRecurring] = useState(true);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState(blankForm);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -475,39 +474,58 @@ function ExpensesSection({
   const editingLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "editing"), [pnl]);
   const stripeLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "stripe"), [pnl]);
 
-  const maxCat = Math.max(1, ...(pnl?.by_category ?? []).map(c => c.amount_cents));
+  // Operating lines grouped by category, in the canonical order.
+  const byCat = useMemo(() => {
+    const m = new Map<string, ExpenseLine[]>();
+    for (const l of operating) { if (!m.has(l.category)) m.set(l.category, []); m.get(l.category)!.push(l); }
+    const extras = [...m.keys()].filter(c => !EXPENSE_CATEGORIES.includes(c));
+    return [...EXPENSE_CATEGORIES, ...extras]
+      .filter(c => m.has(c))
+      .map(c => {
+        const lines = m.get(c)!;
+        return { category: c, lines, total: lines.reduce((s, l) => s + l.amount_cents, 0) };
+      });
+  }, [operating]);
 
-  async function addExpense() {
-    const dollars = parseFloat(newAmount);
-    if (!newLabel.trim()) { setErr("Give it a name."); return; }
+  const opsTotal = operating.reduce((s, l) => s + l.amount_cents, 0);
+
+  function openAdd() {
+    setForm(blankForm); setEditId(null); setErr(""); setAdding(a => !a);
+  }
+  function openEdit(l: ExpenseLine) {
+    setForm({
+      label: l.label,
+      amount: (l.amount_cents / 100).toFixed(2),
+      category: l.category,
+      cadence: l.cadence || "monthly",
+      recurring: l.recurring ?? true,
+      note: l.note || "",
+    });
+    setEditId(l.id); setAdding(false); setErr("");
+  }
+  function closeForm() { setAdding(false); setEditId(null); setErr(""); }
+
+  async function submitForm() {
+    const dollars = parseFloat(form.amount);
+    if (!form.label.trim()) { setErr("Give it a name."); return; }
     if (!Number.isFinite(dollars) || dollars < 0) { setErr("Enter a valid amount."); return; }
     setSaving(true); setErr("");
+    const payload = {
+      label: form.label.trim(),
+      amount_cents: Math.round(dollars * 100),
+      category: form.category,
+      cadence: form.cadence,
+      recurring: form.recurring,
+      note: form.note.trim() || null,
+    };
     const r = await fetch("/api/admin/expenses", {
-      method: "POST",
+      method: editId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        label: newLabel.trim(),
-        amount_cents: Math.round(dollars * 100),
-        category: newCat,
-        cadence: newCadence,
-        recurring: newRecurring,
-        month: period === "month" ? expMonth : undefined,
-      }),
+      body: JSON.stringify(editId ? { id: editId, ...payload } : { ...payload, month: period === "month" ? expMonth : undefined }),
     });
     setSaving(false);
     if (!r.ok) { setErr((await r.json().catch(() => ({}))).error || "Could not save."); return; }
-    setNewLabel(""); setNewAmount(""); setAdding(false);
-    onChanged();
-  }
-
-  async function patchLine(id: string, patch: Record<string, unknown>) {
-    setBusyId(id);
-    await fetch("/api/admin/expenses", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, ...patch }),
-    });
-    setBusyId(null);
+    closeForm();
     onChanged();
   }
 
@@ -519,10 +537,55 @@ function ExpensesSection({
       body: JSON.stringify({ id }),
     });
     setBusyId(null);
+    closeForm();
     onChanged();
   }
 
-  const opsTotal = operating.reduce((s, l) => s + l.amount_cents, 0);
+  const expenseForm = (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="What is it? (e.g. Adobe CC)"
+          className="bg-[#0c0c0c] border border-white/15 focus:border-white/40 text-sm text-white px-3 py-2 outline-none flex-1 min-w-[160px]" />
+        <div className="flex items-center border border-white/15 focus-within:border-white/40 bg-[#0c0c0c]">
+          <span className="text-[#555] text-sm pl-2.5">$</span>
+          <input value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
+            className="bg-transparent text-sm text-white px-2 py-2 w-24 outline-none tabular-nums" />
+        </div>
+        <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+          className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
+          {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
+        </select>
+        <select value={form.cadence} onChange={e => setForm(f => ({ ...f, cadence: e.target.value }))}
+          className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
+          <option value="monthly">Monthly</option>
+          <option value="annual">Annual (amortized)</option>
+          <option value="fluctuates">Fluctuates</option>
+        </select>
+      </div>
+      <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Note (optional)"
+        className="bg-[#0c0c0c] border border-white/15 focus:border-white/40 text-sm text-white px-3 py-2 outline-none w-full" />
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <label className="flex items-center gap-2 text-xs text-[#888] cursor-pointer">
+          <input type="checkbox" checked={form.recurring} onChange={e => setForm(f => ({ ...f, recurring: e.target.checked }))} className="accent-white" />
+          Recurring — repeats every month automatically
+        </label>
+        <div className="flex items-center gap-2">
+          {editId && (
+            <button onClick={() => deleteLine(editId)} disabled={busyId === editId}
+              className="text-[10px] tracking-[1.5px] uppercase px-3 py-2 border border-red-400/30 text-red-400 hover:bg-red-400/10 transition-colors disabled:opacity-40">
+              Delete
+            </button>
+          )}
+          <button onClick={closeForm} className="text-[10px] tracking-[1.5px] uppercase px-3 py-2 text-[#666] hover:text-white transition-colors">Cancel</button>
+          <button onClick={submitForm} disabled={saving}
+            className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 font-semibold hover:bg-white/90 transition-colors disabled:opacity-40">
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+      {err && <p className="text-[11px] text-red-400">{err}</p>}
+    </div>
+  );
 
   return (
     <section>
@@ -547,68 +610,25 @@ function ExpensesSection({
       ) : (
         <div className="space-y-6">
 
-          {/* Category breakdown */}
-          {pnl && pnl.by_category.length > 0 && (
-            <div className="bg-[#111] border border-white/[0.07] px-6 py-5 space-y-2.5">
-              {pnl.by_category.map(c => (
-                <div key={c.category} className="flex items-center gap-3">
-                  <span className="text-[11px] text-[#888] w-40 shrink-0 truncate">{CAT_LABEL[c.category] ?? c.category}</span>
-                  <div className="flex-1 h-2 bg-white/[0.04]">
-                    <div className="h-full bg-[#f87171]/50" style={{ width: `${(c.amount_cents / maxCat) * 100}%` }} />
-                  </div>
-                  <span className={`text-[11px] text-white tabular-nums w-16 text-right select-none ${blur}`}>{fmtc(c.amount_cents)}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-3 pt-2 border-t border-white/[0.07]">
-                <span className="text-[11px] tracking-[1px] uppercase text-[#666] w-40 shrink-0">Total expenses</span>
-                <div className="flex-1" />
-                <span className={`text-sm font-bold text-[#f87171] tabular-nums w-16 text-right select-none ${blur}`}>{fmtc(pnl.expense_cents)}</span>
-              </div>
+          {/* Total expenses bar */}
+          {pnl && (
+            <div className="flex items-center justify-between bg-[#111] border border-white/[0.07] px-6 py-4">
+              <span className="text-[11px] tracking-[2px] uppercase text-[#666]">Total expenses</span>
+              <span className={`text-xl font-bold text-[#f87171] tabular-nums select-none ${blur}`}>{fmtc2(pnl.expense_cents)}</span>
             </div>
           )}
 
-          {/* Operating budget — manual */}
+          {/* Operating budget — grouped by category */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] tracking-[2px] uppercase text-[#666]">Operating budget</p>
-              <button onClick={() => { setAdding(a => !a); setErr(""); }} className="text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 border border-white/15 text-[#888] hover:text-white hover:border-white/40 transition-all">
+              <button onClick={openAdd} className="text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 border border-white/15 text-[#888] hover:text-white hover:border-white/40 transition-all">
                 {adding ? "Close" : "+ Add expense"}
               </button>
             </div>
 
             {adding && (
-              <div className="border border-white/10 bg-white/[0.02] p-4 mb-3 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="What is it? (e.g. Adobe CC)"
-                    className="bg-[#0c0c0c] border border-white/15 focus:border-white/40 text-sm text-white px-3 py-2 outline-none flex-1 min-w-[160px]" />
-                  <div className="flex items-center border border-white/15 focus-within:border-white/40 bg-[#0c0c0c]">
-                    <span className="text-[#555] text-sm pl-2.5">$</span>
-                    <input value={newAmount} onChange={e => setNewAmount(e.target.value)} type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
-                      className="bg-transparent text-sm text-white px-2 py-2 w-24 outline-none tabular-nums" />
-                  </div>
-                  <select value={newCat} onChange={e => setNewCat(e.target.value)}
-                    className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
-                    {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
-                  </select>
-                  <select value={newCadence} onChange={e => setNewCadence(e.target.value)}
-                    className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
-                    <option value="monthly">Monthly</option>
-                    <option value="annual">Annual (amortized)</option>
-                    <option value="fluctuates">Fluctuates</option>
-                  </select>
-                </div>
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <label className="flex items-center gap-2 text-xs text-[#888] cursor-pointer">
-                    <input type="checkbox" checked={newRecurring} onChange={e => setNewRecurring(e.target.checked)} className="accent-white" />
-                    Recurring — repeats every month automatically
-                  </label>
-                  <button onClick={addExpense} disabled={saving}
-                    className="text-xs tracking-[2px] uppercase bg-white text-black px-4 py-2 font-semibold hover:bg-white/90 transition-colors disabled:opacity-40">
-                    {saving ? "Saving…" : "Save"}
-                  </button>
-                </div>
-                {err && <p className="text-[11px] text-red-400">{err}</p>}
-              </div>
+              <div className="border border-white/10 bg-white/[0.02] p-4 mb-3">{expenseForm}</div>
             )}
 
             <div className="border border-white/[0.07]">
@@ -617,41 +637,42 @@ function ExpensesSection({
                   No operating expenses {period === "month" ? "this month" : "yet"}
                 </p>
               ) : (
-                operating.map(l => (
-                  <div key={l.id} className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2.5 border-b border-white/[0.04] last:border-0 items-center">
-                    <div className="min-w-0">
-                      <span className="text-sm truncate block">{l.label}</span>
-                      <span className="text-[10px] text-[#555] tracking-[1px] uppercase">
-                        {CAT_LABEL[l.category] ?? l.category}
-                        {l.cadence === "annual" && " · annual"}
-                        {l.cadence === "fluctuates" && " · fluctuates"}
-                        {l.auto_source && ` · auto (${l.auto_source})`}
-                      </span>
-                      {l.note && <span className="text-[10px] text-[#444] block truncate">{l.note}</span>}
+                byCat.map(grp => (
+                  <div key={grp.category}>
+                    <div className="flex items-center justify-between px-4 py-2 bg-white/[0.03] border-b border-white/[0.06]">
+                      <span className="text-[10px] tracking-[2px] uppercase text-[#888]">{CAT_LABEL[grp.category] ?? grp.category}</span>
+                      <span className={`text-[11px] font-semibold tabular-nums text-[#999] select-none ${blur}`}>{fmtc2(grp.total)}</span>
                     </div>
-                    <span className={`text-sm font-semibold tabular-nums select-none ${blur}`}>{fmtc(l.amount_cents)}</span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => patchLine(l.id, { recurring: !l.recurring })}
-                        disabled={busyId === l.id}
-                        title={l.recurring ? "Stop repeating" : "Make recurring"}
-                        className={`text-[9px] tracking-[1px] uppercase px-1.5 py-1 border transition-all disabled:opacity-40 ${
-                          l.recurring ? "border-[#4ade80]/30 text-[#4ade80]" : "border-white/15 text-[#555] hover:text-white"
-                        }`}>
-                        ↻
-                      </button>
-                      <button onClick={() => deleteLine(l.id)} disabled={busyId === l.id}
-                        className="text-[9px] tracking-[1px] uppercase px-1.5 py-1 border border-white/15 text-[#555] hover:text-red-400 hover:border-red-400/40 transition-all disabled:opacity-40">
-                        ✕
-                      </button>
-                    </div>
+                    {grp.lines.map(l => editId === l.id ? (
+                      <div key={l.id} className="px-4 py-3 border-b border-white/[0.04] bg-white/[0.02]">{expenseForm}</div>
+                    ) : (
+                      <div key={l.id} className="group grid grid-cols-[1fr_auto] gap-x-3 pl-8 pr-4 py-2 border-b border-white/[0.04] items-baseline">
+                        <div className="min-w-0 flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+                          <span className="text-[13px] text-white">{l.label}</span>
+                          {l.cadence === "annual" && <span className="text-[9px] tracking-[1px] uppercase text-[#888] border border-white/10 px-1">annual</span>}
+                          {l.cadence === "fluctuates" && <span className="text-[9px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/20 px-1">fluctuates</span>}
+                          {l.auto_source && <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] border border-[#60a5fa]/20 px-1">auto</span>}
+                          {!l.recurring && <span className="text-[9px] tracking-[1px] uppercase text-[#666] border border-white/10 px-1">one-time</span>}
+                          {l.note && <span className="text-[10px] text-[#555] truncate">{l.note}</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[13px] font-semibold tabular-nums select-none ${blur}`}>{fmtc2(l.amount_cents)}</span>
+                          <button onClick={() => openEdit(l)} title="Edit"
+                            className="text-[#555] hover:text-white transition-colors opacity-40 group-hover:opacity-100">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))
               )}
               {operating.length > 0 && (
-                <div className="grid grid-cols-[1fr_auto] gap-x-3 px-4 py-2.5 bg-white/[0.02] items-center">
-                  <span className="text-[10px] tracking-[1px] uppercase text-[#666]">Operating subtotal</span>
-                  <span className={`text-sm font-bold tabular-nums select-none ${blur}`}>{fmtc(opsTotal)}</span>
+                <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.04]">
+                  <span className="text-[10px] tracking-[1px] uppercase text-[#888]">Operating subtotal</span>
+                  <span className={`text-sm font-bold tabular-nums select-none ${blur}`}>{fmtc2(opsTotal)}</span>
                 </div>
               )}
             </div>
@@ -670,11 +691,11 @@ function ExpensesSection({
               <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">For reference — not subtracted from profit</p>
               <div className="flex justify-between">
                 <span>IRS mileage deduction ({pnl.memo.mileage_miles.toLocaleString()} mi · tax season)</span>
-                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.mileage_deduction_cents)}</span>
+                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc2(pnl.memo.mileage_deduction_cents)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Leif&apos;s share (50% of profit on shoots he sourced)</span>
-                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.leif_profit_share_cents)}</span>
+                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc2(pnl.memo.leif_profit_share_cents)}</span>
               </div>
             </div>
           )}
@@ -697,7 +718,7 @@ function AutoBucket({ title, note, lines, blur }: { title: string; note: string;
           <p className="text-[11px] tracking-[1px] uppercase text-[#888]">{title}</p>
           <p className="text-[10px] text-[#555] mt-0.5">{note}</p>
         </div>
-        <span className={`text-lg font-bold tabular-nums select-none ${blur}`}>{fmtc(total)}</span>
+        <span className={`text-lg font-bold tabular-nums select-none ${blur}`}>{fmtc2(total)}</span>
       </div>
       {lines.length > 0 && (
         <>
@@ -709,7 +730,7 @@ function AutoBucket({ title, note, lines, blur }: { title: string; note: string;
               {lines.map(l => (
                 <div key={l.id} className="flex justify-between gap-2 text-[11px]">
                   <span className="text-[#888] truncate">{l.label}</span>
-                  <span className={`text-[#aaa] tabular-nums shrink-0 select-none ${blur}`}>{fmtc(l.amount_cents)}</span>
+                  <span className={`text-[#aaa] tabular-nums shrink-0 select-none ${blur}`}>{fmtc2(l.amount_cents)}</span>
                 </div>
               ))}
             </div>
@@ -758,8 +779,8 @@ function MileageReport({ blur }: { blur: string }) {
                 <span className="text-sm truncate">{r.name}</span>
                 <span className="text-[11px] text-[#888] tabular-nums">{r.day_count}</span>
                 <span className="text-[11px] text-[#888] tabular-nums">{r.miles.toFixed(0)}</span>
-                <span className={`text-[11px] tabular-nums select-none ${blur}`}>{fmtc(r.gas_cents)}</span>
-                <span className={`text-[11px] text-[#888] tabular-nums select-none ${blur}`}>{fmtc(r.deduction_cents)}</span>
+                <span className={`text-[11px] tabular-nums select-none ${blur}`}>{fmtc2(r.gas_cents)}</span>
+                <span className={`text-[11px] text-[#888] tabular-nums select-none ${blur}`}>{fmtc2(r.deduction_cents)}</span>
               </div>
             ))}
             {totals && (
@@ -768,8 +789,8 @@ function MileageReport({ blur }: { blur: string }) {
                 <span />
                 <span />
                 <span className="text-[11px] font-semibold tabular-nums">{totals.miles.toFixed(0)}</span>
-                <span className={`text-[11px] font-semibold tabular-nums select-none ${blur}`}>{fmtc(totals.gas_cents)}</span>
-                <span className={`text-[11px] font-semibold tabular-nums select-none ${blur}`}>{fmtc(totals.deduction_cents)}</span>
+                <span className={`text-[11px] font-semibold tabular-nums select-none ${blur}`}>{fmtc2(totals.gas_cents)}</span>
+                <span className={`text-[11px] font-semibold tabular-nums select-none ${blur}`}>{fmtc2(totals.deduction_cents)}</span>
               </div>
             )}
           </>
