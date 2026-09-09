@@ -16,3 +16,17 @@ export const CLIENT_EMAILS_ENABLED = false;
 export const COLD_CALL_TEXT_LINK_NOTE = "Sent via tracked link";
 
 export const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJHe2jnlT862ifXEoTm94j1A";
+
+// Admin-authored emails (outreach, quick send, cold-call follow-ups,
+// reschedule asks) send AS whoever clicked send — so replies land in their
+// inbox and Engagement can show who did the outreach. All @luckimages.com,
+// covered by the one verified Resend domain.
+const ADMIN_SENDERS: Record<string, { name: string; email: string }> = {
+  "ryan@luckimages.com": { name: "Ryan Luck", email: "ryan@luckimages.com" },
+  "leif@luckimages.com": { name: "Leif Tilton", email: "leif@luckimages.com" },
+};
+
+export function adminSender(email?: string | null): { from: string; replyTo: string; shortName: string } {
+  const s = ADMIN_SENDERS[(email || "").toLowerCase()] || ADMIN_SENDERS["ryan@luckimages.com"];
+  return { from: `${s.name} <${s.email}>`, replyTo: s.email, shortName: s.name.split(" ")[0] };
+}

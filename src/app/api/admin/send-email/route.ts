@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
+import { adminSender } from "@/lib/constants";
 
 export async function POST(req: Request) {
   const admin = await requireAdmin();
@@ -40,11 +41,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "RESEND_API_KEY is not configured" }, { status: 500 });
   }
 
+  // Send as the admin who clicked send (Leif from his portal → leif@…)
+  const sender = adminSender(admin.email);
+
   const resendRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Ryan Luck <ryan@luckimages.com>",
+      from: sender.from,
+      reply_to: sender.replyTo,
       to: [to],
       ...(Array.isArray(cc) && cc.length > 0 ? { cc } : {}),
       subject,
