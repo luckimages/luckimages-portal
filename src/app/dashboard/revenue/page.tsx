@@ -38,6 +38,7 @@ type ExpenseLine = {
   category: string;
   label: string;
   amount_cents: number;
+  monthly_cents?: number;
   recurring?: boolean;
   cadence?: string;
   auto_source?: string | null;
@@ -78,6 +79,10 @@ function fmt(n: number) {
 // Exact cents — used everywhere in the Expenses breakdown.
 function fmtc2(cents: number) {
   return "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+// Effective monthly figure for an expense line (annual rows are billed yearly).
+function moOf(l: ExpenseLine) {
+  return l.monthly_cents ?? l.amount_cents;
 }
 
 const monthNames: Record<string, string> = {
@@ -468,6 +473,7 @@ function ExpensesSection({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"category" | "az" | "price">("category");
 
   const operating = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "operating"), [pnl]);
   const gasLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "gas"), [pnl]);
@@ -482,15 +488,23 @@ function ExpensesSection({
     return [...EXPENSE_CATEGORIES, ...extras]
       .filter(c => m.has(c))
       .map(c => {
-        const lines = m.get(c)!;
-        return { category: c, lines, total: lines.reduce((s, l) => s + l.amount_cents, 0) };
+        const lines = [...m.get(c)!].sort((a, b) => a.label.localeCompare(b.label));
+        return { category: c, lines, total: lines.reduce((s, l) => s + moOf(l), 0) };
       });
   }, [operating]);
 
-  const opsTotal = operating.reduce((s, l) => s + l.amount_cents, 0);
+  const flatSorted = useMemo(() => {
+    const arr = [...operating];
+    if (sortBy === "az") arr.sort((a, b) => a.label.localeCompare(b.label));
+    if (sortBy === "price") arr.sort((a, b) => moOf(b) - moOf(a));
+    return arr;
+  }, [operating, sortBy]);
+
+  const opsTotal = operating.reduce((s, l) => s + moOf(l), 0);
 
   function openAdd() {
-    setForm(blankForm); setEditId(null); setErr(""); setAdding(a => !a);
+    if (adding) { closeForm(); return; }
+    setForm(blankForm); setEditId(null); setErr(""); setAdding(true);
   }
   function openEdit(l: ExpenseLine) {
     setForm({
@@ -558,10 +572,16 @@ function ExpensesSection({
         <select value={form.cadence} onChange={e => setForm(f => ({ ...f, cadence: e.target.value }))}
           className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
           <option value="monthly">Monthly</option>
-          <option value="annual">Annual (amortized)</option>
+          <option value="annual">Annual</option>
           <option value="fluctuates">Fluctuates</option>
         </select>
       </div>
+      {form.cadence === "annual" && (
+        <p className="text-[10px] text-[#666]">
+          Enter the <span className="text-[#999]">annual</span> cost — the budget shows it ÷12
+          {parseFloat(form.amount) > 0 && ` (${fmtc2(Math.round(parseFloat(form.amount) * 100 / 12))}/mo)`}.
+        </p>
+      )}
       <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Note (optional)"
         className="bg-[#0c0c0c] border border-white/15 focus:border-white/40 text-sm text-white px-3 py-2 outline-none w-full" />
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -584,6 +604,29 @@ function ExpensesSection({
         </div>
       </div>
       {err && <p className="text-[11px] text-red-400">{err}</p>}
+    </div>
+  );
+
+  const rowEl = (l: ExpenseLine, opts?: { showCat?: boolean }) => (
+    <div key={l.id} className="group grid grid-cols-[1fr_auto] gap-x-3 pl-8 pr-4 py-2 border-b border-white/[0.04] items-baseline">
+      <div className="min-w-0 flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
+        <span className="text-[13px] text-white">{l.label}</span>
+        {opts?.showCat && <span className="text-[9px] tracking-[1px] uppercase text-[#666] border border-white/10 px-1">{CAT_LABEL[l.category] ?? l.category}</span>}
+        {l.cadence === "annual" && <span className="text-[9px] tracking-[1px] uppercase text-[#888] border border-white/10 px-1">annual</span>}
+        {l.cadence === "fluctuates" && <span className="text-[9px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/20 px-1">fluctuates</span>}
+        {l.auto_source && <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] border border-[#60a5fa]/20 px-1">auto</span>}
+        {!l.recurring && <span className="text-[9px] tracking-[1px] uppercase text-[#666] border border-white/10 px-1">one-time</span>}
+        {l.note && <span className="text-[10px] text-[#555] truncate">{l.note}</span>}
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className={`text-[13px] font-semibold tabular-nums select-none ${blur}`}>{fmtc2(moOf(l))}</span>
+        <button onClick={() => openEdit(l)} title="Edit expense"
+          className="text-[#777] hover:text-white transition-colors">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 
@@ -618,56 +661,42 @@ function ExpensesSection({
             </div>
           )}
 
-          {/* Operating budget — grouped by category */}
+          {/* Operating budget */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <p className="text-[10px] tracking-[2px] uppercase text-[#666]">Operating budget</p>
-              <button onClick={openAdd} className="text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 border border-white/15 text-[#888] hover:text-white hover:border-white/40 transition-all">
-                {adding ? "Close" : "+ Add expense"}
-              </button>
+              <div className="flex items-center gap-1.5">
+                {([["category", "By category"], ["az", "A–Z"], ["price", "Price ↓"]] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setSortBy(k)}
+                    className={`text-[9px] tracking-[1.5px] uppercase px-2 py-1 transition-all ${
+                      sortBy === k ? "bg-white text-black font-bold" : "text-[#555] border border-white/10 hover:text-white"
+                    }`}>
+                    {lbl}
+                  </button>
+                ))}
+                <button onClick={openAdd} className="text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 border border-white/15 text-[#888] hover:text-white hover:border-white/40 transition-all ml-1">
+                  + Add expense
+                </button>
+              </div>
             </div>
-
-            {adding && (
-              <div className="border border-white/10 bg-white/[0.02] p-4 mb-3">{expenseForm}</div>
-            )}
 
             <div className="border border-white/[0.07]">
               {operating.length === 0 ? (
                 <p className="px-4 py-5 text-center text-[#444] text-xs tracking-widest uppercase">
                   No operating expenses {period === "month" ? "this month" : "yet"}
                 </p>
-              ) : (
+              ) : sortBy === "category" ? (
                 byCat.map(grp => (
                   <div key={grp.category}>
                     <div className="flex items-center justify-between px-4 py-2 bg-white/[0.03] border-b border-white/[0.06]">
                       <span className="text-[10px] tracking-[2px] uppercase text-[#888]">{CAT_LABEL[grp.category] ?? grp.category}</span>
                       <span className={`text-[11px] font-semibold tabular-nums text-[#999] select-none ${blur}`}>{fmtc2(grp.total)}</span>
                     </div>
-                    {grp.lines.map(l => editId === l.id ? (
-                      <div key={l.id} className="px-4 py-3 border-b border-white/[0.04] bg-white/[0.02]">{expenseForm}</div>
-                    ) : (
-                      <div key={l.id} className="group grid grid-cols-[1fr_auto] gap-x-3 pl-8 pr-4 py-2 border-b border-white/[0.04] items-baseline">
-                        <div className="min-w-0 flex items-baseline gap-x-2 gap-y-0.5 flex-wrap">
-                          <span className="text-[13px] text-white">{l.label}</span>
-                          {l.cadence === "annual" && <span className="text-[9px] tracking-[1px] uppercase text-[#888] border border-white/10 px-1">annual</span>}
-                          {l.cadence === "fluctuates" && <span className="text-[9px] tracking-[1px] uppercase text-[#fbbf24] border border-[#fbbf24]/20 px-1">fluctuates</span>}
-                          {l.auto_source && <span className="text-[9px] tracking-[1px] uppercase text-[#60a5fa] border border-[#60a5fa]/20 px-1">auto</span>}
-                          {!l.recurring && <span className="text-[9px] tracking-[1px] uppercase text-[#666] border border-white/10 px-1">one-time</span>}
-                          {l.note && <span className="text-[10px] text-[#555] truncate">{l.note}</span>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[13px] font-semibold tabular-nums select-none ${blur}`}>{fmtc2(l.amount_cents)}</span>
-                          <button onClick={() => openEdit(l)} title="Edit"
-                            className="text-[#555] hover:text-white transition-colors opacity-40 group-hover:opacity-100">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                    {grp.lines.map(l => rowEl(l))}
                   </div>
                 ))
+              ) : (
+                flatSorted.map(l => rowEl(l, { showCat: true }))
               )}
               {operating.length > 0 && (
                 <div className="flex items-center justify-between px-4 py-2.5 bg-white/[0.04]">
@@ -702,6 +731,16 @@ function ExpensesSection({
 
           {/* Mileage report */}
           <MileageReport blur={blur} />
+        </div>
+      )}
+
+      {/* Add / edit expense modal */}
+      {(adding || editId) && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={closeForm}>
+          <div className="bg-[#111] border border-white/10 p-5 max-w-2xl w-full my-8" onClick={e => e.stopPropagation()}>
+            <p className="text-[10px] tracking-[3px] uppercase text-[#666] mb-4">{editId ? "Edit expense" : "New expense"}</p>
+            {expenseForm}
+          </div>
         </div>
       )}
     </section>

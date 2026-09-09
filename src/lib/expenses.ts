@@ -19,7 +19,8 @@ export type ExpenseLine = {
   kind: "operating" | "stripe" | "gas" | "editing";
   category: string;
   label: string;
-  amount_cents: number;
+  amount_cents: number;          // as billed at its cadence (annual rows store the yearly total)
+  monthly_cents?: number;        // effective monthly figure (annual ÷ 12) — what the P&L uses
   recurring?: boolean;
   cadence?: string;              // 'monthly' | 'annual' | 'fluctuates'
   auto_source?: string | null;   // 'twilio' | 'r2' | null
@@ -304,13 +305,14 @@ export async function buildPnl(
     category: o.category || "other",
     label: o.label,
     amount_cents: o.amount_cents,
+    monthly_cents: o.cadence === "annual" ? Math.round(o.amount_cents / 12) : o.amount_cents,
     recurring: o.recurring,
     cadence: o.cadence || "monthly",
     auto_source: o.auto_source,
     note: o.note,
     editable: true,
   }));
-  const opsTotal = opLines.reduce((s, l) => s + l.amount_cents, 0);
+  const opsTotal = opLines.reduce((s, l) => s + (l.monthly_cents ?? l.amount_cents), 0);
 
   // ── Leif's commission: 50% of profit on shoots HE sourced ────────────────
   // Per the agreement, Leif gets 50% of profit only on shoots from a lead he
@@ -350,7 +352,7 @@ export async function buildPnl(
 
   const lines = [...opLines, ...gasLine, ...editingLines, ...stripeLines];
   const byCategoryMap = new Map<string, number>();
-  for (const l of lines) byCategoryMap.set(l.category, (byCategoryMap.get(l.category) ?? 0) + l.amount_cents);
+  for (const l of lines) byCategoryMap.set(l.category, (byCategoryMap.get(l.category) ?? 0) + (l.monthly_cents ?? l.amount_cents));
   const by_category = [...byCategoryMap.entries()]
     .map(([category, amount_cents]) => ({ category, amount_cents }))
     .sort((a, b) => b.amount_cents - a.amount_cents);
