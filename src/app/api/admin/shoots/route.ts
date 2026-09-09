@@ -104,11 +104,27 @@ export async function GET(req: Request) {
     }
   }
 
+  // Allocated photographer mileage / gas cost per shoot (summed across
+  // photographers). Degrades to nothing if the mileage tables aren't there.
+  const shootIds = (shoots ?? []).map(s => s.id);
+  const mileageByShoot: Record<string, { miles: number; gas_cents: number }> = {};
+  if (shootIds.length) {
+    const { data: sm } = await supabase.from("shoot_mileage")
+      .select("shoot_id, allocated_miles, allocated_gas_cents").in("shoot_id", shootIds);
+    for (const r of sm ?? []) {
+      const m = (mileageByShoot[r.shoot_id] ||= { miles: 0, gas_cents: 0 });
+      m.miles += Number(r.allocated_miles) || 0;
+      m.gas_cents += Number(r.allocated_gas_cents) || 0;
+    }
+  }
+
   const result = (shoots ?? []).map(s => ({
     ...s,
     client_name: contactNameMap[s.contact_id] || nameMap[s.client_id] || contactEmailMap[s.contact_id] || emailMap[s.client_id] || "",
     client_email: contactEmailMap[s.contact_id] || emailMap[s.client_id] || "",
     photographer_ids: s.photographer_ids || [],
+    mileage_miles: mileageByShoot[s.id]?.miles ?? null,
+    mileage_gas_cents: mileageByShoot[s.id]?.gas_cents ?? null,
   }));
 
   return NextResponse.json(result);

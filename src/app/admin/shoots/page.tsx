@@ -42,6 +42,8 @@ type Shoot = {
   line_items: LineItem[] | null;
   package_name: string | null;
   drive_minutes: number | null;
+  mileage_miles: number | null;
+  mileage_gas_cents: number | null;
 };
 
 type Contact = { id: string; name: string; brokerage: string | null; email?: string | null };
@@ -368,6 +370,13 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
             <div className="mt-1"><ShootLocationMap lat={shoot.lat} lng={shoot.lng} address={shoot.address} /></div>
             {shoot.scheduled_at && <p className="text-xs text-[#555] mt-1">{fmtScheduled(shoot.scheduled_at)}</p>}
             {shoot.drive_minutes != null && <p className="text-xs text-[#60a5fa] mt-1">🚗 {shoot.drive_minutes} min drive from home base</p>}
+            {shoot.mileage_miles != null && shoot.mileage_miles > 0 && (
+              <p className="text-xs text-[#888] mt-1">
+                📍 {shoot.mileage_miles.toFixed(1)} mi allocated
+                {shoot.mileage_gas_cents ? ` · $${(shoot.mileage_gas_cents / 100).toFixed(2)} gas` : ""}
+                <span className="text-[#555]"> (photographer&apos;s day split)</span>
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-[#444] hover:text-white transition-colors text-xl leading-none shrink-0 ml-4">✕</button>
         </div>

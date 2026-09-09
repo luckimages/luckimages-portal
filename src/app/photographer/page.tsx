@@ -15,6 +15,12 @@ type Shoot = {
   services: string[]; status: string; notes: string;
   lat?: number | null; lng?: number | null;
 };
+type MileageDay = {
+  id: string; day: string; shoot_ids: string[]; shoot_addresses: string[];
+  estimated_miles: number | null; actual_miles: number | null; effective_miles: number | null;
+  route_source: string | null; gas_cost_cents: number | null; deduction_cents: number | null;
+  mpg: number | null; confirmed_at: string | null;
+};
 type PayStub = {
   id: string; amount_cents: number; paid: boolean;
   paid_at: string; notes: string; shoot_id: string;
@@ -28,10 +34,14 @@ export default function PhotographerPage() {
   const [userId, setUserId] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [payStubs, setPayStubs] = useState<PayStub[]>([]);
-  const [tab, setTab] = useState<"schedule" | "upload" | "pay" | "profile">("schedule");
+  const [tab, setTab] = useState<"schedule" | "upload" | "pay" | "mileage" | "profile">("schedule");
   const [pForm, setPForm] = useState({ phone: "", home_address: "", home_lat: null as number | null, home_lng: null as number | null, car_year: "", car_make: "", car_model: "", car_mpg: "" });
   const [pSaving, setPSaving] = useState(false);
   const [pSaved, setPSaved] = useState(false);
+  const [mileageDays, setMileageDays] = useState<MileageDay[]>([]);
+  const [adjustDay, setAdjustDay] = useState<string | null>(null);
+  const [adjustMiles, setAdjustMiles] = useState("");
+  const [mileageBusy, setMileageBusy] = useState<string | null>(null);
   const [selectedShoot, setSelectedShoot] = useState<string>("");
   const [contactId, setContactId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -67,6 +77,8 @@ export default function PhotographerPage() {
       ]);
       setShoots(shootData || []);
       setPayStubs(payData || []);
+
+      fetch("/api/portal/mileage").then(r => r.ok ? r.json() : { days: [] }).then(d => setMileageDays(d.days || [])).catch(() => {});
 
       fetch("/api/portal/photographer-profile").then(r => r.ok ? r.json() : { profile: {} }).then(({ profile: p }) => {
         setPForm({
@@ -216,6 +228,41 @@ export default function PhotographerPage() {
     if (res.ok) { setPSaved(true); setTimeout(() => setPSaved(false), 2500); }
   }
 
+  async function submitMileage(day: string, body: Record<string, unknown>) {
+    setMileageBusy(day);
+    const res = await fetch("/api/portal/mileage", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ day, ...body }),
+    });
+    setMileageBusy(null);
+    if (res.ok) {
+      const { day: updated } = await res.json();
+      setMileageDays(prev => prev.map(d => d.day === day ? { ...d, ...updated } : d));
+      setAdjustDay(null); setAdjustMiles("");
+    }
+  }
+
+  function exportMileageCsv() {
+    const rows = [["Date", "Shoots", "Addresses", "Miles", "Confirmed", "Gas cost", "IRS deduction ($)"]];
+    for (const d of [...mileageDays].sort((a, b) => a.day.localeCompare(b.day))) {
+      rows.push([
+        d.day,
+        String(d.shoot_ids?.length || 0),
+        (d.shoot_addresses || []).join(" | "),
+        String(d.effective_miles ?? d.estimated_miles ?? ""),
+        d.confirmed_at ? "yes" : "estimate",
+        d.gas_cost_cents != null ? (d.gas_cost_cents / 100).toFixed(2) : "",
+        d.deduction_cents != null ? (d.deduction_cents / 100).toFixed(2) : "",
+      ]);
+    }
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `mileage-${new Date().getFullYear()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function signOut() {
     const form = document.createElement("form");
     form.method = "post"; form.action = "/api/auth/signout";
@@ -300,9 +347,9 @@ export default function PhotographerPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["schedule", "upload", "pay", "profile"] as const).map(t => (
+          {(["schedule", "upload", "pay", "mileage", "profile"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
-              {t === "schedule" ? "My Schedule" : t === "upload" ? "Upload Media" : t === "pay" ? "Pay Stubs" : "Profile"}
+              {t === "schedule" ? "My Schedule" : t === "upload" ? "Upload Media" : t === "pay" ? "Pay Stubs" : t === "mileage" ? "Mileage" : "Profile"}
             </button>
           ))}
         </div>
@@ -476,6 +523,107 @@ export default function PhotographerPage() {
             )}
           </div>
         )}
+
+        {tab === "mileage" && (() => {
+          const now = new Date();
+          const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const yr = String(now.getFullYear());
+          const monthDays = mileageDays.filter(d => d.day.startsWith(ym));
+          const yearDays = mileageDays.filter(d => d.day.startsWith(yr));
+          const sum = (ds: MileageDay[], f: (d: MileageDay) => number) => ds.reduce((s, d) => s + f(d), 0);
+          const miles = (d: MileageDay) => d.effective_miles ?? d.estimated_miles ?? 0;
+          const monthMi = sum(monthDays, miles), yearMi = sum(yearDays, miles);
+          const monthDed = sum(monthDays, d => (d.deduction_cents ?? 0) / 100);
+          const yearDed = sum(yearDays, d => (d.deduction_cents ?? 0) / 100);
+          const hasProfile = !!pForm.home_lat;
+          return (
+            <div>
+              <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+                <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4">Mileage</p>
+                {mileageDays.length > 0 && (
+                  <button onClick={exportMileageCsv} className="text-[10px] tracking-[2px] uppercase border border-white/20 px-3 py-2 hover:bg-white/5 transition-colors">Export CSV</button>
+                )}
+              </div>
+
+              {!hasProfile && (
+                <div className="bg-[#fbbf24]/[0.06] border border-[#fbbf24]/30 p-4 mb-6">
+                  <p className="text-xs text-[#fbbf24]">Set your home address in the <button onClick={() => setTab("profile")} className="underline">Profile</button> tab so we can calculate your drive to each shoot.</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 mb-8 max-w-md">
+                <div className="bg-[#111] border border-white/10 p-4">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">This Month</p>
+                  <p className="text-2xl font-bold">{monthMi.toFixed(0)} <span className="text-sm text-[#666]">mi</span></p>
+                  <p className="text-xs text-[#4ade80] mt-1">${monthDed.toFixed(2)} deduction</p>
+                </div>
+                <div className="bg-[#111] border border-white/10 p-4">
+                  <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">{yr} YTD</p>
+                  <p className="text-2xl font-bold">{yearMi.toFixed(0)} <span className="text-sm text-[#666]">mi</span></p>
+                  <p className="text-xs text-[#4ade80] mt-1">${yearDed.toFixed(2)} deduction</p>
+                </div>
+              </div>
+
+              {mileageDays.length === 0 ? (
+                <div className="bg-[#111] border border-white/10 p-8 text-center"><p className="text-[#555] text-sm">No shoots with mileage yet.</p></div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {mileageDays.map(d => {
+                    const mi = d.effective_miles ?? d.estimated_miles;
+                    return (
+                      <div key={d.id} className="bg-[#111] border border-white/10 p-4">
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">{new Date(d.day + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</p>
+                            <p className="text-[11px] text-[#666] mt-0.5 truncate max-w-md">{(d.shoot_addresses || []).map(a => a.split(",")[0]).join(" → ")}</p>
+                            <p className="text-[10px] text-[#555] mt-1">{d.shoot_ids?.length || 0} shoot{(d.shoot_ids?.length || 0) !== 1 ? "s" : ""} · home → shoots → home</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-lg font-bold">{mi != null ? mi.toFixed(1) : "—"} <span className="text-xs text-[#666]">mi</span></p>
+                            <p className="text-[10px] text-[#888]">
+                              {d.gas_cost_cents != null ? `$${(d.gas_cost_cents / 100).toFixed(2)} gas` : "add MPG for gas"}
+                              {d.deduction_cents != null ? ` · $${(d.deduction_cents / 100).toFixed(2)} ded.` : ""}
+                            </p>
+                            <p className="text-[9px] tracking-[1px] uppercase mt-0.5">
+                              {d.confirmed_at
+                                ? <span className="text-[#4ade80]">Confirmed{d.actual_miles != null && d.actual_miles !== d.estimated_miles ? " (adjusted)" : ""}</span>
+                                : <span className="text-[#fbbf24]">Estimate</span>}
+                            </p>
+                          </div>
+                        </div>
+
+                        {adjustDay === d.day ? (
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+                            <input value={adjustMiles} onChange={e => setAdjustMiles(e.target.value.replace(/[^0-9.]/g, ""))}
+                              placeholder={`Actual miles (est. ${d.estimated_miles?.toFixed(1) ?? "?"})`} inputMode="decimal"
+                              className="bg-[#181818] border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/40 w-44" />
+                            <button disabled={mileageBusy === d.day || !adjustMiles} onClick={() => submitMileage(d.day, { actualMiles: parseFloat(adjustMiles) })}
+                              className="text-[10px] tracking-[1px] uppercase font-bold bg-white text-black px-3 py-2 hover:bg-white/90 disabled:opacity-40">Save</button>
+                            <button onClick={() => { setAdjustDay(null); setAdjustMiles(""); }} className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white px-2">Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+                            {!d.confirmed_at && (
+                              <button disabled={mileageBusy === d.day} onClick={() => submitMileage(d.day, { confirmEstimate: true })}
+                                className="text-[10px] tracking-[1px] uppercase font-bold text-black bg-[#4ade80] hover:bg-[#34d399] px-3 py-1.5 transition-colors disabled:opacity-40">
+                                {mileageBusy === d.day ? "…" : "Confirm estimate"}
+                              </button>
+                            )}
+                            <button onClick={() => { setAdjustDay(d.day); setAdjustMiles(mi != null ? String(mi) : ""); }}
+                              className="text-[10px] tracking-[1px] uppercase text-white/50 hover:text-white transition-colors">
+                              {d.confirmed_at ? "Change miles" : "Enter actual miles"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-[10px] text-[#555] mt-4 max-w-md">Miles are estimated by routing from your home address through each of that day&apos;s shoots and back. Confirm or adjust each day so your log is accurate for taxes.</p>
+            </div>
+          );
+        })()}
 
         {tab === "profile" && (
           <div className="max-w-lg">
