@@ -245,190 +245,160 @@ export default function CalendarPage() {
     load();
   }
 
-  const selectedEvents = selectedDay
-    ? (eventMap[selectedDay] || []).filter(e => e.type === activeType)
-    : [];
+  const btnCls = "text-xs tracking-[1px] uppercase text-[#888] hover:text-white hover:border-white/30 transition-colors border border-white/10 px-3 py-1.5";
+  const selectedAll = selectedDay ? (eventMap[selectedDay] || []) : [];
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
-      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 gap-4 max-w-[1700px] mx-auto w-full">
-        {/* Page title + legend */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
-          <div>
-            <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Unified</p>
-            <h1 className="text-3xl font-black tracking-tight uppercase">Master Calendar</h1>
-            <div className="flex items-center gap-4 mt-2">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">‹</button>
-                <span className="text-sm tracking-[2px] uppercase text-[#888] min-w-[140px] text-center">{monthLabel}</span>
-                <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#555] hover:text-white transition-colors px-3 py-1.5 border border-white/10 text-sm">›</button>
-                <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-3 py-1.5">Today</button>
-                <button onClick={() => setShowBlockModal(true)}
-                  className="text-xs tracking-[1px] uppercase text-[#f87171] hover:text-white hover:bg-[#f87171]/10 transition-colors border border-[#f87171]/40 px-3 py-1.5">
-                  🚫 Block Time
-                </button>
+      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 gap-5 max-w-[1500px] mx-auto w-full">
+
+        {/* Header */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-[10px] tracking-[4px] uppercase text-[#555] mb-1">Unified</p>
+              <h1 className="text-3xl font-black tracking-tight uppercase">Master Calendar</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center border border-white/10">
+                <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">‹</button>
+                <span className="text-xs tracking-[2px] uppercase text-white px-2 min-w-[130px] text-center">{monthLabel}</span>
+                <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">›</button>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-[#555]">{monthCount} {pluralize(activeLegendLabel.toLowerCase(), monthCount)}</p>
-                {monthRevenue > 0 && <p className="text-sm font-bold text-[#4ade80]">${monthRevenue.toLocaleString()}</p>}
-              </div>
+              <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className={btnCls}>Today</button>
+              <select
+                value={activeType}
+                onChange={e => { setActiveType(e.target.value); setSelectedDay(null); }}
+                className="text-xs tracking-[1px] uppercase text-[#888] bg-[#0c0c0c] border border-white/10 px-3 py-1.5 outline-none focus:border-white/30 cursor-pointer hover:text-white transition-colors"
+              >
+                {LEGEND.map(l => <option key={l.type} value={l.type} className="bg-[#141414] normal-case tracking-normal">{l.label}</option>)}
+              </select>
+              <button onClick={() => setShowBlockModal(true)} className={btnCls}>Block Time</button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 md:justify-end">
-            {LEGEND.map(l => {
-              const s = TYPE_STYLE[l.type];
-              const on = activeType === l.type;
-              return (
-                <button key={l.type} onClick={() => { setActiveType(l.type); setSelectedDay(null); }}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 border text-[10px] tracking-wide transition-all ${on ? `${s.border} ${s.text}` : "border-white/5 text-[#2a2a2a]"}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${on ? s.dot : "bg-white/10"}`} />
-                  {l.label}
-                </button>
-              );
-            })}
-          </div>
+          <p className="text-xs text-[#555]">
+            {monthCount} {pluralize(activeLegendLabel.toLowerCase(), monthCount)} this month
+            {monthRevenue > 0 && <span className="text-[#4ade80] font-semibold"> · ${monthRevenue.toLocaleString()}</span>}
+          </p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-5 flex-1 min-h-0">
-          {/* ── Calendar grid ── */}
-          <div className="flex-1 min-w-0 flex flex-col">
-            {/* Day headers */}
-            <div className="grid grid-cols-7 mb-1">
-              {DAY_NAMES.map(d => (
-                <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#777] py-2">{d}</div>
-              ))}
+        {/* Calendar grid */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="grid grid-cols-7">
+            {DAY_NAMES.map(d => (
+              <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#666] py-2">{d}</div>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-xs tracking-[3px] uppercase text-[#333]">Loading...</p>
             </div>
+          ) : (
+            <div
+              className="flex-1 grid grid-cols-7 gap-px bg-white/[0.07] border border-white/[0.07]"
+              style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, minmax(96px, 1fr))` }}
+            >
+              {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7 }).map((_, i) => {
+                const dayNum = i - firstDayOfWeek + 1;
+                if (dayNum < 1 || dayNum > daysInMonth) return <div key={i} className="bg-[#0d0d0d]" />;
 
-            {loading ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-xs tracking-[3px] uppercase text-[#333]">Loading...</p>
-              </div>
-            ) : (
-              <div
-                className="flex-1 grid grid-cols-7 gap-px bg-white/20"
-                style={{ gridTemplateRows: `repeat(${Math.ceil((firstDayOfWeek + daysInMonth) / 7)}, 1fr)` }}
-              >
-                {Array.from({ length: Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7 }).map((_, i) => {
-                  const dayNum = i - firstDayOfWeek + 1;
-                  if (dayNum < 1 || dayNum > daysInMonth) return <div key={i} className="bg-[#0c0c0c]" />;
+                const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+                const dayEvents = (eventMap[dateStr] || []).filter(e => e.type === activeType);
+                const dayBlocks = activeType !== "unavailable" ? (blocksByDay[dateStr] || []) : [];
+                const isToday = dateStr === todayStr;
 
-                  const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                  const dayEvents = (eventMap[dateStr] || []).filter(e => e.type === activeType);
-                  const isToday = dateStr === todayStr;
-                  const isSelected = selectedDay === dateStr;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedDay(dateStr)}
+                    className={`bg-[#121212] p-1.5 flex flex-col gap-1 text-left cursor-pointer transition-colors hover:bg-[#181818] overflow-hidden ${
+                      isToday ? "ring-1 ring-inset ring-white/30" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-bold ${isToday ? "text-white" : dayEvents.length + dayBlocks.length > 0 ? "text-[#aaa]" : "text-[#555]"}`}>{dayNum}</span>
+                      {dayEvents.length + dayBlocks.length > 0 && <span className="text-[9px] text-[#666]">{dayEvents.length + dayBlocks.length}</span>}
+                    </div>
 
-                  return (
-                    <div
-                      key={i}
-                      onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                      className={`bg-[#131313] min-h-[110px] p-2 flex flex-col gap-1 cursor-pointer transition-colors hover:brightness-125 ${
-                        isSelected ? "ring-2 ring-inset ring-[#a78bfa]" : isToday ? "ring-1 ring-inset ring-white/40" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className={`text-xs font-bold mb-1 ${isToday || isSelected ? "text-white" : dayEvents.length > 0 ? "text-[#999]" : "text-[#777]"}`}>{dayNum}</p>
-                        {dayEvents.length > 0 && <span className="text-[9px] text-[#777]">{dayEvents.length}</span>}
+                    {dayBlocks.map(b => (
+                      <div key={`blk-${b.id}`} className="px-1.5 py-0.5 text-[9px] tracking-[0.5px] uppercase rounded-sm bg-[#f87171]/12 text-[#f87171] truncate">
+                        {b.user_name} off{b.all_day ? "" : ` · ${blockDayLabel(b, dateStr).split(" – ")[0]}`}
                       </div>
+                    ))}
 
-                      {/* Availability blocks always show, even under another filter,
-                          so you never book someone into a conflict. */}
-                      {activeType !== "unavailable" && (blocksByDay[dateStr] || []).map(b => (
-                        <div key={`blk-${b.id}`} className="px-1.5 py-0.5 text-[9px] tracking-[0.5px] uppercase rounded-sm border border-[#f87171]/40 bg-[#f87171]/10 text-[#f87171] truncate">
-                          🚫 {b.user_name}{b.all_day ? "" : ` ${blockDayLabel(b, dateStr).split(" – ")[0]}`}
-                        </div>
-                      ))}
-
-                      {dayEvents.map(ev => {
-                        if (ev.type === "shoot") {
-                          const shoot = ev.raw as Shoot | undefined;
-                          const chipTitle = shoot?.contact_name || ev.label.split(",")[0];
-                          const chipClass = SHOOT_CHIP_CLASS[ev.meta || ""] || SHOOT_CHIP_DEFAULT;
-                          return (
-                            <div key={ev.id} className={`px-1.5 py-1 text-[10px] leading-tight rounded-sm border truncate ${chipClass}`}>
-                              <p className="font-semibold truncate">{chipTitle}</p>
-                              <p className="opacity-60 truncate mt-0.5">{fmtTime(ev.time)}</p>
-                              {ev.meta && <p className="text-[9px] tracking-[1px] uppercase opacity-50 mt-0.5">{ev.meta.replace(/_/g, " ")}</p>}
-                            </div>
-                          );
-                        }
-                        const s = TYPE_STYLE[ev.type];
+                    {dayEvents.slice(0, 4).map(ev => {
+                      if (ev.type === "shoot") {
+                        const shoot = ev.raw as Shoot | undefined;
+                        const chipTitle = shoot?.contact_name || ev.label.split(",")[0];
+                        const chipClass = SHOOT_CHIP_CLASS[ev.meta || ""] || SHOOT_CHIP_DEFAULT;
                         return (
-                          <div key={ev.id} className={`px-1.5 py-1 text-[10px] rounded-sm border truncate ${s.bg} ${s.border} ${s.text}`}>
-                            {ev.label}
+                          <div key={ev.id} className={`px-1.5 py-1 text-[10px] leading-tight rounded-sm border truncate ${chipClass}`}>
+                            <span className="font-semibold">{chipTitle}</span>
+                            <span className="opacity-50"> · {fmtTime(ev.time)}</span>
                           </div>
                         );
-                      })}
+                      }
+                      const s = TYPE_STYLE[ev.type];
+                      return (
+                        <div key={ev.id} className={`px-1.5 py-1 text-[10px] rounded-sm truncate ${s.bg} ${s.text}`}>
+                          {ev.label}
+                        </div>
+                      );
+                    })}
+                    {dayEvents.length > 4 && <span className="text-[9px] text-[#666] px-1">+{dayEvents.length - 4} more</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Day detail modal */}
+      {selectedDay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelectedDay(null)}>
+          <div className="absolute inset-0 bg-black/75" />
+          <div className="relative bg-[#141414] border border-white/10 w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#141414]">
+              <div>
+                <p className="text-[9px] tracking-[2px] uppercase text-[#555]">{new Date(selectedDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}</p>
+                <p className="text-sm font-bold">{new Date(selectedDay + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+              </div>
+              <button onClick={() => setSelectedDay(null)} className="text-[#555] hover:text-white transition-colors text-lg leading-none">✕</button>
+            </div>
+
+            {selectedAll.length === 0 ? (
+              <div className="py-14 text-center"><p className="text-xs text-[#444]">Nothing on this day.</p></div>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {selectedAll.map(ev => {
+                  const s = TYPE_STYLE[ev.type];
+                  return (
+                    <div key={ev.id} className="px-5 py-3.5">
+                      <div className="flex items-start gap-2.5">
+                        <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${s.dot}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[10px] font-semibold tracking-[1px] uppercase ${s.text} mb-0.5`}>{s.label}</p>
+                          <p className="text-sm text-white leading-snug">{ev.label}</p>
+                          {ev.meta && <p className="text-[11px] text-[#666] mt-0.5 capitalize">{ev.meta}</p>}
+                          {ev.type !== "unavailable" && <p className="text-[11px] text-[#444] mt-0.5">{fmtTime(ev.time)}</p>}
+                          <div className="flex items-center gap-4 mt-1.5">
+                            {ev.link && <a href={ev.link} className={`text-[10px] tracking-[1px] uppercase ${s.text} hover:opacity-70 transition-opacity`}>View →</a>}
+                            {ev.type === "unavailable" && ev.raw != null && (
+                              <button onClick={() => deleteBlock((ev.raw as Block).id)} className="text-[10px] tracking-[1px] uppercase text-[#f87171] hover:opacity-70 transition-opacity">Remove block ✕</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
-
-          {/* ── Day detail panel ── */}
-          <div className={`w-full md:w-80 shrink-0 flex flex-col transition-all ${selectedDay ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
-            <div className="bg-[#111] border border-white/10 flex-1 overflow-y-auto">
-              {selectedDay ? (
-                <>
-                  <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                    <div>
-                      <p className="text-[9px] tracking-[2px] uppercase text-[#555]">
-                        {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" })}
-                      </p>
-                      <p className="text-sm font-bold">
-                        {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                      </p>
-                    </div>
-                    <button onClick={() => setSelectedDay(null)} className="text-[#444] hover:text-white transition-colors text-lg leading-none">✕</button>
-                  </div>
-
-                  {selectedEvents.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <p className="text-xs text-[#333]">Nothing on this day.</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-white/5">
-                      {selectedEvents.map(ev => {
-                        const s = TYPE_STYLE[ev.type];
-                        return (
-                          <div key={ev.id} className={`px-4 py-3 ${s.bg}`}>
-                            <div className="flex items-start gap-2">
-                              <span className={`w-2 h-2 rounded-full shrink-0 mt-1 ${s.dot}`} />
-                              <div className="min-w-0 flex-1">
-                                <p className={`text-xs font-semibold ${s.text} mb-0.5`}>{s.label}</p>
-                                <p className="text-sm text-white leading-snug truncate">{ev.label}</p>
-                                {ev.meta && <p className="text-[10px] text-[#555] mt-0.5 capitalize">{ev.meta}</p>}
-                                {ev.type !== "unavailable" && <p className="text-[10px] text-[#333] mt-0.5">{fmtTime(ev.time)}</p>}
-                                {ev.type === "unavailable" && ev.raw != null && (
-                                  <button
-                                    onClick={() => deleteBlock((ev.raw as Block).id)}
-                                    className="text-[10px] tracking-[1px] uppercase mt-1.5 inline-block text-[#f87171] hover:opacity-70 transition-opacity"
-                                  >
-                                    Remove block ✕
-                                  </button>
-                                )}
-                                {ev.link && (
-                                  <a href={ev.link} className={`text-[10px] tracking-[1px] uppercase mt-1.5 inline-block ${s.text} hover:opacity-70 transition-opacity`}>
-                                    View →
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="py-20 text-center px-4">
-                  <p className="text-xs text-[#222]">Click a day to see all events</p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
-      </div>
+      )}
 
       {showBlockModal && (
         <BlockTimeModal onClose={() => setShowBlockModal(false)} onSaved={() => { setShowBlockModal(false); load(); }} />
