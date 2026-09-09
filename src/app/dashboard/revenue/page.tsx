@@ -207,13 +207,18 @@ export default function RevenuePage() {
   const lastMonthKey = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
   const thisYear = now.getFullYear().toString();
 
+  // Anchor an invoice to its shoot's date, not when the row was created
+  // (backlogged/imported shoots all share an import date).
+  const invMonth = (i: Invoice) => (i.shoots?.scheduled_at ?? i.created_at).slice(0, 7);
+  const invYear = (i: Invoice) => (i.shoots?.scheduled_at ?? i.created_at).slice(0, 4);
+
   const unpaidInvoices = invoices.filter(i => !i.paid);
   const paidInvoices = invoices.filter(i => i.paid);
   const outstandingCents = unpaidInvoices.reduce((s, i) => s + i.amount_cents, 0);
 
   const monthlyBreakdown: Record<string, number> = {};
   for (const inv of paidInvoices) {
-    const key = inv.created_at.slice(0, 7);
+    const key = invMonth(inv);
     monthlyBreakdown[key] = (monthlyBreakdown[key] ?? 0) + inv.amount_cents / 100;
   }
   const cutoffDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -221,9 +226,9 @@ export default function RevenuePage() {
   const months = Object.entries(monthlyBreakdown).filter(([k]) => k >= cutoffKey).sort(([a], [b]) => a.localeCompare(b));
   const maxMonth = Math.max(...Object.values(monthlyBreakdown), 1);
 
-  const thisMonthPaid = paidInvoices.filter(i => i.created_at.startsWith(thisMonthKey));
-  const lastMonthPaid = paidInvoices.filter(i => i.created_at.startsWith(lastMonthKey));
-  const ytdPaid = paidInvoices.filter(i => i.created_at.startsWith(thisYear));
+  const thisMonthPaid = paidInvoices.filter(i => invMonth(i) === thisMonthKey);
+  const lastMonthPaid = paidInvoices.filter(i => invMonth(i) === lastMonthKey);
+  const ytdPaid = paidInvoices.filter(i => invYear(i) === thisYear);
 
   const thisMonthIncome = thisMonthPaid.reduce((s, i) => s + i.amount_cents, 0) / 100;
   const lastMonthIncome = lastMonthPaid.reduce((s, i) => s + i.amount_cents, 0) / 100;
@@ -240,8 +245,7 @@ export default function RevenuePage() {
 
   // Invoice table is scoped to the selected period so it lines up with the
   // Shoot Expenses table on the other tab.
-  const periodKey = period === "month" ? thisMonthKey : thisYear;
-  const scopedInvoices = invoices.filter(i => i.created_at.startsWith(periodKey));
+  const scopedInvoices = invoices.filter(i => period === "month" ? invMonth(i) === thisMonthKey : invYear(i) === thisYear);
   const scopedUnpaid = scopedInvoices.filter(i => !i.paid);
   const scopedPaid = scopedInvoices.filter(i => i.paid);
   const filtered = filter === "unpaid" ? scopedUnpaid : filter === "paid" ? scopedPaid : scopedInvoices;
@@ -431,7 +435,7 @@ export default function RevenuePage() {
                 const fullAddress = inv.shoots?.address || inv.description || "—";
                 const address = fullAddress.split(",")[0].trim();
                 const clientName = inv.contacts?.name || "—";
-                const date = new Date(inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+                const date = new Date(inv.shoots?.scheduled_at ?? inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
                 const source = inv.stripe_payment_intent_id ? "stripe" : inv.qbo_invoice_id ? "qbo" : inv.paid ? "historical" : "unpaid";
                 const badge = {
                   stripe:     { label: "Paid · Stripe",     cls: "text-[#4ade80] bg-[#4ade80]/10" },

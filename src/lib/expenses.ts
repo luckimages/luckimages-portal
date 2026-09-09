@@ -221,27 +221,28 @@ export async function buildPnl(
     try { await refreshAutoExpenses(db, currentMonth, true); } catch (e) { console.error("refreshAutoExpenses failed", e); }
   }
 
-  // ── Invoices (all) — income is the paid ones in range; unpaid ones still
-  //    pull their shoot into the Shoot Expenses table ───────────────────────
+  // ── Invoices (all) — everything is anchored to the SHOOT DATE, not when the
+  //    invoice row was created (backlogged/imported shoots all share an import
+  //    date). Invoices with no shoot fall back to paid_at / created_at. ───────
   const { data: invoices } = await db
     .from("invoices")
-    .select("id, shoot_id, amount_cents, paid, paid_at, created_at");
+    .select("id, shoot_id, amount_cents, paid, paid_at, created_at, shoots:shoot_id ( scheduled_at )");
 
-  const inRange = (iso: string | null) => {
+  const inRange = (iso: string | null | undefined) => {
     if (!iso) return false;
     const d = iso.slice(0, 10);
     return d >= range.start && d <= range.end;
+  };
+  const invAnchor = (inv: { shoots?: unknown; paid_at: string | null; created_at: string }) => {
+    const s = Array.isArray(inv.shoots) ? inv.shoots[0] : inv.shoots;
+    return (s as { scheduled_at?: string } | null | undefined)?.scheduled_at ?? inv.paid_at ?? inv.created_at;
   };
 
   let incomeCents = 0;
   let paidCount = 0;
   const paidInRange: { shoot_id: string | null; amount_cents: number; fee_cents: number }[] = [];
-  // Shoots referenced by any invoice that shows in this month's view (paid or
-  // created in range) — they must also appear in Shoot Expenses.
-  const invoiceShootIds = new Set<string>();
   for (const inv of invoices ?? []) {
-    const paidWhen = inv.paid && (inv.paid_at ?? inv.created_at);
-    if (inv.paid && inRange(inv.paid_at ?? inv.created_at)) {
+    if (inv.paid && inRange(invAnchor(inv))) {
       incomeCents += inv.amount_cents ?? 0;
       paidCount++;
       paidInRange.push({
@@ -249,9 +250,6 @@ export async function buildPnl(
         amount_cents: inv.amount_cents ?? 0,
         fee_cents: stripeFeeCents(inv.amount_cents ?? 0, stripePct, stripeFlat),
       });
-    }
-    if (inv.shoot_id && (inRange(inv.created_at) || (paidWhen && inRange(paidWhen)))) {
-      invoiceShootIds.add(inv.shoot_id);
     }
   }
 
@@ -270,8 +268,7 @@ export async function buildPnl(
   }
 
   // ── Shoot expenses: per-shoot Stripe fee + gas + editing, for every
-  //    non-cancelled shoot scheduled in the month PLUS any shoot with an
-  //    invoice in this month's view, ordered by date ─────────────────────────
+  //    non-cancelled shoot scheduled in the month, ordered by date ───────────
   const { data: schedShoots } = await db
     .from("shoots")
     .select("id, address, scheduled_at, contact_id, editing_cost_cents, status")
@@ -279,13 +276,7 @@ export async function buildPnl(
     .lte("scheduled_at", `${range.end}T23:59:59`)
     .neq("status", "cancelled");
 
-  const haveIds = new Set((schedShoots ?? []).map(s => s.id));
-  const extraIds = [...invoiceShootIds].filter(id => !haveIds.has(id));
-  const { data: extraShoots } = extraIds.length
-    ? await db.from("shoots").select("id, address, scheduled_at, contact_id, editing_cost_cents, status").in("id", extraIds)
-    : { data: [] as NonNullable<typeof schedShoots> };
-
-  const monthShoots = [...(schedShoots ?? []), ...(extraShoots ?? [])]
+  const monthShoots = [...(schedShoots ?? [])]
     .sort((a, b) => new Date(a.scheduled_at ?? 0).getTime() - new Date(b.scheduled_at ?? 0).getTime());
 
   const sIds = monthShoots.map(s => s.id);
