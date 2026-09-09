@@ -110,7 +110,7 @@ export default function RevenuePage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [period, setPeriod] = useState<"month" | "ytd">("ytd");
+  const [period, setPeriod] = useState<"month" | "ytd">("month");
   const [blurred, setBlurred] = useState(true);
   const [filter, setFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
@@ -316,7 +316,7 @@ export default function RevenuePage() {
               <p className={`text-4xl font-black tabular-nums tracking-tight transition-all select-none ${blur} ${heroProfit >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
                 {pnlLoading && !pnl ? "—" : fmt(heroProfit)}
               </p>
-              {pnl && pnl.memo.leif_profit_share_cents > 0 && (
+              {pnl && (
                 <p className={`text-xs mt-2 text-[#555] select-none ${blur}`}>
                   Leif&apos;s 50%: {fmtc(pnl.memo.leif_profit_share_cents)}
                 </p>
@@ -658,12 +658,10 @@ function ExpensesSection({
                 <span>IRS mileage deduction ({pnl.memo.mileage_miles.toLocaleString()} mi · tax season)</span>
                 <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.mileage_deduction_cents)}</span>
               </div>
-              {pnl.memo.leif_profit_share_cents > 0 && (
-                <div className="flex justify-between">
-                  <span>Leif&apos;s share (50% of profit on shoots he sourced)</span>
-                  <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.leif_profit_share_cents)}</span>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span>Leif&apos;s share (50% of profit on shoots he sourced)</span>
+                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc(pnl.memo.leif_profit_share_cents)}</span>
+              </div>
             </div>
           )}
 
