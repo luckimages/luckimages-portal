@@ -808,11 +808,9 @@ function ColdCallsPage() {
             </div>
             <span className="text-xs font-bold text-[#4ade80] tabular-nums">{todayCount}/{DAILY_GOAL} today</span>
           </div>
-          <select value={callerName} onChange={e => setCallerName(e.target.value)}
-            className="bg-[#181818] border border-white/10 px-2 py-1 text-xs text-white focus:outline-none">
-            <option value="ryan">Ryan</option>
-            <option value="leif">Leif</option>
-          </select>
+          <span className="text-xs text-[#666]">
+            Logging as <span className="text-white font-semibold">{sourcerLabel(callerName)}</span>
+          </span>
         </div>
       </div>
 
