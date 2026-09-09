@@ -85,7 +85,7 @@ export async function seedRecurringForMonth(db: SupabaseClient, month: string): 
 
   const { data: templates } = await db
     .from("operating_expenses")
-    .select("id, category, label, amount_cents, note, recurring_source_id, incurred_on")
+    .select("id, category, label, amount_cents, cadence, auto_source, note, recurring_source_id, incurred_on")
     .eq("recurring", true)
     .lt("incurred_on", firstOfMonth)
     .order("incurred_on", { ascending: false });
@@ -116,6 +116,8 @@ export async function seedRecurringForMonth(db: SupabaseClient, month: string): 
       label: t.label,
       amount_cents: t.amount_cents,
       recurring: true,
+      cadence: t.cadence ?? "monthly",
+      auto_source: t.auto_source ?? null,
       note: t.note,
       recurring_source_id: root,
       created_by: "auto (recurring)",
