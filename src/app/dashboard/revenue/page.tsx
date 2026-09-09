@@ -39,6 +39,8 @@ type ExpenseLine = {
   label: string;
   amount_cents: number;
   recurring?: boolean;
+  cadence?: string;
+  auto_source?: string | null;
   note?: string | null;
   shoot_id?: string | null;
   editable: boolean;
@@ -462,6 +464,7 @@ function ExpensesSection({
   const [newLabel, setNewLabel] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newCat, setNewCat] = useState("software");
+  const [newCadence, setNewCadence] = useState("monthly");
   const [newRecurring, setNewRecurring] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -486,6 +489,7 @@ function ExpensesSection({
         label: newLabel.trim(),
         amount_cents: Math.round(dollars * 100),
         category: newCat,
+        cadence: newCadence,
         recurring: newRecurring,
         month: period === "month" ? expMonth : undefined,
       }),
@@ -586,6 +590,12 @@ function ExpensesSection({
                     className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
                     {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
                   </select>
+                  <select value={newCadence} onChange={e => setNewCadence(e.target.value)}
+                    className="bg-[#0c0c0c] border border-white/15 text-sm text-white px-2 py-2 outline-none">
+                    <option value="monthly">Monthly</option>
+                    <option value="annual">Annual (amortized)</option>
+                    <option value="fluctuates">Fluctuates</option>
+                  </select>
                 </div>
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <label className="flex items-center gap-2 text-xs text-[#888] cursor-pointer">
@@ -612,8 +622,12 @@ function ExpensesSection({
                     <div className="min-w-0">
                       <span className="text-sm truncate block">{l.label}</span>
                       <span className="text-[10px] text-[#555] tracking-[1px] uppercase">
-                        {CAT_LABEL[l.category] ?? l.category}{l.recurring && " · recurring"}
+                        {CAT_LABEL[l.category] ?? l.category}
+                        {l.cadence === "annual" && " · annual"}
+                        {l.cadence === "fluctuates" && " · fluctuates"}
+                        {l.auto_source && ` · auto (${l.auto_source})`}
                       </span>
+                      {l.note && <span className="text-[10px] text-[#444] block truncate">{l.note}</span>}
                     </div>
                     <span className={`text-sm font-semibold tabular-nums select-none ${blur}`}>{fmtc(l.amount_cents)}</span>
                     <div className="flex items-center gap-1.5">

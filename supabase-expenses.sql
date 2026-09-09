@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS operating_expenses (
 CREATE INDEX IF NOT EXISTS idx_operating_expenses_month
   ON operating_expenses (incurred_on);
 
+-- Billing cadence — informational label (amount_cents is always the effective
+-- monthly figure; annual costs are stored amortized). 'monthly' | 'annual' | 'fluctuates'
+ALTER TABLE operating_expenses ADD COLUMN IF NOT EXISTS cadence text NOT NULL DEFAULT 'monthly';
+
+-- Set for line items whose amount is refreshed from a live bill each month.
+-- 'twilio' | 'r2' | null
+ALTER TABLE operating_expenses ADD COLUMN IF NOT EXISTS auto_source text;
+
 -- When a recurring row is seeded into a later month we point it back at the
 -- template so we never double-seed the same series into the same month.
 ALTER TABLE operating_expenses ADD COLUMN IF NOT EXISTS recurring_source_id uuid REFERENCES operating_expenses(id) ON DELETE SET NULL;

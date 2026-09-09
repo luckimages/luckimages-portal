@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
 
 // Cloudflare R2 is S3-compatible, so the AWS SDK talks to it directly —
@@ -72,4 +72,21 @@ export async function r2SignedPutUrl(bucket: string, key: string, contentType: s
 // Public bucket only — stable URL, no token, so browsers can actually cache it.
 export function r2PublicUrl(key: string): string {
   return `${R2_PUBLIC_BASE_URL}/${key}`;
+}
+
+// Total bytes stored across both buckets — used to estimate the R2 storage
+// bill (R2 charges $0.015/GB-month over a 10 GB free allowance; egress is
+// free and Class A/B ops are negligible at our volume).
+export async function r2StorageBytes(): Promise<number> {
+  const c = r2Client();
+  let bytes = 0;
+  for (const Bucket of [R2_MEDIA_BUCKET, R2_PUBLIC_BUCKET]) {
+    let token: string | undefined;
+    do {
+      const resp = await c.send(new ListObjectsV2Command({ Bucket, ContinuationToken: token, MaxKeys: 1000 }));
+      for (const o of resp.Contents ?? []) bytes += o.Size ?? 0;
+      token = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+    } while (token);
+  }
+  return bytes;
 }

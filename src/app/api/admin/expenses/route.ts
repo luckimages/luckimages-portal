@@ -38,6 +38,9 @@ export async function POST(req: Request) {
 
   const month: string = /^\d{4}-\d{2}$/.test(body.month) ? body.month : currentMonth();
 
+  const cadence = ["monthly", "annual", "fluctuates"].includes(body.cadence) ? body.cadence : "monthly";
+  const auto_source = ["twilio", "r2"].includes(body.auto_source) ? body.auto_source : null;
+
   const db = expensesDb();
   const { data, error } = await db
     .from("operating_expenses")
@@ -47,6 +50,8 @@ export async function POST(req: Request) {
       label,
       amount_cents,
       recurring: !!body.recurring,
+      cadence,
+      auto_source,
       note: body.note || null,
       created_by: admin.email || "admin",
     })
@@ -72,6 +77,7 @@ export async function PATCH(req: Request) {
     patch.amount_cents = c;
   }
   if (typeof body.recurring === "boolean") patch.recurring = body.recurring;
+  if (["monthly", "annual", "fluctuates"].includes(body.cadence)) patch.cadence = body.cadence;
   if ("note" in body) patch.note = body.note || null;
 
   const db = expensesDb();

@@ -1,4 +1,5 @@
 import { createClient as createServiceClient, SupabaseClient } from "@supabase/supabase-js";
+import { r2Configured, r2StorageBytes } from "@/lib/r2";
 
 // Builds the Revenue-app P&L. Nocturne is the source of truth: income is
 // paid invoices, expenses are the manual operating budget plus three derived
@@ -20,6 +21,8 @@ export type ExpenseLine = {
   label: string;
   amount_cents: number;
   recurring?: boolean;
+  cadence?: string;              // 'monthly' | 'annual' | 'fluctuates'
+  auto_source?: string | null;   // 'twilio' | 'r2' | null
   note?: string | null;
   shoot_id?: string | null;
   editable: boolean;
@@ -121,6 +124,65 @@ export async function seedRecurringForMonth(db: SupabaseClient, month: string): 
   if (rows.length) await db.from("operating_expenses").insert(rows);
 }
 
+// ── Fluctuating line items: refresh amount from the live bill ──────────────
+
+async function twilioMonthCents(month: string): Promise<number | null> {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const tok = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !tok) return null;
+  const [y, m] = month.split("-").map(Number);
+  const start = `${month}-01`;
+  const end = new Date(y, m, 0).toISOString().slice(0, 10);
+  try {
+    const r = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Usage/Records.json?Category=totalprice&StartDate=${start}&EndDate=${end}`,
+      { headers: { Authorization: "Basic " + Buffer.from(`${sid}:${tok}`).toString("base64") } }
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const total = (j.usage_records ?? []).reduce(
+      (s: number, u: { price?: string }) => s + (parseFloat(u.price ?? "0") || 0),
+      0
+    );
+    return Math.round(total * 100);
+  } catch {
+    return null;
+  }
+}
+
+async function r2StorageCents(): Promise<number | null> {
+  if (!r2Configured()) return null;
+  try {
+    const bytes = await r2StorageBytes();
+    const gb = bytes / 1e9;
+    const billableGb = Math.max(0, gb - 10); // 10 GB-month free allowance
+    return Math.round(billableGb * 0.015 * 100);
+  } catch {
+    return null;
+  }
+}
+
+// Update this month's auto-sourced rows (Twilio, R2) from their live bill.
+// R2 is a live snapshot so it's only meaningful for the current month.
+export async function refreshAutoExpenses(db: SupabaseClient, month: string, isCurrentMonth: boolean): Promise<void> {
+  const { data: rows } = await db
+    .from("operating_expenses")
+    .select("id, auto_source")
+    .eq("incurred_on", `${month}-01`)
+    .not("auto_source", "is", null);
+
+  for (const row of rows ?? []) {
+    let cents: number | null = null;
+    if (row.auto_source === "twilio") cents = await twilioMonthCents(month);
+    else if (row.auto_source === "r2" && isCurrentMonth) cents = await r2StorageCents();
+    if (cents != null) {
+      await db.from("operating_expenses")
+        .update({ amount_cents: cents, updated_at: new Date().toISOString() })
+        .eq("id", row.id);
+    }
+  }
+}
+
 export async function buildPnl(
   db: SupabaseClient,
   scope: "month" | "ytd",
@@ -132,6 +194,12 @@ export async function buildPnl(
 
   if (scope === "month" && month) {
     try { await seedRecurringForMonth(db, month); } catch (e) { console.error("seedRecurringForMonth failed", e); }
+    const currentMonth = now.toISOString().slice(0, 7);
+    try { await refreshAutoExpenses(db, month, month === currentMonth); } catch (e) { console.error("refreshAutoExpenses failed", e); }
+  } else if (scope === "ytd") {
+    const currentMonth = now.toISOString().slice(0, 7);
+    try { await seedRecurringForMonth(db, currentMonth); } catch (e) { console.error("seedRecurringForMonth failed", e); }
+    try { await refreshAutoExpenses(db, currentMonth, true); } catch (e) { console.error("refreshAutoExpenses failed", e); }
   }
 
   // ── Income + Stripe fees: from paid invoices in range (by paid_at, falling
@@ -223,7 +291,7 @@ export async function buildPnl(
   // ── Operating budget: manual rows in range ───────────────────────────────
   const { data: ops } = await db
     .from("operating_expenses")
-    .select("id, incurred_on, category, label, amount_cents, recurring, note")
+    .select("id, incurred_on, category, label, amount_cents, recurring, cadence, auto_source, note")
     .gte("incurred_on", range.start)
     .lte("incurred_on", range.end)
     .order("incurred_on", { ascending: true });
@@ -235,6 +303,8 @@ export async function buildPnl(
     label: o.label,
     amount_cents: o.amount_cents,
     recurring: o.recurring,
+    cadence: o.cadence || "monthly",
+    auto_source: o.auto_source,
     note: o.note,
     editable: true,
   }));
