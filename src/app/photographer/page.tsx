@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import PreviewBanner from "@/components/PreviewBanner";
 import ShootGallery from "@/components/ShootGallery";
 import ShootLocationMap from "@/components/ShootLocationMap";
+import AddressMapPicker from "@/components/AddressMapPicker";
 
 const r2PublicBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL;
 
@@ -27,7 +28,10 @@ export default function PhotographerPage() {
   const [userId, setUserId] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [payStubs, setPayStubs] = useState<PayStub[]>([]);
-  const [tab, setTab] = useState<"schedule" | "upload" | "pay">("schedule");
+  const [tab, setTab] = useState<"schedule" | "upload" | "pay" | "profile">("schedule");
+  const [pForm, setPForm] = useState({ phone: "", home_address: "", home_lat: null as number | null, home_lng: null as number | null, car_year: "", car_make: "", car_model: "", car_mpg: "" });
+  const [pSaving, setPSaving] = useState(false);
+  const [pSaved, setPSaved] = useState(false);
   const [selectedShoot, setSelectedShoot] = useState<string>("");
   const [contactId, setContactId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -63,6 +67,19 @@ export default function PhotographerPage() {
       ]);
       setShoots(shootData || []);
       setPayStubs(payData || []);
+
+      fetch("/api/portal/photographer-profile").then(r => r.ok ? r.json() : { profile: {} }).then(({ profile: p }) => {
+        setPForm({
+          phone: p.phone || "",
+          home_address: p.home_address || "",
+          home_lat: p.home_lat ?? null,
+          home_lng: p.home_lng ?? null,
+          car_year: p.car_year != null ? String(p.car_year) : "",
+          car_make: p.car_make || "",
+          car_model: p.car_model || "",
+          car_mpg: p.car_mpg != null ? String(p.car_mpg) : "",
+        });
+      }).catch(() => {});
       // Load media counts for editing-stage shoots
       const editingShoots = (shootData || []).filter(s => s.status === "editing");
       if (editingShoots.length > 0) {
@@ -178,6 +195,27 @@ export default function PhotographerPage() {
     if (avatarFileRef.current) avatarFileRef.current.value = "";
   }
 
+  async function savePhotographerProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setPSaving(true); setPSaved(false);
+    const res = await fetch("/api/portal/photographer-profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: pForm.phone,
+        home_address: pForm.home_address,
+        home_lat: pForm.home_lat,
+        home_lng: pForm.home_lng,
+        car_year: pForm.car_year,
+        car_make: pForm.car_make,
+        car_model: pForm.car_model,
+        car_mpg: pForm.car_mpg,
+      }),
+    });
+    setPSaving(false);
+    if (res.ok) { setPSaved(true); setTimeout(() => setPSaved(false), 2500); }
+  }
+
   function signOut() {
     const form = document.createElement("form");
     form.method = "post"; form.action = "/api/auth/signout";
@@ -262,9 +300,9 @@ export default function PhotographerPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["schedule", "upload", "pay"] as const).map(t => (
+          {(["schedule", "upload", "pay", "profile"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
-              {t === "schedule" ? "My Schedule" : t === "upload" ? "Upload Media" : "Pay Stubs"}
+              {t === "schedule" ? "My Schedule" : t === "upload" ? "Upload Media" : t === "pay" ? "Pay Stubs" : "Profile"}
             </button>
           ))}
         </div>
@@ -436,6 +474,52 @@ export default function PhotographerPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {tab === "profile" && (
+          <div className="max-w-lg">
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-2 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Profile</p>
+            <p className="text-xs text-[#666] mb-6">Your home base and vehicle are used to calculate the miles you drive to each shoot — for your mileage tax records and job costing.</p>
+            <form onSubmit={savePhotographerProfile} className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs tracking-[2px] uppercase text-[#666]">Phone</label>
+                <input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} placeholder="(512) 555-0100" className={inputCls} />
+              </div>
+
+              <AddressMapPicker
+                address={pForm.home_address}
+                onAddressChange={a => setPForm(f => ({ ...f, home_address: a }))}
+                lat={pForm.home_lat}
+                lng={pForm.home_lng}
+                onLocationChange={(lat, lng) => setPForm(f => ({ ...f, home_lat: lat, home_lng: lng }))}
+                inputCls={inputCls}
+                labelCls="text-xs tracking-[2px] uppercase text-[#666]"
+              />
+              <p className="text-[10px] text-[#555] -mt-2">Drop the pin on your home / where you start your day. Drive distance is measured from here.</p>
+
+              <div>
+                <label className="text-xs tracking-[2px] uppercase text-[#666] mb-2 block">Vehicle</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <input value={pForm.car_year} onChange={e => setPForm(f => ({ ...f, car_year: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))} placeholder="Year" inputMode="numeric" className={inputCls} />
+                  <input value={pForm.car_make} onChange={e => setPForm(f => ({ ...f, car_make: e.target.value }))} placeholder="Make" className={inputCls} />
+                  <input value={pForm.car_model} onChange={e => setPForm(f => ({ ...f, car_model: e.target.value }))} placeholder="Model" className={inputCls} />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs tracking-[2px] uppercase text-[#666]">Combined MPG</label>
+                <input value={pForm.car_mpg} onChange={e => setPForm(f => ({ ...f, car_mpg: e.target.value.replace(/[^0-9.]/g, "") }))} placeholder="e.g. 28" inputMode="decimal" className={inputCls} />
+                <p className="text-[10px] text-[#555]">Your car&apos;s EPA combined mpg (check fueleconomy.gov if unsure). Used with the current gas price to estimate fuel cost per shoot.</p>
+              </div>
+
+              <div className="flex items-center gap-4 pt-1">
+                <button type="submit" disabled={pSaving} className="text-xs tracking-[3px] uppercase bg-white text-black font-semibold py-3 px-8 hover:bg-white/90 transition-colors disabled:opacity-50">
+                  {pSaving ? "Saving..." : "Save"}
+                </button>
+                {pSaved && <span className="text-xs text-[#4ade80]">Saved ✓</span>}
+              </div>
+            </form>
           </div>
         )}
 

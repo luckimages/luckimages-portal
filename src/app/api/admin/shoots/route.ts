@@ -204,6 +204,13 @@ export async function POST(req: Request) {
     } catch (e) { console.error("notifyShootBooked failed:", e); }
   }
 
+  if (data?.id && photographer_ids?.length) {
+    try {
+      const { recomputeMileageForShoot } = await import("@/lib/mileage");
+      await recomputeMileageForShoot(db, data.id);
+    } catch (e) { console.error("new shoot: mileage recompute failed", e); }
+  }
+
   // Push to assigned photographers
   if (photographer_ids?.length) {
     try {
@@ -301,6 +308,21 @@ export async function PATCH(req: Request) {
   if (status === "cancelled" && shoot?.status !== "cancelled") {
     try { await removeShootCalendarEvent(id); }
     catch (e) { console.error("cancel: calendar event cleanup failed", e); }
+  }
+
+  // Recompute photographer mileage when the time, assignment or status changed
+  // — including for photographers or a day dropped off this shoot.
+  if (scheduled_at !== undefined || photographer_ids !== undefined || status !== undefined) {
+    try {
+      const { recomputeMileageForShoot } = await import("@/lib/mileage");
+      const extraDays: string[] = shoot?.scheduled_at
+        ? [new Date(shoot.scheduled_at).toLocaleDateString("en-CA", { timeZone: "America/Chicago" })]
+        : [];
+      await recomputeMileageForShoot(supabase, id, {
+        extraPhotographerIds: shoot?.photographer_ids || [],
+        extraDays,
+      });
+    } catch (e) { console.error("shoots PATCH: mileage recompute failed", e); }
   }
 
   // First time this shoot reaches "delivered" — notify the client their media

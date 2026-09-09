@@ -74,5 +74,11 @@ export async function POST(req: Request) {
     link: "/dashboard/board",
   });
 
+  // Refresh the assigned photographer(s)' mileage for that day
+  try {
+    const { recomputeMileageForShoot } = await import("@/lib/mileage");
+    await recomputeMileageForShoot(db, shootId);
+  } catch (e) { console.error("confirm-booking: mileage recompute failed", e); }
+
   return NextResponse.json({ ok: true, calendarOk, emailed: clientEmailed, clientEmail });
 }
