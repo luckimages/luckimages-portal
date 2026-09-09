@@ -930,36 +930,20 @@ export default function OutreachPage() {
 
   const realClicks = linkClicks;
 
-  // A click counts as real unless we can positively identify it as a bot
-  // prefetch. Two signals mark a bot:
-  //   1. It's a near-duplicate — another click to the same service by the same
-  //      contact within 5 minutes AFTER it (iMessage/WhatsApp fetch the URL for
-  //      a preview card seconds before the human taps it).
-  //   2. The dwell pipeline was already live for this contact (they have at
-  //      least one dwell-confirmed click) yet this particular click produced no
-  //      dwell data — JS should have run and didn't.
-  // Everything else — including every click from before the dwell pipeline
-  // existed — is trusted. Dwell data, when present, still drives the engaged/
-  // duration colouring; its absence alone no longer hides a click.
-  const PREFETCH_WINDOW_MS = 5 * 60 * 1000;
-  const contactsWithDwell = new Set(
-    linkClicks.filter(c => dwellByClickId[c.id] !== undefined && c.contact_id).map(c => c.contact_id)
-  );
-  const isRealClick = (c: { id: string; contact_id?: string | null; service?: string; clicked_at?: string }) => {
+  // Two eras, split by the moment the dwell pipeline became the sole source of
+  // truth:
+  //   • Clicks BEFORE the cutoff — the dwell link (page_views.link_click_id)
+  //     didn't reliably exist yet, so every historical click is trusted and
+  //     shown exactly as recorded. Do not retroactively hide these.
+  //   • Clicks ON/AFTER the cutoff — a real click always runs the landing-page
+  //     JS and produces a dwell row. No dwell data => bot prefetch (iMessage/
+  //     WhatsApp preview fetch, crawler) => not shown.
+  // Dwell data, when present, also drives the engaged/duration colouring.
+  const DWELL_REQUIRED_FROM = new Date("2026-09-09T23:30:00Z").getTime();
+  const isRealClick = (c: { id: string; clicked_at?: string }) => {
     if (dwellByClickId[c.id] !== undefined) return true;
-    if (c.clicked_at) {
-      const t = new Date(c.clicked_at).getTime();
-      const dupedByLaterClick = linkClicks.some(o =>
-        o.id !== c.id &&
-        o.contact_id === c.contact_id &&
-        o.service === c.service &&
-        (() => { const ot = new Date(o.clicked_at).getTime(); return ot > t && ot - t <= PREFETCH_WINDOW_MS; })()
-      );
-      if (dupedByLaterClick) return false;
-    }
-    // No dwell, no duplicate: bot only if the pipeline was already working for
-    // this contact (so JS not running here is suspicious).
-    return !(c.contact_id && contactsWithDwell.has(c.contact_id));
+    if (c.clicked_at && new Date(c.clicked_at).getTime() < DWELL_REQUIRED_FROM) return true;
+    return false;
   };
 
   function dwellColor(seconds: number): string {
