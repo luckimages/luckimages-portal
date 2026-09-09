@@ -289,7 +289,7 @@ export default function CalendarPage() {
 
   return (
     <main className="h-screen overflow-hidden bg-[#0c0c0c] text-white flex flex-col">
-      <div className="flex-1 min-h-0 flex flex-col px-4 md:px-8 py-4 gap-3 max-w-[1500px] mx-auto w-full">
+      <div className="flex-1 min-h-0 flex flex-col px-6 md:px-12 lg:px-16 py-6 md:py-8 gap-4 max-w-[1500px] mx-auto w-full">
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -492,7 +492,7 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
       </div>
 
       {/* Hour grid */}
-      <div className="flex-1 min-h-0 grid overflow-hidden" style={cols}>
+      <div className="flex-1 min-h-0 grid overflow-hidden py-3" style={cols}>
         <div className="relative">
           {hours.map(h => (
             <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[9px] text-[#555] tabular-nums" style={{ top: `${pct(h)}%` }}>
