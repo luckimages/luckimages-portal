@@ -474,6 +474,12 @@ function ExpensesSection({
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"category" | "az" | "price">("category");
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+  const toggleCat = (c: string) => setExpandedCats(prev => {
+    const next = new Set(prev);
+    next.has(c) ? next.delete(c) : next.add(c);
+    return next;
+  });
 
   const operating = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "operating"), [pnl]);
   const gasLines = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "gas"), [pnl]);
@@ -665,16 +671,17 @@ function ExpensesSection({
           <div>
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <p className="text-[10px] tracking-[2px] uppercase text-[#666]">Operating budget</p>
-              <div className="flex items-center gap-1.5">
-                {([["category", "By category"], ["az", "A–Z"], ["price", "Price ↓"]] as const).map(([k, lbl]) => (
-                  <button key={k} onClick={() => setSortBy(k)}
-                    className={`text-[9px] tracking-[1.5px] uppercase px-2 py-1 transition-all ${
-                      sortBy === k ? "bg-white text-black font-bold" : "text-[#555] border border-white/10 hover:text-white"
-                    }`}>
-                    {lbl}
-                  </button>
-                ))}
-                <button onClick={openAdd} className="text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 border border-white/15 text-[#888] hover:text-white hover:border-white/40 transition-all ml-1">
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 text-[9px] tracking-[1.5px] uppercase text-[#555]">
+                  Sort by
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                    className="bg-[#0c0c0c] border border-white/15 text-[10px] tracking-[1px] uppercase text-[#aaa] px-2 py-1 outline-none">
+                    <option value="category">Category</option>
+                    <option value="az">A–Z</option>
+                    <option value="price">Price (high→low)</option>
+                  </select>
+                </label>
+                <button onClick={openAdd} className="text-[9px] tracking-[1.5px] uppercase px-2.5 py-1 border border-white/15 text-[#888] hover:text-white hover:border-white/40 transition-all">
                   + Add expense
                 </button>
               </div>
@@ -686,15 +693,23 @@ function ExpensesSection({
                   No operating expenses {period === "month" ? "this month" : "yet"}
                 </p>
               ) : sortBy === "category" ? (
-                byCat.map(grp => (
-                  <div key={grp.category}>
-                    <div className="flex items-center justify-between px-4 py-2 bg-white/[0.03] border-b border-white/[0.06]">
-                      <span className="text-[10px] tracking-[2px] uppercase text-[#888]">{CAT_LABEL[grp.category] ?? grp.category}</span>
-                      <span className={`text-[11px] font-semibold tabular-nums text-[#999] select-none ${blur}`}>{fmtc2(grp.total)}</span>
+                byCat.map(grp => {
+                  const open = expandedCats.has(grp.category);
+                  return (
+                    <div key={grp.category}>
+                      <button onClick={() => toggleCat(grp.category)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.05] border-b border-white/[0.06] transition-colors text-left">
+                        <span className="flex items-center gap-2">
+                          <span className={`text-[#666] text-[10px] transition-transform ${open ? "rotate-90" : ""}`}>▶</span>
+                          <span className="text-[10px] tracking-[2px] uppercase text-[#999]">{CAT_LABEL[grp.category] ?? grp.category}</span>
+                          <span className="text-[9px] text-[#555]">({grp.lines.length})</span>
+                        </span>
+                        <span className={`text-[12px] font-semibold tabular-nums text-white select-none ${blur}`}>{fmtc2(grp.total)}</span>
+                      </button>
+                      {open && grp.lines.map(l => rowEl(l))}
                     </div>
-                    {grp.lines.map(l => rowEl(l))}
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 flatSorted.map(l => rowEl(l, { showCat: true }))
               )}
