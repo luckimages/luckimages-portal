@@ -104,11 +104,28 @@ function fmtDuration(sec: number | null) {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+const WEEK_HOUR_START = 8;   // 8 AM
+const WEEK_HOUR_END = 20;    // 8 PM
+const WEEK_SPAN = WEEK_HOUR_END - WEEK_HOUR_START;
+
+function startOfWeek(d: Date) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - x.getDay()); // Sunday-first
+  return x;
+}
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
 export default function CalendarPage() {
+  const [view, setView] = useState<"month" | "week">("month");
   const [calMonth, setCalMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
   const [eventMap, setEventMap] = useState<Record<string, CalEvent[]>>({});
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -123,15 +140,33 @@ export default function CalendarPage() {
   const month = calMonth.getMonth();
   const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
 
+  const weekStart = startOfWeek(weekAnchor);
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const weekDayStrs = weekDays.map(d => toDateStr(d.toISOString()));
+  // Which month buckets the current view needs from the API.
+  const monthsNeeded = view === "month"
+    ? [monthKey]
+    : [...new Set(weekDayStrs.map(s => s.slice(0, 7)))];
+  const monthsKey = monthsNeeded.join(",");
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [res, blockRes] = await Promise.all([
-      fetch(`/api/admin/calendar?month=${monthKey}`),
-      fetch(`/api/admin/availability?month=${monthKey}`),
-    ]);
-    if (!res.ok) { setLoading(false); return; }
-    const { shoots, updates, contacts, calls, timeEntries } = await res.json();
-    const blockList: Block[] = blockRes.ok ? (await blockRes.json()).blocks || [] : [];
+    const keys = monthsKey.split(",");
+    const packs = await Promise.all(keys.map(k => Promise.all([
+      fetch(`/api/admin/calendar?month=${k}`).then(r => (r.ok ? r.json() : null)),
+      fetch(`/api/admin/availability?month=${k}`).then(r => (r.ok ? r.json() : null)),
+    ])));
+
+    const dedupe = <T extends { id: string }>(arr: T[]) => {
+      const seen = new Set<string>();
+      return arr.filter(x => (seen.has(x.id) ? false : (seen.add(x.id), true)));
+    };
+    const shoots = dedupe(packs.flatMap(([c]) => (c?.shoots ?? []) as Shoot[]));
+    const updates = dedupe(packs.flatMap(([c]) => (c?.updates ?? []) as Update[]));
+    const contacts = dedupe(packs.flatMap(([c]) => (c?.contacts ?? []) as Contact[]));
+    const calls = dedupe(packs.flatMap(([c]) => (c?.calls ?? []) as Call[]));
+    const timeEntries = dedupe(packs.flatMap(([c]) => (c?.timeEntries ?? []) as TimeEntry[]));
+    const blockList: Block[] = dedupe(packs.flatMap(([, a]) => (a?.blocks ?? []) as Block[]));
     setBlocks(blockList);
 
     const map: Record<string, CalEvent[]> = {};
@@ -209,7 +244,7 @@ export default function CalendarPage() {
 
     setEventMap(map);
     setLoading(false);
-  }, [monthKey]);
+  }, [monthsKey]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -219,6 +254,22 @@ export default function CalendarPage() {
   const todayStr = toDateStr(new Date().toISOString());
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthLabel = calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const weekEnd = addDays(weekStart, 6);
+  const weekLabel = weekStart.getMonth() === weekEnd.getMonth()
+    ? `${weekStart.toLocaleDateString("en-US", { month: "short" })} ${weekStart.getDate()}–${weekEnd.getDate()}`
+    : `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+  function goToday() {
+    const now = new Date();
+    setCalMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    setWeekAnchor(now);
+  }
+  function switchView(v: "month" | "week") {
+    if (v === "week") setWeekAnchor(selectedDay ? new Date(selectedDay + "T12:00:00") : new Date());
+    setView(v);
+  }
+  const navPrev = () => view === "month" ? setCalMonth(new Date(year, month - 1, 1)) : setWeekAnchor(addDays(weekStart, -7));
+  const navNext = () => view === "month" ? setCalMonth(new Date(year, month + 1, 1)) : setWeekAnchor(addDays(weekStart, 7));
 
   // Blocks indexed by day (for the always-visible strip on each cell).
   const blocksByDay: Record<string, Block[]> = {};
@@ -242,14 +293,24 @@ export default function CalendarPage() {
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <h1 className="text-2xl font-black tracking-tight uppercase">Master Calendar</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight uppercase">Master Calendar</h1>
+            <div className="flex items-center border border-white/10">
+              {(["month", "week"] as const).map(v => (
+                <button key={v} onClick={() => switchView(v)}
+                  className={`text-[10px] tracking-[1.5px] uppercase px-3 py-1.5 transition-colors ${view === v ? "bg-white text-black font-bold" : "text-[#666] hover:text-white"}`}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center border border-white/10">
-              <button onClick={() => setCalMonth(new Date(year, month - 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">‹</button>
-              <span className="text-xs tracking-[2px] uppercase text-white px-2 min-w-[130px] text-center">{monthLabel}</span>
-              <button onClick={() => setCalMonth(new Date(year, month + 1, 1))} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">›</button>
+              <button onClick={navPrev} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">‹</button>
+              <span className="text-xs tracking-[2px] uppercase text-white px-2 min-w-[130px] text-center">{view === "month" ? monthLabel : weekLabel}</span>
+              <button onClick={navNext} className="text-[#888] hover:text-white transition-colors px-3 py-1.5 text-sm">›</button>
             </div>
-            <button onClick={() => setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className={btnCls}>Today</button>
+            <button onClick={goToday} className={btnCls}>Today</button>
             <select
               value={activeType}
               onChange={e => { setActiveType(e.target.value); setSelectedDay(null); }}
@@ -263,16 +324,28 @@ export default function CalendarPage() {
 
         {/* Calendar grid */}
         <div className="flex-1 min-h-0 flex flex-col">
+          {view === "month" && (
           <div className="grid grid-cols-7 shrink-0">
             {DAY_NAMES.map(d => (
               <div key={d} className="text-center text-[10px] tracking-[2px] uppercase text-[#666] py-1.5">{d}</div>
             ))}
           </div>
+          )}
 
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-xs tracking-[3px] uppercase text-[#333]">Loading...</p>
             </div>
+          ) : view === "week" ? (
+            <WeekGrid
+              days={weekDays}
+              dayStrs={weekDayStrs}
+              eventMap={eventMap}
+              blocksByDay={blocksByDay}
+              activeType={activeType}
+              todayStr={todayStr}
+              onSelectDay={setSelectedDay}
+            />
           ) : (
             <div
               className="flex-1 min-h-0 grid grid-cols-7 gap-px bg-white/[0.07] border border-white/[0.07]"
@@ -383,6 +456,113 @@ export default function CalendarPage() {
         <BlockTimeModal onClose={() => setShowBlockModal(false)} onSaved={() => { setShowBlockModal(false); load(); }} />
       )}
     </main>
+  );
+}
+
+// ── Week view — hourly grid, 8 AM–8 PM ────────────────────────────────────────
+function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, onSelectDay }: {
+  days: Date[];
+  dayStrs: string[];
+  eventMap: Record<string, CalEvent[]>;
+  blocksByDay: Record<string, Block[]>;
+  activeType: string;
+  todayStr: string;
+  onSelectDay: (d: string) => void;
+}) {
+  const hours = Array.from({ length: WEEK_SPAN + 1 }, (_, i) => WEEK_HOUR_START + i);
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const pct = (h: number) => ((h - WEEK_HOUR_START) / WEEK_SPAN) * 100;
+  const cols = { gridTemplateColumns: "52px repeat(7, 1fr)" };
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col border border-white/[0.07]">
+      {/* Day header */}
+      <div className="grid shrink-0 border-b border-white/[0.07]" style={cols}>
+        <div />
+        {days.map((d, i) => {
+          const isToday = dayStrs[i] === todayStr;
+          return (
+            <button key={i} onClick={() => onSelectDay(dayStrs[i])}
+              className={`py-1.5 text-center border-l border-white/[0.07] hover:bg-white/[0.03] transition-colors ${isToday ? "bg-white/[0.06]" : ""}`}>
+              <span className="text-[9px] tracking-[1.5px] uppercase text-[#666]">{DOW[d.getDay()]}</span>
+              <span className={`block text-sm font-bold ${isToday ? "text-white" : "text-[#999]"}`}>{d.getDate()}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Hour grid */}
+      <div className="flex-1 min-h-0 grid overflow-hidden" style={cols}>
+        <div className="relative">
+          {hours.map(h => (
+            <div key={h} className="absolute right-1.5 -translate-y-1/2 text-[9px] text-[#555] tabular-nums" style={{ top: `${pct(h)}%` }}>
+              {h === 12 ? "12p" : h > 12 ? `${h - 12}p` : `${h}a`}
+            </div>
+          ))}
+        </div>
+
+        {days.map((_, di) => {
+          const ds = dayStrs[di];
+          const evs = (eventMap[ds] || []).filter(e => e.type === activeType);
+          const dayBlocks = activeType !== "unavailable" ? (blocksByDay[ds] || []) : [];
+          const isToday = ds === todayStr;
+
+          // Side-by-side lanes for events sharing an hour.
+          const buckets = new Map<number, CalEvent[]>();
+          for (const e of evs) {
+            const hr = Math.max(WEEK_HOUR_START, Math.min(WEEK_HOUR_END - 1, new Date(e.time).getHours()));
+            (buckets.get(hr) ?? buckets.set(hr, []).get(hr)!).push(e);
+          }
+
+          return (
+            <div key={di} onClick={() => onSelectDay(ds)}
+              className={`relative border-l border-white/[0.07] cursor-pointer ${isToday ? "bg-white/[0.02]" : ""}`}>
+              {hours.slice(1).map(h => (
+                <div key={h} className="absolute left-0 right-0 border-t border-white/[0.04]" style={{ top: `${pct(h)}%` }} />
+              ))}
+
+              {dayBlocks.map(b => {
+                let topH = WEEK_HOUR_START, botH = WEEK_HOUR_END;
+                if (!b.all_day) {
+                  if (toDateStr(b.start_at) === ds) { const s = new Date(b.start_at); topH = s.getHours() + s.getMinutes() / 60; }
+                  if (toDateStr(b.end_at) === ds) { const e = new Date(b.end_at); botH = e.getHours() + e.getMinutes() / 60; }
+                }
+                const top = Math.max(0, pct(topH));
+                const height = Math.min(100, pct(botH)) - top;
+                if (height <= 0) return null;
+                return (
+                  <div key={b.id} className="absolute left-0.5 right-0.5 bg-[#f87171]/10 border border-[#f87171]/25 rounded-sm px-1 py-0.5 overflow-hidden pointer-events-none"
+                    style={{ top: `${top}%`, height: `${height}%` }}>
+                    <span className="text-[9px] text-[#f87171] tracking-[0.5px] uppercase">{b.user_name} off</span>
+                  </div>
+                );
+              })}
+
+              {evs.map(e => {
+                const t = new Date(e.time);
+                const raw = t.getHours() + t.getMinutes() / 60;
+                const top = pct(Math.max(WEEK_HOUR_START, Math.min(WEEK_HOUR_END - 1, raw)));
+                const hr = Math.max(WEEK_HOUR_START, Math.min(WEEK_HOUR_END - 1, t.getHours()));
+                const lane = buckets.get(hr)!;
+                const idx = lane.indexOf(e);
+                const w = 100 / lane.length;
+                const st = TYPE_STYLE[e.type];
+                const shoot = e.type === "shoot" ? (e.raw as Shoot | undefined) : undefined;
+                const title = shoot?.contact_name || e.label.split(",")[0];
+                return (
+                  <button key={e.id} onClick={ev => { ev.stopPropagation(); onSelectDay(ds); }}
+                    className={`absolute rounded-sm border px-1 py-0.5 text-left overflow-hidden hover:brightness-125 transition-all ${st.bg} ${st.border} ${st.text}`}
+                    style={{ top: `${top}%`, height: `calc(${(1 / WEEK_SPAN) * 100}% - 2px)`, left: `calc(${idx * w}% + 1px)`, width: `calc(${w}% - 2px)` }}>
+                    <span className="block text-[10px] font-semibold leading-tight truncate">{title}</span>
+                    <span className="block text-[9px] opacity-60 leading-tight">{fmtTime(e.time)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
