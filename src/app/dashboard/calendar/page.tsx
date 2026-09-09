@@ -213,11 +213,11 @@ export default function CalendarPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Calendar grid — Monday-first, matching the old Shoot Log schedule look
-  const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7; // 0=Mon
+  // Calendar grid — Sunday-first
+  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = toDateStr(new Date().toISOString());
-  const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthLabel = calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   // Blocks indexed by day (for the always-visible strip on each cell).
