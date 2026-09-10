@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Shoot = { id: string; address: string; status: string; scheduled_at: string | null; delivered_at: string | null; paid_at: string | null; contact_id: string | null; contact_name: string | null; price: number | null };
@@ -129,6 +129,7 @@ export default function CalendarPage() {
   const [eventMap, setEventMap] = useState<Record<string, CalEvent[]>>({});
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [viewBlock, setViewBlock] = useState<Block | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   // Single-select — exactly one filter is ever active, defaulting to shoots
@@ -275,11 +276,6 @@ export default function CalendarPage() {
   const blocksByDay: Record<string, Block[]> = {};
   for (const b of blocks) for (const d of blockDays(b)) (blocksByDay[d] ||= []).push(b);
 
-  async function deleteBlock(id: string) {
-    await fetch(`/api/admin/availability?id=${id}`, { method: "DELETE" });
-    load();
-  }
-
   const btnCls = "text-xs tracking-[1px] uppercase text-[#888] hover:text-white hover:border-white/30 transition-colors border border-white/10 px-3 py-1.5";
   // Modal shows the active filter's events for that day, plus availability
   // blocks always (they're conflict info you need whatever you're looking at).
@@ -345,6 +341,7 @@ export default function CalendarPage() {
               activeType={activeType}
               todayStr={todayStr}
               onSelectDay={setSelectedDay}
+              onSelectBlock={setViewBlock}
             />
           ) : (
             <div
@@ -374,7 +371,9 @@ export default function CalendarPage() {
                     </div>
 
                     {dayBlocks.map(b => (
-                      <div key={`blk-${b.id}`} className="px-1.5 py-0.5 text-[9px] tracking-[0.5px] uppercase rounded-sm bg-[#f87171]/12 text-[#f87171] truncate">
+                      <div key={`blk-${b.id}`} role="button" tabIndex={0}
+                        onClick={e => { e.stopPropagation(); setViewBlock(b); }}
+                        className="px-1.5 py-0.5 text-[9px] tracking-[0.5px] uppercase rounded-sm bg-[#f87171]/12 text-[#f87171] truncate hover:bg-[#f87171]/20 transition-colors cursor-pointer">
                         {b.user_name} off{b.all_day ? "" : ` · ${blockDayLabel(b, dateStr).split(" – ")[0]}`}
                       </div>
                     ))}
@@ -438,7 +437,7 @@ export default function CalendarPage() {
                           <div className="flex items-center gap-4 mt-1.5">
                             {ev.link && <a href={ev.link} className={`text-[10px] tracking-[1px] uppercase ${s.text} hover:opacity-70 transition-opacity`}>View →</a>}
                             {ev.type === "unavailable" && ev.raw != null && (
-                              <button onClick={() => deleteBlock((ev.raw as Block).id)} className="text-[10px] tracking-[1px] uppercase text-[#f87171] hover:opacity-70 transition-opacity">Remove block ✕</button>
+                              <button onClick={() => { setSelectedDay(null); setViewBlock(ev.raw as Block); }} className="text-[10px] tracking-[1px] uppercase text-[#f87171] hover:opacity-70 transition-opacity">Edit block →</button>
                             )}
                           </div>
                         </div>
@@ -455,12 +454,16 @@ export default function CalendarPage() {
       {showBlockModal && (
         <BlockTimeModal onClose={() => setShowBlockModal(false)} onSaved={() => { setShowBlockModal(false); load(); }} />
       )}
+
+      {viewBlock && (
+        <BlockTimeModal block={viewBlock} onClose={() => setViewBlock(null)} onSaved={() => { setViewBlock(null); load(); }} />
+      )}
     </main>
   );
 }
 
 // ── Week view — hourly grid, 8 AM–8 PM ────────────────────────────────────────
-function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, onSelectDay }: {
+function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, onSelectDay, onSelectBlock }: {
   days: Date[];
   dayStrs: string[];
   eventMap: Record<string, CalEvent[]>;
@@ -468,6 +471,7 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
   activeType: string;
   todayStr: string;
   onSelectDay: (d: string) => void;
+  onSelectBlock: (b: Block) => void;
 }) {
   const hours = Array.from({ length: WEEK_SPAN + 1 }, (_, i) => WEEK_HOUR_START + i);
   const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -536,10 +540,11 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
                 const height = Math.min(100, pct(botH)) - top;
                 if (height <= 0) return null;
                 return (
-                  <div key={b.id} className="absolute left-0.5 right-0.5 bg-[#f87171]/10 border border-[#f87171]/25 rounded-sm px-1 py-0.5 overflow-hidden pointer-events-none"
+                  <button key={b.id} onClick={e => { e.stopPropagation(); onSelectBlock(b); }}
+                    className="absolute left-0.5 right-0.5 bg-[#f87171]/10 border border-[#f87171]/25 rounded-sm px-1 py-0.5 overflow-hidden text-left hover:bg-[#f87171]/20 transition-colors"
                     style={{ top: `${top}%`, height: `${height}%` }}>
                     <span className="text-[9px] text-[#f87171] tracking-[0.5px] uppercase">{b.user_name} off</span>
-                  </div>
+                  </button>
                 );
               })}
 
@@ -573,15 +578,36 @@ function WeekGrid({ days, dayStrs, eventMap, blocksByDay, activeType, todayStr, 
 }
 
 // ── Block-time modal ──────────────────────────────────────────────────────────
-function BlockTimeModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function blockWhenLabel(b: Block): string {
+  const dOpts: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
+  const sD = new Date(b.start_at), eD = new Date(b.end_at);
+  const sameDay = toDateStr(b.start_at) === toDateStr(b.end_at);
+  if (b.all_day) {
+    return sameDay
+      ? `${sD.toLocaleDateString("en-US", dOpts)} · All day`
+      : `${sD.toLocaleDateString("en-US", dOpts)} – ${eD.toLocaleDateString("en-US", dOpts)} · All day`;
+  }
+  return sameDay
+    ? `${sD.toLocaleDateString("en-US", dOpts)} · ${fmtT(b.start_at)} – ${fmtT(b.end_at)}`
+    : `${sD.toLocaleDateString("en-US", dOpts)} ${fmtT(b.start_at)} – ${eD.toLocaleDateString("en-US", dOpts)} ${fmtT(b.end_at)}`;
+}
+
+function BlockTimeModal({ block, onClose, onSaved }: { block?: Block; onClose: () => void; onSaved: () => void }) {
   const todayStr = toDateStr(new Date().toISOString());
-  const [mode, setMode] = useState<"days" | "times">("days");
-  const [startDate, setStartDate] = useState(todayStr);
-  const [endDate, setEndDate] = useState(todayStr);
-  const [startAt, setStartAt] = useState(`${todayStr}T09:00`);
-  const [endAt, setEndAt] = useState(`${todayStr}T17:00`);
-  const [note, setNote] = useState("");
+  const [uiMode, setUiMode] = useState<"view" | "edit">(block ? "view" : "edit");
+  const [mode, setMode] = useState<"days" | "times">(block ? (block.all_day ? "days" : "times") : "days");
+  const [startDate, setStartDate] = useState(block ? toDateStr(block.start_at) : todayStr);
+  const [endDate, setEndDate] = useState(block ? toDateStr(block.end_at) : todayStr);
+  const [startAt, setStartAt] = useState(block && !block.all_day ? toLocalInput(block.start_at) : `${todayStr}T09:00`);
+  const [endAt, setEndAt] = useState(block && !block.all_day ? toLocalInput(block.end_at) : `${todayStr}T17:00`);
+  const [note, setNote] = useState(block?.note ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState("");
 
   async function save() {
@@ -602,79 +628,140 @@ function BlockTimeModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     }
     setSaving(true);
     const res = await fetch("/api/admin/availability", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ allDay, startAt: sIso, endAt: eIso, note }),
+      method: block ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: block?.id, allDay, startAt: sIso, endAt: eIso, note }),
     });
     setSaving(false);
     if (res.ok) onSaved();
     else setErr((await res.json().catch(() => ({}))).error || "Couldn't save");
   }
 
-  const inputCls = "w-full bg-[#181818] border border-white/10 text-white text-base px-4 py-3 outline-none focus:border-white/30";
+  async function remove() {
+    if (!block) return;
+    setDeleting(true);
+    const res = await fetch(`/api/admin/availability?id=${block.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (res.ok) onSaved();
+    else setErr("Couldn't remove this block");
+  }
 
-  return (
+  const inputCls = "w-full bg-[#181818] border border-white/10 text-white text-base px-4 py-3 outline-none focus:border-white/30";
+  const heading = block
+    ? (uiMode === "view" ? `${block.user_name} has blocked this time` : "Edit time block")
+    : "Mark when you can't shoot";
+
+  const shell = (children: ReactNode) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/75" />
-      <div className="relative bg-[#141414] border border-white/10 w-full max-w-2xl p-8" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-1">
+      <div className="relative bg-[#141414] border border-white/10 w-full max-w-2xl p-8 md:p-10" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-2">
           <div>
-            <p className="text-[10px] tracking-[3px] uppercase text-[#666]">Block Time</p>
-            <p className="text-sm font-semibold mt-1">Mark when you can&apos;t shoot</p>
+            <p className="text-[11px] tracking-[3px] uppercase text-[#666] mb-1.5">Block Time</p>
+            <p className="text-xl font-black tracking-tight">{heading}</p>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-white/40 hover:text-white transition-colors text-xl leading-none">✕</button>
         </div>
-        <p className="text-xs text-white/50 mt-2 mb-4">Leif and Ryan both see this — so nobody books a shoot into your time off.</p>
+        {children}
+      </div>
+    </div>
+  );
 
-        <div className="flex gap-1 border border-white/10 p-0.5 mb-4">
-          {(["days", "times"] as const).map(m => (
-            <button key={m} onClick={() => setMode(m)}
-              className={`flex-1 text-[10px] tracking-[1px] uppercase py-1.5 transition-colors ${mode === m ? "bg-white text-black font-bold" : "text-[#666] hover:text-white"}`}>
-              {m === "days" ? "Full Day(s)" : "Specific Times"}
-            </button>
-          ))}
-        </div>
-
-        {mode === "days" ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1 block">From</label>
-              <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); if (endDate < e.target.value) setEndDate(e.target.value); }} className={inputCls} />
-            </div>
-            <div>
-              <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1 block">Through</label>
-              <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
-            </div>
+  if (block && uiMode === "view") {
+    return shell(
+      <>
+        <div className="mt-6 border border-white/10 divide-y divide-white/10">
+          <div className="px-4 py-3.5">
+            <p className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1">When</p>
+            <p className="text-base text-white">{blockWhenLabel(block)}</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1 block">Start</label>
-              <input type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} className={inputCls} />
+          {block.note && (
+            <div className="px-4 py-3.5">
+              <p className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1">Note</p>
+              <p className="text-base text-white">{block.note}</p>
             </div>
-            <div>
-              <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1 block">End</label>
-              <input type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} className={inputCls} />
-            </div>
-          </div>
-        )}
-
-        <div className="mt-3">
-          <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1 block">Note (optional)</label>
-          <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Family trip, other job, appointment" className={inputCls} />
+          )}
         </div>
-
         {err && <p className="text-xs text-red-400 mt-3">{err}</p>}
-
-        <div className="flex gap-3 mt-5">
-          <button onClick={save} disabled={saving}
-            className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-white hover:bg-white/90 py-3 transition-colors disabled:opacity-40">
-            {saving ? "Saving…" : "Block This Time"}
+        <div className="flex gap-3 mt-7">
+          <button onClick={() => { setUiMode("edit"); setErr(""); }}
+            className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-white hover:bg-white/90 py-3.5 transition-colors">
+            Edit Time Block
           </button>
-          <button onClick={onClose} className="text-xs tracking-[2px] uppercase text-white/50 hover:text-white px-6 py-3 border border-white/10 hover:border-white/30 transition-colors">
+          <button onClick={onClose}
+            className="flex-1 text-xs tracking-[2px] uppercase text-white/60 hover:text-white py-3.5 border border-white/10 hover:border-white/30 transition-colors">
             Cancel
           </button>
         </div>
+        <button onClick={remove} disabled={deleting}
+          className="w-full mt-3 text-[11px] tracking-[1.5px] uppercase text-[#f87171]/80 hover:text-[#f87171] transition-colors disabled:opacity-40">
+          {deleting ? "Removing…" : "Remove this block"}
+        </button>
+      </>
+    );
+  }
+
+  return shell(
+    <>
+      <p className="text-sm text-white/50 mt-2 mb-5">Leif and Ryan both see this — so nobody books a shoot into your time off.</p>
+
+      <div className="flex gap-1 border border-white/10 p-0.5 mb-5">
+        {(["days", "times"] as const).map(m => (
+          <button key={m} onClick={() => setMode(m)}
+            className={`flex-1 text-[11px] tracking-[1px] uppercase py-2 transition-colors ${mode === m ? "bg-white text-black font-bold" : "text-[#666] hover:text-white"}`}>
+            {m === "days" ? "Full Day(s)" : "Specific Times"}
+          </button>
+        ))}
       </div>
-    </div>
+
+      {mode === "days" ? (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5 block">From</label>
+            <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); if (endDate < e.target.value) setEndDate(e.target.value); }} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5 block">Through</label>
+            <input type="date" value={endDate} min={startDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5 block">Start</label>
+            <input type="datetime-local" value={startAt} onChange={e => setStartAt(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5 block">End</label>
+            <input type="datetime-local" value={endAt} onChange={e => setEndAt(e.target.value)} className={inputCls} />
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <label className="text-[10px] tracking-[2px] uppercase text-white/40 mb-1.5 block">Note (optional)</label>
+        <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
+          placeholder="e.g. Family trip, other job, appointment" className={`${inputCls} resize-none`} />
+      </div>
+
+      {err && <p className="text-xs text-red-400 mt-3">{err}</p>}
+
+      <div className="flex gap-3 mt-7">
+        <button onClick={save} disabled={saving}
+          className="flex-1 text-xs tracking-[2px] uppercase font-bold text-black bg-white hover:bg-white/90 py-3.5 transition-colors disabled:opacity-40">
+          {saving ? "Saving…" : block ? "Save Changes" : "Block This Time"}
+        </button>
+        <button onClick={block ? () => { setUiMode("view"); setErr(""); } : onClose}
+          className="flex-1 text-xs tracking-[2px] uppercase text-white/60 hover:text-white py-3.5 border border-white/10 hover:border-white/30 transition-colors">
+          Cancel
+        </button>
+      </div>
+      {block && (
+        <button onClick={remove} disabled={deleting}
+          className="w-full mt-3 text-[11px] tracking-[1.5px] uppercase text-[#f87171]/80 hover:text-[#f87171] transition-colors disabled:opacity-40">
+          {deleting ? "Removing…" : "Remove this block"}
+        </button>
+      )}
+    </>
   );
 }

@@ -63,6 +63,29 @@ export async function POST(req: Request) {
   return NextResponse.json({ block: data });
 }
 
+export async function PATCH(req: Request) {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id, allDay, startAt, endAt, note } = await req.json();
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+  if (!startAt || !endAt) return NextResponse.json({ error: "Start and end are required" }, { status: 400 });
+  if (new Date(endAt).getTime() < new Date(startAt).getTime()) {
+    return NextResponse.json({ error: "End is before start" }, { status: 400 });
+  }
+
+  const db = createAdminClient();
+  // Either partner can edit a block.
+  const { data, error } = await db.from("availability_blocks").update({
+    all_day: !!allDay,
+    start_at: startAt,
+    end_at: endAt,
+    note: note?.trim() || null,
+  }).eq("id", id).select().single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ block: data });
+}
+
 export async function DELETE(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
