@@ -20,7 +20,7 @@ export default function AboutPage() {
           Luck Images
         </h1>
         <p className="text-[#666] text-lg max-w-2xl mx-auto leading-relaxed">
-          Austin's real estate media company. We make properties look exactly as good as they are — and then some.
+          Austin's Real Estate media company. We make properties look exactly as good as they are — and then some.
         </p>
       </FadeUp>
 
@@ -59,10 +59,10 @@ export default function AboutPage() {
                 <h2 className="text-4xl font-black tracking-tight uppercase mb-6">Ryan Luck</h2>
               </div>
               <p className="text-[#888] leading-relaxed">
-                Born and raised in Austin, Ryan Luck has spent more than a decade behind the camera. What started as a passion for photography grew into what is today Luck Images, a team dedicated to serving real estate agents throughout the greater Austin area.
+                Born and raised in Austin, Ryan Luck has spent more than a decade behind the camera. What started as a passion for photography grew into what is today Luck Images, a team dedicated to serving Real Estate agents throughout the greater Austin area.
               </p>
               <p className="text-[#888] leading-relaxed">
-                Over the years Ryan has developed an eye for clear imagery and the details that make a listing stand out. He believes great real estate media should feel clean, natural, and inviting.
+                Over the years Ryan has developed an eye for clear imagery and the details that make a listing stand out. He believes great Real Estate media should feel clean, natural, and inviting.
               </p>
               <p className="text-[#888] leading-relaxed">
                 His focus is on capturing what makes each home special while keeping the process simple and seamless for our clients.

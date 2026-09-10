@@ -298,7 +298,7 @@ const TEMPLATES: Template[] = [
     tag: "Retention",
     tagColor: "text-[#60a5fa]",
     filter: c => !!c.email && c.stage !== "deleted",
-    subject: c => `Still working in real estate, ${c.name.split(" ")[0]}?`,
+    subject: c => `Still working in Real Estate, ${c.name.split(" ")[0]}?`,
     extraFields: [
       { key: "offer", label: "Incentive (optional)", placeholder: "e.g. First shoot back — $25 off", default: "" },
     ],

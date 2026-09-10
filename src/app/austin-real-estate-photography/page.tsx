@@ -5,12 +5,12 @@ import { SERVICES } from "@/lib/services";
 
 export const metadata: Metadata = {
   title: "Real Estate Photography Austin TX | Luck Images",
-  description: "Professional real estate photography, drone, Matterport 3D tours, and video in Austin TX. 24-hour turnaround. Serving Austin, Round Rock, Cedar Park, Georgetown & surrounding areas.",
+  description: "Professional Real Estate photography, drone, Matterport 3D tours, and video in Austin TX. 24-hour turnaround. Serving Austin, Round Rock, Cedar Park, Georgetown & surrounding areas.",
   keywords: ["real estate photography Austin TX", "real estate photographer Austin", "drone photography Austin real estate", "Matterport Austin", "listing photos Austin Texas", "real estate video Austin"],
   alternates: { canonical: "https://www.luckimages.com/austin-real-estate-photography" },
   openGraph: {
     title: "Real Estate Photography Austin TX | Luck Images",
-    description: "Professional real estate photography, drone, Matterport 3D tours, and video in Austin TX. 24-hour turnaround.",
+    description: "Professional Real Estate photography, drone, Matterport 3D tours, and video in Austin TX. 24-hour turnaround.",
     url: "https://www.luckimages.com/austin-real-estate-photography",
   },
 };
@@ -75,7 +75,7 @@ const areas = [
 const faqs = [
   {
     q: "How fast do I get my photos back?",
-    a: "Standard real estate shoots are delivered within 24 hours. Rush same-day delivery is available for an additional fee.",
+    a: "Standard Real Estate shoots are delivered within 24 hours. Rush same-day delivery is available for an additional fee.",
   },
   {
     q: "Do you need to be there during the shoot?",
@@ -104,7 +104,7 @@ export default function AustinRealEstatePhotographyPage() {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <img
           src="/hero-1.jpg"
-          alt="Austin TX skyline — Luck Images real estate photography"
+          alt="Austin TX skyline — Luck Images Real Estate photography"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/60 via-transparent to-[#0c0c0c]" />

@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Luck Images — Real Estate Photography Austin TX",
-  description: "Professional real estate photography, drone, Matterport 3D tours, and video for Austin's top agents and developers. 24-hour turnaround. Call (512) 375-1585.",
+  description: "Professional Real Estate photography, drone, Matterport 3D tours, and video for Austin's top agents and developers. 24-hour turnaround. Call (512) 375-1585.",
   keywords: ["real estate photography Austin", "real estate photographer Austin TX", "drone photography Austin", "Matterport 3D tours Austin", "listing photos Austin", "architectural photography Austin"],
   openGraph: {
     title: "Luck Images — Real Estate Photography Austin TX",
-    description: "Professional real estate photography, drone, Matterport 3D tours, and video for Austin's top agents and developers. 24-hour turnaround.",
+    description: "Professional Real Estate photography, drone, Matterport 3D tours, and video for Austin's top agents and developers. 24-hour turnaround.",
     url: "https://www.luckimages.com",
     siteName: "Luck Images",
     locale: "en_US",
@@ -37,7 +37,7 @@ const jsonLd = {
       "@id": "https://www.luckimages.com/#business",
       "name": "Luck Images",
       "alternateName": "Luck Images Real Estate Photography",
-      "description": "Professional real estate photography, drone, Matterport 3D tours, and video for Austin's top agents and developers. 24-hour turnaround guaranteed.",
+      "description": "Professional Real Estate photography, drone, Matterport 3D tours, and video for Austin's top agents and developers. 24-hour turnaround guaranteed.",
       "url": "https://www.luckimages.com",
       "telephone": "+15123751585",
       "email": "ryan@luckimages.com",
@@ -95,7 +95,7 @@ const jsonLd = {
             "itemOffered": {
               "@type": "Service",
               "name": "Aerial Photography & Video",
-              "description": "FAA-certified aerial photography and video for real estate listings and developments in Austin TX."
+              "description": "FAA-certified aerial photography and video for Real Estate listings and developments in Austin TX."
             }
           },
           {
@@ -103,7 +103,7 @@ const jsonLd = {
             "itemOffered": {
               "@type": "Service",
               "name": "Matterport 3D Tours",
-              "description": "Immersive 3D virtual tours using Matterport technology for real estate listings."
+              "description": "Immersive 3D virtual tours using Matterport technology for Real Estate listings."
             }
           },
           {
@@ -111,7 +111,7 @@ const jsonLd = {
             "itemOffered": {
               "@type": "Service",
               "name": "Real Estate Video",
-              "description": "Cinematic property walkthrough videos for real estate agents and developers."
+              "description": "Cinematic property walkthrough videos for Real Estate agents and developers."
             }
           },
           {
@@ -119,7 +119,7 @@ const jsonLd = {
             "itemOffered": {
               "@type": "Service",
               "name": "Headshots",
-              "description": "Professional headshots for real estate agents in Austin TX."
+              "description": "Professional headshots for Real Estate agents in Austin TX."
             }
           }
         ]
@@ -130,7 +130,7 @@ const jsonLd = {
       "@id": "https://www.luckimages.com/#website",
       "url": "https://www.luckimages.com",
       "name": "Luck Images",
-      "description": "Real estate photography, drone, Matterport, and video — Austin TX",
+      "description": "Real Estate photography, drone, Matterport, and video — Austin TX",
       "publisher": { "@id": "https://www.luckimages.com/#business" }
     },
     {
@@ -138,10 +138,10 @@ const jsonLd = {
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "How fast is the turnaround for real estate photos?",
+          "name": "How fast is the turnaround for Real Estate photos?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Luck Images guarantees 24-hour photo delivery for all standard real estate listing shoots."
+            "text": "Luck Images guarantees 24-hour photo delivery for all standard Real Estate listing shoots."
           }
         },
         {
@@ -157,7 +157,7 @@ const jsonLd = {
           "name": "Does Luck Images offer drone photography?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. Luck Images provides FAA-certified drone photography and aerial video for real estate listings across the Austin metro area."
+            "text": "Yes. Luck Images provides FAA-certified drone photography and aerial video for Real Estate listings across the Austin metro area."
           }
         },
         {

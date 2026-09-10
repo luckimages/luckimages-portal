@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 const BASE_URL = "https://www.luckimages.com";
 
 const DEFAULT_MESSAGE = (name: string) =>
-  `Hey${name ? ` ${name}` : ""}! I'm Ryan — I shoot real estate photography, video, drone & twilight here in Austin. No pressure at all, just wanted to share our booking portal in case it's ever useful for a listing:`;
+  `Hey${name ? ` ${name}` : ""}! I'm Ryan — I shoot Real Estate photography, video, drone & twilight here in Austin. No pressure at all, just wanted to share our booking portal in case it's ever useful for a listing:`;
 
 type Lead = {
   id: string;

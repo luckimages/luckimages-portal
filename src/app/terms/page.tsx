@@ -19,7 +19,7 @@ export default function TermsPage() {
             <section>
               <h2 className="text-xs tracking-[3px] uppercase text-[#555] mb-3">1. Services</h2>
               <p>
-                Luck Images LLC ("Luck Images," "we," "us") provides real estate photography, aerial media,
+                Luck Images LLC ("Luck Images," "we," "us") provides Real Estate photography, aerial media,
                 video, and related services in the Austin, TX area. By booking a shoot or using our client portal,
                 you agree to these terms.
               </p>
@@ -54,7 +54,7 @@ export default function TermsPage() {
               <h2 className="text-xs tracking-[3px] uppercase text-[#555] mb-3">4. License & Usage</h2>
               <p className="mb-3">
                 Upon full payment, Luck Images grants you a non-exclusive, perpetual license to use the
-                delivered media for real estate marketing purposes, including MLS listings, social media, and
+                delivered media for Real Estate marketing purposes, including MLS listings, social media, and
                 print materials.
               </p>
               <p>

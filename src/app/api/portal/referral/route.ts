@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       <img src="${BASE_URL}/logo.png" width="40" height="40" alt="Luck Images" style="display:block;margin:0 auto 24px;border:0;" />
       <p style="margin:0 0 32px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#555;text-align:center;">You've been referred</p>
       <p style="margin:0 0 20px;font-size:14px;color:#888;line-height:1.6;">Hey ${friendName.trim().split(" ")[0]},</p>
-      <p style="margin:0 0 20px;font-size:14px;color:#888;line-height:1.6;"><strong style="color:#fff;">${referrerName}</strong> referred you to Luck Images — Austin's real estate media team. Professional listing photos, drone, video, Matterport, virtual staging and more, delivered within 24 hours.</p>
+      <p style="margin:0 0 20px;font-size:14px;color:#888;line-height:1.6;"><strong style="color:#fff;">${referrerName}</strong> referred you to Luck Images — Austin's Real Estate media team. Professional listing photos, drone, video, Matterport, virtual staging and more, delivered within 24 hours.</p>
       <p style="margin:0 0 32px;font-size:14px;color:#888;line-height:1.6;">Create your account and book your first shoot:</p>
       <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:8px 0 32px;">
         <a href="${referralLink}" style="display:inline-block;background:#fff;color:#000;font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:16px 32px;text-decoration:none;">Create Your Account →</a>
