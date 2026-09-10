@@ -59,13 +59,13 @@ export default function AboutPage() {
                 <h2 className="text-4xl font-black tracking-tight uppercase mb-6">Ryan Luck</h2>
               </div>
               <p className="text-[#888] leading-relaxed">
-                Born and raised in Austin, Ryan has spent over a decade behind the camera — with the last 5 years building Luck Images into the go-to real estate media company for agents across Central Texas.
+                Born and raised in Austin, Ryan Luck has spent more than a decade behind the camera. What started as a passion for photography grew into what is today Luck Images, a team dedicated to serving real estate agents throughout the greater Austin area.
               </p>
               <p className="text-[#888] leading-relaxed">
-                His approach is simple: show up prepared, shoot fast, deliver fast, and make every property look its absolute best. Technical precision meets genuine care for the people he works with — and it shows in the results.
+                Over the years Ryan has developed an eye for clear imagery and the details that make a listing stand out. He believes great real estate media should feel clean, natural, and inviting.
               </p>
               <p className="text-[#888] leading-relaxed">
-                Ryan stays hands-on with every part of the business — quality, client relationships, and the work itself.
+                His focus is on capturing what makes each home special while keeping the process simple and seamless for our clients.
               </p>
             </div>
           </div>
