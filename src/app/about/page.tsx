@@ -23,12 +23,11 @@ export default function AboutPage() {
           className="absolute inset-0 w-full h-full object-cover object-center grayscale opacity-90 scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/30 via-[#0c0c0c]/20 to-[#0c0c0c]" />
-        <FadeUp className="relative z-10 [&_*]:[text-shadow:0_2px_24px_rgba(0,0,0,0.7)]">
-          <p className="text-xs tracking-[4px] uppercase text-white/50 mb-4">Who We Are</p>
+        <FadeUp className="relative z-10 [&_*]:[text-shadow:0_2px_40px_rgba(0,0,0,0.95),0_1px_12px_rgba(0,0,0,0.9)]">
           <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">
             Luck Images
           </h1>
-          <p className="text-white/70 text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="text-white text-lg max-w-2xl mx-auto leading-relaxed">
             Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
           </p>
         </FadeUp>
