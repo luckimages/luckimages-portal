@@ -19,7 +19,7 @@ export default function AboutPage() {
           src="/hero-4.jpg"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-top grayscale opacity-90 scale-105"
+          className="absolute inset-0 w-full h-full object-cover object-center grayscale opacity-90 scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/30 via-[#0c0c0c]/40 to-[#0c0c0c]" />
         <div className="relative z-10">
