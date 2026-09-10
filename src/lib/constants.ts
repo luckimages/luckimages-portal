@@ -26,7 +26,14 @@ const ADMIN_SENDERS: Record<string, { name: string; email: string }> = {
   "leif@luckimages.com": { name: "Leif Tilton", email: "leif@luckimages.com" },
 };
 
-export function adminSender(email?: string | null): { from: string; replyTo: string; shortName: string } {
+export function adminSender(email?: string | null): { from: string; replyTo: string; shortName: string; fullName: string } {
   const s = ADMIN_SENDERS[(email || "").toLowerCase()] || ADMIN_SENDERS["ryan@luckimages.com"];
-  return { from: `${s.name} <${s.email}>`, replyTo: s.email, shortName: s.name.split(" ")[0] };
+  return { from: `${s.name} <${s.email}>`, replyTo: s.email, shortName: s.name.split(" ")[0], fullName: s.name };
 }
+
+// Admin-authored emails carry this token where the sender's name belongs.
+// The send-email route swaps it for the actual sender (Ryan or Leif) so the
+// signature always matches the From address. Keep the literal string in sync
+// with the replace in /api/admin/send-email.
+export const SENDER_NAME_TOKEN = "{{SENDER_NAME}}";
+export const SENDER_EMAIL_TOKEN = "{{SENDER_EMAIL}}";

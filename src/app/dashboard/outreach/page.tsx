@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
-import { COLD_CALL_TEXT_LINK_NOTE, GOOGLE_REVIEW_URL } from "@/lib/constants";
+import { COLD_CALL_TEXT_LINK_NOTE, GOOGLE_REVIEW_URL, SENDER_NAME_TOKEN } from "@/lib/constants";
 
 const supabase = createClient();
 
@@ -85,7 +85,9 @@ const H1 = (text: string) => `<h1 style="font-size:22px;font-weight:900;text-tra
 const P = (text: string, style = "") => `<p style="color:#888;font-size:14px;line-height:1.6;margin:0 0 24px;text-align:center${style ? `;${style}` : ""}">${text}</p>`;
 const BTN = (href: string, label: string) => `<a href="${href}" style="display:inline-block;background:#fff;color:#000;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:14px 28px;text-decoration:none;margin-bottom:32px">${label}</a>`;
 const SMALL = (text: string) => `<p style="color:#444;font-size:11px;line-height:1.6;margin:0;text-align:center">${text}</p>`;
-const SIG = `<p style="color:#333;font-size:11px;margin:24px 0 0;text-align:center">— Ryan Luck, Luck Images</p>`;
+// Name is filled in server-side (send-email route) so the signature always
+// matches the From address — Ryan from his portal, Leif from his.
+const SIG = `<p style="color:#333;font-size:11px;margin:24px 0 0;text-align:center">— ${SENDER_NAME_TOKEN}, Luck Images</p>`;
 const HIGHLIGHT = (text: string, color: string, rgb: string) => `<p style="color:${color};font-size:13px;font-weight:700;margin:0 0 24px;border:1px solid rgba(${rgb},0.3);padding:12px 16px;display:inline-block;text-align:center">${text}</p><br>`;
 
 // Gmail (and most webmail) strips <body>-level CSS, so centering can't rely

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { normalizePhone } from "@/lib/format";
 import { useContactModal } from "@/context/ContactModalContext";
 import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel, TWILIGHT_STANDALONE_PRICE, VIRTUAL_STAGING_PER_PHOTO_PRICE } from "@/lib/pricing";
-import { ADMIN_EMAILS, COLD_CALL_TEXT_LINK_NOTE } from "@/lib/constants";
+import { ADMIN_EMAILS, COLD_CALL_TEXT_LINK_NOTE, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
 
 type Contact = {
   id: string;
@@ -263,8 +263,8 @@ function buildPitchHtml(firstName: string, contactId: string, selectedKeys: stri
 
   <tr><td style="border-top:1px solid #1a1a1a;padding:24px 32px 40px;background-color:#0c0c0c;" bgcolor="#0c0c0c">
     <p style="margin:0;font-size:13px;color:#888;line-height:1.7;">Ready to book or have questions? Reply to this email or give me a call.</p>
-    <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">Ryan Luck</p>
-    <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ryan@luckimages.com · luckimages.com</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#fff;font-weight:700;">${SENDER_NAME_TOKEN}</p>
+    <p style="margin:2px 0 0;font-size:11px;color:#444;">Luck Images · ${SENDER_EMAIL_TOKEN} · luckimages.com</p>
   </td></tr>
 
 </table>
@@ -696,8 +696,8 @@ function ColdCallsPage() {
         category: "Cold Call Follow-up",
         html: buildPitchHtml(firstName, target.id, selected, pitchQuote || undefined, pitchQuoteNote || undefined),
         body: isAll
-          ? `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\nRyan Luck\nLuck Images`
-          : `Hi ${firstName},\n\nThanks for the call. Sending pricing + portfolio for ${selectedLabels.join(", ")} at luckimages.com.\n\nRyan Luck\nLuck Images`,
+          ? `Hi ${firstName},\n\nThanks for the call. Sending our full pricing + portfolio at luckimages.com.\n\n${SENDER_NAME_TOKEN}\nLuck Images`
+          : `Hi ${firstName},\n\nThanks for the call. Sending pricing + portfolio for ${selectedLabels.join(", ")} at luckimages.com.\n\n${SENDER_NAME_TOKEN}\nLuck Images`,
       }),
     });
     setSendingPitch(false);
