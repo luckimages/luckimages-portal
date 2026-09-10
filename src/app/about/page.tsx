@@ -20,7 +20,7 @@ export default function AboutPage() {
           Luck Images
         </h1>
         <p className="text-[#666] text-lg max-w-2xl mx-auto leading-relaxed">
-          Austin's Real Estate media company. We make properties look exactly as good as they are — and then some.
+          Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
         </p>
       </FadeUp>
 
