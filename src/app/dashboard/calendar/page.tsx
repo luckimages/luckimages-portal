@@ -610,12 +610,12 @@ function BlockTimeModal({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     else setErr((await res.json().catch(() => ({}))).error || "Couldn't save");
   }
 
-  const inputCls = "w-full bg-[#181818] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-white/30";
+  const inputCls = "w-full bg-[#181818] border border-white/10 text-white text-base px-4 py-3 outline-none focus:border-white/30";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/75" />
-      <div className="relative bg-[#141414] border border-white/10 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-[#141414] border border-white/10 w-full max-w-2xl p-8" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-1">
           <div>
             <p className="text-[10px] tracking-[3px] uppercase text-[#666]">Block Time</p>
