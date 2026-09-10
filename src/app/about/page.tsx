@@ -79,7 +79,7 @@ export default function AboutPage() {
                 His approach is simple: show up prepared, shoot fast, deliver fast, and make every property look its absolute best. Technical precision meets genuine care for the people he works with — and it shows in the results.
               </p>
               <p className="text-[#888] leading-relaxed">
-                As Luck Images grows into a statewide team, Ryan stays hands-on with quality, client relationships, and the work itself.
+                Ryan stays hands-on with every part of the business — quality, client relationships, and the work itself.
               </p>
               <p className="text-white/40 text-sm tracking-[2px] mt-2">— Ryan Luck</p>
             </div>
@@ -87,16 +87,16 @@ export default function AboutPage() {
         </section>
       </FadeUp>
 
-      {/* Vision */}
+      {/* What we do */}
       <FadeUp>
         <section className="border-t border-white/10 px-6 py-24 bg-[#080808]">
           <div className="max-w-4xl mx-auto text-center">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4">Where We're Headed</p>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4">What We Do</p>
             <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-8">
-              Built to Scale Across Texas
+              Real Estate Media, Done Right
             </h2>
             <p className="text-[#666] text-lg max-w-2xl mx-auto leading-relaxed mb-12">
-              What started as one photographer with a camera and a vision is growing into something much bigger. Our goal is a 10+ photographer team covering markets across the entire state — bringing the same quality and reliability that Austin agents have come to count on, everywhere in Texas.
+              Luck Images gives Austin agents everything a listing needs from one team — photography, drone, twilight, video, floor plans, and virtual staging — shot fast, edited carefully, and delivered next day. Book a shoot, track it, and download your gallery in one place.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <Link href="/contact" className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 font-semibold hover:bg-white/90 transition-colors">
