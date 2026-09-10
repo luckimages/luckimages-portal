@@ -14,15 +14,25 @@ export default function AboutPage() {
       <HomeNav />
 
       {/* Header */}
-      <FadeUp className="pt-32 pb-20 text-center px-6">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4">Who We Are</p>
-        <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">
-          Luck Images
-        </h1>
-        <p className="text-[#666] text-lg max-w-2xl mx-auto leading-relaxed">
-          Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
-        </p>
-      </FadeUp>
+      <section className="relative overflow-hidden pt-40 pb-24 px-6 text-center">
+        {/* B&W drone backdrop, fading into black — same treatment as the home hero */}
+        <img
+          src="/hero-1.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center grayscale opacity-40 scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/80 via-[#0c0c0c]/40 to-[#0c0c0c]" />
+        <FadeUp className="relative z-10">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4">Who We Are</p>
+          <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">
+            Luck Images
+          </h1>
+          <p className="text-white/50 text-lg max-w-2xl mx-auto leading-relaxed">
+            Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
+          </p>
+        </FadeUp>
+      </section>
 
       {/* Stats bar */}
       <FadeUp>
