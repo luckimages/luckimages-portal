@@ -1,5 +1,4 @@
 import HomeNav from "@/components/HomeNav";
-import Link from "next/link";
 import FadeUp from "@/components/FadeUp";
 
 const STATS = [
@@ -68,29 +67,6 @@ export default function AboutPage() {
               <p className="text-[#888] leading-relaxed">
                 Ryan stays hands-on with every part of the business — quality, client relationships, and the work itself.
               </p>
-            </div>
-          </div>
-        </section>
-      </FadeUp>
-
-      {/* What we do */}
-      <FadeUp>
-        <section className="border-t border-white/10 px-6 py-24 bg-[#080808]">
-          <div className="max-w-4xl mx-auto text-center">
-            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4">What We Do</p>
-            <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-8">
-              Real Estate Media, Done Right
-            </h2>
-            <p className="text-[#666] text-lg max-w-2xl mx-auto leading-relaxed mb-12">
-              Luck Images gives Austin agents everything a listing needs from one team — photography, drone, twilight, video, floor plans, and virtual staging — shot fast, edited carefully, and delivered next day. Book a shoot, track it, and download your gallery in one place.
-            </p>
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Link href="/contact" className="text-xs tracking-[3px] uppercase bg-white text-black px-10 py-4 font-semibold hover:bg-white/90 transition-colors">
-                Work With Us
-              </Link>
-              <Link href="/pricing" className="text-xs tracking-[3px] uppercase border border-white/25 px-10 py-4 hover:border-white hover:bg-white/5 transition-all">
-                See Pricing
-              </Link>
             </div>
           </div>
         </section>
