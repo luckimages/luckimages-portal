@@ -65,7 +65,7 @@ export default function AboutPage() {
                 Over the years Ryan has developed an eye for clear imagery and the details that make a listing stand out. He believes great Real Estate media should feel clean, natural, and inviting.
               </p>
               <p className="text-[#888] leading-relaxed">
-                His focus is on capturing what makes each home special while keeping the process simple and seamless for our clients.
+                Ryan's focus is on capturing what makes each home unique, while providing clients with a simple and seamless experience.
               </p>
             </div>
           </div>
