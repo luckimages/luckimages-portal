@@ -81,7 +81,6 @@ export default function AboutPage() {
               <p className="text-[#888] leading-relaxed">
                 Ryan stays hands-on with every part of the business — quality, client relationships, and the work itself.
               </p>
-              <p className="text-white/40 text-sm tracking-[2px] mt-2">— Ryan Luck</p>
             </div>
           </div>
         </section>
