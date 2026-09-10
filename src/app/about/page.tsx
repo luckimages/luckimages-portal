@@ -13,39 +13,34 @@ export default function AboutPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <HomeNav />
 
-      {/* Header */}
-      <section className="relative overflow-hidden pt-40 pb-24 px-6 text-center">
-        {/* B&W drone backdrop, fading into black — same treatment as the home hero */}
+      {/* Header — title, caption, and stats over a B&W aerial that fades to black */}
+      <section className="relative overflow-hidden pt-40 pb-16 px-6 text-center border-b border-white/10">
         <img
           src="/hero-4.jpg"
           alt=""
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover object-top grayscale opacity-90 scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/30 via-[#0c0c0c]/20 to-[#0c0c0c]" />
-        <FadeUp className="relative z-10 [&_*]:[text-shadow:0_2px_40px_rgba(0,0,0,0.95),0_1px_12px_rgba(0,0,0,0.9)]">
-          <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">
-            Luck Images
-          </h1>
-          <p className="text-white text-lg max-w-2xl mx-auto leading-relaxed">
-            Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
-          </p>
-        </FadeUp>
-      </section>
-
-      {/* Stats bar */}
-      <FadeUp>
-        <section className="border-y border-white/10 px-6 py-10">
-          <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0c0c0c]/30 via-[#0c0c0c]/40 to-[#0c0c0c]" />
+        <div className="relative z-10">
+          <FadeUp className="[&_*]:[text-shadow:0_2px_40px_rgba(0,0,0,0.95),0_1px_12px_rgba(0,0,0,0.9)]">
+            <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-8">
+              Luck Images
+            </h1>
+            <p className="text-white text-lg max-w-2xl mx-auto leading-relaxed">
+              Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
+            </p>
+          </FadeUp>
+          <FadeUp delay={0.15} className="mt-16 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
             {STATS.map(s => (
-              <div key={s.label} className="text-center">
+              <div key={s.label} className="text-center [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]">
                 <p className="text-4xl font-black mb-2">{s.value}</p>
-                <p className="text-xs tracking-[2px] uppercase text-[#555]">{s.label}</p>
+                <p className="text-xs tracking-[2px] uppercase text-white/50">{s.label}</p>
               </div>
             ))}
-          </div>
-        </section>
-      </FadeUp>
+          </FadeUp>
+        </div>
+      </section>
 
       {/* Founder section */}
       <FadeUp>
