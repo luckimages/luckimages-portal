@@ -693,10 +693,6 @@ function BlockTimeModal({ block, onClose, onSaved }: { block?: Block; onClose: (
             Cancel
           </button>
         </div>
-        <button onClick={remove} disabled={deleting}
-          className="w-full mt-3 text-[11px] tracking-[1.5px] uppercase text-[#f87171]/80 hover:text-[#f87171] transition-colors disabled:opacity-40">
-          {deleting ? "Removing…" : "Remove this block"}
-        </button>
       </>
     );
   }
