@@ -39,19 +39,6 @@ export default function AboutPage() {
         </section>
       </FadeUp>
 
-      {/* Mission */}
-      <FadeUp>
-        <section className="px-6 py-24 max-w-4xl mx-auto w-full text-center">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-4">Our Mission</p>
-          <h2 className="text-[clamp(28px,4vw,52px)] font-black tracking-tight uppercase mb-8 leading-tight">
-            Every Listing Deserves<br />World-Class Media
-          </h2>
-          <p className="text-[#666] text-lg max-w-2xl mx-auto leading-relaxed">
-            We started Luck Images because we saw how much bad photography was costing Austin agents — longer days on market, lower offers, fewer callbacks. Our job is to eliminate that problem with photography, video, and virtual tours that make buyers stop scrolling.
-          </p>
-        </section>
-      </FadeUp>
-
       {/* Founder section */}
       <FadeUp>
         <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
