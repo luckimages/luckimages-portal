@@ -90,6 +90,25 @@ type MileageRow = {
   deduction_cents: number;
 };
 
+type Photographer = { id: string; name: string; email: string };
+
+type ShootDetail = {
+  id: string;
+  address: string;
+  scheduled_at: string | null;
+  services: string[] | null;
+  notes: string | null;
+  square_footage: number | null;
+  status: string;
+  photographer_ids: string[];
+  price: number | null;
+  package_name: string | null;
+  property_type: string | null;
+  client_name: string;
+  editing_cost_cents: number | null;
+  editing_cost_by: string | null;
+};
+
 function fmt(n: number) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
@@ -493,6 +512,11 @@ function ExpensesSection({
   onChanged: () => void;
   blur: string;
 }) {
+  const [photographers, setPhotographers] = useState<Photographer[]>([]);
+  useEffect(() => {
+    fetch("/api/admin/photographers").then(r => r.ok ? r.json() : []).then(setPhotographers).catch(() => {});
+  }, []);
+
   const blankForm = { label: "", amount: "", category: "software", cadence: "monthly", recurring: true, note: "" };
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -762,7 +786,7 @@ function ExpensesSection({
                   </span>
                   <span className={`text-[12px] font-semibold tabular-nums text-white select-none ${blur}`}>{fmtc2(pnl.shoot_expense_cents)}</span>
                 </button>
-                {shootExpOpen && <ShootExpenseTable rows={pnl.shoot_expenses} blur={blur} />}
+                {shootExpOpen && <ShootExpenseTable rows={pnl.shoot_expenses} blur={blur} photographers={photographers} />}
               </div>
             </div>
           )}
@@ -794,7 +818,7 @@ function ExpensesSection({
                   </span>
                   <span className={`text-[12px] font-semibold tabular-nums text-white select-none ${blur}`}>{fmtc2(pnl.memo.leif_profit_share_cents)}</span>
                 </button>
-                {leifOpen && <LeifCommissionTable rows={pnl.shoot_expenses.filter(r => r.leif_sourced)} blur={blur} />}
+                {leifOpen && <LeifCommissionTable rows={pnl.shoot_expenses.filter(r => r.leif_sourced)} blur={blur} photographers={photographers} />}
               </div>
             </div>
           )}
@@ -819,7 +843,8 @@ function ExpensesSection({
 
 const COLS = "grid grid-cols-[52px_1fr_100px_74px_66px_72px_86px_92px] gap-x-3 min-w-[680px]";
 
-function ShootExpenseTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: string }) {
+function ShootExpenseTable({ rows, blur, photographers }: { rows: ShootExpenseRow[]; blur: string; photographers: Photographer[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   if (rows.length === 0) {
     return <p className="px-4 py-5 text-center text-[#444] text-xs tracking-widest uppercase border-t border-white/[0.07]">No shoots this month</p>;
   }
@@ -842,22 +867,26 @@ function ShootExpenseTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: stri
         ))}
       </div>
       {rows.map(r => (
-        <div key={r.shoot_id} className={`${COLS} px-4 py-2 border-b border-white/[0.04] items-center`}>
-          <span className="text-[11px] text-[#555] tabular-nums">{md(r.date)}</span>
-          <span className="text-[12px] truncate" title={r.address}>{r.address}</span>
-          <span className="text-[11px] text-[#888] truncate">{r.client}</span>
-          <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.stripe_cents)}</span>
-          <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.gas_cents)}</span>
-          <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.editing_cents)}</span>
-          <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(r.expense_cents)}</span>
-          <span
-            className={`text-[11px] tabular-nums font-semibold select-none ${blur} ${
-              !r.revenue_paid ? "text-[#fbbf24]" : r.profit_cents >= 0 ? "text-[#4ade80]" : "text-[#f87171]"
-            }`}
-            title={r.revenue_paid ? "" : "Invoice not paid yet — expected"}
-          >
-            {fmtc2(r.profit_cents)}
-          </span>
+        <div key={r.shoot_id}>
+          <div onClick={() => setOpenId(id => id === r.shoot_id ? null : r.shoot_id)}
+            className={`${COLS} px-4 py-2 border-b border-white/[0.04] items-center cursor-pointer transition-colors ${openId === r.shoot_id ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"}`}>
+            <span className="text-[11px] text-[#555] tabular-nums">{md(r.date)}</span>
+            <span className="text-[12px] truncate" title={r.address}>{r.address}</span>
+            <span className="text-[11px] text-[#888] truncate">{r.client}</span>
+            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.stripe_cents)}</span>
+            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.gas_cents)}</span>
+            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.editing_cents)}</span>
+            <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(r.expense_cents)}</span>
+            <span
+              className={`text-[11px] tabular-nums font-semibold select-none ${blur} ${
+                !r.revenue_paid ? "text-[#fbbf24]" : r.profit_cents >= 0 ? "text-[#4ade80]" : "text-[#f87171]"
+              }`}
+              title={r.revenue_paid ? "" : "Invoice not paid yet — expected"}
+            >
+              {fmtc2(r.profit_cents)}
+            </span>
+          </div>
+          {openId === r.shoot_id && <ShootDetailPanel shootId={r.shoot_id} photographers={photographers} />}
         </div>
       ))}
       <div className={`${COLS} px-4 py-2.5 bg-white/[0.04] items-center`}>
@@ -875,7 +904,8 @@ function ShootExpenseTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: stri
 
 const LEIF_COLS = "grid grid-cols-[52px_1fr_100px_84px_84px_92px] gap-x-3 min-w-[600px]";
 
-function LeifCommissionTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: string }) {
+function LeifCommissionTable({ rows, blur, photographers }: { rows: ShootExpenseRow[]; blur: string; photographers: Photographer[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
   if (rows.length === 0) {
     return <p className="px-4 py-5 text-center text-[#444] text-xs tracking-widest uppercase border-t border-white/[0.07]">No shoots attributed to Leif yet</p>;
   }
@@ -902,18 +932,22 @@ function LeifCommissionTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: st
       {rows.map(r => {
         const commission = Math.max(0, Math.round(r.profit_cents / 2));
         return (
-          <div key={r.shoot_id} className={`${LEIF_COLS} px-4 py-2 border-b border-white/[0.04] items-center`}>
-            <span className="text-[11px] text-[#555] tabular-nums">{md(r.date)}</span>
-            <span className="text-[12px] truncate" title={r.address}>{r.address}</span>
-            <span className="text-[11px] text-[#888] truncate">{r.client}</span>
-            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.revenue_cents)}</span>
-            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.expense_cents)}</span>
-            <span
-              className={`text-[11px] tabular-nums font-semibold select-none ${blur} ${!r.revenue_paid ? "text-[#fbbf24]" : "text-[#4ade80]"}`}
-              title={r.revenue_paid ? "Paid — counted toward Leif's total" : "Invoice not paid yet — expected, not owed until paid"}
-            >
-              {fmtc2(commission)}
-            </span>
+          <div key={r.shoot_id}>
+            <div onClick={() => setOpenId(id => id === r.shoot_id ? null : r.shoot_id)}
+              className={`${LEIF_COLS} px-4 py-2 border-b border-white/[0.04] items-center cursor-pointer transition-colors ${openId === r.shoot_id ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"}`}>
+              <span className="text-[11px] text-[#555] tabular-nums">{md(r.date)}</span>
+              <span className="text-[12px] truncate" title={r.address}>{r.address}</span>
+              <span className="text-[11px] text-[#888] truncate">{r.client}</span>
+              <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.revenue_cents)}</span>
+              <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.expense_cents)}</span>
+              <span
+                className={`text-[11px] tabular-nums font-semibold select-none ${blur} ${!r.revenue_paid ? "text-[#fbbf24]" : "text-[#4ade80]"}`}
+                title={r.revenue_paid ? "Paid — counted toward Leif's total" : "Invoice not paid yet — expected, not owed until paid"}
+              >
+                {fmtc2(commission)}
+              </span>
+            </div>
+            {openId === r.shoot_id && <ShootDetailPanel shootId={r.shoot_id} photographers={photographers} />}
           </div>
         );
       })}
@@ -926,6 +960,107 @@ function LeifCommissionTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: st
           {fmtc2(t.paidCommission)}
         </span>
       </div>
+    </div>
+  );
+}
+
+// Full shoot detail (everything the Shoot Log shows except media) — lazy
+// fetched the first time a row is expanded.
+function ShootDetailPanel({ shootId, photographers }: { shootId: string; photographers: Photographer[] }) {
+  const [detail, setDetail] = useState<ShootDetail | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/shoots?id=${shootId}`)
+      .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then(d => { if (!cancelled) setDetail(d); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [shootId]);
+
+  if (failed) {
+    return <div className="px-4 py-4 bg-white/[0.015] border-b border-white/[0.06] text-[11px] text-[#f87171]">Couldn&apos;t load this shoot.</div>;
+  }
+  if (!detail) {
+    return <div className="px-4 py-4 bg-white/[0.015] border-b border-white/[0.06] text-[10px] tracking-widest uppercase text-[#444]">Loading…</div>;
+  }
+
+  const fmtDT = (iso: string | null) => iso
+    ? `${new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · ${new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+    : "—";
+  const shootPhotographers = photographers.filter(p => detail.photographer_ids?.includes(p.id));
+
+  return (
+    <div className="px-4 py-4 bg-white/[0.015] border-b border-white/[0.06]">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-[12px]">
+        <div>
+          <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Date & Time</p>
+          <p className="text-[#ccc]">{fmtDT(detail.scheduled_at)}</p>
+        </div>
+        <div>
+          <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Client</p>
+          <p className="text-[#ccc]">{detail.client_name || "—"}</p>
+        </div>
+        <div>
+          <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Status</p>
+          <p className="text-[#ccc] capitalize">{detail.status.replace(/_/g, " ")}</p>
+        </div>
+        {detail.price != null && (
+          <div>
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Price</p>
+            <p className="text-[#4ade80] font-semibold">${detail.price.toLocaleString()}</p>
+          </div>
+        )}
+        {detail.square_footage != null && (
+          <div>
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Sq Ft</p>
+            <p className="text-[#ccc]">{detail.square_footage.toLocaleString()} sq ft</p>
+          </div>
+        )}
+        {detail.property_type && (
+          <div>
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Property Type</p>
+            <p className="text-[#ccc]">{detail.property_type}</p>
+          </div>
+        )}
+        {detail.editing_cost_cents != null && (
+          <div>
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Editing Cost</p>
+            <p className="text-[#ccc]">{fmtc2(detail.editing_cost_cents)}{detail.editing_cost_by && <span className="text-[#555]"> · {detail.editing_cost_by}</span>}</p>
+          </div>
+        )}
+        {shootPhotographers.length > 0 && (
+          <div className="col-span-2 md:col-span-3">
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1.5">Photographer(s)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {shootPhotographers.map(p => (
+                <span key={p.id} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{p.name}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {(detail.package_name || (detail.services?.length ?? 0) > 0) && (
+          <div className="col-span-2 md:col-span-3">
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1.5">Services</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(detail.package_name ? [detail.package_name] : detail.services ?? []).map(s => (
+                <span key={s} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-[#4ade80]/10 border border-[#4ade80]/20 text-[#4ade80]">{s}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {detail.notes && (
+          <div className="col-span-2 md:col-span-3">
+            <p className="text-[9px] tracking-[2px] uppercase text-[#555] mb-1">Notes</p>
+            <p className="text-[#888] text-[11px] whitespace-pre-wrap">{detail.notes}</p>
+          </div>
+        )}
+      </div>
+      <a href={`/admin/shoots?view=log&shoot=${detail.id}`}
+        className="inline-block mt-4 text-[10px] tracking-[1.5px] uppercase text-[#60a5fa] hover:text-white transition-colors">
+        View in Shoot Log (media) →
+      </a>
     </div>
   );
 }

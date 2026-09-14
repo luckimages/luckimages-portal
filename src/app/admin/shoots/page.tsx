@@ -725,6 +725,21 @@ function ShootsPage() {
   // the Log view doesn't poll at all. Manual "↻ Refresh" is always available.
   useVisiblePolling(loadShoots, 120000, view === "board");
 
+  // Deep link from elsewhere in the app (e.g. Revenue's shoot detail panels):
+  // /admin/shoots?view=log&shoot=<id> jumps to Log view with that shoot
+  // expanded and scrolled into view. Runs once the first time shoots load.
+  const deepLinkedRef = useRef(false);
+  useEffect(() => {
+    const shootId = searchParams.get("shoot");
+    if (!shootId || deepLinkedRef.current || shoots.length === 0) return;
+    deepLinkedRef.current = true;
+    setView("log");
+    setExpandedLogShootId(shootId);
+    setTimeout(() => {
+      document.getElementById(`log-shoot-${shootId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+  }, [searchParams, shoots.length]);
+
   // Arrow key navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -927,7 +942,7 @@ function ShootsPage() {
     const inProgress = !["pending", "cancelled", "delivered", "completed"].includes(shoot.status);
     const rebuttal = parseRebuttal(shoot.notes);
     return (
-      <div className={`bg-[#111] border border-white/10 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""} ${expanded ? "border-white/20" : "hover:border-white/20"}`}>
+      <div id={`log-shoot-${shoot.id}`} className={`bg-[#111] border border-white/10 transition-colors ${shoot.status === "pending" ? "border-l-2 border-l-[#fbbf24]/50" : ""} ${expanded ? "border-white/20" : "hover:border-white/20"}`}>
         <div className="flex items-start justify-between gap-4 p-4 cursor-pointer" onClick={toggleExpanded}>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{shoot.address}</p>

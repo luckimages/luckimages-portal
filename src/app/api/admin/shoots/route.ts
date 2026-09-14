@@ -34,13 +34,15 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const all = searchParams.get("all") === "1";
   const full = searchParams.get("full") === "1"; // all statuses including completed/cancelled
+  const id = searchParams.get("id"); // single shoot, any status — used for detail lookups
 
   const statusFilter = full ? "all" : !all ? "pending" : "active";
+  const COLUMNS = "id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, confirmed_at, drive_minutes, editing_cost_cents, editing_cost_by, lat, lng";
+  const COLUMNS_NO_LATLNG = COLUMNS.replace(", lat, lng", "");
 
-  const withLatLng = supabase.from("shoots")
-    .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, drive_minutes, lat, lng")
-    .order("scheduled_at", { ascending: false });
-  if (statusFilter === "pending") withLatLng.eq("status", "pending");
+  const withLatLng = supabase.from("shoots").select(COLUMNS).order("scheduled_at", { ascending: false });
+  if (id) withLatLng.eq("id", id);
+  else if (statusFilter === "pending") withLatLng.eq("status", "pending");
   else if (statusFilter === "active") withLatLng.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
 
   // lat/lng columns are a recent addition — if the migration hasn't run yet
@@ -49,10 +51,9 @@ export async function GET(req: Request) {
   let shoots: Array<Record<string, any>> | null = first.data; // eslint-disable-line @typescript-eslint/no-explicit-any
   let error = first.error;
   if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
-    const withoutLatLng = supabase.from("shoots")
-      .select("id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, drive_minutes")
-      .order("scheduled_at", { ascending: false });
-    if (statusFilter === "pending") withoutLatLng.eq("status", "pending");
+    const withoutLatLng = supabase.from("shoots").select(COLUMNS_NO_LATLNG).order("scheduled_at", { ascending: false });
+    if (id) withoutLatLng.eq("id", id);
+    else if (statusFilter === "pending") withoutLatLng.eq("status", "pending");
     else if (statusFilter === "active") withoutLatLng.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
     const second = await withoutLatLng;
     shoots = second.data;
@@ -127,6 +128,10 @@ export async function GET(req: Request) {
     mileage_gas_cents: mileageByShoot[s.id]?.gas_cents ?? null,
   }));
 
+  if (id) {
+    if (!result[0]) return NextResponse.json({ error: "Shoot not found" }, { status: 404 });
+    return NextResponse.json(result[0]);
+  }
   return NextResponse.json(result);
 }
 
