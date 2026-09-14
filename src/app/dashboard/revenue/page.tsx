@@ -59,6 +59,7 @@ type ShootExpenseRow = {
   revenue_cents: number;
   revenue_paid: boolean;
   profit_cents: number;
+  leif_sourced: boolean;
 };
 
 type Pnl = {
@@ -509,6 +510,7 @@ function ExpensesSection({
 
   const operating = useMemo(() => (pnl?.lines ?? []).filter(l => l.kind === "operating"), [pnl]);
   const [shootExpOpen, setShootExpOpen] = useState(false);
+  const [leifOpen, setLeifOpen] = useState(false);
 
   // Operating lines grouped by category, in the canonical order.
   const byCat = useMemo(() => {
@@ -773,9 +775,26 @@ function ExpensesSection({
                 <span>IRS mileage deduction ({pnl.memo.mileage_miles.toLocaleString()} mi · tax season)</span>
                 <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc2(pnl.memo.mileage_deduction_cents)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Leif&apos;s share (50% of profit on shoots he sourced)</span>
-                <span className={`tabular-nums text-[#888] select-none ${blur}`}>{fmtc2(pnl.memo.leif_profit_share_cents)}</span>
+            </div>
+          )}
+
+          {/* Leif's commission — every shoot he sourced, with its own expenses + cut */}
+          {pnl && (
+            <div>
+              <p className="text-[10px] tracking-[2px] uppercase text-[#666] mb-2">Leif&apos;s commission</p>
+              <div className="border border-white/[0.07]">
+                <button onClick={() => setLeifOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.05] transition-colors text-left">
+                  <span className="flex items-center gap-2">
+                    <span className={`text-[#666] text-[10px] transition-transform ${leifOpen ? "rotate-90" : ""}`}>▶</span>
+                    <span className="text-[10px] tracking-[2px] uppercase text-[#999]">50% of profit on shoots he sourced</span>
+                    <span className="text-[9px] text-[#555]">
+                      ({pnl.shoot_expenses.filter(r => r.leif_sourced).length} shoot{pnl.shoot_expenses.filter(r => r.leif_sourced).length === 1 ? "" : "s"})
+                    </span>
+                  </span>
+                  <span className={`text-[12px] font-semibold tabular-nums text-white select-none ${blur}`}>{fmtc2(pnl.memo.leif_profit_share_cents)}</span>
+                </button>
+                {leifOpen && <LeifCommissionTable rows={pnl.shoot_expenses.filter(r => r.leif_sourced)} blur={blur} />}
               </div>
             </div>
           )}
@@ -849,6 +868,63 @@ function ShootExpenseTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: stri
         <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(t.editing)}</span>
         <span className={`text-[12px] tabular-nums font-bold select-none ${blur}`}>{fmtc2(t.expense)}</span>
         <span className={`text-[12px] tabular-nums font-bold select-none ${blur} ${t.profit >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>{fmtc2(t.profit)}</span>
+      </div>
+    </div>
+  );
+}
+
+const LEIF_COLS = "grid grid-cols-[52px_1fr_100px_84px_84px_92px] gap-x-3 min-w-[600px]";
+
+function LeifCommissionTable({ rows, blur }: { rows: ShootExpenseRow[]; blur: string }) {
+  if (rows.length === 0) {
+    return <p className="px-4 py-5 text-center text-[#444] text-xs tracking-widest uppercase border-t border-white/[0.07]">No shoots attributed to Leif yet</p>;
+  }
+  const md = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+  const t = rows.reduce(
+    (a, r) => ({
+      revenue: a.revenue + r.revenue_cents,
+      expense: a.expense + r.expense_cents,
+      commission: a.commission + Math.max(0, Math.round(r.profit_cents / 2)),
+      paidCommission: a.paidCommission + (r.revenue_paid ? Math.max(0, Math.round(r.profit_cents / 2)) : 0),
+    }),
+    { revenue: 0, expense: 0, commission: 0, paidCommission: 0 }
+  );
+  return (
+    <div className="border-t border-white/[0.07] overflow-x-auto">
+      <div className={`${LEIF_COLS} px-4 py-2 border-b border-white/[0.07]`}>
+        {["Date", "Property", "Client", "Revenue", "Expenses", "Commission"].map(h => (
+          <span key={h} className="text-[9px] tracking-[1.5px] uppercase text-[#333]">{h}</span>
+        ))}
+      </div>
+      {rows.map(r => {
+        const commission = Math.max(0, Math.round(r.profit_cents / 2));
+        return (
+          <div key={r.shoot_id} className={`${LEIF_COLS} px-4 py-2 border-b border-white/[0.04] items-center`}>
+            <span className="text-[11px] text-[#555] tabular-nums">{md(r.date)}</span>
+            <span className="text-[12px] truncate" title={r.address}>{r.address}</span>
+            <span className="text-[11px] text-[#888] truncate">{r.client}</span>
+            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.revenue_cents)}</span>
+            <span className={`text-[11px] tabular-nums text-[#aaa] select-none ${blur}`}>{fmtc2(r.expense_cents)}</span>
+            <span
+              className={`text-[11px] tabular-nums font-semibold select-none ${blur} ${!r.revenue_paid ? "text-[#fbbf24]" : "text-[#4ade80]"}`}
+              title={r.revenue_paid ? "Paid — counted toward Leif's total" : "Invoice not paid yet — expected, not owed until paid"}
+            >
+              {fmtc2(commission)}
+            </span>
+          </div>
+        );
+      })}
+      <div className={`${LEIF_COLS} px-4 py-2.5 bg-white/[0.04] items-center`}>
+        <span className="text-[9px] tracking-[1px] uppercase text-[#888]">Total</span>
+        <span /><span />
+        <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(t.revenue)}</span>
+        <span className={`text-[11px] tabular-nums font-semibold select-none ${blur}`}>{fmtc2(t.expense)}</span>
+        <span className={`text-[12px] tabular-nums font-bold text-[#4ade80] select-none ${blur}`} title="Paid shoots only — unpaid commission shows yellow above and isn't owed yet">
+          {fmtc2(t.paidCommission)}
+        </span>
       </div>
     </div>
   );

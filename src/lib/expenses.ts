@@ -41,6 +41,7 @@ export type ShootExpenseRow = {
   revenue_cents: number;        // the shoot's invoice total
   revenue_paid: boolean;        // invoice(s) fully paid
   profit_cents: number;         // revenue − expense (expected until paid)
+  leif_sourced: boolean;        // contacts.sourced_by ~ "Leif" — drives his commission
 };
 
 export type Pnl = {
@@ -240,16 +241,10 @@ export async function buildPnl(
 
   let incomeCents = 0;
   let paidCount = 0;
-  const paidInRange: { shoot_id: string | null; amount_cents: number; fee_cents: number }[] = [];
   for (const inv of invoices ?? []) {
     if (inv.paid && inRange(invAnchor(inv))) {
       incomeCents += inv.amount_cents ?? 0;
       paidCount++;
-      paidInRange.push({
-        shoot_id: inv.shoot_id,
-        amount_cents: inv.amount_cents ?? 0,
-        fee_cents: stripeFeeCents(inv.amount_cents ?? 0, stripePct, stripeFlat),
-      });
     }
   }
 
@@ -285,9 +280,10 @@ export async function buildPnl(
     : { data: [] as { shoot_id: string; allocated_gas_cents: number }[] };
   const cIds = [...new Set(monthShoots.map(s => s.contact_id).filter((v): v is string => !!v))];
   const { data: cRows } = cIds.length
-    ? await db.from("contacts").select("id, name").in("id", cIds)
-    : { data: [] as { id: string; name: string }[] };
+    ? await db.from("contacts").select("id, name, sourced_by").in("id", cIds)
+    : { data: [] as { id: string; name: string; sourced_by: string | null }[] };
   const nameByContact = new Map((cRows ?? []).map(c => [c.id, c.name]));
+  const sourcedByContact = new Map((cRows ?? []).map(c => [c.id, (c.sourced_by || "").toLowerCase()]));
 
   const invByShoot = new Map<string, { total: number; paid: number }>();
   for (const inv of invoices ?? []) {
@@ -320,6 +316,7 @@ export async function buildPnl(
       revenue_cents: revenue,
       revenue_paid: revenuePaid,
       profit_cents: revenue - expense,
+      leif_sourced: !!(s.contact_id && sourcedByContact.get(s.contact_id)?.includes("leif")),
     };
   });
 
@@ -353,35 +350,12 @@ export async function buildPnl(
 
   // ── Leif's commission: 50% of profit on shoots HE sourced ────────────────
   // Per the agreement, Leif gets 50% of profit only on shoots from a lead he
-  // generated (contacts.sourced_by ~ "Leif"). Shoot-level profit = invoice −
-  // that shoot's Stripe fee − editing − allocated gas. Company overhead (the
-  // operating budget) is not netted against his shoots.
-  let leifShareCents = 0;
-  const shootIds = [...new Set(paidInRange.map(p => p.shoot_id).filter((v): v is string => !!v))];
-  if (shootIds.length) {
-    const [{ data: attrShoots }, { data: shootGas }] = await Promise.all([
-      db.from("shoots").select("id, contact_id, editing_cost_cents").in("id", shootIds),
-      db.from("shoot_mileage").select("shoot_id, allocated_gas_cents").in("shoot_id", shootIds),
-    ]);
-    const contactIds = [...new Set((attrShoots ?? []).map(s => s.contact_id).filter((v): v is string => !!v))];
-    const { data: contacts } = contactIds.length
-      ? await db.from("contacts").select("id, sourced_by").in("id", contactIds)
-      : { data: [] as { id: string; sourced_by: string | null }[] };
-    const sourcedBy = new Map((contacts ?? []).map(c => [c.id, (c.sourced_by || "").toLowerCase()]));
-    const editingByShoot = new Map((attrShoots ?? []).map(s => [s.id, s.editing_cost_cents ?? 0]));
-    const contactByShoot = new Map((attrShoots ?? []).map(s => [s.id, s.contact_id]));
-    const leifGasByShoot = new Map<string, number>();
-    for (const g of shootGas ?? []) leifGasByShoot.set(g.shoot_id, (leifGasByShoot.get(g.shoot_id) ?? 0) + (g.allocated_gas_cents ?? 0));
-
-    let leifNet = 0;
-    for (const p of paidInRange) {
-      if (!p.shoot_id) continue;
-      const cid = contactByShoot.get(p.shoot_id);
-      if (!cid || !sourcedBy.get(cid)?.includes("leif")) continue;
-      leifNet += p.amount_cents - p.fee_cents - (editingByShoot.get(p.shoot_id) ?? 0) - (leifGasByShoot.get(p.shoot_id) ?? 0);
-    }
-    leifShareCents = Math.max(0, Math.round(leifNet / 2));
-  }
+  // generated (contacts.sourced_by ~ "Leif"), and only once the shoot is
+  // actually paid — derived straight from shoot_expenses so this always
+  // matches the per-shoot commission log shown on the Revenue page.
+  const leifRows = shoot_expenses.filter(r => r.leif_sourced);
+  const leifPaidProfit = leifRows.filter(r => r.revenue_paid).reduce((s, r) => s + r.profit_cents, 0);
+  const leifShareCents = Math.max(0, Math.round(leifPaidProfit / 2));
 
   // ── Totals ───────────────────────────────────────────────────────────────
   const expenseCents = shootExpenseTotal + opsTotal;
