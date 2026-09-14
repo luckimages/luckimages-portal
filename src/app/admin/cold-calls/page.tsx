@@ -141,7 +141,6 @@ const PITCH_SERVICES = [
   { key: "matterport", label: "Matterport 3D Tour", price: "from $200", desc: "" },
   { key: "twilight", label: "Twilight Photography", price: "+$150–$200", desc: "Golden hour add-on for an existing listing shoot." },
   { key: "virtual-staging", label: "Virtual Staging", price: "$25–$150", desc: "" },
-  { key: "video", label: "Video Walkthrough", price: "from $200", desc: "" },
   { key: "floorplan", label: "Floor Plan", price: "from $50", desc: "" },
 ] as const;
 
@@ -165,9 +164,6 @@ const TRACK_BASE_URL = "https://www.luckimages.com/api/track-link";
 const PITCH_SERVICE_TO_TRACKED_KEY: Record<string, string> = {
   photos_sm: "photo",
   drone: "drone",
-  video_bronze: "video",
-  video_silver: "video",
-  video_gold: "video",
   matterport: "matterport",
   // No dedicated headshots page yet — send to the homepage instead.
   headshots: "home",
@@ -390,8 +386,6 @@ function ColdCallsPage() {
   const SERVICE_DEFAULT_QUOTES: Record<string, string> = {
     photos_sm:    "200",
     drone:        "200",
-    video_bronze: "200",
-    video_silver: "300",
     matterport:   "200",
     headshots:    "200",
   };

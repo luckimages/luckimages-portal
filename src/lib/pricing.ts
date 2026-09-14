@@ -112,21 +112,6 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     addonIds: ["ground_photos_addon"],
   },
   {
-    id: "video_walkthrough",
-    name: "Video Walkthrough",
-    description: "Cinematic interior walkthroughs that bring listings to life.",
-    qboProduct: "Video Walkthrough",
-    pricing: {
-      kind: "options",
-      options: [
-        { key: "bronze", label: "Bronze", price: 200 },
-        { key: "silver", label: "Silver (includes aerial)", price: 300 },
-        { key: "gold", label: "Gold", price: "custom" },
-      ],
-    },
-    addonIds: ["floor_plan_addon"],
-  },
-  {
     id: "matterport",
     name: "Matterport 3D Tour",
     description: "Immersive virtual tours for any device.",
@@ -149,20 +134,11 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     qboProduct: "Headshots",
     pricing: {
       kind: "options",
-      options: [
-        { key: "solo", label: "Solo", price: 200 },
-        { key: "team5", label: "Team of 5", price: 500 },
-      ],
+      options: [{ key: "solo", label: "Solo", price: 200 }],
     },
-    addonIds: [],
+    addonIds: ["team_addon"],
   },
 ];
-
-// Headshots' "+$50 each additional person" applies past the Team of 5 tier.
-// Not modeled as a generic BaseIncrement since the Solo tier isn't on the
-// same linear scale (Solo $200 for 1 person, Team of 5 $500 for 5) — kept
-// as a note here rather than in the options list above.
-export const HEADSHOTS_EXTRA_PERSON_PRICE = 50;
 
 export const ADDONS: Addon[] = [
   {
@@ -235,6 +211,24 @@ export const ADDONS: Addon[] = [
     },
   },
   {
+    id: "team_addon",
+    name: "Team Add-On",
+    description: "Brings a Headshots session from solo up to a team of 5, plus more.",
+    // Same QBO item as the Headshots primary — no separate "Team Add-on" product in QuickBooks.
+    qboProduct: "Headshots",
+    pricing: {
+      kind: "base_increment",
+      increment: {
+        baseLabel: "Team of 5",
+        basePrice: 300, // delta from Solo ($200) up to Team of 5 ($500)
+        baseCount: 5,
+        incrementCount: 1,
+        incrementPrice: 50,
+        incrementLabel: "Each additional person",
+      },
+    },
+  },
+  {
     id: "virtual_staging_addon",
     name: "Virtual Staging",
     description: "Digitally furnished rooms — fast and affordable.",
@@ -280,11 +274,8 @@ export function addonsFor(primaryId: string): Addon[] {
 export const SERVICE_OPTIONS = [
   { key: "photos_sm", label: "Photos", price: "$200–$400" },
   { key: "drone", label: "Aerial Photos", price: "$200+" },
-  { key: "video_bronze", label: "Video Bronze", price: "$200" },
-  { key: "video_silver", label: "Video Silver", price: "$300" },
-  { key: "video_gold", label: "Video Gold", price: "Custom" },
   { key: "matterport", label: "Matterport 3D", price: "$200–$500" },
-  { key: "headshots", label: "Headshots", price: "$200+" },
+  { key: "headshots", label: "Headshots", price: "$200" },
 ] as const;
 
 export const ADDON_OPTIONS = [
@@ -294,6 +285,7 @@ export const ADDON_OPTIONS = [
   { key: "addon_matterport", label: "Matterport 3D", price: "+$100–$250" },
   { key: "addon_floor_plan", label: "Floor Plan", price: "+$50–$75" },
   { key: "addon_virtual_staging", label: "Virtual Staging", price: "+$25–$150" },
+  { key: "addon_team", label: "Team Add-On", price: "+$300+" },
 ] as const;
 
 export function serviceLabel(key: string | null | undefined): string | null {

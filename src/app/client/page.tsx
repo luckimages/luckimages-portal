@@ -26,10 +26,21 @@ type Invoice = {
 // name strings on `shoots.services` (same convention admin/shoots uses).
 const PRIMARY_SERVICES = PRICING_PRIMARY.map(s => ({ key: s.name, label: s.name, id: s.id }));
 
-function compatibleAddons(selectedNames: string[]) {
-  const selectedIds = PRICING_PRIMARY.filter(p => selectedNames.includes(p.name)).map(p => p.id);
-  const ids = new Set(selectedIds.flatMap(id => addonsFor(id).map(a => a.id)));
-  return PRICING_ADDONS.filter(a => ids.has(a.id)).map(a => ({ key: a.name, label: `+ ${a.name}`, id: a.id }));
+// Only one primary can be selected at a time; find it among the services list.
+function selectedPrimaryName(selectedNames: string[]): string | null {
+  return PRICING_PRIMARY.find(p => selectedNames.includes(p.name))?.name ?? null;
+}
+
+// All add-ons, always — the ones compatible with whatever primary is
+// currently selected sort to the top and are marked active; the rest stay
+// at the bottom, dimmed and unselectable in the UI.
+function sortedAddonsFor(selectedNames: string[]) {
+  const primaryName = selectedPrimaryName(selectedNames);
+  const primary = PRICING_PRIMARY.find(p => p.name === primaryName);
+  const compatibleIds = new Set(primary ? addonsFor(primary.id).map(a => a.id) : []);
+  return [...PRICING_ADDONS]
+    .map(a => ({ key: a.name, label: `+ ${a.name}`, id: a.id, active: compatibleIds.has(a.id) }))
+    .sort((a, b) => (a.active ? 0 : 1) - (b.active ? 0 : 1));
 }
 
 function servicePrice(key: string, sqft: number): number | null {
@@ -280,6 +291,21 @@ export default function ClientPage() {
 
   function toggleService(s: string) {
     setBooking(b => ({ ...b, services: b.services.includes(s) ? b.services.filter(x => x !== s) : [...b.services, s] }));
+  }
+
+  // Only one primary at a time — selecting a new one replaces the old, and
+  // drops any add-ons that are no longer compatible with the new primary.
+  function selectPrimaryService(name: string) {
+    setBooking(b => {
+      const wasSelected = b.services.includes(name);
+      const primaryNames = new Set(PRICING_PRIMARY.map(p => p.name));
+      const nonPrimary = b.services.filter(s => !primaryNames.has(s));
+      if (wasSelected) return { ...b, services: nonPrimary };
+      const compatibleIds = new Set(addonsFor(PRICING_PRIMARY.find(p => p.name === name)!.id).map(a => a.id));
+      const compatibleNames = new Set(PRICING_ADDONS.filter(a => compatibleIds.has(a.id)).map(a => a.name));
+      const keptAddons = nonPrimary.filter(s => compatibleNames.has(s));
+      return { ...b, services: [name, ...keptAddons] };
+    });
   }
 
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -807,9 +833,9 @@ export default function ClientPage() {
                     <input type="number" placeholder="2400" min="0" value={booking.square_footage} onChange={e => setBooking(b => ({ ...b, square_footage: e.target.value }))} className={inputCls} />
                   </div>
 
-                  {/* Primary services */}
+                  {/* Primary service — single-select */}
                   <div className="flex flex-col gap-3">
-                    <label className={labelCls}>Services</label>
+                    <label className={labelCls}>Service <span className="text-[#444] normal-case">(choose one)</span></label>
                     <div className="grid grid-cols-2 gap-2">
                       {PRIMARY_SERVICES.map(s => {
                         const checked = booking.services.includes(s.key);
@@ -818,7 +844,7 @@ export default function ClientPage() {
                         return (
                           <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
                             <div className="flex items-center gap-2">
-                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                              <input type="radio" checked={checked} onChange={() => selectPrimaryService(s.key)} className="accent-white w-3 h-3 shrink-0" />
                               <span className="text-xs text-white">{s.label}</span>
                             </div>
                             {price !== null && <span className="text-[10px] text-[#555] ml-5">${price}</span>}
@@ -828,19 +854,18 @@ export default function ClientPage() {
                     </div>
                   </div>
 
-                  {/* Add-ons */}
-                  {compatibleAddons(booking.services).length > 0 && (
+                  {/* Add-ons — always shown; compatible ones rise to the top and light up */}
                   <div className="flex flex-col gap-3">
                     <label className={labelCls + " text-[#444]"}>Add-ons</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {compatibleAddons(booking.services).map(s => {
+                      {sortedAddonsFor(booking.services).map(s => {
                         const checked = booking.services.includes(s.key);
                         const sf = parseInt(booking.square_footage) || 0;
                         const price = servicePrice(s.key, sf);
                         return (
-                          <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                          <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 border transition-colors ${s.active ? "cursor-pointer" : "opacity-30 pointer-events-none"} ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
                             <div className="flex items-center gap-2">
-                              <input type="checkbox" checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                              <input type="checkbox" disabled={!s.active} checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
                               <span className="text-xs text-[#aaa]">{s.label}</span>
                             </div>
                             {price !== null && <span className="text-[10px] text-[#444] ml-5">${price}</span>}
@@ -849,7 +874,6 @@ export default function ClientPage() {
                       })}
                     </div>
                   </div>
-                  )}
 
                   {/* Live quote */}
                   {booking.services.length > 0 && (() => {
@@ -1137,6 +1161,19 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
     setEServices(prev => prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]);
   }
 
+  function selectEPrimaryService(name: string) {
+    setEServices(prev => {
+      const wasSelected = prev.includes(name);
+      const primaryNames = new Set(PRICING_PRIMARY.map(p => p.name));
+      const nonPrimary = prev.filter(s => !primaryNames.has(s));
+      if (wasSelected) return nonPrimary;
+      const compatibleIds = new Set(addonsFor(PRICING_PRIMARY.find(p => p.name === name)!.id).map(a => a.id));
+      const compatibleNames = new Set(PRICING_ADDONS.filter(a => compatibleIds.has(a.id)).map(a => a.name));
+      const keptAddons = nonPrimary.filter(s => compatibleNames.has(s));
+      return [name, ...keptAddons];
+    });
+  }
+
   function startEditing() {
     setEAddress(shoot.address);
     setELat(shoot.lat ?? null);
@@ -1318,7 +1355,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
                 <input type="number" min="0" value={eSqft} onChange={e => setESqft(e.target.value)} className={rowInputCls} />
               </div>
               <div>
-                <label className={rowLabelCls}>Services</label>
+                <label className={rowLabelCls}>Service <span className="text-[#444] normal-case">(choose one)</span></label>
                 <div className="grid grid-cols-2 gap-2 mt-2">
                   {PRIMARY_SERVICES.map(s => {
                     const checked = eServices.includes(s.key);
@@ -1327,7 +1364,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
                     return (
                       <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
                         <div className="flex items-center gap-2">
-                          <input type="checkbox" checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                          <input type="radio" checked={checked} onChange={() => selectEPrimaryService(s.key)} className="accent-white w-3 h-3 shrink-0" />
                           <span className="text-xs text-white">{s.label}</span>
                         </div>
                         {price !== null && <span className="text-[10px] text-[#555] ml-5">${price}</span>}
@@ -1335,17 +1372,16 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
                     );
                   })}
                 </div>
-                {compatibleAddons(eServices).length > 0 && <>
                 <p className={rowLabelCls + " mt-3 text-[#444]"}>Add-ons</p>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {compatibleAddons(eServices).map(s => {
+                  {sortedAddonsFor(eServices).map(s => {
                     const checked = eServices.includes(s.key);
                     const sf = parseInt(eSqft) || 0;
                     const price = servicePrice(s.key, sf);
                     return (
-                      <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                      <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 border transition-colors ${s.active ? "cursor-pointer" : "opacity-30 pointer-events-none"} ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
                         <div className="flex items-center gap-2">
-                          <input type="checkbox" checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                          <input type="checkbox" disabled={!s.active} checked={checked} onChange={() => toggleEService(s.key)} className="accent-white w-3 h-3 shrink-0" />
                           <span className="text-xs text-[#aaa]">{s.label}</span>
                         </div>
                         {price !== null && <span className="text-[10px] text-[#444] ml-5">${price}</span>}
@@ -1353,7 +1389,6 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
                     );
                   })}
                 </div>
-                </>}
               </div>
               <div>
                 <label className={rowLabelCls}>Property Access</label>

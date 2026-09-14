@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   PRIMARY_SERVICES,
+  ADDONS,
   addonsFor,
   resolvePrice,
   type Addon,
@@ -42,12 +43,15 @@ export default function QuoteGenerator() {
   const isCustom = primaryPrice === "custom";
 
   const compatibleAddons = primaryService ? addonsFor(primaryService.id) : [];
-  const selectedAddonIds = new Set([...Object.keys(addonOptionKeys), ...Object.keys(addonCounts)].filter(
-    (id) => compatibleAddons.some((a) => a.id === id)
-  ));
+  const compatibleIds = new Set(compatibleAddons.map((a) => a.id));
+  const sortedAddons = [...ADDONS].sort((a, b) => {
+    const aOk = compatibleIds.has(a.id) ? 0 : 1;
+    const bOk = compatibleIds.has(b.id) ? 0 : 1;
+    return aOk - bOk;
+  });
 
   const selectedAddons = compatibleAddons
-    .filter((a) => selectedAddonIds.has(a.id))
+    .filter((a) => a.id in addonOptionKeys || a.id in addonCounts)
     .map((a) => {
       const price = resolvePrice(a.pricing, {
         sqft: sqftNum,
@@ -60,12 +64,7 @@ export default function QuoteGenerator() {
   const total = (typeof primaryPrice === "number" ? primaryPrice : 0) + selectedAddons.reduce((sum, a) => sum + a.price, 0);
 
   function selectPrimary(id: string) {
-    if (primaryId === id) {
-      setPrimaryId(null);
-      setPrimaryOptionKey(null);
-      return;
-    }
-    setPrimaryId(id);
+    setPrimaryId((prev) => (prev === id ? null : id));
     setPrimaryOptionKey(null);
     setAerialCount(10);
     setAddonOptionKeys({});
@@ -88,6 +87,19 @@ export default function QuoteGenerator() {
       else next[addon.id] = sqftNum;
       return next;
     });
+  }
+
+  function toggleIncrementAddon(addon: Addon, baseCount: number) {
+    setAddonCounts((prev) => {
+      const next = { ...prev };
+      if (addon.id in next) delete next[addon.id];
+      else next[addon.id] = baseCount;
+      return next;
+    });
+  }
+
+  function bumpIncrementAddon(addon: Addon, delta: number, baseCount: number) {
+    setAddonCounts((prev) => ({ ...prev, [addon.id]: Math.max(baseCount, (prev[addon.id] ?? baseCount) + delta) }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -153,9 +165,9 @@ export default function QuoteGenerator() {
         </div>
       </div>
 
-      {/* Primary Service */}
+      {/* Primary Service — single-select */}
       <div className="flex flex-col gap-4">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Primary Service</p>
+        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Primary Service <span className="normal-case text-[#444] tracking-normal">(choose one)</span></p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {PRIMARY_SERVICES.map((s) => {
             const price = displayPrice(s.pricing, { sqft: sqftNum });
@@ -172,8 +184,8 @@ export default function QuoteGenerator() {
           })}
         </div>
 
-        {/* Video Walkthrough / Headshots variant picker */}
-        {primaryService?.pricing.kind === "options" && (
+        {/* Variant picker — only for primaries with more than one option */}
+        {primaryService?.pricing.kind === "options" && primaryService.pricing.options.length > 1 && (
           <div className="flex flex-wrap gap-2 pl-1">
             {primaryService.pricing.options.map((opt) => (
               <button key={opt.key} type="button" onClick={() => setPrimaryOptionKey(opt.key)}
@@ -196,39 +208,62 @@ export default function QuoteGenerator() {
         )}
       </div>
 
-      {/* Add-Ons */}
-      {primaryService && compatibleAddons.length > 0 && (
-        <div className="flex flex-col gap-4">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
-          <div className="flex flex-col gap-3">
-            {compatibleAddons.map((a) => (
-              <div key={a.id} className="flex flex-col gap-2">
+      {/* Add-Ons — always shown; only the ones compatible with the selected
+          primary rise to the top and light up. */}
+      <div className="flex flex-col gap-4">
+        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
+        <div className="flex flex-col gap-3">
+          {sortedAddons.map((a) => {
+            const active = compatibleIds.has(a.id);
+            return (
+              <div key={a.id} className={`flex flex-col gap-2 transition-opacity ${active ? "" : "opacity-30 pointer-events-none"}`}>
                 <span className="text-sm text-[#aaa]">{a.name}</span>
                 {a.pricing.kind === "options" ? (
                   <div className="flex flex-wrap gap-2">
                     {a.pricing.options.map((opt) => {
                       const selected = addonOptionKeys[a.id] === opt.key;
                       return (
-                        <button key={opt.key} type="button" onClick={() => toggleAddonOption(a, opt.key)}
+                        <button key={opt.key} type="button" disabled={!active} onClick={() => toggleAddonOption(a, opt.key)}
                           className={`px-4 py-2 text-xs border transition-all ${selected ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
                           {opt.label} — ${opt.price}
                         </button>
                       );
                     })}
                   </div>
+                ) : a.pricing.kind === "base_increment" ? (
+                  (() => {
+                    const inc = a.pricing.increment;
+                    const on = a.id in addonCounts;
+                    return (
+                      <div className="flex items-center gap-3">
+                        <button type="button" disabled={!active} onClick={() => toggleIncrementAddon(a, inc.baseCount)}
+                          className={`px-4 py-2 text-xs border transition-all ${on ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
+                          {inc.baseLabel} — ${inc.basePrice}
+                        </button>
+                        {on && (
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => bumpIncrementAddon(a, -inc.incrementCount, inc.baseCount)}
+                              className="w-7 h-7 border border-white/15 hover:border-white/35 text-sm">−</button>
+                            <span className="text-xs text-[#888] w-12 text-center">{addonCounts[a.id]}</span>
+                            <button type="button" onClick={() => bumpIncrementAddon(a, inc.incrementCount, inc.baseCount)}
+                              className="w-7 h-7 border border-white/15 hover:border-white/35 text-sm">+</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
                 ) : (
-                  <button type="button" onClick={() => toggleSqftAddon(a)}
-                    disabled={needsSqft(a.pricing) && !sqftNum}
+                  <button type="button" disabled={!active || (needsSqft(a.pricing) && !sqftNum)} onClick={() => toggleSqftAddon(a)}
                     className={`flex items-center justify-between px-5 py-3 border text-left transition-all disabled:opacity-40 ${addonCounts[a.id] !== undefined ? "border-white bg-white/5" : "border-white/15 hover:border-white/35"}`}>
                     <span className="text-sm">Add</span>
                     <span className="text-sm font-bold">{displayPrice(a.pricing, { sqft: sqftNum })}</span>
                   </button>
                 )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Total + Submit */}
       {primaryService && (

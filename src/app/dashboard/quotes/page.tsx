@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
-import { PRIMARY_SERVICES, addonsFor, resolvePrice, type Addon } from "@/lib/pricing";
+import { PRIMARY_SERVICES, ADDONS, addonsFor, resolvePrice, type Addon } from "@/lib/pricing";
 
 const supabase = createClient();
 
@@ -69,9 +69,11 @@ export default function QuotesPage() {
     ? resolvePrice(primarySvc.pricing, { sqft: sqftNum, optionKey: qbPrimaryOptionKey ?? undefined, count: qbAerialCount })
     : 0;
   const primaryPrice = typeof primaryPriceRaw === "number" ? primaryPriceRaw : 0;
-  const visibleAddons = primarySvc ? addonsFor(primarySvc.id) : [];
-  const qbAddons = new Set([...Object.keys(qbAddonOptionKeys), ...Object.keys(qbAddonCounts)].filter(id => visibleAddons.some(a => a.id === id)));
-  const addonItems = visibleAddons
+  const compatibleAddons = primarySvc ? addonsFor(primarySvc.id) : [];
+  const compatibleIds = new Set(compatibleAddons.map(a => a.id));
+  const sortedAddons = [...ADDONS].sort((a, b) => (compatibleIds.has(a.id) ? 0 : 1) - (compatibleIds.has(b.id) ? 0 : 1));
+  const qbAddons = new Set([...Object.keys(qbAddonOptionKeys), ...Object.keys(qbAddonCounts)].filter(id => compatibleIds.has(id)));
+  const addonItems = compatibleAddons
     .filter(a => qbAddons.has(a.id))
     .map(a => {
       const price = resolvePrice(a.pricing, { sqft: sqftNum, optionKey: qbAddonOptionKeys[a.id], count: qbAddonCounts[a.id] });
@@ -104,6 +106,19 @@ export default function QuotesPage() {
       else next[addon.id] = sqftNum;
       return next;
     });
+  }
+
+  function toggleIncrementAddon(addon: Addon, baseCount: number) {
+    setQbAddonCounts(prev => {
+      const next = { ...prev };
+      if (addon.id in next) delete next[addon.id];
+      else next[addon.id] = baseCount;
+      return next;
+    });
+  }
+
+  function bumpIncrementAddon(addon: Addon, delta: number, baseCount: number) {
+    setQbAddonCounts(prev => ({ ...prev, [addon.id]: Math.max(baseCount, (prev[addon.id] ?? baseCount) + delta) }));
   }
 
   const filteredContacts = contacts.filter(c =>
@@ -214,9 +229,9 @@ export default function QuotesPage() {
             </div>
           </div>
 
-          {/* Primary Service */}
+          {/* Primary Service — single-select */}
           <div className="flex flex-col gap-3">
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Primary Service</p>
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Primary Service <span className="normal-case text-[#444]">(choose one)</span></p>
             <div className="flex flex-col gap-2">
               {PRIMARY_SERVICES.map(svc => {
                 const price = resolvePrice(svc.pricing, { sqft: sqftNum });
@@ -232,7 +247,7 @@ export default function QuotesPage() {
               })}
             </div>
 
-            {primarySvc?.pricing.kind === "options" && (
+            {primarySvc?.pricing.kind === "options" && primarySvc.pricing.options.length > 1 && (
               <div className="flex flex-wrap gap-2">
                 {primarySvc.pricing.options.map(opt => (
                   <button key={opt.key} onClick={() => setQbPrimaryOptionKey(opt.key)}
@@ -252,38 +267,59 @@ export default function QuotesPage() {
             )}
           </div>
 
-          {/* Add-ons */}
-          {visibleAddons.length > 0 && (
+          {/* Add-ons — always shown; compatible ones rise to the top and light up */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
             <div className="flex flex-col gap-3">
-              <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
-              <div className="flex flex-col gap-3">
-                {visibleAddons.map(addon => (
-                  <div key={addon.id} className="flex flex-col gap-1.5">
+              {sortedAddons.map(addon => {
+                const active = compatibleIds.has(addon.id);
+                return (
+                  <div key={addon.id} className={`flex flex-col gap-1.5 transition-opacity ${active ? "" : "opacity-30 pointer-events-none"}`}>
                     <span className="text-xs text-[#888]">{addon.name}</span>
                     {addon.pricing.kind === "options" ? (
                       <div className="flex flex-wrap gap-2">
                         {addon.pricing.options.map(opt => {
                           const sel = qbAddonOptionKeys[addon.id] === opt.key;
                           return (
-                            <button key={opt.key} onClick={() => toggleAddonOption(addon, opt.key)}
+                            <button key={opt.key} disabled={!active} onClick={() => toggleAddonOption(addon, opt.key)}
                               className={`px-3 py-2 text-xs border transition-all ${sel ? "border-white bg-white/10" : "border-white/10 hover:border-white/30"}`}>
                               {opt.label} — ${opt.price}
                             </button>
                           );
                         })}
                       </div>
+                    ) : addon.pricing.kind === "base_increment" ? (
+                      (() => {
+                        const inc = addon.pricing.increment;
+                        const on = addon.id in qbAddonCounts;
+                        return (
+                          <div className="flex items-center gap-3">
+                            <button disabled={!active} onClick={() => toggleIncrementAddon(addon, inc.baseCount)}
+                              className={`px-3 py-2 text-xs border transition-all ${on ? "border-white bg-white/10" : "border-white/10 hover:border-white/30"}`}>
+                              {inc.baseLabel} — ${inc.basePrice}
+                            </button>
+                            {on && (
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => bumpIncrementAddon(addon, -inc.incrementCount, inc.baseCount)} className="w-7 h-7 border border-white/10 hover:border-white/30 text-sm">−</button>
+                                <span className="text-xs text-[#888] w-10 text-center">{qbAddonCounts[addon.id]}</span>
+                                <button onClick={() => bumpIncrementAddon(addon, inc.incrementCount, inc.baseCount)} className="w-7 h-7 border border-white/10 hover:border-white/30 text-sm">+</button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
                     ) : (
-                      <button onClick={() => toggleSqftAddon(addon)}
+                      <button disabled={!active} onClick={() => toggleSqftAddon(addon)}
                         className={`flex items-center justify-between px-4 py-3 border text-left transition-all ${qbAddonCounts[addon.id] !== undefined ? "border-white bg-white/5" : "border-white/10 hover:border-white/30"}`}>
                         <span className="text-sm">Add</span>
                         <span className="text-sm font-bold">${resolvePrice(addon.pricing, { sqft: sqftNum })}</span>
                       </button>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
+          </div>
 
           {/* Total + actions */}
           {primarySvc && (
