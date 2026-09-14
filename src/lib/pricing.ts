@@ -143,7 +143,12 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
 export const ADDONS: Addon[] = [
   {
     id: "aerial_addon",
-    name: "Aerial Photos",
+    // Deliberately distinct from the "Aerial Photos" primary's name — the
+    // client booking form stores selections as plain name strings in one
+    // flat array, so an addon sharing a primary's exact name is indistinguishable
+    // from selecting that primary (this caused a real bug: checking this addon
+    // silently also "selected" the Aerial Photos primary and showed its price).
+    name: "Additional Aerial Photos",
     description: "Aerial stills added to any listing shoot.",
     qboProduct: "Aerial Add-on",
     pricing: {
@@ -182,7 +187,9 @@ export const ADDONS: Addon[] = [
   },
   {
     id: "matterport_addon",
-    name: "Matterport 3D Tour",
+    // Same reasoning as Additional Aerial Photos above — must not collide
+    // with the "Matterport 3D Tour" primary's name.
+    name: "Additional Matterport Tour",
     description: "Virtual tour added to any shoot.",
     // Same QBO item as the standalone Matterport primary — there is no
     // separate "Matterport Add-on" product in QuickBooks.
