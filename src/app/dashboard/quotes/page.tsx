@@ -267,22 +267,24 @@ export default function QuotesPage() {
             )}
           </div>
 
-          {/* Add-ons — always shown; compatible ones rise to the top and light up */}
+          {/* Add-ons — one bordered tile per add-on, same grid as Primary Service */}
           <div className="flex flex-col gap-3">
             <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {sortedAddons.map(addon => {
                 const active = compatibleIds.has(addon.id);
+                const selected = addon.id in qbAddonOptionKeys || addon.id in qbAddonCounts;
                 return (
-                  <div key={addon.id} className={`flex flex-col gap-1.5 transition-opacity ${active ? "" : "opacity-30 pointer-events-none"}`}>
-                    <span className="text-xs text-[#888]">{addon.name}</span>
+                  <div key={addon.id}
+                    className={`flex flex-col gap-2 px-4 py-3 border transition-all ${active ? (selected ? "border-white bg-white/5" : "border-white/10") : "border-white/5 opacity-30 pointer-events-none"}`}>
+                    <span className="text-xs text-[#aaa]">{addon.name}</span>
                     {addon.pricing.kind === "options" ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {addon.pricing.options.map(opt => {
                           const sel = qbAddonOptionKeys[addon.id] === opt.key;
                           return (
                             <button key={opt.key} disabled={!active} onClick={() => toggleAddonOption(addon, opt.key)}
-                              className={`px-3 py-2 text-xs border transition-all ${sel ? "border-white bg-white/10" : "border-white/10 hover:border-white/30"}`}>
+                              className={`px-2 py-1.5 text-[11px] border transition-all ${sel ? "border-white bg-white/10" : "border-white/10 text-[#888] hover:border-white/30"}`}>
                               {opt.label} — ${opt.price}
                             </button>
                           );
@@ -293,16 +295,16 @@ export default function QuotesPage() {
                         const inc = addon.pricing.increment;
                         const on = addon.id in qbAddonCounts;
                         return (
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <button disabled={!active} onClick={() => toggleIncrementAddon(addon, inc.baseCount)}
-                              className={`px-3 py-2 text-xs border transition-all ${on ? "border-white bg-white/10" : "border-white/10 hover:border-white/30"}`}>
+                              className={`px-2 py-1.5 text-[11px] border transition-all ${on ? "border-white bg-white/10" : "border-white/10 text-[#888] hover:border-white/30"}`}>
                               {inc.baseLabel} — ${inc.basePrice}
                             </button>
                             {on && (
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => bumpIncrementAddon(addon, -inc.incrementCount, inc.baseCount)} className="w-7 h-7 border border-white/10 hover:border-white/30 text-sm">−</button>
-                                <span className="text-xs text-[#888] w-10 text-center">{qbAddonCounts[addon.id]}</span>
-                                <button onClick={() => bumpIncrementAddon(addon, inc.incrementCount, inc.baseCount)} className="w-7 h-7 border border-white/10 hover:border-white/30 text-sm">+</button>
+                              <div className="flex items-center gap-1.5">
+                                <button onClick={() => bumpIncrementAddon(addon, -inc.incrementCount, inc.baseCount)} className="w-6 h-6 border border-white/10 hover:border-white/30 text-xs">−</button>
+                                <span className="text-[11px] text-[#888] w-8 text-center">{qbAddonCounts[addon.id]}</span>
+                                <button onClick={() => bumpIncrementAddon(addon, inc.incrementCount, inc.baseCount)} className="w-6 h-6 border border-white/10 hover:border-white/30 text-xs">+</button>
                               </div>
                             )}
                           </div>
@@ -310,9 +312,8 @@ export default function QuotesPage() {
                       })()
                     ) : (
                       <button disabled={!active} onClick={() => toggleSqftAddon(addon)}
-                        className={`flex items-center justify-between px-4 py-3 border text-left transition-all ${qbAddonCounts[addon.id] !== undefined ? "border-white bg-white/5" : "border-white/10 hover:border-white/30"}`}>
-                        <span className="text-sm">Add</span>
-                        <span className="text-sm font-bold">${resolvePrice(addon.pricing, { sqft: sqftNum })}</span>
+                        className="self-start px-2 py-1.5 text-[11px] border border-white/10 text-[#888] hover:border-white/30 transition-all">
+                        {selected ? "Added" : "Add"} — ${resolvePrice(addon.pricing, { sqft: sqftNum })}
                       </button>
                     )}
                   </div>

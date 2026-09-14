@@ -208,23 +208,25 @@ export default function QuoteGenerator() {
         )}
       </div>
 
-      {/* Add-Ons — always shown; only the ones compatible with the selected
-          primary rise to the top and light up. */}
+      {/* Add-Ons — one bordered tile per add-on, same grid as Primary Service.
+          Only the ones compatible with the selected primary light up. */}
       <div className="flex flex-col gap-4">
         <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {sortedAddons.map((a) => {
             const active = compatibleIds.has(a.id);
+            const selected = a.id in addonOptionKeys || a.id in addonCounts;
             return (
-              <div key={a.id} className={`flex flex-col gap-2 transition-opacity ${active ? "" : "opacity-30 pointer-events-none"}`}>
-                <span className="text-sm text-[#aaa]">{a.name}</span>
+              <div key={a.id}
+                className={`flex flex-col gap-2.5 px-5 py-4 border transition-all ${active ? (selected ? "border-white bg-white/5" : "border-white/15") : "border-white/10 opacity-30 pointer-events-none"}`}>
+                <span className="text-sm">{a.name}</span>
                 {a.pricing.kind === "options" ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {a.pricing.options.map((opt) => {
-                      const selected = addonOptionKeys[a.id] === opt.key;
+                      const optSelected = addonOptionKeys[a.id] === opt.key;
                       return (
                         <button key={opt.key} type="button" disabled={!active} onClick={() => toggleAddonOption(a, opt.key)}
-                          className={`px-4 py-2 text-xs border transition-all ${selected ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
+                          className={`px-2.5 py-1.5 text-[11px] border transition-all ${optSelected ? "border-white bg-white/10 text-white" : "border-white/15 text-[#888] hover:border-white/35"}`}>
                           {opt.label} — ${opt.price}
                         </button>
                       );
@@ -235,18 +237,18 @@ export default function QuoteGenerator() {
                     const inc = a.pricing.increment;
                     const on = a.id in addonCounts;
                     return (
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button type="button" disabled={!active} onClick={() => toggleIncrementAddon(a, inc.baseCount)}
-                          className={`px-4 py-2 text-xs border transition-all ${on ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
+                          className={`px-2.5 py-1.5 text-[11px] border transition-all ${on ? "border-white bg-white/10 text-white" : "border-white/15 text-[#888] hover:border-white/35"}`}>
                           {inc.baseLabel} — ${inc.basePrice}
                         </button>
                         {on && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <button type="button" onClick={() => bumpIncrementAddon(a, -inc.incrementCount, inc.baseCount)}
-                              className="w-7 h-7 border border-white/15 hover:border-white/35 text-sm">−</button>
-                            <span className="text-xs text-[#888] w-12 text-center">{addonCounts[a.id]}</span>
+                              className="w-6 h-6 border border-white/15 hover:border-white/35 text-xs">−</button>
+                            <span className="text-[11px] text-[#888] w-10 text-center">{addonCounts[a.id]}</span>
                             <button type="button" onClick={() => bumpIncrementAddon(a, inc.incrementCount, inc.baseCount)}
-                              className="w-7 h-7 border border-white/15 hover:border-white/35 text-sm">+</button>
+                              className="w-6 h-6 border border-white/15 hover:border-white/35 text-xs">+</button>
                           </div>
                         )}
                       </div>
@@ -254,9 +256,8 @@ export default function QuoteGenerator() {
                   })()
                 ) : (
                   <button type="button" disabled={!active || (needsSqft(a.pricing) && !sqftNum)} onClick={() => toggleSqftAddon(a)}
-                    className={`flex items-center justify-between px-5 py-3 border text-left transition-all disabled:opacity-40 ${addonCounts[a.id] !== undefined ? "border-white bg-white/5" : "border-white/15 hover:border-white/35"}`}>
-                    <span className="text-sm">Add</span>
-                    <span className="text-sm font-bold">{displayPrice(a.pricing, { sqft: sqftNum })}</span>
+                    className="self-start px-2.5 py-1.5 text-[11px] border border-white/15 text-[#888] hover:border-white/35 transition-all disabled:opacity-40">
+                    {selected ? "Added" : "Add"} — {displayPrice(a.pricing, { sqft: sqftNum })}
                   </button>
                 )}
               </div>
