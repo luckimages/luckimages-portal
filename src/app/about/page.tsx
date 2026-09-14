@@ -76,6 +76,37 @@ export default function AboutPage() {
         </section>
       </FadeUp>
 
+      {/* COO section */}
+      <FadeUp>
+        <section className="px-6 pb-24 max-w-5xl mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+            <div className="relative">
+              <img
+                src="/leif-headshot.jpg"
+                alt="Leif Tilton"
+                className="w-full object-cover"
+                style={{ maxHeight: "600px", objectPosition: "top" }}
+              />
+            </div>
+            <div className="flex flex-col gap-6">
+              <div>
+                <p className="text-xs tracking-[4px] uppercase text-[#555] mb-3">Chief Operating Officer</p>
+                <h2 className="text-4xl font-black tracking-tight uppercase mb-6">Leif Tilton</h2>
+              </div>
+              <p className="text-[#888] leading-relaxed">
+                Leif Tilton serves as Chief Operating Officer of Luck Images, overseeing the day-to-day operations that keep the team running smoothly for clients across Austin. From scheduling and logistics to client relationships, Leif makes sure every shoot is delivered on time and to the standard agents expect.
+              </p>
+              <p className="text-[#888] leading-relaxed">
+                With a background rooted in Real Estate and a sharp eye for operational detail, Leif works closely with Ryan to grow Luck Images while keeping the client experience simple and reliable.
+              </p>
+              <p className="text-[#888] leading-relaxed">
+                Leif's focus is on the systems behind the scenes, so every agent gets a seamless experience from booking to delivery.
+              </p>
+            </div>
+          </div>
+        </section>
+      </FadeUp>
+
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">
         <span className="text-xs tracking-[3px] uppercase text-[#444]">© 2026 Luck Images</span>
         <a href="mailto:ryan@luckimages.com" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">ryan@luckimages.com</a>
