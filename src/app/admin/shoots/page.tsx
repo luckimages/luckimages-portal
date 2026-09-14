@@ -13,6 +13,7 @@ import PendingShootModal from "@/components/PendingShootModal";
 import { avatarUrl } from "@/lib/avatarUrl";
 import { useVisiblePolling } from "@/lib/useVisiblePolling";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { PRIMARY_SERVICES, ADDONS } from "@/lib/pricing";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
@@ -97,11 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: "text-[#4ade80] bg-[#4ade80]/5",
 };
 
-const SERVICE_OPTIONS = [
-  "Listing Photos", "Video Walkthrough", "Matterport 3D Tour", "Twilight",
-  "Aerial Photos", "Headshots", "Aerial Add-on", "Twilight Add-on",
-  "Floor Plan", "Virtual Staging",
-];
+const SERVICE_OPTIONS = Array.from(new Set([...PRIMARY_SERVICES.map(s => s.name), ...ADDONS.map(a => a.name)]));
 
 // ── Board-view helpers ────────────────────────────────────────────────────────
 

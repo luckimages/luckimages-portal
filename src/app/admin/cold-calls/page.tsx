@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { normalizePhone } from "@/lib/format";
 import { useContactModal } from "@/context/ContactModalContext";
-import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel, TWILIGHT_STANDALONE_PRICE, VIRTUAL_STAGING_PER_PHOTO_PRICE } from "@/lib/pricing";
+import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel } from "@/lib/pricing";
 import { ADMIN_EMAILS, COLD_CALL_TEXT_LINK_NOTE, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
 
 type Contact = {
@@ -139,8 +139,8 @@ const PITCH_SERVICES = [
   { key: "photo", label: "Listing Photos", price: "from $200", desc: "" },
   { key: "drone", label: "Aerial Photos", price: "$200", desc: "Ten drone photographs, each with property lines added." },
   { key: "matterport", label: "Matterport 3D Tour", price: "from $200", desc: "" },
-  { key: "twilight", label: "Twilight Photography", price: TWILIGHT_STANDALONE_PRICE, desc: "" },
-  { key: "virtual-staging", label: "Virtual Staging", price: VIRTUAL_STAGING_PER_PHOTO_PRICE, desc: "" },
+  { key: "twilight", label: "Twilight Photography", price: "+$150–$200", desc: "Golden hour add-on for an existing listing shoot." },
+  { key: "virtual-staging", label: "Virtual Staging", price: "$25–$150", desc: "" },
   { key: "video", label: "Video Walkthrough", price: "from $200", desc: "" },
   { key: "floorplan", label: "Floor Plan", price: "from $50", desc: "" },
 ] as const;

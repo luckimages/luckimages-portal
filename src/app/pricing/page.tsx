@@ -2,115 +2,19 @@ import Link from "next/link";
 import HomeNav from "@/components/HomeNav";
 import FadeUp from "@/components/FadeUp";
 import QuoteGenerator from "@/components/QuoteGenerator";
+import { PRIMARY_SERVICES, ADDONS, displayTiers } from "@/lib/pricing";
 
-const STANDALONE = [
-  {
-    name: "Listing Photos",
-    description: "Sharp, well-lit photography that moves properties faster.",
-    tiers: [
-      { label: "Up to 1,500 sq ft", price: "$200" },
-      { label: "Up to 2,000 sq ft", price: "$250" },
-      { label: "Up to 2,500 sq ft", price: "$300" },
-      { label: "Up to 3,000 sq ft", price: "$350" },
-      { label: "3,500+ sq ft", price: "$400" },
-    ],
-  },
-  {
-    name: "Aerial Photos",
-    description: "FAA-certified aerial photography — standalone shoot.",
-    tiers: [
-      { label: "20 photos", price: "$200" },
-      { label: "Each additional 5 photos", price: "+$50" },
-    ],
-  },
-  {
-    name: "Video Walkthrough",
-    description: "Cinematic interior walkthroughs that bring listings to life.",
-    tiers: [
-      { label: "Bronze", price: "$200" },
-      { label: "Silver (includes aerial)", price: "$300" },
-      { label: "Gold", price: "Custom" },
-    ],
-  },
-  {
-    name: "Matterport 3D Tour",
-    description: "Immersive virtual tours for any device.",
-    tiers: [
-      { label: "Up to 2,000 sq ft", price: "$200" },
-      { label: "Up to 3,000 sq ft", price: "$300" },
-      { label: "Up to 4,000 sq ft", price: "$400" },
-      { label: "5,000+ sq ft", price: "$500" },
-    ],
-  },
-  {
-    name: "Twilight",
-    description: "Dramatic golden hour photography — standalone session.",
-    tiers: [{ label: "Standalone session (4 photos)", price: "$250" }],
-  },
-  {
-    name: "Virtual Staging",
-    description: "Digitally furnished rooms — fast and affordable.",
-    tiers: [
-      { label: "Per photo", price: "$25" },
-      { label: "5 photos", price: "$100" },
-      { label: "10 photos", price: "$150" },
-    ],
-  },
-  {
-    name: "Floor Plan",
-    description: "Clean, accurate floorplan diagrams delivered fast.",
-    tiers: [
-      { label: "Under 2,500 sq ft", price: "$50" },
-      { label: "2,500+ sq ft", price: "$75" },
-    ],
-  },
-  {
-    name: "Headshots",
-    description: "Professional agent headshots on-location.",
-    tiers: [
-      { label: "Solo", price: "$200" },
-      { label: "Team of 5", price: "$500" },
-      { label: "Each additional person", price: "+$50" },
-    ],
-  },
-];
+const STANDALONE = PRIMARY_SERVICES.map((s) => ({
+  name: s.name,
+  description: s.description,
+  tiers: displayTiers(s.pricing),
+}));
 
-const ADDONS = [
-  {
-    name: "Aerial Photos",
-    description: "Aerial stills added to any listing shoot.",
-    tiers: [
-      { label: "5 photos", price: "$100" },
-      { label: "10 photos", price: "$150" },
-    ],
-  },
-  {
-    name: "Twilight",
-    description: "Golden hour exterior shots added to any listing session.",
-    tiers: [
-      { label: "2 photos add-on", price: "$150" },
-      { label: "2nd trip", price: "$200" },
-    ],
-  },
-  {
-    name: "Matterport 3D Tour",
-    description: "Virtual tour added to any shoot.",
-    tiers: [
-      { label: "Up to 2,000 sq ft", price: "$100" },
-      { label: "Up to 3,000 sq ft", price: "$150" },
-      { label: "Up to 4,000 sq ft", price: "$200" },
-      { label: "5,000+ sq ft", price: "$250" },
-    ],
-  },
-  {
-    name: "Floor Plan",
-    description: "Floor plan diagram added to any shoot.",
-    tiers: [
-      { label: "Under 2,500 sq ft", price: "$50" },
-      { label: "2,500+ sq ft", price: "$75" },
-    ],
-  },
-];
+const ADDON_ROWS = ADDONS.map((a) => ({
+  name: a.name,
+  description: a.description,
+  tiers: displayTiers(a.pricing),
+}));
 
 export default function PricingPage() {
   return (
@@ -170,7 +74,7 @@ export default function PricingPage() {
           </p>
           <p className="text-xs text-[#444] mb-8">Bolt these onto any existing shoot</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10">
-            {ADDONS.map((a) => (
+            {ADDON_ROWS.map((a) => (
               <div key={a.name} className="bg-[#0c0c0c] p-8">
                 <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{a.name}</h3>
                 <p className="text-xs text-[#555] mb-5">{a.description}</p>

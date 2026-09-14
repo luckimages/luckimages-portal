@@ -1,89 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import {
+  PRIMARY_SERVICES,
+  addonsFor,
+  resolvePrice,
+  type Addon,
+  type PricingShape,
+} from "@/lib/pricing";
 
-type Tier = { maxSqft?: number; price: number };
+function needsSqft(pricing: PricingShape) {
+  return pricing.kind === "sqft";
+}
 
-const PRIMARY_SERVICES: {
-  id: string;
-  name: string;
-  unit: "sqft" | "acreage" | "flat";
-  tiers: Tier[];
-}[] = [
-  {
-    id: "listing_photos",
-    name: "Listing Photos",
-    unit: "sqft",
-    tiers: [
-      { maxSqft: 1500, price: 200 },
-      { maxSqft: 2000, price: 250 },
-      { maxSqft: 2500, price: 300 },
-      { maxSqft: 3000, price: 350 },
-      { price: 400 },
-    ],
-  },
-  { id: "drone_photos", name: "Aerial Photos (Standalone)", unit: "flat", tiers: [{ price: 200 }] },
-  { id: "video_bronze", name: "Video — Bronze", unit: "flat", tiers: [{ price: 200 }] },
-  { id: "video_silver", name: "Video — Silver (w/ Aerial)", unit: "flat", tiers: [{ price: 300 }] },
-  {
-    id: "matterport",
-    name: "Matterport 3D Tour",
-    unit: "sqft",
-    tiers: [
-      { maxSqft: 2000, price: 200 },
-      { maxSqft: 3000, price: 300 },
-      { maxSqft: 4000, price: 400 },
-      { price: 500 },
-    ],
-  },
-  { id: "twilight_standalone", name: "Twilight (Standalone, 4 photos)", unit: "flat", tiers: [{ price: 250 }] },
-  { id: "virtual_staging", name: "Virtual Staging (per photo)", unit: "flat", tiers: [{ price: 25 }] },
-  {
-    id: "floor_plan",
-    name: "Floor Plan",
-    unit: "sqft",
-    tiers: [
-      { maxSqft: 2499, price: 50 },
-      { price: 75 },
-    ],
-  },
-  { id: "headshots_solo", name: "Headshots — Solo", unit: "flat", tiers: [{ price: 200 }] },
-];
-
-const ADDON_SERVICES: {
-  id: string;
-  name: string;
-  unit: "sqft" | "flat";
-  tiers: Tier[];
-  note?: string;
-  listingOnly?: boolean;
-}[] = [
-  { id: "drone_5", name: "Aerial Photos (5)", unit: "flat", tiers: [{ price: 100 }] },
-  { id: "drone_10", name: "Aerial Photos (10)", unit: "flat", tiers: [{ price: 150 }] },
-  { id: "twilight_addon", name: "Twilight Add-On (2 photos)", unit: "flat", tiers: [{ price: 150 }], listingOnly: true },
-  { id: "twilight_2nd", name: "Twilight — 2nd Trip", unit: "flat", tiers: [{ price: 200 }], listingOnly: true },
-  {
-    id: "matterport_addon",
-    name: "Matterport (Add-On)",
-    unit: "sqft",
-    tiers: [
-      { maxSqft: 2000, price: 100 },
-      { maxSqft: 3000, price: 150 },
-      { maxSqft: 4000, price: 200 },
-      { price: 250 },
-    ],
-  },
-  { id: "floor_plan_addon", name: "Floor Plan", unit: "sqft", tiers: [{ maxSqft: 2499, price: 50 }, { price: 75 }], listingOnly: true },
-  { id: "virtual_staging", name: "Virtual Staging (per photo)", unit: "flat", tiers: [{ price: 25 }], listingOnly: true },
-];
-
-function getPrice(tiers: Tier[], sqft: number): number | null {
-  for (const tier of tiers) {
-    if (!tier.maxSqft || sqft <= tier.maxSqft) {
-      return tier.price === 0 ? null : tier.price;
-    }
-  }
-  return tiers[tiers.length - 1].price;
+function displayPrice(pricing: PricingShape, sel: { sqft?: number; optionKey?: string; count?: number }): string {
+  if (needsSqft(pricing) && !sel.sqft) return "enter sq ft";
+  const price = resolvePrice(pricing, sel);
+  if (price === undefined) return "enter sq ft";
+  if (price === "custom") return "Custom";
+  return `$${price}`;
 }
 
 export default function QuoteGenerator() {
@@ -91,7 +26,10 @@ export default function QuoteGenerator() {
   const [email, setEmail] = useState("");
   const [sqft, setSqft] = useState("");
   const [primaryId, setPrimaryId] = useState<string | null>(null);
-  const [addonIds, setAddonIds] = useState<Set<string>>(new Set());
+  const [primaryOptionKey, setPrimaryOptionKey] = useState<string | null>(null);
+  const [aerialCount, setAerialCount] = useState(10);
+  const [addonOptionKeys, setAddonOptionKeys] = useState<Record<string, string>>({});
+  const [addonCounts, setAddonCounts] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -99,24 +37,55 @@ export default function QuoteGenerator() {
   const sqftNum = parseFloat(sqft) || 0;
   const primaryService = PRIMARY_SERVICES.find((s) => s.id === primaryId);
   const primaryPrice = primaryService
-    ? primaryService.unit === "flat" || !sqftNum
-      ? primaryService.tiers[0].price
-      : getPrice(primaryService.tiers, sqftNum)
+    ? resolvePrice(primaryService.pricing, { sqft: sqftNum, optionKey: primaryOptionKey ?? undefined, count: aerialCount })
     : null;
+  const isCustom = primaryPrice === "custom";
 
-  const selectedAddons = ADDON_SERVICES.filter((a) => addonIds.has(a.id)).map((a) => {
-    const price = a.unit === "flat" || !sqftNum ? a.tiers[0].price : getPrice(a.tiers, sqftNum) ?? a.tiers[a.tiers.length - 1].price;
-    return { name: a.name, price: price ?? 0 };
-  });
+  const compatibleAddons = primaryService ? addonsFor(primaryService.id) : [];
+  const selectedAddonIds = new Set([...Object.keys(addonOptionKeys), ...Object.keys(addonCounts)].filter(
+    (id) => compatibleAddons.some((a) => a.id === id)
+  ));
 
-  const total = (primaryPrice ?? 0) + selectedAddons.reduce((sum, a) => sum + a.price, 0);
-  const isCustom = primaryService && primaryPrice === null;
+  const selectedAddons = compatibleAddons
+    .filter((a) => selectedAddonIds.has(a.id))
+    .map((a) => {
+      const price = resolvePrice(a.pricing, {
+        sqft: sqftNum,
+        optionKey: addonOptionKeys[a.id],
+        count: addonCounts[a.id],
+      });
+      return { name: a.name, price: typeof price === "number" ? price : 0 };
+    });
 
-  function toggleAddon(id: string) {
-    setAddonIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const total = (typeof primaryPrice === "number" ? primaryPrice : 0) + selectedAddons.reduce((sum, a) => sum + a.price, 0);
+
+  function selectPrimary(id: string) {
+    if (primaryId === id) {
+      setPrimaryId(null);
+      setPrimaryOptionKey(null);
+      return;
+    }
+    setPrimaryId(id);
+    setPrimaryOptionKey(null);
+    setAerialCount(10);
+    setAddonOptionKeys({});
+    setAddonCounts({});
+  }
+
+  function toggleAddonOption(addon: Addon, optionKey: string) {
+    setAddonOptionKeys((prev) => {
+      const next = { ...prev };
+      if (next[addon.id] === optionKey) delete next[addon.id];
+      else next[addon.id] = optionKey;
+      return next;
+    });
+  }
+
+  function toggleSqftAddon(addon: Addon) {
+    setAddonCounts((prev) => {
+      const next = { ...prev };
+      if (addon.id in next) delete next[addon.id];
+      else next[addon.id] = sqftNum;
       return next;
     });
   }
@@ -134,7 +103,7 @@ export default function QuoteGenerator() {
           name,
           email,
           sqft: sqft || null,
-          service: { name: primaryService.name, price: primaryPrice ?? "Custom" },
+          service: { name: primaryService.name, price: isCustom ? "Custom" : primaryPrice },
           addons: selectedAddons,
           total: isCustom ? "Custom" : total,
         }),
@@ -178,8 +147,8 @@ export default function QuoteGenerator() {
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] tracking-[2px] uppercase text-[#555]">Square Footage / Acreage</label>
-          <input value={sqft} onChange={(e) => setSqft(e.target.value)} placeholder="e.g. 2400 or 1.5 acres"
+          <label className="text-[10px] tracking-[2px] uppercase text-[#555]">Square Footage</label>
+          <input value={sqft} onChange={(e) => setSqft(e.target.value)} placeholder="e.g. 2400"
             className="bg-transparent border border-white/15 px-4 py-3 text-sm text-white placeholder:text-[#444] focus:outline-none focus:border-white/40 transition-colors" />
         </div>
       </div>
@@ -189,46 +158,77 @@ export default function QuoteGenerator() {
         <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Primary Service</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {PRIMARY_SERVICES.map((s) => {
-            const needsSqft = s.unit === "sqft";
-            const price = needsSqft && !sqftNum ? undefined : s.unit === "flat" ? s.tiers[0].price : getPrice(s.tiers, sqftNum);
-            const isCustomPrice = price === null;
+            const price = displayPrice(s.pricing, { sqft: sqftNum });
             const selected = primaryId === s.id;
             return (
-              <button key={s.id} type="button" onClick={() => setPrimaryId(selected ? null : s.id)}
+              <button key={s.id} type="button" onClick={() => selectPrimary(s.id)}
                 className={`flex items-center justify-between px-5 py-4 border text-left transition-all ${selected ? "border-white bg-white/5" : "border-white/15 hover:border-white/35"}`}>
                 <span className="text-sm">{s.name}</span>
                 <span className={`text-sm font-bold ml-4 shrink-0 ${selected ? "text-white" : "text-[#666]"}`}>
-                  {price === undefined ? <span className="text-[#444] font-normal text-xs">enter sq ft</span> : isCustomPrice ? "Custom" : `$${price}`}
+                  {price === "enter sq ft" ? <span className="text-[#444] font-normal text-xs">enter sq ft</span> : price}
                 </span>
               </button>
             );
           })}
         </div>
+
+        {/* Video Walkthrough / Headshots variant picker */}
+        {primaryService?.pricing.kind === "options" && (
+          <div className="flex flex-wrap gap-2 pl-1">
+            {primaryService.pricing.options.map((opt) => (
+              <button key={opt.key} type="button" onClick={() => setPrimaryOptionKey(opt.key)}
+                className={`px-4 py-2 text-xs border transition-all ${primaryOptionKey === opt.key ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
+                {opt.label} — {opt.price === "custom" ? "Custom" : `$${opt.price}`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Aerial Photos quantity stepper */}
+        {primaryService?.pricing.kind === "base_increment" && (
+          <div className="flex items-center gap-3 pl-1">
+            <button type="button" onClick={() => setAerialCount((c) => Math.max(10, c - 5))}
+              className="w-8 h-8 border border-white/15 hover:border-white/35 text-sm">−</button>
+            <span className="text-xs text-[#888] w-24 text-center">{aerialCount} photos</span>
+            <button type="button" onClick={() => setAerialCount((c) => c + 5)}
+              className="w-8 h-8 border border-white/15 hover:border-white/35 text-sm">+</button>
+          </div>
+        )}
       </div>
 
       {/* Add-Ons */}
-      <div className="flex flex-col gap-4">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {ADDON_SERVICES.filter((a) => !a.listingOnly || primaryId === "listing_photos").map((a) => {
-            const needsSqft = a.unit === "sqft";
-            const price = needsSqft && !sqftNum ? undefined : a.unit === "flat" ? a.tiers[0].price : getPrice(a.tiers, sqftNum) ?? a.tiers[a.tiers.length - 1].price;
-            const selected = addonIds.has(a.id);
-            return (
-              <button key={a.id} type="button" onClick={() => toggleAddon(a.id)}
-                className={`flex items-center justify-between px-5 py-4 border text-left transition-all ${selected ? "border-white bg-white/5" : "border-white/15 hover:border-white/35"}`}>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm">{a.name}</span>
-                  {a.note && <span className="text-[10px] text-[#555]">{a.note}</span>}
-                </div>
-                <span className={`text-sm font-bold ml-4 shrink-0 ${selected ? "text-white" : "text-[#666]"}`}>
-                  {price === undefined ? <span className="text-[#444] font-normal text-xs">enter sq ft</span> : `$${price}`}
-                </span>
-              </button>
-            );
-          })}
+      {primaryService && compatibleAddons.length > 0 && (
+        <div className="flex flex-col gap-4">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
+          <div className="flex flex-col gap-3">
+            {compatibleAddons.map((a) => (
+              <div key={a.id} className="flex flex-col gap-2">
+                <span className="text-sm text-[#aaa]">{a.name}</span>
+                {a.pricing.kind === "options" ? (
+                  <div className="flex flex-wrap gap-2">
+                    {a.pricing.options.map((opt) => {
+                      const selected = addonOptionKeys[a.id] === opt.key;
+                      return (
+                        <button key={opt.key} type="button" onClick={() => toggleAddonOption(a, opt.key)}
+                          className={`px-4 py-2 text-xs border transition-all ${selected ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
+                          {opt.label} — ${opt.price}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => toggleSqftAddon(a)}
+                    disabled={needsSqft(a.pricing) && !sqftNum}
+                    className={`flex items-center justify-between px-5 py-3 border text-left transition-all disabled:opacity-40 ${addonCounts[a.id] !== undefined ? "border-white bg-white/5" : "border-white/15 hover:border-white/35"}`}>
+                    <span className="text-sm">Add</span>
+                    <span className="text-sm font-bold">{displayPrice(a.pricing, { sqft: sqftNum })}</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Total + Submit */}
       {primaryService && (
@@ -241,7 +241,7 @@ export default function QuoteGenerator() {
             <div className="flex flex-col gap-1">
               <div className="flex justify-between text-xs text-[#555]">
                 <span>{primaryService.name}</span>
-                <span>${primaryPrice}</span>
+                <span>{isCustom ? "Custom" : `$${primaryPrice}`}</span>
               </div>
               {selectedAddons.map((a) => (
                 <div key={a.name} className="flex justify-between text-xs text-[#555]">

@@ -9,7 +9,7 @@ import HomeNav from "@/components/HomeNav";
 import AddressMapPicker from "@/components/AddressMapPicker";
 import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
-
+import { PRIMARY_SERVICES as PRICING_PRIMARY, ADDONS as PRICING_ADDONS, addonsFor, resolvePrice } from "@/lib/pricing";
 
 type Shoot = {
   id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
@@ -21,67 +21,41 @@ type Invoice = {
   due_date: string; notes: string; shoot_id: string; created_at: string;
 };
 
-const PRIMARY_SERVICES = [
-  { key: "Listing Photos", label: "Listing Photos", from: 200 },
-  { key: "Video Walkthrough", label: "Video Walkthrough", from: 200 },
-  { key: "Matterport 3D Tour", label: "Matterport 3D Tour", from: 200 },
-  { key: "Twilight", label: "Twilight", from: 250 },
-  { key: "Aerial Photos", label: "Aerial Photos", from: 200 },
-  { key: "Headshots", label: "Headshots", from: 200 },
-];
-const ADDON_SERVICES = [
-  { key: "Aerial Add-on", label: "+ Aerial Photos", from: 100 },
-  { key: "Twilight Add-on", label: "+ Twilight", from: 150 },
-  { key: "Floor Plan", label: "+ Floor Plan", from: 50 },
-  { key: "Virtual Staging", label: "+ Virtual Staging", from: 25 },
-];
+// Booking form keeps a simple checkbox model — no variant/quantity pickers —
+// so every service shows its base/default price. Stored as human-readable
+// name strings on `shoots.services` (same convention admin/shoots uses).
+const PRIMARY_SERVICES = PRICING_PRIMARY.map(s => ({ key: s.name, label: s.name, id: s.id }));
 
-function listingPhotosPrice(sqft: number) {
-  if (sqft <= 1500) return 200;
-  if (sqft <= 2000) return 250;
-  if (sqft <= 2500) return 300;
-  if (sqft <= 3000) return 350;
-  return 400;
+function compatibleAddons(selectedNames: string[]) {
+  const selectedIds = PRICING_PRIMARY.filter(p => selectedNames.includes(p.name)).map(p => p.id);
+  const ids = new Set(selectedIds.flatMap(id => addonsFor(id).map(a => a.id)));
+  return PRICING_ADDONS.filter(a => ids.has(a.id)).map(a => ({ key: a.name, label: `+ ${a.name}`, id: a.id }));
 }
-function matterportPrice(sqft: number) {
-  if (sqft <= 2000) return 200;
-  if (sqft <= 3000) return 300;
-  if (sqft <= 4000) return 400;
-  return 500;
-}
-function floorPlanPrice(sqft: number) { return sqft < 2500 ? 50 : 75; }
 
 function servicePrice(key: string, sqft: number): number | null {
-  if (!sqft) return null;
-  if (key === "Listing Photos") return listingPhotosPrice(sqft);
-  if (key === "Matterport 3D Tour") return matterportPrice(sqft);
-  if (key === "Floor Plan") return floorPlanPrice(sqft);
-  if (key === "Twilight") return 250;
-  if (key === "Video Walkthrough") return 200;
-  if (key === "Aerial Photos") return 200;
-  if (key === "Headshots") return 200;
-  if (key === "Aerial Add-on") return 100;
-  if (key === "Twilight Add-on") return 150;
-  if (key === "Virtual Staging") return 25;
-  return null;
+  const primary = PRICING_PRIMARY.find(p => p.name === key);
+  const addon = PRICING_ADDONS.find(a => a.name === key);
+  const shape = primary?.pricing ?? addon?.pricing;
+  if (!shape) return null;
+  const price = resolvePrice(shape, { sqft });
+  return typeof price === "number" ? price : null;
 }
 
 function calcQuote(services: string[], sqft: string): { low: number; exact: boolean } {
   const sf = parseInt(sqft) || 0;
   let total = 0;
+  let allExact = true;
   for (const s of services) {
-    if (s === "Listing Photos") total += sf ? listingPhotosPrice(sf) : 200;
-    else if (s === "Matterport 3D Tour") total += sf ? matterportPrice(sf) : 200;
-    else if (s === "Floor Plan") total += sf ? floorPlanPrice(sf) : 50;
-    else if (s === "Twilight") total += 250;
-    else if (s === "Video Walkthrough") total += 200;
-    else if (s === "Aerial Photos") total += 200;
-    else if (s === "Headshots") total += 200;
-    else if (s === "Aerial Add-on") total += 100;
-    else if (s === "Twilight Add-on") total += 150;
-    else if (s === "Virtual Staging") total += 25;
+    const primary = PRICING_PRIMARY.find(p => p.name === s);
+    const addon = PRICING_ADDONS.find(a => a.name === s);
+    const shape = primary?.pricing ?? addon?.pricing;
+    if (!shape) continue;
+    const price = resolvePrice(shape, { sqft: sf });
+    if (typeof price === "number") total += price;
+    else allExact = false;
+    if (shape.kind === "sqft" && !sf) allExact = false;
   }
-  return { low: total, exact: !!sf };
+  return { low: total, exact: allExact && !!services.length };
 }
 
 // Property Access is folded into the notes column with an "ACCESS: " prefix
@@ -855,10 +829,11 @@ export default function ClientPage() {
                   </div>
 
                   {/* Add-ons */}
+                  {compatibleAddons(booking.services).length > 0 && (
                   <div className="flex flex-col gap-3">
                     <label className={labelCls + " text-[#444]"}>Add-ons</label>
                     <div className="grid grid-cols-2 gap-2">
-                      {ADDON_SERVICES.map(s => {
+                      {compatibleAddons(booking.services).map(s => {
                         const checked = booking.services.includes(s.key);
                         const sf = parseInt(booking.square_footage) || 0;
                         const price = servicePrice(s.key, sf);
@@ -874,6 +849,7 @@ export default function ClientPage() {
                       })}
                     </div>
                   </div>
+                  )}
 
                   {/* Live quote */}
                   {booking.services.length > 0 && (() => {
@@ -1359,9 +1335,10 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
                     );
                   })}
                 </div>
+                {compatibleAddons(eServices).length > 0 && <>
                 <p className={rowLabelCls + " mt-3 text-[#444]"}>Add-ons</p>
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {ADDON_SERVICES.map(s => {
+                  {compatibleAddons(eServices).map(s => {
                     const checked = eServices.includes(s.key);
                     const sf = parseInt(eSqft) || 0;
                     const price = servicePrice(s.key, sf);
@@ -1376,6 +1353,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
                     );
                   })}
                 </div>
+                </>}
               </div>
               <div>
                 <label className={rowLabelCls}>Property Access</label>

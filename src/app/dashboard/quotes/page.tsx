@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
+import { PRIMARY_SERVICES, addonsFor, resolvePrice, type Addon } from "@/lib/pricing";
 
 const supabase = createClient();
 
@@ -22,33 +23,6 @@ type QuoteRecord = {
   contacts: { name: string; email: string | null } | null;
 };
 
-const QB_PRIMARY = [
-  { id: "listing_photos",      name: "Listing Photos",            tiers: [{ max: 1500, price: 200 }, { max: 2000, price: 250 }, { max: 2500, price: 300 }, { max: 3000, price: 350 }, { price: 400 }] },
-  { id: "drone_photos",        name: "Aerial Photos (Standalone)", tiers: [{ price: 200 }] },
-  { id: "video_bronze",        name: "Video — Bronze",            tiers: [{ price: 200 }] },
-  { id: "video_silver",        name: "Video — Silver (w/ Aerial)", tiers: [{ price: 300 }] },
-  { id: "matterport",          name: "Matterport 3D Tour",        tiers: [{ max: 2000, price: 200 }, { max: 3000, price: 300 }, { max: 4000, price: 400 }, { price: 500 }] },
-  { id: "twilight_standalone", name: "Twilight (Standalone)",     tiers: [{ price: 400 }] },
-  { id: "virtual_staging",     name: "Virtual Staging",           tiers: [{ price: 25 }] },
-  { id: "floor_plan",          name: "Floor Plan",                tiers: [{ max: 2499, price: 50 }, { price: 75 }] },
-  { id: "headshots_solo",      name: "Headshots — Solo",          tiers: [{ price: 200 }] },
-];
-
-const QB_ADDONS = [
-  { id: "drone_5",          name: "Aerial Photos (5)",           tiers: [{ price: 100 }],                                                                                   listingOnly: false },
-  { id: "drone_10",         name: "Aerial Photos (10)",          tiers: [{ price: 150 }],                                                                                   listingOnly: false },
-  { id: "twilight_addon",   name: "Twilight Add-On (2 photos)",  tiers: [{ price: 150 }],                                                                                   listingOnly: true  },
-  { id: "twilight_2nd",     name: "Twilight — 2nd Trip",         tiers: [{ price: 200 }],                                                                                   listingOnly: true  },
-  { id: "matterport_addon", name: "Matterport (Add-On)",         tiers: [{ max: 2000, price: 100 }, { max: 3000, price: 150 }, { max: 4000, price: 200 }, { price: 250 }], listingOnly: false },
-  { id: "floor_plan_addon", name: "Floor Plan",                  tiers: [{ max: 2499, price: 50 }, { price: 75 }],                                                         listingOnly: true  },
-  { id: "virtual_staging",  name: "Virtual Staging (per photo)", tiers: [{ price: 25 }],                                                                                    listingOnly: true  },
-];
-
-function getPrice(tiers: { max?: number; price: number }[], sqft: number) {
-  for (const t of tiers) { if (!t.max || sqft <= t.max) return t.price; }
-  return tiers[tiers.length - 1].price;
-}
-
 export default function QuotesPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
@@ -58,7 +32,10 @@ export default function QuotesPage() {
   const [qbAddress, setQbAddress] = useState("");
   const [qbSqft, setQbSqft] = useState("");
   const [qbPrimary, setQbPrimary] = useState<string | null>(null);
-  const [qbAddons, setQbAddons] = useState<Set<string>>(new Set());
+  const [qbPrimaryOptionKey, setQbPrimaryOptionKey] = useState<string | null>(null);
+  const [qbAerialCount, setQbAerialCount] = useState(10);
+  const [qbAddonOptionKeys, setQbAddonOptionKeys] = useState<Record<string, string>>({});
+  const [qbAddonCounts, setQbAddonCounts] = useState<Record<string, number>>({});
   const [qbContact, setQbContact] = useState<Contact | null>(null);
   const [qbContactSearch, setQbContactSearch] = useState("");
   const [qbShowDropdown, setQbShowDropdown] = useState(false);
@@ -87,12 +64,47 @@ export default function QuotesPage() {
   }, [loadQuotes]);
 
   const sqftNum = parseFloat(qbSqft) || 0;
-  const primarySvc = QB_PRIMARY.find(p => p.id === qbPrimary);
-  const primaryPrice = primarySvc ? getPrice(primarySvc.tiers, sqftNum) : 0;
-  const isListingPhotos = qbPrimary === "listing_photos";
-  const visibleAddons = QB_ADDONS.filter(a => !a.listingOnly || isListingPhotos);
-  const addonItems = QB_ADDONS.filter(a => qbAddons.has(a.id)).map(a => ({ name: a.name, price: getPrice(a.tiers, sqftNum) }));
+  const primarySvc = PRIMARY_SERVICES.find(p => p.id === qbPrimary);
+  const primaryPriceRaw = primarySvc
+    ? resolvePrice(primarySvc.pricing, { sqft: sqftNum, optionKey: qbPrimaryOptionKey ?? undefined, count: qbAerialCount })
+    : 0;
+  const primaryPrice = typeof primaryPriceRaw === "number" ? primaryPriceRaw : 0;
+  const visibleAddons = primarySvc ? addonsFor(primarySvc.id) : [];
+  const qbAddons = new Set([...Object.keys(qbAddonOptionKeys), ...Object.keys(qbAddonCounts)].filter(id => visibleAddons.some(a => a.id === id)));
+  const addonItems = visibleAddons
+    .filter(a => qbAddons.has(a.id))
+    .map(a => {
+      const price = resolvePrice(a.pricing, { sqft: sqftNum, optionKey: qbAddonOptionKeys[a.id], count: qbAddonCounts[a.id] });
+      return { name: a.name, price: typeof price === "number" ? price : 0 };
+    });
   const total = primaryPrice + addonItems.reduce((s, a) => s + a.price, 0);
+
+  function selectPrimary(id: string) {
+    const alreadySelected = qbPrimary === id;
+    setQbPrimary(alreadySelected ? null : id);
+    setQbPrimaryOptionKey(null);
+    setQbAerialCount(10);
+    setQbAddonOptionKeys({});
+    setQbAddonCounts({});
+  }
+
+  function toggleAddonOption(addon: Addon, optionKey: string) {
+    setQbAddonOptionKeys(prev => {
+      const next = { ...prev };
+      if (next[addon.id] === optionKey) delete next[addon.id];
+      else next[addon.id] = optionKey;
+      return next;
+    });
+  }
+
+  function toggleSqftAddon(addon: Addon) {
+    setQbAddonCounts(prev => {
+      const next = { ...prev };
+      if (addon.id in next) delete next[addon.id];
+      else next[addon.id] = sqftNum;
+      return next;
+    });
+  }
 
   const filteredContacts = contacts.filter(c =>
     qbContactSearch.length > 0 && c.name.toLowerCase().includes(qbContactSearch.toLowerCase())
@@ -206,37 +218,72 @@ export default function QuotesPage() {
           <div className="flex flex-col gap-3">
             <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Primary Service</p>
             <div className="flex flex-col gap-2">
-              {QB_PRIMARY.map(svc => {
-                const price = getPrice(svc.tiers, sqftNum);
+              {PRIMARY_SERVICES.map(svc => {
+                const price = resolvePrice(svc.pricing, { sqft: sqftNum });
                 const sel = qbPrimary === svc.id;
+                const label = price === undefined ? "enter sq ft" : price === "custom" ? "Custom" : `$${price}`;
                 return (
-                  <button key={svc.id} onClick={() => setQbPrimary(sel ? null : svc.id)}
+                  <button key={svc.id} onClick={() => selectPrimary(svc.id)}
                     className={`flex items-center justify-between px-4 py-3 border text-left transition-all ${sel ? "border-white bg-white/5" : "border-white/10 hover:border-white/30"}`}>
                     <span className="text-sm">{svc.name}</span>
-                    <span className={`text-sm font-bold ${sel ? "text-white" : "text-[#555]"}`}>${price}</span>
+                    <span className={`text-sm font-bold ${sel ? "text-white" : "text-[#555]"}`}>{label}</span>
                   </button>
                 );
               })}
             </div>
+
+            {primarySvc?.pricing.kind === "options" && (
+              <div className="flex flex-wrap gap-2">
+                {primarySvc.pricing.options.map(opt => (
+                  <button key={opt.key} onClick={() => setQbPrimaryOptionKey(opt.key)}
+                    className={`px-3 py-2 text-xs border transition-all ${qbPrimaryOptionKey === opt.key ? "border-white bg-white/10" : "border-white/10 hover:border-white/30"}`}>
+                    {opt.label} — {opt.price === "custom" ? "Custom" : `$${opt.price}`}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {primarySvc?.pricing.kind === "base_increment" && (
+              <div className="flex items-center gap-3">
+                <button onClick={() => setQbAerialCount(c => Math.max(10, c - 5))} className="w-7 h-7 border border-white/10 hover:border-white/30 text-sm">−</button>
+                <span className="text-xs text-[#888] w-20 text-center">{qbAerialCount} photos</span>
+                <button onClick={() => setQbAerialCount(c => c + 5)} className="w-7 h-7 border border-white/10 hover:border-white/30 text-sm">+</button>
+              </div>
+            )}
           </div>
 
           {/* Add-ons */}
-          <div className="flex flex-col gap-3">
-            <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
-            <div className="flex flex-col gap-2">
-              {visibleAddons.map(addon => {
-                const price = getPrice(addon.tiers, sqftNum);
-                const sel = qbAddons.has(addon.id);
-                return (
-                  <button key={addon.id} onClick={() => setQbAddons(prev => { const n = new Set(prev); sel ? n.delete(addon.id) : n.add(addon.id); return n; })}
-                    className={`flex items-center justify-between px-4 py-3 border text-left transition-all ${sel ? "border-white bg-white/5" : "border-white/10 hover:border-white/30"}`}>
-                    <span className="text-sm">{addon.name}</span>
-                    <span className={`text-sm font-bold ${sel ? "text-white" : "text-[#555]"}`}>${price}</span>
-                  </button>
-                );
-              })}
+          {visibleAddons.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add-Ons</p>
+              <div className="flex flex-col gap-3">
+                {visibleAddons.map(addon => (
+                  <div key={addon.id} className="flex flex-col gap-1.5">
+                    <span className="text-xs text-[#888]">{addon.name}</span>
+                    {addon.pricing.kind === "options" ? (
+                      <div className="flex flex-wrap gap-2">
+                        {addon.pricing.options.map(opt => {
+                          const sel = qbAddonOptionKeys[addon.id] === opt.key;
+                          return (
+                            <button key={opt.key} onClick={() => toggleAddonOption(addon, opt.key)}
+                              className={`px-3 py-2 text-xs border transition-all ${sel ? "border-white bg-white/10" : "border-white/10 hover:border-white/30"}`}>
+                              {opt.label} — ${opt.price}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <button onClick={() => toggleSqftAddon(addon)}
+                        className={`flex items-center justify-between px-4 py-3 border text-left transition-all ${qbAddonCounts[addon.id] !== undefined ? "border-white bg-white/5" : "border-white/10 hover:border-white/30"}`}>
+                        <span className="text-sm">Add</span>
+                        <span className="text-sm font-bold">${resolvePrice(addon.pricing, { sqft: sqftNum })}</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Total + actions */}
           {primarySvc && (

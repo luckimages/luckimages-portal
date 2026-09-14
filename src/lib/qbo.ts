@@ -169,6 +169,9 @@ const PRODUCT_IDS: Record<string, string> = {
   "Headshots": "30",
   "Aerial Add-on": "31",
   "Twilight Add-on": "32",
+  // Reuses the pre-existing "Exterior Photos" QBO item — Ground Photos is
+  // this app's internal name for the same product, not a new QBO item.
+  "Ground Photos": "15",
 };
 
 export async function createQboInvoice(
