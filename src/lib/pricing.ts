@@ -84,11 +84,11 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     pricing: {
       kind: "sqft",
       tiers: [
-        { maxSqft: 1500, price: 200, label: "Up to 1,500 sq ft" },
-        { maxSqft: 2000, price: 250, label: "Up to 2,000 sq ft" },
-        { maxSqft: 2500, price: 300, label: "Up to 2,500 sq ft" },
-        { maxSqft: 3000, price: 350, label: "Up to 3,000 sq ft" },
-        { price: 400, label: "3,500+ sq ft" },
+        { maxSqft: 2000, price: 200, label: "Up to 2,000 sq ft" },
+        { maxSqft: 2500, price: 250, label: "Up to 2,500 sq ft" },
+        { maxSqft: 3000, price: 300, label: "Up to 3,000 sq ft" },
+        { maxSqft: 3500, price: 350, label: "Up to 3,500 sq ft" },
+        { price: 400, label: "4,000+ sq ft" },
       ],
     },
     addonIds: ["aerial_addon", "twilight_addon", "matterport_addon", "floor_plan_addon", "virtual_staging_addon"],
