@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { SERVICES } from "@/lib/services";
 import { notFound } from "next/navigation";
 import PhotoCarousel from "@/components/PhotoCarousel";
@@ -90,6 +91,22 @@ const GALLERY_COUNTS: Record<string, number> = {
 };
 
 const GALLERY_SERVICES = new Set([...Object.keys(GALLERY_PHOTOS), ...Object.keys(GALLERY_COUNTS)]);
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const service = SERVICES.find((s) => s.slug === slug);
+  if (!service) return {};
+
+  const title = `${service.name} — Luck Images | Austin Real Estate Photography`;
+  const description = DESCRIPTIONS[slug] || `${service.name} for Austin real estate agents — 24-hour turnaround.`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, url: `https://www.luckimages.com/services/${slug}` },
+    twitter: { card: "summary", title, description },
+  };
+}
 
 export default async function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

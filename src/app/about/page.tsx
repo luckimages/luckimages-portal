@@ -1,5 +1,21 @@
+import type { Metadata } from "next";
 import HomeNav from "@/components/HomeNav";
 import FadeUp from "@/components/FadeUp";
+
+export const metadata: Metadata = {
+  title: "About — Luck Images | Austin Real Estate Photography",
+  description: "Meet the team behind Luck Images — Austin real estate photography, drone, Matterport, and video for agents who move fast.",
+  openGraph: {
+    title: "About — Luck Images | Austin Real Estate Photography",
+    description: "Meet the team behind Luck Images — Austin real estate photography, drone, Matterport, and video for agents who move fast.",
+    url: "https://www.luckimages.com/about",
+  },
+  twitter: {
+    card: "summary",
+    title: "About — Luck Images | Austin Real Estate Photography",
+    description: "Meet the team behind Luck Images — Austin real estate photography, drone, Matterport, and video.",
+  },
+};
 
 const STATS = [
   { value: "5", label: "Years in Business" },

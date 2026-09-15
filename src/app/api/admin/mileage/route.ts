@@ -8,9 +8,12 @@ import { createAdminClient, requireAdmin, ADMIN_EMAILS } from "@/lib/supabase-se
 // GET /api/admin/mileage                → JSON, all months
 // GET /api/admin/mileage?format=csv     → CSV download
 
+// Hardcoded rather than resolved via auth.admin.listUsers({perPage:1000}) —
+// see api/me for why: that's a full GoTrue admin API call just to label 2
+// stable ids, paid on every load of this report.
 const ADMIN_NAMES: Record<string, string> = {
-  "ryan@luckimages.com": "Ryan",
-  "leif@luckimages.com": "Leif",
+  "81d6e793-ff8d-4bf1-87c2-480d9eef61d8": "Ryan",
+  "dc9ee0b0-878b-4f77-8e2d-38faf466ff45": "Leif",
 };
 
 function money(cents: number) {
@@ -22,20 +25,15 @@ export async function GET(req: Request) {
 
   const db = createAdminClient();
 
-  const { data: days } = await db
-    .from("mileage_days")
-    .select("photographer_id, day, effective_miles, estimated_miles, actual_miles, gas_cost_cents, deduction_cents")
-    .order("day", { ascending: false });
+  const [{ data: days }, { data: profiles }] = await Promise.all([
+    db.from("mileage_days")
+      .select("photographer_id, day, effective_miles, estimated_miles, actual_miles, gas_cost_cents, deduction_cents")
+      .order("day", { ascending: false }),
+    db.from("profiles").select("id, full_name"),
+  ]);
 
-  // Names for each photographer id
-  const { data: users } = await db.auth.admin.listUsers({ perPage: 1000 });
-  const nameById: Record<string, string> = {};
-  for (const u of users?.users ?? []) {
-    if (u.email && ADMIN_NAMES[u.email]) nameById[u.id] = ADMIN_NAMES[u.email];
-    else if (u.email) nameById[u.id] = u.email.split("@")[0];
-  }
-  const { data: profiles } = await db.from("profiles").select("id, full_name");
-  for (const p of profiles ?? []) if (p.full_name && !ADMIN_NAMES[nameById[p.id]]) nameById[p.id] = p.full_name;
+  const nameById: Record<string, string> = { ...ADMIN_NAMES };
+  for (const p of profiles ?? []) if (p.full_name && !ADMIN_NAMES[p.id]) nameById[p.id] = p.full_name;
 
   // Aggregate by photographer + month
   type Row = {

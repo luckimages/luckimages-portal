@@ -1,8 +1,24 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import HomeNav from "@/components/HomeNav";
 import FadeUp from "@/components/FadeUp";
 import QuoteGenerator from "@/components/QuoteGenerator";
 import { PRIMARY_SERVICES, ADDONS, displayTiers } from "@/lib/pricing";
+
+export const metadata: Metadata = {
+  title: "Pricing — Luck Images | Austin Real Estate Photography",
+  description: "Transparent, upfront pricing for real estate photography, drone, Matterport 3D tours, and more. No hidden fees — get an instant quote.",
+  openGraph: {
+    title: "Pricing — Luck Images | Austin Real Estate Photography",
+    description: "Transparent, upfront pricing for real estate photography, drone, Matterport 3D tours, and more. No hidden fees — get an instant quote.",
+    url: "https://www.luckimages.com/pricing",
+  },
+  twitter: {
+    card: "summary",
+    title: "Pricing — Luck Images | Austin Real Estate Photography",
+    description: "Transparent, upfront pricing for real estate photography, drone, Matterport 3D tours, and more.",
+  },
+};
 
 const STANDALONE = PRIMARY_SERVICES.map((s) => ({
   name: s.name,

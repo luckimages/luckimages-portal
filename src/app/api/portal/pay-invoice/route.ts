@@ -36,6 +36,23 @@ export async function POST(req: Request) {
   }
   if (!owns) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const stripe = getStripe();
+
+  // Two tabs / a reload / a double-click can hit this before either checkout
+  // completes — reusing a still-open session instead of always creating a
+  // fresh one means at most one live payment link exists per invoice at a
+  // time, so there's nothing for the customer to accidentally pay twice.
+  if (invoice.stripe_session_id) {
+    try {
+      const existing = await stripe.checkout.sessions.retrieve(invoice.stripe_session_id);
+      if (existing.status === "open" && existing.url) {
+        return NextResponse.json({ url: existing.url });
+      }
+    } catch {
+      // Session doesn't exist / expired — fall through and create a new one.
+    }
+  }
+
   type InvoiceLineItem = { label: string; amount_cents: number };
   const stripeLineItems = invoice.line_items && invoice.line_items.length > 0
     ? invoice.line_items.map((li: InvoiceLineItem) => ({
@@ -51,7 +68,6 @@ export async function POST(req: Request) {
         },
       }];
 
-  const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: user.email || undefined,

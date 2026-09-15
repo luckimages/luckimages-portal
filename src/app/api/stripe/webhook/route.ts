@@ -38,11 +38,15 @@ export async function POST(req: Request) {
     );
 
     // Match by metadata invoice id, falling back to the stored session id.
+    // Stripe redelivers this event on timeout/non-2xx, and `.eq("paid",
+    // false)` makes the update itself the idempotency guard — a retry for an
+    // already-paid invoice matches zero rows instead of re-firing the
+    // notification and re-running maybeCompleteShoot.
     const query = db.from("invoices").update({
       paid: true,
       paid_at: new Date().toISOString(),
       stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
-    });
+    }).eq("paid", false);
     const { data: updated } = invoiceId
       ? await query.eq("id", invoiceId).select("id, shoot_id, description, amount_cents").maybeSingle()
       : await query.eq("stripe_session_id", session.id).select("id, shoot_id, description, amount_cents").maybeSingle();

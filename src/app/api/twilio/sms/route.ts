@@ -15,6 +15,14 @@ export async function POST(req: Request) {
   const messageSid = form.get("MessageSid")?.toString() || null;
 
   const db = createAdminClient();
+
+  // Twilio retries a webhook that doesn't 2xx in time — without this check
+  // a retry duplicates the same inbound text in the contact's thread.
+  if (messageSid) {
+    const { data: existing } = await db.from("messages").select("id").eq("twilio_sid", messageSid).maybeSingle();
+    if (existing) return new NextResponse("<Response></Response>", { headers: { "Content-Type": "text/xml" } });
+  }
+
   const contactId = await findContactIdByPhone(from);
 
   await db.from("messages").insert({

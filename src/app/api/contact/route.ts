@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
+  const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const allowed = await checkRateLimit(db, `contact:${getClientIp(request)}`, { max: 5, windowSeconds: 600 });
+  if (!allowed) return NextResponse.json({ error: "Too many requests — please try again in a few minutes." }, { status: 429 });
+
   const { firstName, lastName, email, phone, address, listingType, services, deliverBy, details } = await request.json();
 
   if (!firstName || !email || !phone || !address || !services?.length) {

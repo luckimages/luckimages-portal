@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 const SITE_URL = "https://www.luckimages.com";
 
@@ -30,7 +31,7 @@ function buildResetHtml(actionLink: string) {
 </html>`;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { email } = await req.json();
   if (!email?.trim()) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
@@ -38,6 +39,16 @@ export async function POST(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  // Both by IP (stop one source from hammering the endpoint) and by the
+  // target email (stop one address's inbox from being spammed with real
+  // reset emails from many IPs) — same uniform {ok:true} response either
+  // way, so this can't be used to enumerate accounts by timing/response.
+  const [ipAllowed, emailAllowed] = await Promise.all([
+    checkRateLimit(db, `reset-ip:${getClientIp(req)}`, { max: 5, windowSeconds: 600 }),
+    checkRateLimit(db, `reset-email:${email.trim().toLowerCase()}`, { max: 3, windowSeconds: 600 }),
+  ]);
+  if (!ipAllowed || !emailAllowed) return NextResponse.json({ ok: true });
 
   const { data, error } = await db.auth.admin.generateLink({
     type: "recovery",

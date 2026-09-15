@@ -10,31 +10,6 @@ export async function POST(req: Request) {
 
   const service = createAdminClient();
 
-  // Log the email for the primary (To) recipient
-  await service.from("email_log").insert({
-    contact_id: contactId,
-    subject,
-    body,
-    category: category || null,
-    sent_by: admin.email?.split("@")[0] || "ryan",
-  });
-
-  // Grouped sends (one message, multiple Cc'd recipients) still log every
-  // other recipient so they all show as "emailed" in Engagement, even though
-  // only one message was physically sent and only the primary recipient's
-  // link clicks can be attributed.
-  if (Array.isArray(additionalContactIds) && additionalContactIds.length > 0) {
-    await service.from("email_log").insert(
-      additionalContactIds.map((id: string) => ({
-        contact_id: id,
-        subject,
-        body,
-        category: category || null,
-        sent_by: admin.email?.split("@")[0] || "ryan",
-      }))
-    );
-  }
-
   // Send via Resend if configured
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) {
@@ -69,6 +44,33 @@ export async function POST(req: Request) {
   if (!resendRes.ok) {
     const errText = await resendRes.text();
     return NextResponse.json({ ok: false, error: `Resend API error (${resendRes.status}): ${errText}` }, { status: 502 });
+  }
+
+  // Only log — and therefore only show as "emailed" in Engagement — once
+  // Resend has actually confirmed the send. Logging before this point meant
+  // a missing API key or a Resend-side failure still showed as sent.
+  await service.from("email_log").insert({
+    contact_id: contactId,
+    subject,
+    body,
+    category: category || null,
+    sent_by: admin.email?.split("@")[0] || "ryan",
+  });
+
+  // Grouped sends (one message, multiple Cc'd recipients) still log every
+  // other recipient so they all show as "emailed" in Engagement, even though
+  // only one message was physically sent and only the primary recipient's
+  // link clicks can be attributed.
+  if (Array.isArray(additionalContactIds) && additionalContactIds.length > 0) {
+    await service.from("email_log").insert(
+      additionalContactIds.map((id: string) => ({
+        contact_id: id,
+        subject,
+        body,
+        category: category || null,
+        sent_by: admin.email?.split("@")[0] || "ryan",
+      }))
+    );
   }
 
   return NextResponse.json({ ok: true });

@@ -65,59 +65,55 @@ export async function GET(req: Request) {
 
   // Look up client names from profiles
   const clientIds = [...new Set((shoots ?? []).map(s => s.client_id).filter(Boolean))];
+  const contactIds = [...new Set((shoots ?? []).map(s => s.contact_id).filter(Boolean))];
+  const shootIds = (shoots ?? []).map(s => s.id);
+
+  // These four lookups only depend on `shoots`, not on each other — firing
+  // them together instead of one at a time is the same fix already applied
+  // to /api/me.
+  const [
+    { data: profiles },
+    { data: clientContacts },
+    { data: contacts },
+    { data: shootMileage },
+  ] = await Promise.all([
+    clientIds.length ? supabase.from("profiles").select("id, full_name").in("id", clientIds) : Promise.resolve({ data: [] }),
+    clientIds.length ? supabase.from("contacts").select("user_id, email").in("user_id", clientIds) : Promise.resolve({ data: [] }),
+    contactIds.length ? supabase.from("contacts").select("id, name, email").in("id", contactIds) : Promise.resolve({ data: [] }),
+    shootIds.length ? supabase.from("shoot_mileage").select("shoot_id, allocated_miles, allocated_gas_cents").in("shoot_id", shootIds) : Promise.resolve({ data: [] }),
+  ]);
+
   const nameMap: Record<string, string> = {};
+  for (const p of profiles ?? []) nameMap[p.id] = p.full_name ?? "";
+
+  // Emails: prefer the linked contact row (always live), which covers every
+  // registered client. The cached auth map is only a fallback for the rare
+  // client_id with no contact row at all.
   const emailMap: Record<string, string> = {};
-
-  if (clientIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", clientIds);
-    for (const p of profiles ?? []) {
-      nameMap[p.id] = p.full_name ?? "";
-    }
-
-    // Emails: prefer the linked contact row (always live), which covers every
-    // registered client. The cached auth map is only a fallback for the rare
-    // client_id with no contact row at all.
-    const { data: clientContacts } = await supabase
-      .from("contacts")
-      .select("user_id, email")
-      .in("user_id", clientIds);
-    for (const c of clientContacts ?? []) {
-      if (c.user_id && c.email) emailMap[c.user_id] = c.email;
-    }
-    const missing = clientIds.filter(id => !emailMap[id]);
-    if (missing.length > 0) {
-      const allEmails = await getClientEmailMap(supabase);
-      for (const id of missing) if (allEmails[id]) emailMap[id] = allEmails[id];
-    }
+  for (const c of clientContacts ?? []) {
+    if (c.user_id && c.email) emailMap[c.user_id] = c.email;
+  }
+  const missing = clientIds.filter(id => !emailMap[id]);
+  if (missing.length > 0) {
+    const allEmails = await getClientEmailMap(supabase);
+    for (const id of missing) if (allEmails[id]) emailMap[id] = allEmails[id];
   }
 
   // Also resolve contact names/emails for contact_id-based shoots
-  const contactIds = [...new Set((shoots ?? []).map(s => s.contact_id).filter(Boolean))];
   const contactNameMap: Record<string, string> = {};
   const contactEmailMap: Record<string, string> = {};
-  if (contactIds.length > 0) {
-    const { data: contacts } = await supabase.from("contacts").select("id, name, email").in("id", contactIds);
-    for (const c of contacts ?? []) {
-      contactNameMap[c.id] = c.name;
-      if (c.email) contactEmailMap[c.id] = c.email;
-    }
+  for (const c of contacts ?? []) {
+    contactNameMap[c.id] = c.name;
+    if (c.email) contactEmailMap[c.id] = c.email;
   }
 
   // Allocated photographer mileage / gas cost per shoot (summed across
   // photographers). Degrades to nothing if the mileage tables aren't there.
-  const shootIds = (shoots ?? []).map(s => s.id);
   const mileageByShoot: Record<string, { miles: number; gas_cents: number }> = {};
-  if (shootIds.length) {
-    const { data: sm } = await supabase.from("shoot_mileage")
-      .select("shoot_id, allocated_miles, allocated_gas_cents").in("shoot_id", shootIds);
-    for (const r of sm ?? []) {
-      const m = (mileageByShoot[r.shoot_id] ||= { miles: 0, gas_cents: 0 });
-      m.miles += Number(r.allocated_miles) || 0;
-      m.gas_cents += Number(r.allocated_gas_cents) || 0;
-    }
+  for (const r of shootMileage ?? []) {
+    const m = (mileageByShoot[r.shoot_id] ||= { miles: 0, gas_cents: 0 });
+    m.miles += Number(r.allocated_miles) || 0;
+    m.gas_cents += Number(r.allocated_gas_cents) || 0;
   }
 
   const result = (shoots ?? []).map(s => ({
