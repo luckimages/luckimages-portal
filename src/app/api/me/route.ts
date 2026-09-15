@@ -154,6 +154,27 @@ export async function GET(req: Request) {
     : { data: [] as { id: string }[] };
   const sourced_leads_count = (sourcedContacts ?? []).length;
 
+  // New leads sourced by this person THIS MONTH (contact created in range)
+  const { data: newLeadContacts } = personId
+    ? await db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`).gte("created_at", range.start).lte("created_at", range.end)
+    : { data: [] as { id: string }[] };
+  const new_leads_count = (newLeadContacts ?? []).length;
+
+  // New closures THIS MONTH — distinct contacts this person marked "closed" on a call
+  const new_closures_count = new Set(
+    (calls ?? []).filter(c => (c.outcome || "").split(",").includes("closed")).map(c => c.contact_id)
+  ).size;
+
+  // Shoots this month from clients this person has ever closed
+  const { data: closedClientContacts } = personId
+    ? await db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`).eq("stage", "client")
+    : { data: [] as { id: string }[] };
+  const closedClientIds = (closedClientContacts ?? []).map(c => c.id);
+  const { data: closedClientShoots } = closedClientIds.length
+    ? await db.from("shoots").select("id").in("contact_id", closedClientIds).gte("scheduled_at", range.start).lte("scheduled_at", range.end)
+    : { data: [] as { id: string }[] };
+  const closed_client_shoots_count = (closedClientShoots ?? []).length;
+
   // ── Availability blocks ──────────────────────────────────────────────────
   const { data: availability } = personId
     ? await db
@@ -268,6 +289,9 @@ export async function GET(req: Request) {
     mileage,
     cold_calling,
     sourced_leads_count,
+    new_leads_count,
+    new_closures_count,
+    closed_client_shoots_count,
     availability: availability ?? [],
     hours,
     wage_floor_cents,

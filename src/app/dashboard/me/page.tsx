@@ -18,6 +18,9 @@ type MeData = {
   mileage: { days: { day: string; effective_miles: number; gas_cost_cents: number; deduction_cents: number }[]; total_miles: number; total_gas_cents: number; total_deduction_cents: number };
   cold_calling: { total_calls: number; by_outcome: Record<string, number>; recent: { id: string; outcome: string; called_at: string }[] };
   sourced_leads_count: number;
+  new_leads_count: number;
+  new_closures_count: number;
+  closed_client_shoots_count: number;
   availability: Block[];
   hours: {
     active: { id: string; started_at: string } | null;
@@ -53,7 +56,8 @@ function dateStr(iso: string) {
 function fmtHrs(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
-  return `${h}h ${m}m`;
+  const s = Math.floor(secs % 60);
+  return `${h}h ${m}m ${s}s`;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -315,10 +319,9 @@ export default function MyNocturnePage() {
             <Section title="Cold Calling — This Month">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.07] border border-white/[0.07] mb-3">
                 <Stat label="Total Calls" value={String(data.cold_calling.total_calls)} />
-                <Stat label="Leads Sourced" value={String(data.sourced_leads_count)} />
-                {Object.entries(data.cold_calling.by_outcome).slice(0, 2).map(([k, v]) => (
-                  <Stat key={k} label={k.replace(/_/g, " ")} value={String(v)} />
-                ))}
+                <Stat label="New Leads" value={String(data.new_leads_count)} />
+                <Stat label="New Closures" value={String(data.new_closures_count)} />
+                <Stat label="Shoots From Closed Clients" value={String(data.closed_client_shoots_count)} />
               </div>
               {data.cold_calling.total_calls === 0 && <Empty text="No calls logged this month" />}
             </Section>
