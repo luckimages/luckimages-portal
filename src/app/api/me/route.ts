@@ -9,11 +9,16 @@ import { buildPnl, monthRange } from "@/lib/expenses";
 //
 // GET /api/me?person=ryan|leif&month=YYYY-MM
 
-const PERSON_EMAIL: Record<string, string> = {
-  ryan: "ryan@luckimages.com",
-  leif: "leif@luckimages.com",
-};
 const PERSON_NAME: Record<string, string> = { ryan: "Ryan", leif: "Leif" };
+
+// Supabase auth user ids for the two admins — hardcoded because they're
+// stable and this route was previously paying for a full
+// `auth.admin.listUsers({ perPage: 1000 })` call (slow — hits the GoTrue
+// admin API, not a table) on every single load just to resolve 2 emails.
+const PERSON_ID: Record<string, string> = {
+  ryan: "81d6e793-ff8d-4bf1-87c2-480d9eef61d8",
+  leif: "dc9ee0b0-878b-4f77-8e2d-38faf466ff45",
+};
 
 // Leif's pay structure: a guaranteed Texas-minimum-wage draw against his
 // 50%-of-profit commission. He's paid $7.25/hr for logged hours; if that
@@ -83,15 +88,13 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const person = (searchParams.get("person") || "").toLowerCase();
-  if (!PERSON_EMAIL[person]) return NextResponse.json({ error: "person must be ryan or leif" }, { status: 400 });
+  if (!PERSON_ID[person]) return NextResponse.json({ error: "person must be ryan or leif" }, { status: 400 });
 
   const month = searchParams.get("month") || new Date().toISOString().slice(0, 7);
   const payPeriod = parsePeriodParam(searchParams.get("period"));
   const db = createAdminClient();
 
-  const { data: users } = await db.auth.admin.listUsers({ perPage: 1000 });
-  const personUser = users?.users.find(u => u.email?.toLowerCase() === PERSON_EMAIL[person]);
-  const personId = personUser?.id ?? null;
+  const personId = PERSON_ID[person];
   const personName = PERSON_NAME[person];
 
   const range = monthRange(month);
@@ -99,32 +102,73 @@ export async function GET(req: Request) {
   const periodStartIso = `${periodDateRange.start}T00:00:00`;
   const periodEndIso = `${periodDateRange.end}T23:59:59`;
 
+  // Everything below is independent of everything else, so it all fires as
+  // one batch of parallel requests instead of ~12 round trips in series —
+  // that serial chain was the main reason this route loaded so much slower
+  // than the rest of the app.
+  const [
+    { data: pnl },
+    { data: shoots },
+    { data: mileageDays },
+    { data: calls },
+    { data: sourcedContacts },
+    { data: newLeadContacts },
+    { data: closedClientContacts },
+    { data: availability },
+    { data: monthEntries },
+    { data: activeEntry },
+    { data: periodEntries },
+    periodPnl,
+  ] = await Promise.all([
+    buildPnl(db, "month", month).then(v => ({ data: v })),
+    db.from("shoots")
+      .select("id, address, scheduled_at, status, price, package_name, photographer_ids")
+      .contains("photographer_ids", [personId])
+      .gte("scheduled_at", periodStartIso)
+      .lte("scheduled_at", periodEndIso)
+      .order("scheduled_at", { ascending: false }),
+    db.from("mileage_days")
+      .select("day, effective_miles, gas_cost_cents, deduction_cents")
+      .eq("photographer_id", personId)
+      .gte("day", periodDateRange.start)
+      .lte("day", periodDateRange.end)
+      .order("day", { ascending: false }),
+    db.from("cold_calls")
+      .select("id, outcome, called_at, contact_id")
+      .ilike("called_by", personName)
+      .gte("called_at", range.start)
+      .lte("called_at", range.end)
+      .order("called_at", { ascending: false }),
+    db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`),
+    db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`).gte("created_at", range.start).lte("created_at", range.end),
+    db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`).eq("stage", "client"),
+    db.from("availability_blocks")
+      .select("id, user_id, user_name, all_day, start_at, end_at, note")
+      .eq("user_id", personId)
+      .gte("end_at", new Date().toISOString())
+      .order("start_at", { ascending: true })
+      .limit(20),
+    db.from("time_entries")
+      .select("id, started_at, stopped_at, duration_seconds")
+      .eq("user_id", personId)
+      .gte("started_at", range.start)
+      .lte("started_at", range.end)
+      .order("started_at", { ascending: false }),
+    db.from("time_entries").select("id, started_at").eq("user_id", personId).is("stopped_at", null).maybeSingle(),
+    db.from("time_entries")
+      .select("id, started_at, stopped_at, duration_seconds")
+      .eq("user_id", personId)
+      .gte("started_at", periodStartIso)
+      .lte("started_at", periodEndIso)
+      .order("started_at", { ascending: true }),
+    payPeriod.monthKey === month ? Promise.resolve(null) : buildPnl(db, "month", payPeriod.monthKey),
+  ]);
+
   // ── Commission / earnings ────────────────────────────────────────────────
-  const pnl = await buildPnl(db, "month", month);
-  const commission_cents = person === "leif" ? pnl.memo.leif_profit_share_cents : null;
-  const personShootRows = person === "leif" ? pnl.shoot_expenses.filter(r => r.leif_sourced) : [];
+  const commission_cents = person === "leif" ? pnl!.memo.leif_profit_share_cents : null;
+  const personShootRows = person === "leif" ? pnl!.shoot_expenses.filter(r => r.leif_sourced) : [];
 
-  // ── Shoots photographed by this person, scoped to the selected pay period ─
-  const { data: shoots } = personId
-    ? await db
-        .from("shoots")
-        .select("id, address, scheduled_at, status, price, package_name, photographer_ids")
-        .contains("photographer_ids", [personId])
-        .gte("scheduled_at", periodStartIso)
-        .lte("scheduled_at", periodEndIso)
-        .order("scheduled_at", { ascending: false })
-    : { data: [] as { id: string; address: string; scheduled_at: string; status: string; price: number | null; package_name: string | null }[] };
-
-  // ── Mileage, scoped to the selected pay period ─────────────────────────────
-  const { data: mileageDays } = personId
-    ? await db
-        .from("mileage_days")
-        .select("day, effective_miles, gas_cost_cents, deduction_cents")
-        .eq("photographer_id", personId)
-        .gte("day", periodDateRange.start)
-        .lte("day", periodDateRange.end)
-        .order("day", { ascending: false })
-    : { data: [] as { day: string; effective_miles: number; gas_cost_cents: number; deduction_cents: number }[] };
+  // ── Mileage ──────────────────────────────────────────────────────────────
   const mileage = {
     days: mileageDays ?? [],
     total_miles: (mileageDays ?? []).reduce((s, d) => s + (d.effective_miles || 0), 0),
@@ -133,13 +177,6 @@ export async function GET(req: Request) {
   };
 
   // ── Cold calling / outreach ──────────────────────────────────────────────
-  const { data: calls } = await db
-    .from("cold_calls")
-    .select("id, outcome, called_at, contact_id")
-    .ilike("called_by", personName)
-    .gte("called_at", range.start)
-    .lte("called_at", range.end)
-    .order("called_at", { ascending: false });
   const outcomeCounts: Record<string, number> = {};
   for (const c of calls ?? []) outcomeCounts[c.outcome || "unknown"] = (outcomeCounts[c.outcome || "unknown"] || 0) + 1;
   const cold_calling = {
@@ -148,16 +185,7 @@ export async function GET(req: Request) {
     recent: (calls ?? []).slice(0, 10),
   };
 
-  // Leads this person sourced that turned into shoots this month (their pipeline impact)
-  const { data: sourcedContacts } = personId
-    ? await db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`)
-    : { data: [] as { id: string }[] };
   const sourced_leads_count = (sourcedContacts ?? []).length;
-
-  // New leads sourced by this person THIS MONTH (contact created in range)
-  const { data: newLeadContacts } = personId
-    ? await db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`).gte("created_at", range.start).lte("created_at", range.end)
-    : { data: [] as { id: string }[] };
   const new_leads_count = (newLeadContacts ?? []).length;
 
   // New closures THIS MONTH — distinct contacts this person marked "closed" on a call
@@ -166,40 +194,11 @@ export async function GET(req: Request) {
   ).size;
 
   // Shoots this month from clients this person has ever closed
-  const { data: closedClientContacts } = personId
-    ? await db.from("contacts").select("id").ilike("sourced_by", `%${personName}%`).eq("stage", "client")
-    : { data: [] as { id: string }[] };
   const closedClientIds = (closedClientContacts ?? []).map(c => c.id);
   const { data: closedClientShoots } = closedClientIds.length
     ? await db.from("shoots").select("id").in("contact_id", closedClientIds).gte("scheduled_at", range.start).lte("scheduled_at", range.end)
     : { data: [] as { id: string }[] };
   const closed_client_shoots_count = (closedClientShoots ?? []).length;
-
-  // ── Availability blocks ──────────────────────────────────────────────────
-  const { data: availability } = personId
-    ? await db
-        .from("availability_blocks")
-        .select("id, user_id, user_name, all_day, start_at, end_at, note")
-        .eq("user_id", personId)
-        .gte("end_at", new Date().toISOString())
-        .order("start_at", { ascending: true })
-        .limit(20)
-    : { data: [] as { id: string; user_id: string; user_name: string; all_day: boolean; start_at: string; end_at: string; note: string | null }[] };
-
-  // ── Time clock ────────────────────────────────────────────────────────────
-  const { data: monthEntries } = personId
-    ? await db
-        .from("time_entries")
-        .select("id, started_at, stopped_at, duration_seconds")
-        .eq("user_id", personId)
-        .gte("started_at", range.start)
-        .lte("started_at", range.end)
-        .order("started_at", { ascending: false })
-    : { data: [] as { id: string; started_at: string; stopped_at: string | null; duration_seconds: number | null }[] };
-
-  const { data: activeEntry } = personId
-    ? await db.from("time_entries").select("id, started_at").eq("user_id", personId).is("stopped_at", null).maybeSingle()
-    : { data: null as { id: string; started_at: string } | null };
 
   const nowMs = Date.now();
   const stoppedSeconds = (monthEntries ?? []).reduce((s, e) => s + (e.duration_seconds || 0), 0);
@@ -226,16 +225,6 @@ export async function GET(req: Request) {
   const payout_cents = person === "leif" ? Math.max(wage_floor_cents ?? 0, commission_cents ?? 0) : null;
 
   // ── Semi-monthly pay period: hours per week, batched for payroll ──────────
-  const { data: periodEntries } = personId
-    ? await db
-        .from("time_entries")
-        .select("id, started_at, stopped_at, duration_seconds")
-        .eq("user_id", personId)
-        .gte("started_at", periodStartIso)
-        .lte("started_at", periodEndIso)
-        .order("started_at", { ascending: true })
-    : { data: [] as { id: string; started_at: string; stopped_at: string | null; duration_seconds: number | null }[] };
-
   const weekBuckets = new Map<string, { week_start: string; seconds: number }>();
   const dayBuckets = new Map<string, number>();
   for (const e of periodEntries ?? []) {
@@ -267,7 +256,7 @@ export async function GET(req: Request) {
 
   // Commission earned within the period's date range (same month as the
   // period, so the existing month P&L already has everything needed).
-  const periodPnlShoots = payPeriod.monthKey === month ? personShootRows : (await buildPnl(db, "month", payPeriod.monthKey)).shoot_expenses.filter(r => r.leif_sourced);
+  const periodPnlShoots = payPeriod.monthKey === month ? personShootRows : periodPnl!.shoot_expenses.filter(r => r.leif_sourced);
   const periodCommissionCents = person === "leif"
     ? periodPnlShoots
         .filter(r => r.date >= periodStartIso && r.date <= periodEndIso && r.revenue_paid)
