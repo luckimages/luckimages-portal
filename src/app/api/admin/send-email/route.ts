@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { adminSender, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
+import { registerLinkDomainsFromContent } from "@/lib/trustedLinkDomains";
 
 export async function POST(req: Request) {
   const admin = await requireAdmin();
@@ -45,6 +46,12 @@ export async function POST(req: Request) {
     const errText = await resendRes.text();
     return NextResponse.json({ ok: false, error: `Resend API error (${resendRes.status}): ${errText}` }, { status: 502 });
   }
+
+  // This Quick Send just went out with an admin's approval — any track-link
+  // ?url= destinations embedded in it are now trusted for the public
+  // redirect to honor. Never done from the public side, only here.
+  try { await registerLinkDomainsFromContent(service, finalHtml || finalBody || ""); }
+  catch (e) { console.error("send-email: registerLinkDomainsFromContent failed", e); }
 
   // Only log — and therefore only show as "emailed" in Engagement — once
   // Resend has actually confirmed the send. Logging before this point meant

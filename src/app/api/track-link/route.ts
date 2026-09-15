@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { isDomainTrusted } from "@/lib/trustedLinkDomains";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
@@ -26,14 +27,25 @@ export async function GET(req: Request) {
   const contactId = searchParams.get("contact");
   const customUrl = searchParams.get("url");
 
+  const db = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   // Quick Send buttons link anywhere Ryan chooses at compose time, not just
   // the fixed service pages — an explicit ?url= takes priority when present.
+  // Only honored when its domain is on the trusted list (registered by
+  // send-email when an admin actually sends a message containing it) — this
+  // is a public, unauthenticated endpoint, so ?url= can't be trusted just
+  // because it's present; anyone can put anything in it.
   let destination: string | undefined;
   if (customUrl) {
     try {
       const normalized = /^https?:\/\//i.test(customUrl) ? customUrl : `https://${customUrl}`;
       const parsed = new URL(normalized);
-      if (parsed.protocol === "http:" || parsed.protocol === "https:") destination = parsed.toString();
+      if ((parsed.protocol === "http:" || parsed.protocol === "https:") && await isDomainTrusted(db, parsed.toString())) {
+        destination = parsed.toString();
+      }
     } catch { /* invalid URL — fall through to SERVICE_URLS / default */ }
   }
   if (!destination) destination = SERVICE_URLS[service];
@@ -41,10 +53,6 @@ export async function GET(req: Request) {
     return NextResponse.redirect(SITE_URL, { status: 302 });
   }
 
-  const db = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
   const { data, error } = await db.from("link_clicks").insert({ contact_id: contactId || null, service: service || "custom" }).select("id").single();
   if (error) console.error("track-link: failed to record click", { service, contactId, error: error.message });
 
