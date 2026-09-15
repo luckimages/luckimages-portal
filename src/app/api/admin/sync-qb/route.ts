@@ -59,11 +59,34 @@ export async function POST() {
 
       const qboInvoiceId = await createQboInvoice(customerId, lineItems, dueDateStr, tokens);
 
-      if (inv.paid) {
-        await recordQboPayment(qboInvoiceId, customerId, inv.amount_cents, tokens);
+      // Save the id the moment the invoice exists in QBO — before attempting
+      // to also record the payment. This used to happen only at the very
+      // end: if recordQboPayment threw (a QBO rate limit, a network blip —
+      // the exact kind of transient failure that happens in practice),
+      // qbo_invoice_id never got saved, so the next sync run had no way to
+      // know this invoice already existed in QBO and created a second one.
+      // Block 2 below already retries a stuck qbo_payment_recorded=false
+      // invoice on its own, so this alone closes the loop.
+      const { error: saveErr } = await db.from("invoices").update({ qbo_invoice_id: qboInvoiceId }).eq("id", inv.id);
+      if (saveErr) {
+        // We couldn't even record that this invoice now exists in QBO — do
+        // NOT let the loop continue to a payment attempt it can't track;
+        // surface it loudly so it's not silently retried into a duplicate.
+        console.error(`QBO sync: created invoice ${qboInvoiceId} in QBO for ${inv.id} but failed to save qbo_invoice_id — will NOT retry automatically to avoid a duplicate. Fix manually.`, saveErr);
+        continue;
       }
 
-      await db.from("invoices").update({ qbo_invoice_id: qboInvoiceId }).eq("id", inv.id);
+      if (inv.paid) {
+        try {
+          await recordQboPayment(qboInvoiceId, customerId, inv.amount_cents, tokens);
+          await db.from("invoices").update({ qbo_payment_recorded: true }).eq("id", inv.id);
+        } catch (e) {
+          // Not fatal — qbo_invoice_id is already saved, so block 2 (below)
+          // picks this invoice up next run and retries just the payment,
+          // instead of the whole invoice getting recreated from scratch.
+          console.error(`QBO sync: invoice ${inv.id} created (${qboInvoiceId}) but payment recording failed — will retry via the unpaid-sync pass:`, e);
+        }
+      }
     } catch (e) {
       console.error(`QBO sync failed for invoice ${inv.id}:`, e);
     }
