@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import BlockTimeModal, { type Block } from "@/components/BlockTimeModal";
 
 type Person = "ryan" | "leif";
 
@@ -17,7 +18,7 @@ type MeData = {
   mileage: { days: { day: string; effective_miles: number; gas_cost_cents: number; deduction_cents: number }[]; total_miles: number; total_gas_cents: number; total_deduction_cents: number };
   cold_calling: { total_calls: number; by_outcome: Record<string, number>; recent: { id: string; outcome: string; called_at: string }[] };
   sourced_leads_count: number;
-  availability: { id: string; all_day: boolean; start_at: string; end_at: string; note: string | null }[];
+  availability: Block[];
   is_leif: boolean;
 };
 
@@ -41,6 +42,9 @@ export default function MyNocturnePage() {
   const [data, setData] = useState<MeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [month] = useState(new Date().toISOString().slice(0, 7));
+  const [blurred, setBlurred] = useState(true);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [viewBlock, setViewBlock] = useState<Block | null>(null);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -73,18 +77,38 @@ export default function MyNocturnePage() {
             <div className="text-[10px] tracking-[3px] uppercase text-[#555]">My Nocturne</div>
             <div className="text-2xl font-bold mt-1">{data?.person_name ?? "..."}'s Dashboard</div>
           </div>
-          <div className="flex border border-white/10">
-            {(["ryan", "leif"] as Person[]).map(p => (
-              <button
-                key={p}
-                onClick={() => setViewing(p)}
-                className={`px-4 py-2 text-xs tracking-[1px] uppercase transition-colors ${
-                  viewing === p ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"
-                }`}
-              >
-                {p === "ryan" ? "Ryan" : "Leif"}{selfPerson === p ? " (Me)" : ""}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex border border-white/10">
+              {(["ryan", "leif"] as Person[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setViewing(p)}
+                  className={`px-4 py-2 text-xs tracking-[1px] uppercase transition-colors ${
+                    viewing === p ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"
+                  }`}
+                >
+                  {p === "ryan" ? "Ryan" : "Leif"}{selfPerson === p ? " (Me)" : ""}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setBlurred(b => !b)}
+              className="p-1.5 text-[#555] hover:text-white transition-colors border border-white/10"
+              title={blurred ? "Show numbers" : "Hide numbers"}
+            >
+              {blurred ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 
@@ -92,11 +116,11 @@ export default function MyNocturnePage() {
           <div className="border border-white/5 px-5 py-10 text-center text-[#444] text-xs tracking-widest uppercase">Loading...</div>
         )}
 
-        {data && (
+        {data && (() => { const blur = blurred ? "blur-sm select-none" : ""; return (
           <div className="flex flex-col gap-6">
             {/* Earnings */}
             <Section title={data.is_leif ? "Commission — This Month" : "Business Profit — This Month"}>
-              <div className="text-4xl font-bold text-[#4ade80]">
+              <div className={`text-4xl font-bold text-[#4ade80] transition-all ${blur}`}>
                 {data.is_leif ? money(data.commission_cents) : "—"}
               </div>
               {data.is_leif && (
@@ -114,7 +138,7 @@ export default function MyNocturnePage() {
                         {s.address}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={s.revenue_paid ? "text-[#4ade80]" : "text-[#fbbf24]"}>{money(s.profit_cents / 2)}</span>
+                        <span className={`transition-all ${blur} ${s.revenue_paid ? "text-[#4ade80]" : "text-[#fbbf24]"}`}>{money(s.profit_cents / 2)}</span>
                       </div>
                     </div>
                   ))}
@@ -135,7 +159,7 @@ export default function MyNocturnePage() {
                         {s.address}
                       </div>
                       <div className="flex items-center gap-3">
-                        {s.price != null && <span className="text-[#888]">{money(s.price * 100)}</span>}
+                        {s.price != null && <span className={`text-[#888] transition-all ${blur}`}>{money(s.price * 100)}</span>}
                         <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded" style={{ color: STATUS_COLOR[s.status] || "#888", background: `${STATUS_COLOR[s.status] || "#888"}1a` }}>
                           {s.status.replace("_", " ")}
                         </span>
@@ -150,8 +174,8 @@ export default function MyNocturnePage() {
             <Section title="Mileage — This Month">
               <div className="grid grid-cols-3 gap-px bg-white/[0.07] border border-white/[0.07]">
                 <Stat label="Miles" value={data.mileage.total_miles.toLocaleString()} />
-                <Stat label="Gas Cost" value={money(data.mileage.total_gas_cents)} />
-                <Stat label="IRS Deduction" value={money(data.mileage.total_deduction_cents)} />
+                <Stat label="Gas Cost" value={money(data.mileage.total_gas_cents)} blur={blur} />
+                <Stat label="IRS Deduction" value={money(data.mileage.total_deduction_cents)} blur={blur} />
               </div>
             </Section>
 
@@ -167,44 +191,70 @@ export default function MyNocturnePage() {
             </Section>
 
             {/* Availability */}
-            <Section title="Upcoming Availability Blocks">
+            <Section
+              title="Upcoming Availability Blocks"
+              action={
+                selfPerson === viewing ? (
+                  <button
+                    onClick={() => setShowBlockModal(true)}
+                    className="text-[10px] tracking-[1.5px] uppercase px-3 py-1.5 border border-white/20 text-[#555] hover:text-white hover:border-white/40 transition-all"
+                  >
+                    Block Availability
+                  </button>
+                ) : null
+              }
+            >
               {data.availability.length === 0 ? (
                 <Empty text="No upcoming blocks — fully available" />
               ) : (
                 <div className="border border-white/[0.07]">
                   {data.availability.map(b => (
-                    <div key={b.id} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
+                    <button
+                      key={b.id}
+                      onClick={() => setViewBlock(b)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm text-left hover:bg-white/[0.02] cursor-pointer"
+                    >
                       <div>
                         {b.all_day ? dateStr(b.start_at) : `${dateStr(b.start_at)} ${new Date(b.start_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
                         {" – "}
                         {b.all_day ? dateStr(b.end_at) : new Date(b.end_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                       </div>
                       {b.note && <span className="text-[#666] text-xs">{b.note}</span>}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
             </Section>
           </div>
+        ); })()}
+
+        {showBlockModal && (
+          <BlockTimeModal onClose={() => setShowBlockModal(false)} onSaved={() => { setShowBlockModal(false); load(viewing); }} />
+        )}
+        {viewBlock && (
+          <BlockTimeModal block={viewBlock} onClose={() => setViewBlock(null)} onSaved={() => { setViewBlock(null); load(viewing); }} />
         )}
       </div>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">{title}</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] tracking-[2px] uppercase text-[#555]">{title}</div>
+        {action}
+      </div>
       {children}
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, blur }: { label: string; value: string; blur?: string }) {
   return (
     <div className="bg-[#0c0c0c] px-4 py-4">
-      <div className="text-lg font-bold">{value}</div>
+      <div className={`text-lg font-bold transition-all ${blur ?? ""}`}>{value}</div>
       <div className="text-[10px] uppercase tracking-wider text-[#555] mt-0.5">{label}</div>
     </div>
   );

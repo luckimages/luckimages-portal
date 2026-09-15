@@ -92,12 +92,12 @@ export async function GET(req: Request) {
   const { data: availability } = personId
     ? await db
         .from("availability_blocks")
-        .select("id, all_day, start_at, end_at, note")
+        .select("id, user_id, user_name, all_day, start_at, end_at, note")
         .eq("user_id", personId)
         .gte("end_at", new Date().toISOString())
         .order("start_at", { ascending: true })
         .limit(20)
-    : { data: [] as { id: string; all_day: boolean; start_at: string; end_at: string; note: string | null }[] };
+    : { data: [] as { id: string; user_id: string; user_name: string; all_day: boolean; start_at: string; end_at: string; note: string | null }[] };
 
   return NextResponse.json({
     person,
