@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import ConflictBanner, { conflictMessage } from "@/components/ConflictBanner";
 
 type PendingShoot = {
   id: string;
@@ -94,6 +95,7 @@ export default function UpdatesPage() {
   const [editDatetime, setEditDatetime] = useState<Record<string, string>>({});
   const [editPhotographers, setEditPhotographers] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [updateInput, setUpdateInput] = useState("");
   const [serviceQuotes, setServiceQuotes] = useState<Record<string, Record<string, string>>>({});
   const [savingQuote, setSavingQuote] = useState<string | null>(null);
@@ -195,6 +197,9 @@ export default function UpdatesPage() {
       await pendingAcks.ack(s.id);
       setExpandedShoot(null);
       setPendingShoots(prev => prev.filter(x => x.id !== s.id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setConflictMsg(conflictMessage(data));
     }
   }
 
@@ -222,6 +227,7 @@ export default function UpdatesPage() {
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
+      {conflictMsg && <ConflictBanner message={conflictMsg} onDismiss={() => setConflictMsg(null)} />}
       <div className="flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full space-y-8">
 
         <div>

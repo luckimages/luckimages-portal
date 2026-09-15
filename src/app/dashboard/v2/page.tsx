@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import PendingShootModal from "@/components/PendingShootModal";
 import { useVisiblePolling } from "@/lib/useVisiblePolling";
+import ConflictBanner, { conflictMessage } from "@/components/ConflictBanner";
 
 const APPS = [
   { label: "Contacts",    href: "/admin/contacts",        color: "#888" },
@@ -158,6 +159,7 @@ function DashboardV2Page() {
   const [pendingAcked, setPendingAcked] = useState<Set<string>>(new Set());
   const [regAcked, setRegAcked] = useState<Set<string>>(new Set());
   const [confirmingShoot, setConfirmingShoot] = useState<string | null>(null);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [pendingModalId, setPendingModalId] = useState<string | null>(null);
   const [rebuttalSentId, setRebuttalSentId] = useState<string | null>(null);
 
@@ -327,6 +329,9 @@ function DashboardV2Page() {
     if (res.ok) {
       await ackPendingShoot(id);
       setPendingShoots(prev => prev.filter(s => s.id !== id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setConflictMsg(conflictMessage(data));
     }
   }
 
@@ -463,6 +468,7 @@ function DashboardV2Page() {
         }
       }}
     >
+      {conflictMsg && <ConflictBanner message={conflictMsg} onDismiss={() => setConflictMsg(null)} />}
       {/* Shared header — stays fixed while pages slide. Wraps instead of
           overflowing off-screen on narrower desktop windows. */}
       <header className="relative z-10 flex items-center justify-between flex-wrap gap-y-2 px-4 md:px-8 py-4 md:py-5 shrink-0">

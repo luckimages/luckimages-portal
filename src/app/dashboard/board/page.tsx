@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import ContactChip from "@/components/ContactChip";
 import ShootGallery from "@/components/ShootGallery";
 import ShootLocationMap from "@/components/ShootLocationMap";
+import ConflictBanner, { conflictMessage } from "@/components/ConflictBanner";
 import { avatarUrl } from "@/lib/avatarUrl";
 import { useVisiblePolling } from "@/lib/useVisiblePolling";
 
@@ -251,6 +252,7 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
   const [esPhotographers, setEsPhotographers] = useState<string[]>(shoot.photographer_ids || []);
   const [esSaving, setEsSaving] = useState(false);
   const [esSaved, setEsSaved] = useState(false);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
 
   async function handleMarkPaid() {
     setMarkingPaid(true);
@@ -271,6 +273,9 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
     if (res.ok) {
       onSave(shoot.id, { address: esAddress, scheduled_at: scheduledAtISO || shoot.scheduled_at, photographer_ids: esPhotographers, notes: combinedNotes || "" });
       setEsSaved(true);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setConflictMsg(conflictMessage(data));
     }
     setEsSaving(false);
   }
@@ -280,6 +285,7 @@ function ShootModal({ shoot, photographers, onClose, onMarkPaid, onSave }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
+      {conflictMsg && <ConflictBanner message={conflictMsg} onDismiss={() => setConflictMsg(null)} />}
       <div
         className={`relative bg-[#141414] border ${style ? style.border : "border-[#4ade80]/20"} w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
         onClick={e => e.stopPropagation()}

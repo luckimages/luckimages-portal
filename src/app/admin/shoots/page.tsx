@@ -10,6 +10,7 @@ import ShootGallery from "@/components/ShootGallery";
 import AddressMapPicker from "@/components/AddressMapPicker";
 import ShootLocationMap from "@/components/ShootLocationMap";
 import PendingShootModal from "@/components/PendingShootModal";
+import ConflictBanner, { conflictMessage } from "@/components/ConflictBanner";
 import { avatarUrl } from "@/lib/avatarUrl";
 import { useVisiblePolling } from "@/lib/useVisiblePolling";
 import { ADMIN_EMAILS } from "@/lib/constants";
@@ -298,12 +299,16 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
     if (res.ok) {
       onSave(shoot.id, { address: esAddress, scheduled_at: scheduledAtISO || shoot.scheduled_at, photographer_ids: esPhotographers, notes: combinedNotes || "" });
       setEsSaved(true);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setConflictMsg(conflictMessage(data));
     }
     setEsSaving(false);
   }
 
   const [confirming, setConfirming] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState("");
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   async function handleConfirm() {
     setConfirming(true); setConfirmMsg("");
     const combinedNotes = [esAccess ? `ACCESS: ${esAccess}` : "", esNotes].filter(Boolean).join("\n\n") || null;
@@ -321,7 +326,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
     });
     const data = await res.json().catch(() => ({}));
     setConfirming(false);
-    if (!res.ok) { setConfirmMsg(data.error || "Confirm failed"); return; }
+    if (!res.ok) { setConflictMsg(conflictMessage(data)); return; }
     onSave(shoot.id, {
       status: "scheduled",
       address: esAddress,
@@ -338,6 +343,7 @@ function BoardModal({ shoot, photographers, onClose, onMarkPaid, onSave, onDeliv
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
+      {conflictMsg && <ConflictBanner message={conflictMsg} onDismiss={() => setConflictMsg(null)} />}
       <div
         className={`relative bg-[#141414] border ${style ? style.border : "border-[#4ade80]/20"} w-full max-w-2xl max-h-[90vh] overflow-y-auto`}
         onClick={e => e.stopPropagation()}
