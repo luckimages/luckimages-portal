@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
   // runtime. Marking it external tells Next.js to load it directly from
   // node_modules at runtime instead, which is what actually works on Vercel.
   serverExternalPackages: ["sharp"],
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "pub-17921b760f25448db78cae4a47dc0069.r2.dev" },
+    ],
+  },
   async headers() {
     return [
       {
