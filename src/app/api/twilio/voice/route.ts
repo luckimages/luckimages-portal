@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Twilio from "twilio";
 import { createAdminClient } from "@/lib/supabase-server";
-import { findContactIdByPhone } from "@/lib/twilio";
+import { findContactIdByPhone, formDataToParams, validateTwilioSignature } from "@/lib/twilio";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
 
@@ -10,6 +10,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com
 // simultaneously; falls through to voicemail if neither picks up.
 export async function POST(req: Request) {
   const form = await req.formData();
+  if (!validateTwilioSignature(req, formDataToParams(form))) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+  }
   const from = form.get("From")?.toString() || null;
   const to = form.get("To")?.toString() || null;
   const callSid = form.get("CallSid")?.toString() || null;

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
+import { formDataToParams, validateTwilioSignature } from "@/lib/twilio";
 
 // Fires once a voicemail recording is ready. Attaches it to the call row
 // created when the call first came in.
 export async function POST(req: Request) {
   const form = await req.formData();
+  if (!validateTwilioSignature(req, formDataToParams(form))) {
+    return new NextResponse(null, { status: 403 });
+  }
   const callSid = form.get("CallSid")?.toString() || null;
   const recordingUrl = form.get("RecordingUrl")?.toString() || null;
 

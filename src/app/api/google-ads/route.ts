@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { queryAds } from "@/lib/google-ads";
+import { requireAdmin } from "@/lib/supabase-server";
 
 const CONFIGURED = !!(
   process.env.GOOGLE_ADS_CLIENT_ID &&
@@ -10,6 +11,7 @@ const CONFIGURED = !!(
 );
 
 export async function GET() {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!CONFIGURED) {
     return NextResponse.json({ configured: false });
   }

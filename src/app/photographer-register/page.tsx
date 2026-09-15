@@ -20,13 +20,10 @@ function PhotographerRegisterForm() {
 
   useEffect(() => {
     if (!token) { setValidating(false); return; }
-    createClient()
-      .from("photographer_invites")
-      .select("name, used")
-      .eq("token", token)
-      .single()
-      .then(({ data }) => {
-        if (data && !data.used) {
+    fetch(`/api/auth/photographer-invite?token=${encodeURIComponent(token)}`)
+      .then(res => res.json())
+      .then((data) => {
+        if (data.valid) {
           setTokenValid(true);
           setInviteName(data.name || "");
           setForm(f => ({ ...f, fullName: data.name || "" }));
@@ -47,7 +44,11 @@ function PhotographerRegisterForm() {
       }
     });
     if (signUpError) { setError(signUpError.message); setLoading(false); return; }
-    await supabase.from("photographer_invites").update({ used: true }).eq("token", token);
+    await fetch("/api/auth/photographer-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
     router.push("/photographer");
   }
 

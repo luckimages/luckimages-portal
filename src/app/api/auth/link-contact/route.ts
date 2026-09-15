@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createSessionClient } from "@/lib/supabase-server";
 
 function service() {
   return createClient(
@@ -11,6 +12,17 @@ function service() {
 export async function POST(req: Request) {
   const { contactId, userId, email, leadSource, referredByContactId } = await req.json();
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+
+  // This writes contacts.user_id (who owns a CRM record — and therefore its
+  // shoot/media/invoice history) from a client-supplied userId. Without
+  // confirming that id matches the caller's own logged-in session, anyone
+  // could link an arbitrary agent's unclaimed lead record to their own
+  // account and read that agent's whole portal history.
+  const session = await createSessionClient();
+  const { data: { user: caller } } = await session.auth.getUser();
+  if (!caller || caller.id !== userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const db = service();
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { querySC } from "@/lib/google-search-console";
+import { requireAdmin } from "@/lib/supabase-server";
 
 const SITE_URL = process.env.GOOGLE_SC_SITE_URL || "https://www.luckimages.com/";
 
@@ -11,6 +12,7 @@ const CONFIGURED = !!(
 );
 
 export async function GET() {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!CONFIGURED) return NextResponse.json({ configured: false });
 
   try {

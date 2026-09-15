@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
-import { findContactIdByPhone } from "@/lib/twilio";
+import { findContactIdByPhone, formDataToParams, validateTwilioSignature } from "@/lib/twilio";
 
 // Inbound SMS webhook — every text sent to the business number lands here
 // and gets attached to the matching contact's thread automatically.
 export async function POST(req: Request) {
   const form = await req.formData();
+  if (!validateTwilioSignature(req, formDataToParams(form))) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+  }
   const from = form.get("From")?.toString() || null;
   const to = form.get("To")?.toString() || null;
   const body = form.get("Body")?.toString() || "";

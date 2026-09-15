@@ -17,6 +17,28 @@ export function getTwilioClient() {
   return Twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
 }
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.luckimages.com";
+
+// Confirms an inbound webhook POST actually came from Twilio (not a forged
+// request) by checking the X-Twilio-Signature header against our auth
+// token, the exact callback URL, and the posted form params. Every webhook
+// Twilio calls (sms, voice, voice-status, voice-outbound, recording-status)
+// must pass this before touching the DB or returning TwiML.
+export function formDataToParams(form: FormData): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const [key, value] of form.entries()) params[key] = String(value);
+  return params;
+}
+
+export function validateTwilioSignature(req: Request, params: Record<string, string>): boolean {
+  if (!process.env.TWILIO_AUTH_TOKEN) return false;
+  const signature = req.headers.get("x-twilio-signature");
+  if (!signature) return false;
+  const incoming = new URL(req.url);
+  const url = `${SITE_URL}${incoming.pathname}${incoming.search}`;
+  return Twilio.validateRequest(process.env.TWILIO_AUTH_TOKEN, signature, url, params);
+}
+
 // Contacts store phone as "(###) ###-####" (see lib/format.ts) — Twilio's
 // API requires E.164 (+1##########).
 export function toE164(phone: string | null | undefined): string | null {

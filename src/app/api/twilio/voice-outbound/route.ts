@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import Twilio from "twilio";
+import { formDataToParams, validateTwilioSignature } from "@/lib/twilio";
 
 // TwiML App's Voice Request URL — hit whenever Ryan or Leif clicks "Call"
 // from the browser dialer (Device.connect()). Bridges their browser leg out
 // to the real PSTN number, caller ID'd as the business line.
 export async function POST(req: Request) {
   const form = await req.formData();
+  if (!validateTwilioSignature(req, formDataToParams(form))) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+  }
   const to = form.get("To")?.toString();
 
   const twiml = new Twilio.twiml.VoiceResponse();
