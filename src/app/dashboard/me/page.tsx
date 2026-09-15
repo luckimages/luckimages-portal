@@ -39,6 +39,7 @@ type MeData = {
     next_key: string;
     is_current: boolean;
     weeks: { week_start: string; label: string; seconds: number }[];
+    days: { date: string; dow: string; seconds: number }[];
     total_seconds: number;
     wage_floor_cents: number | null;
     commission_cents: number | null;
@@ -232,7 +233,7 @@ export default function MyNocturnePage() {
                 {data.pay_period.weeks.length === 0 ? (
                   <Empty text="No hours logged this period" />
                 ) : (
-                  <WeekHoursChart weeks={data.pay_period.weeks} />
+                  <DailyHoursChart days={data.pay_period.days} />
                 )}
                 <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-t border-white/[0.07]">
                   <span className="text-xs tracking-[2px] uppercase text-[#555]">Period Total</span>
@@ -375,19 +376,21 @@ export default function MyNocturnePage() {
   );
 }
 
-function WeekHoursChart({ weeks }: { weeks: { week_start: string; label: string; seconds: number }[] }) {
-  const maxSecs = Math.max(...weeks.map(w => w.seconds), 3600);
+function DailyHoursChart({ days }: { days: { date: string; dow: string; seconds: number }[] }) {
+  const maxSecs = Math.max(...days.map(d => d.seconds), 3600);
+  const today = new Date().toISOString().slice(0, 10);
   return (
-    <div className="flex items-end gap-3 px-5 pt-6 pb-4">
-      {weeks.map(w => {
-        const pct = Math.max((w.seconds / maxSecs) * 100, w.seconds > 0 ? 4 : 0);
+    <div className="flex items-end gap-1.5 sm:gap-2 px-5 pt-6 pb-4">
+      {days.map(d => {
+        const pct = Math.max((d.seconds / maxSecs) * 100, d.seconds > 0 ? 4 : 0);
+        const dayNum = Number(d.date.slice(-2));
         return (
-          <div key={w.week_start} className="flex-1 flex flex-col items-center gap-2">
-            <span className="text-xs font-semibold tabular-nums">{fmtHrs(w.seconds)}</span>
-            <div className="w-full h-24 flex items-end bg-white/[0.03]">
-              <div className="w-full bg-[#4ade80] transition-all" style={{ height: `${pct}%`, minHeight: w.seconds > 0 ? 3 : 0 }} />
+          <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5" title={`${d.date} — ${fmtHrs(d.seconds)}`}>
+            <div className="w-full h-28 flex items-end bg-white/[0.03]">
+              <div className="w-full bg-[#4ade80] transition-all" style={{ height: `${pct}%`, minHeight: d.seconds > 0 ? 3 : 0 }} />
             </div>
-            <span className="text-[10px] text-[#666] uppercase tracking-wider text-center">{w.label}</span>
+            <span className={`text-[10px] uppercase tracking-wider ${d.date === today ? "text-white font-bold" : "text-[#666]"}`}>{d.dow}</span>
+            <span className={`text-[9px] tabular-nums ${d.date === today ? "text-white" : "text-[#444]"}`}>{dayNum}</span>
           </div>
         );
       })}

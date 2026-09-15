@@ -237,13 +237,16 @@ export async function GET(req: Request) {
     : { data: [] as { id: string; started_at: string; stopped_at: string | null; duration_seconds: number | null }[] };
 
   const weekBuckets = new Map<string, { week_start: string; seconds: number }>();
+  const dayBuckets = new Map<string, number>();
   for (const e of periodEntries ?? []) {
     const started = new Date(e.started_at);
     const ws = toDateStr(weekStartOf(started));
+    const ds = toDateStr(started);
     const secs = e.duration_seconds ?? (activeEntry?.id === e.id ? activeSeconds : 0);
     const bucket = weekBuckets.get(ws) ?? { week_start: ws, seconds: 0 };
     bucket.seconds += secs;
     weekBuckets.set(ws, bucket);
+    dayBuckets.set(ds, (dayBuckets.get(ds) ?? 0) + secs);
   }
   const weeks = [...weekBuckets.values()].sort((a, b) => a.week_start.localeCompare(b.week_start)).map(w => {
     const start = new Date(`${w.week_start}T12:00:00`);
@@ -252,6 +255,15 @@ export async function GET(req: Request) {
     return { ...w, label: `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}` };
   });
   const period_total_seconds = weeks.reduce((s, w) => s + w.seconds, 0);
+
+  // Every day in the period (including zero-hour days), one bar each —
+  // Screen-Time-style daily chart instead of one bar per week.
+  const DOW = ["S", "M", "T", "W", "T", "F", "S"];
+  const days: { date: string; dow: string; seconds: number }[] = [];
+  for (let d = new Date(`${periodDateRange.start}T12:00:00`); toDateStr(d) <= periodDateRange.end; d.setDate(d.getDate() + 1)) {
+    const ds = toDateStr(d);
+    days.push({ date: ds, dow: DOW[d.getDay()], seconds: dayBuckets.get(ds) ?? 0 });
+  }
 
   // Commission earned within the period's date range (same month as the
   // period, so the existing month P&L already has everything needed).
@@ -273,6 +285,7 @@ export async function GET(req: Request) {
     next_key: periodKey(adjacentPeriod(payPeriod, 1)),
     is_current: periodKey(payPeriod) === periodKey(parsePeriodParam(null)),
     weeks,
+    days,
     total_seconds: period_total_seconds,
     wage_floor_cents: periodWageFloorCents,
     commission_cents: periodCommissionCents,
