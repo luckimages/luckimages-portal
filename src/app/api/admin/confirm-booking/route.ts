@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { notifyShootBooked } from "@/lib/shootConfirmation";
 import { createConfirmationInvoice } from "@/lib/confirmationInvoice";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { findBookingConflict } from "@/lib/bookingConflict";
 
 // Admin confirms a pending booking request: locks the time, assigns
 // photographer(s), emails the client, creates a calendar invite (Leif +
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { shootId, scheduledAt, photographerIds } = await req.json();
+  const { shootId, scheduledAt, photographerIds, force } = await req.json();
   if (!shootId) return NextResponse.json({ error: "shootId required" }, { status: 400 });
 
   const db = createServiceClient(
@@ -28,6 +29,22 @@ export async function POST(req: Request) {
 
   const finalTime = scheduledAt || shoot.scheduled_at;
   const finalPhotographers = photographerIds && photographerIds.length ? photographerIds : shoot.photographer_ids;
+
+  // Nothing else checks for this before locking a time in — two pending
+  // requests for the same photographer can otherwise both get confirmed
+  // with overlapping times with no warning at all.
+  if (!force) {
+    const conflict = await findBookingConflict(db, { shootId, scheduledAt: finalTime, photographerIds: finalPhotographers });
+    if (conflict) {
+      const conflictWhen = new Date(conflict.scheduled_at).toLocaleString("en-US", {
+        weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago",
+      });
+      return NextResponse.json({
+        error: `Conflicts with another scheduled shoot at ${conflict.address} (${conflictWhen}). Pass force:true to confirm anyway.`,
+        conflict,
+      }, { status: 409 });
+    }
+  }
 
   // Confirming settles any pending reschedule negotiation — strip the
   // leading "[REBUTTAL:<original>|<proposed>]" marker (see

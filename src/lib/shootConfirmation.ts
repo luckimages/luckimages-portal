@@ -1,5 +1,5 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { createShootEvent, deleteShootEvent } from "@/lib/googleCalendar";
+import { createShootEvent, deleteShootEvent, updateShootEvent } from "@/lib/googleCalendar";
 import { CLIENT_EMAILS_ENABLED } from "@/lib/constants";
 
 function service() {
@@ -155,6 +155,66 @@ export async function notifyShootBooked({
   }
 
   return { calendarOk, emailed, clientEmail, calendarEventId };
+}
+
+// Keep an already-scheduled shoot's calendar event in sync after a time,
+// address, or service-list edit. Patches the existing event when one exists;
+// falls back to creating a fresh one if there's no event on file yet (e.g.
+// an older shoot from before calendar_event_id was tracked) or Google's
+// reports the stored event id no longer exists.
+export async function updateShootCalendarEvent(shootId: string, {
+  address,
+  scheduledAt,
+  services,
+  notes,
+  contactId,
+  clientId,
+  photographerIds,
+}: {
+  address: string;
+  scheduledAt: string | null | undefined;
+  services: string[];
+  notes?: string | null;
+  contactId?: string | null;
+  clientId?: string | null;
+  photographerIds?: string[];
+}): Promise<void> {
+  if (!shootId || !scheduledAt) return;
+  const db = service();
+
+  const { data: shoot } = await db.from("shoots").select("calendar_event_id").eq("id", shootId).single();
+  const existingEventId = shoot?.calendar_event_id;
+
+  const { clientFullName, clientEmail, clientPhone } = await resolveClientContact(contactId, clientId);
+  const photographerEmails: string[] = [];
+  for (const pid of photographerIds || []) {
+    const { data: { user: pu } } = await db.auth.admin.getUserById(pid);
+    if (pu?.email) photographerEmails.push(pu.email);
+  }
+
+  const eventFields = {
+    address,
+    scheduledAt,
+    services: services || [],
+    notes: notes || undefined,
+    clientEmail,
+    clientFullName,
+    clientPhone,
+    photographerEmails,
+  };
+
+  if (existingEventId) {
+    const patched = await updateShootEvent(existingEventId, eventFields);
+    if (patched) return;
+  }
+
+  // No event id on file, or the stored one is gone — create a fresh one.
+  try {
+    const ev = await createShootEvent(eventFields);
+    if (ev?.id) await db.from("shoots").update({ calendar_event_id: ev.id }).eq("id", shootId);
+  } catch (e) {
+    console.error("updateShootCalendarEvent: fallback create failed", e);
+  }
 }
 
 // Delete a shoot's Google Calendar event (attendees get a cancellation

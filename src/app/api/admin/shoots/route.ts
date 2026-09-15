@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { sendPushToAdmins, sendPushToUser } from "@/lib/push";
 import { notifyDelivery } from "@/lib/deliveryInvoice";
-import { notifyShootBooked, removeShootCalendarEvent } from "@/lib/shootConfirmation";
+import { notifyShootBooked, removeShootCalendarEvent, updateShootCalendarEvent } from "@/lib/shootConfirmation";
+import { findBookingConflict } from "@/lib/bookingConflict";
 import { createConfirmationInvoice } from "@/lib/confirmationInvoice";
 
 function service() {
@@ -259,7 +260,7 @@ export async function PATCH(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { id, status, photographer_ids, price, line_items, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type } = await req.json();
+  const { id, status, photographer_ids, price, line_items, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type, force } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
@@ -307,6 +308,27 @@ export async function PATCH(req: Request) {
   if (property_type !== undefined) updatePayload.property_type = property_type;
   if (typeof lat === "number") updatePayload.lat = lat;
   if (typeof lng === "number") updatePayload.lng = lng;
+
+  // Check for a double-booking whenever this update touches the time or the
+  // assigned photographer(s) on a shoot that's scheduled (or becoming
+  // scheduled) — otherwise two shoots can end up with the same photographer
+  // at overlapping times with no warning.
+  if (updatePayload.status === "scheduled" && !force && (scheduled_at !== undefined || photographer_ids !== undefined)) {
+    const conflict = await findBookingConflict(supabase, {
+      shootId: id,
+      scheduledAt: scheduled_at ?? shoot?.scheduled_at,
+      photographerIds: photographer_ids ?? shoot?.photographer_ids,
+    });
+    if (conflict) {
+      const conflictWhen = new Date(conflict.scheduled_at).toLocaleString("en-US", {
+        weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago",
+      });
+      return NextResponse.json({
+        error: `Conflicts with another scheduled shoot at ${conflict.address} (${conflictWhen}). Pass force:true to save anyway.`,
+        conflict,
+      }, { status: 409 });
+    }
+  }
 
   let { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
 
@@ -404,13 +426,16 @@ export async function PATCH(req: Request) {
   // scheduled from pending (normal confirm) or from cancelled (un-cancel) —
   // in both cases there's no live calendar event, so create a fresh one.
   // Not on every edit to an already-scheduled shoot.
-  if (status === "scheduled" && shoot?.scheduled_at && (shoot?.status === "pending" || shoot?.status === "cancelled")) {
+  if (status === "scheduled" && (scheduled_at ?? shoot?.scheduled_at) && (shoot?.status === "pending" || shoot?.status === "cancelled")) {
     try {
       await notifyShootBooked({
-        address: shoot.address,
-        scheduledAt: shoot.scheduled_at,
-        services: shoot.services ?? [],
-        notes: shoot.notes ?? "",
+        // Use the incoming values when this same request also set/changed
+        // them (e.g. confirming with a corrected address) — falling back to
+        // shoot.address here would put the OLD address on the invite.
+        address: address ?? shoot.address,
+        scheduledAt: scheduled_at ?? shoot.scheduled_at,
+        services: services ?? shoot.services ?? [],
+        notes: notes ?? shoot.notes ?? "",
         contactId: contact_id ?? shoot.contact_id,
         clientId: shoot.client_id,
         photographerIds: photographer_ids ?? shoot.photographer_ids ?? [],
@@ -419,6 +444,30 @@ export async function PATCH(req: Request) {
     } catch (calErr) {
       console.error("notifyShootBooked failed:", calErr);
       // Don't fail the whole request if calendar/email fails
+    }
+  }
+
+  // A time/address/service edit on a shoot that was ALREADY scheduled (not
+  // the pending/cancelled -> scheduled confirm above, and not a cancellation
+  // — that's handled separately) needs its existing calendar event patched,
+  // otherwise the team/photographer/client keep seeing the stale time.
+  if (
+    shoot?.status === "scheduled" &&
+    status !== "cancelled" &&
+    (scheduled_at !== undefined || address !== undefined)
+  ) {
+    try {
+      await updateShootCalendarEvent(id, {
+        address: address ?? shoot.address,
+        scheduledAt: scheduled_at ?? shoot.scheduled_at,
+        services: services ?? shoot.services ?? [],
+        notes: notes ?? shoot.notes ?? "",
+        contactId: contact_id ?? shoot.contact_id,
+        clientId: shoot.client_id,
+        photographerIds: photographer_ids ?? shoot.photographer_ids ?? [],
+      });
+    } catch (calErr) {
+      console.error("admin shoot update: calendar sync failed", calErr);
     }
   }
 

@@ -19,6 +19,26 @@ export async function GET(req: NextRequest) {
 
   const tokens = await getValidTokens();
   if (!tokens) {
+    // This used to fail silently — the revenue dashboard would just quietly
+    // go stale with nothing telling anyone the QBO connection had dropped.
+    // Post to Command Center once so it surfaces same-day, not whenever
+    // someone happens to notice the numbers look old.
+    const db = service();
+    const { data: last } = await db
+      .from("company_updates")
+      .select("id")
+      .eq("category", "alerts")
+      .eq("message", "⚠️ QuickBooks sync skipped — connection needs reauthorizing")
+      .gte("created_at", new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString())
+      .limit(1);
+    if (!last?.length) {
+      await db.from("company_updates").insert({
+        message: "⚠️ QuickBooks sync skipped — connection needs reauthorizing",
+        created_by: "system",
+        category: "alerts",
+        link: "/dashboard/revenue",
+      });
+    }
     return NextResponse.json({ skipped: true, reason: "QBO not connected" });
   }
 

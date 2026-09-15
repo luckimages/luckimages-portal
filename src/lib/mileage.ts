@@ -98,7 +98,14 @@ export async function recomputeMileageForDay(db: SupabaseClient, photographerId:
   for (const s of shoots) {
     let pt: LatLng | null = (s.lat != null && s.lng != null) ? { lat: s.lat, lng: s.lng } : null;
     if (!pt) pt = await geocode(s.address);
-    if (!pt) { await clearDay(); return; } // can't route without every stop
+    if (!pt) {
+      // A transient geocoding failure (rate limit, bad address) shouldn't
+      // destroy a day's already-computed mileage/gas numbers — leave
+      // whatever's there and let the next run (tomorrow, or a manual
+      // retrigger) try again once the address resolves.
+      console.error(`recomputeMileageForDay: couldn't geocode shoot ${s.id} (${s.address}) — leaving ${dayISO} for ${photographerId} unchanged`);
+      return;
+    }
     stops.push(pt);
     labels.push(s.address.split(",")[0] || s.address);
   }

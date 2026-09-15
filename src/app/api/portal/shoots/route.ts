@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
-import { removeShootCalendarEvent } from "@/lib/shootConfirmation";
+import { removeShootCalendarEvent, updateShootCalendarEvent } from "@/lib/shootConfirmation";
 
 // A realtor edits or cancels a shoot they booked themselves. Ownership is
 // checked server-side (client_id or linked contact_id must match the caller)
@@ -25,7 +25,7 @@ export async function PATCH(req: Request) {
   );
 
   const { data: contact } = await db.from("contacts").select("id").eq("user_id", user.id).single();
-  const { data: shoot } = await db.from("shoots").select("id, address, client_id, contact_id, status").eq("id", id).single();
+  const { data: shoot } = await db.from("shoots").select("id, address, client_id, contact_id, status, scheduled_at, services, notes, photographer_ids").eq("id", id).single();
 
   if (!shoot || (shoot.client_id !== user.id && (!contact || shoot.contact_id !== contact.id))) {
     return NextResponse.json({ error: "Shoot not found" }, { status: 404 });
@@ -81,5 +81,25 @@ export async function PATCH(req: Request) {
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // A time/address change on a shoot that's already confirmed (not just
+  // pending) means there's a live calendar event to keep in sync — the
+  // team, photographer, and client would otherwise still see the old time.
+  if (shoot.status === "scheduled" && (scheduledAt !== undefined || address !== undefined)) {
+    try {
+      await updateShootCalendarEvent(id, {
+        address: address !== undefined ? address : shoot.address,
+        scheduledAt: scheduledAt !== undefined ? scheduledAt : shoot.scheduled_at,
+        services: services !== undefined ? services : (shoot.services ?? []),
+        notes: combinedNotes,
+        contactId: shoot.contact_id,
+        clientId: shoot.client_id,
+        photographerIds: shoot.photographer_ids ?? [],
+      });
+    } catch (e) {
+      console.error("portal reschedule: calendar update failed", e);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -95,6 +95,84 @@ export async function createShootEvent({
   return event.data;
 }
 
+// Update an existing shoot's calendar event in place (time/address/notes
+// changed after it was already scheduled) instead of leaving a stale event
+// sitting on everyone's calendar. Attendees get Google's own "event updated"
+// notice. Returns false (caller should fall back to creating a fresh event)
+// if the event id is gone/invalid rather than throwing.
+export async function updateShootEvent(
+  eventId: string,
+  {
+    address,
+    scheduledAt,
+    services,
+    notes,
+    clientEmail,
+    clientFullName,
+    clientPhone,
+    photographerEmails,
+  }: {
+    address: string;
+    scheduledAt: string;
+    services: string[];
+    notes?: string;
+    clientEmail?: string;
+    clientFullName?: string;
+    clientPhone?: string;
+    photographerEmails?: string[];
+  }
+): Promise<boolean> {
+  if (!eventId) return false;
+  const auth = getOAuthClient();
+  auth.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN! });
+  const calendar = google.calendar({ version: "v3", auth });
+
+  const start = new Date(scheduledAt);
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+
+  const attendees: { email: string; displayName?: string }[] = [
+    { email: "leif@luckimages.com", displayName: "Leif" },
+  ];
+  if (clientEmail) attendees.push({ email: clientEmail, displayName: clientFullName });
+  for (const pe of photographerEmails || []) {
+    if (pe && !attendees.some(a => a.email === pe)) attendees.push({ email: pe });
+  }
+
+  const serviceList = services?.length ? services.join(", ") : "Shoot";
+  const description = [
+    clientFullName ? `Client: ${clientFullName}` : null,
+    clientPhone ? `Phone: ${clientPhone}` : null,
+    clientEmail ? `Email: ${clientEmail}` : null,
+    services?.length ? `Services: ${serviceList}` : null,
+    notes ? `Notes: ${notes}` : null,
+    "\nBooked via Luck Images Portal",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    await calendar.events.patch({
+      calendarId: "ryan@luckimages.com",
+      eventId,
+      sendUpdates: "all",
+      requestBody: {
+        summary: `Luck Images - ${streetOnly(address)}`,
+        location: address,
+        description,
+        start: { dateTime: start.toISOString(), timeZone: "America/Chicago" },
+        end: { dateTime: end.toISOString(), timeZone: "America/Chicago" },
+        attendees,
+      },
+    });
+    return true;
+  } catch (e: unknown) {
+    const code = (e as { code?: number })?.code;
+    if (code === 404 || code === 410) return false; // event no longer exists — caller should create fresh
+    console.error("updateShootEvent failed", e);
+    return false;
+  }
+}
+
 // Remove a shoot's calendar event (e.g. the shoot was cancelled). Emails a
 // cancellation notice to every attendee. Safe to call with a stale/unknown
 // id — Google returns 404/410 and we swallow it.
