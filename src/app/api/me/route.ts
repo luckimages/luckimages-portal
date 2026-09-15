@@ -95,31 +95,34 @@ export async function GET(req: Request) {
   const personName = PERSON_NAME[person];
 
   const range = monthRange(month);
+  const periodDateRange = periodDates(payPeriod);
+  const periodStartIso = `${periodDateRange.start}T00:00:00`;
+  const periodEndIso = `${periodDateRange.end}T23:59:59`;
 
   // ── Commission / earnings ────────────────────────────────────────────────
   const pnl = await buildPnl(db, "month", month);
   const commission_cents = person === "leif" ? pnl.memo.leif_profit_share_cents : null;
   const personShootRows = person === "leif" ? pnl.shoot_expenses.filter(r => r.leif_sourced) : [];
 
-  // ── Shoots photographed by this person ───────────────────────────────────
+  // ── Shoots photographed by this person, scoped to the selected pay period ─
   const { data: shoots } = personId
     ? await db
         .from("shoots")
         .select("id, address, scheduled_at, status, price, package_name, photographer_ids")
         .contains("photographer_ids", [personId])
-        .gte("scheduled_at", range.start)
-        .lte("scheduled_at", range.end)
+        .gte("scheduled_at", periodStartIso)
+        .lte("scheduled_at", periodEndIso)
         .order("scheduled_at", { ascending: false })
     : { data: [] as { id: string; address: string; scheduled_at: string; status: string; price: number | null; package_name: string | null }[] };
 
-  // ── Mileage ───────────────────────────────────────────────────────────────
+  // ── Mileage, scoped to the selected pay period ─────────────────────────────
   const { data: mileageDays } = personId
     ? await db
         .from("mileage_days")
         .select("day, effective_miles, gas_cost_cents, deduction_cents")
         .eq("photographer_id", personId)
-        .gte("day", range.start.slice(0, 10))
-        .lte("day", range.end.slice(0, 10))
+        .gte("day", periodDateRange.start)
+        .lte("day", periodDateRange.end)
         .order("day", { ascending: false })
     : { data: [] as { day: string; effective_miles: number; gas_cost_cents: number; deduction_cents: number }[] };
   const mileage = {
@@ -202,10 +205,6 @@ export async function GET(req: Request) {
   const payout_cents = person === "leif" ? Math.max(wage_floor_cents ?? 0, commission_cents ?? 0) : null;
 
   // ── Semi-monthly pay period: hours per week, batched for payroll ──────────
-  const periodDateRange = periodDates(payPeriod);
-  const periodStartIso = `${periodDateRange.start}T00:00:00`;
-  const periodEndIso = `${periodDateRange.end}T23:59:59`;
-
   const { data: periodEntries } = personId
     ? await db
         .from("time_entries")

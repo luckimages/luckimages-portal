@@ -228,14 +228,9 @@ export default function MyNocturnePage() {
                 {data.pay_period.weeks.length === 0 ? (
                   <Empty text="No hours logged this period" />
                 ) : (
-                  data.pay_period.weeks.map(w => (
-                    <div key={w.week_start} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
-                      <span className="text-[#888]">{w.label}</span>
-                      <span className="tabular-nums font-medium">{fmtHrs(w.seconds)}</span>
-                    </div>
-                  ))
+                  <WeekHoursChart weeks={data.pay_period.weeks} />
                 )}
-                <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03]">
+                <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-t border-white/[0.07]">
                   <span className="text-xs tracking-[2px] uppercase text-[#555]">Period Total</span>
                   <span className="tabular-nums font-bold">{fmtHrs(data.pay_period.total_seconds)}</span>
                 </div>
@@ -284,9 +279,9 @@ export default function MyNocturnePage() {
             </Section>
 
             {/* Shoots */}
-            <Section title={`My Shoots — ${data.shoots.length} This Month`}>
+            <Section title={`My Shoots — ${data.shoots.length} This Pay Period`}>
               {data.shoots.length === 0 ? (
-                <Empty text="No shoots this month" />
+                <Empty text="No shoots this pay period" />
               ) : (
                 <div className="border border-white/[0.07]">
                   {data.shoots.map(s => (
@@ -308,7 +303,7 @@ export default function MyNocturnePage() {
             </Section>
 
             {/* Mileage */}
-            <Section title="Mileage — This Month">
+            <Section title="Mileage — This Pay Period">
               <div className="grid grid-cols-3 gap-px bg-white/[0.07] border border-white/[0.07]">
                 <Stat label="Miles" value={data.mileage.total_miles.toLocaleString()} />
                 <Stat label="Gas Cost" value={money(data.mileage.total_gas_cents)} blur={blur} />
@@ -320,7 +315,8 @@ export default function MyNocturnePage() {
             <Section title="Cold Calling — This Month">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.07] border border-white/[0.07] mb-3">
                 <Stat label="Total Calls" value={String(data.cold_calling.total_calls)} />
-                {Object.entries(data.cold_calling.by_outcome).slice(0, 3).map(([k, v]) => (
+                <Stat label="Leads Sourced" value={String(data.sourced_leads_count)} />
+                {Object.entries(data.cold_calling.by_outcome).slice(0, 2).map(([k, v]) => (
                   <Stat key={k} label={k.replace(/_/g, " ")} value={String(v)} />
                 ))}
               </div>
@@ -372,6 +368,26 @@ export default function MyNocturnePage() {
           <BlockTimeModal block={viewBlock} onClose={() => setViewBlock(null)} onSaved={() => { setViewBlock(null); load(viewing); }} />
         )}
       </div>
+    </div>
+  );
+}
+
+function WeekHoursChart({ weeks }: { weeks: { week_start: string; label: string; seconds: number }[] }) {
+  const maxSecs = Math.max(...weeks.map(w => w.seconds), 3600);
+  return (
+    <div className="flex items-end gap-3 px-5 pt-6 pb-4">
+      {weeks.map(w => {
+        const pct = Math.max((w.seconds / maxSecs) * 100, w.seconds > 0 ? 4 : 0);
+        return (
+          <div key={w.week_start} className="flex-1 flex flex-col items-center gap-2">
+            <span className="text-xs font-semibold tabular-nums">{fmtHrs(w.seconds)}</span>
+            <div className="w-full h-24 flex items-end bg-white/[0.03]">
+              <div className="w-full bg-[#4ade80] transition-all" style={{ height: `${pct}%`, minHeight: w.seconds > 0 ? 3 : 0 }} />
+            </div>
+            <span className="text-[10px] text-[#666] uppercase tracking-wider text-center">{w.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
