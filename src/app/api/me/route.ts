@@ -15,6 +15,12 @@ const PERSON_EMAIL: Record<string, string> = {
 };
 const PERSON_NAME: Record<string, string> = { ryan: "Ryan", leif: "Leif" };
 
+// Leif's pay structure: a guaranteed Texas-minimum-wage draw against his
+// 50%-of-profit commission. He's paid $7.25/hr for logged hours; if that
+// month's commission exceeds the wage floor, he gets paid the commission
+// instead (the wage is a floor, not a bonus on top).
+const TX_MIN_WAGE_CENTS_PER_HOUR = 725;
+
 export async function GET(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -99,6 +105,45 @@ export async function GET(req: Request) {
         .limit(20)
     : { data: [] as { id: string; user_id: string; user_name: string; all_day: boolean; start_at: string; end_at: string; note: string | null }[] };
 
+  // ── Time clock ────────────────────────────────────────────────────────────
+  const { data: monthEntries } = personId
+    ? await db
+        .from("time_entries")
+        .select("id, started_at, stopped_at, duration_seconds")
+        .eq("user_id", personId)
+        .gte("started_at", range.start)
+        .lte("started_at", range.end)
+        .order("started_at", { ascending: false })
+    : { data: [] as { id: string; started_at: string; stopped_at: string | null; duration_seconds: number | null }[] };
+
+  const { data: activeEntry } = personId
+    ? await db.from("time_entries").select("id, started_at").eq("user_id", personId).is("stopped_at", null).maybeSingle()
+    : { data: null as { id: string; started_at: string } | null };
+
+  const nowMs = Date.now();
+  const stoppedSeconds = (monthEntries ?? []).reduce((s, e) => s + (e.duration_seconds || 0), 0);
+  const activeSeconds = activeEntry ? Math.floor((nowMs - new Date(activeEntry.started_at).getTime()) / 1000) : 0;
+  const total_seconds = stoppedSeconds + activeSeconds;
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+  const week_seconds = (monthEntries ?? [])
+    .filter(e => new Date(e.started_at) >= weekStart)
+    .reduce((s, e) => s + (e.duration_seconds || 0), 0)
+    + (activeEntry && new Date(activeEntry.started_at) >= weekStart ? activeSeconds : 0);
+
+  const hours = {
+    active: activeEntry,
+    month_seconds: total_seconds,
+    week_seconds,
+    entries: (monthEntries ?? []).slice(0, 14),
+  };
+
+  // ── Pay: guaranteed minimum wage draw against commission (Leif only) ──────
+  const wage_floor_cents = person === "leif" ? Math.round((total_seconds / 3600) * TX_MIN_WAGE_CENTS_PER_HOUR) : null;
+  const payout_cents = person === "leif" ? Math.max(wage_floor_cents ?? 0, commission_cents ?? 0) : null;
+
   return NextResponse.json({
     person,
     person_name: personName,
@@ -110,6 +155,9 @@ export async function GET(req: Request) {
     cold_calling,
     sourced_leads_count,
     availability: availability ?? [],
+    hours,
+    wage_floor_cents,
+    payout_cents,
     is_leif: person === "leif",
   });
 }

@@ -19,6 +19,14 @@ type MeData = {
   cold_calling: { total_calls: number; by_outcome: Record<string, number>; recent: { id: string; outcome: string; called_at: string }[] };
   sourced_leads_count: number;
   availability: Block[];
+  hours: {
+    active: { id: string; started_at: string } | null;
+    month_seconds: number;
+    week_seconds: number;
+    entries: { id: string; started_at: string; stopped_at: string | null; duration_seconds: number | null }[];
+  };
+  wage_floor_cents: number | null;
+  payout_cents: number | null;
   is_leif: boolean;
 };
 
@@ -27,6 +35,11 @@ function money(cents: number | null | undefined) {
 }
 function dateStr(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function fmtHrs(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return `${h}h ${m}m`;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -45,6 +58,8 @@ export default function MyNocturnePage() {
   const [blurred, setBlurred] = useState(true);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [viewBlock, setViewBlock] = useState<Block | null>(null);
+  const [clocking, setClocking] = useState(false);
+  const [liveElapsed, setLiveElapsed] = useState(0);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -66,6 +81,37 @@ export default function MyNocturnePage() {
   }, [month]);
 
   useEffect(() => { if (checked) load(viewing); }, [checked, viewing, load]);
+
+  useEffect(() => {
+    const active = data?.hours.active;
+    if (!active) return;
+    const startedMs = new Date(active.started_at).getTime();
+    const tick = () => setLiveElapsed(Math.floor((Date.now() - startedMs) / 1000));
+    const id = setInterval(tick, 1000);
+    const t = setTimeout(tick, 0);
+    return () => { clearInterval(id); clearTimeout(t); };
+  }, [data?.hours.active]);
+
+  async function toggleClock() {
+    if (!selfPerson || !data) return;
+    setClocking(true);
+    if (data.hours.active) {
+      const elapsed = Math.floor((Date.now() - new Date(data.hours.active.started_at).getTime()) / 1000);
+      await fetch("/api/admin/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop", entryId: data.hours.active.id, elapsed }),
+      });
+    } else {
+      await fetch("/api/admin/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start", userName: data.person_name }),
+      });
+    }
+    setClocking(false);
+    load(viewing);
+  }
 
   if (!checked) return null;
 
@@ -118,6 +164,49 @@ export default function MyNocturnePage() {
 
         {data && (() => { const blur = blurred ? "blur-sm select-none" : ""; return (
           <div className="flex flex-col gap-6">
+            {/* Time Clock */}
+            <Section title="Time Clock">
+              <div className="border border-white/[0.07] px-5 py-5 flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <div className="text-3xl font-bold tabular-nums">
+                    {data.hours.active ? fmtHrs(liveElapsed) : fmtHrs(data.hours.week_seconds)}
+                  </div>
+                  <div className="text-xs text-[#666] mt-1">
+                    {data.hours.active ? "Clocked in — running" : "This week"}
+                    {" · "}{fmtHrs(data.hours.month_seconds)} this month
+                  </div>
+                </div>
+                {selfPerson === viewing ? (
+                  <button
+                    onClick={toggleClock}
+                    disabled={clocking}
+                    className={`px-6 py-3 text-xs tracking-[2px] uppercase font-bold transition-colors disabled:opacity-40 ${
+                      data.hours.active ? "bg-[#f87171] text-black hover:bg-[#f87171]/90" : "bg-white text-black hover:bg-white/90"
+                    }`}
+                  >
+                    {clocking ? "..." : data.hours.active ? "Clock Out" : "Clock In"}
+                  </button>
+                ) : (
+                  <span className="text-xs text-[#555] uppercase tracking-wider">{data.hours.active ? "Currently clocked in" : "Not clocked in"}</span>
+                )}
+              </div>
+            </Section>
+
+            {/* Pay — guaranteed minimum wage draw against commission (Leif only) */}
+            {data.is_leif && (
+              <Section title="Pay — Guaranteed Wage Draw Against Commission">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/[0.07] border border-white/[0.07]">
+                  <Stat label="Hours This Month" value={fmtHrs(data.hours.month_seconds)} />
+                  <Stat label="Wage Floor ($7.25/hr)" value={money(data.wage_floor_cents)} blur={blur} />
+                  <Stat label="Commission Earned" value={money(data.commission_cents)} blur={blur} />
+                </div>
+                <div className="border border-white/[0.07] border-t-0 px-5 py-4 flex items-center justify-between">
+                  <span className="text-xs text-[#666]">Payout — greater of wage floor or commission</span>
+                  <span className={`text-xl font-bold text-[#4ade80] transition-all ${blur}`}>{money(data.payout_cents)}</span>
+                </div>
+              </Section>
+            )}
+
             {/* Earnings */}
             <Section title={data.is_leif ? "Commission — This Month" : "Business Profit — This Month"}>
               <div className={`text-4xl font-bold text-[#4ade80] transition-all ${blur}`}>
