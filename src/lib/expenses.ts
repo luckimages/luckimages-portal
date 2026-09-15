@@ -320,10 +320,20 @@ export async function buildPnl(
     };
   });
 
-  const stripeTotal = shoot_expenses.reduce((s, r) => s + r.stripe_cents, 0);
-  const gasTotal = shoot_expenses.reduce((s, r) => s + r.gas_cents, 0);
-  const editingTotal = shoot_expenses.reduce((s, r) => s + r.editing_cents, 0);
-  const shootExpenseTotal = shoot_expenses.reduce((s, r) => s + r.expense_cents, 0);
+  // Costs are only "recognized" into the P&L totals once a shoot's invoice
+  // is actually paid — same rule income already follows (see incomeCents
+  // above, gated on inv.paid). A shoot still shows up in shoot_expenses
+  // (and stays filed under the month it was shot, per monthShoots'
+  // scheduled_at filter) the moment it's scheduled, so nothing disappears
+  // from the list — its dollars just don't count toward the month's totals
+  // until it's paid, at which point they land in the correct shoot-month
+  // total automatically (this function recomputes live, it doesn't matter
+  // that the payment itself may have landed in a later calendar month).
+  const paidShootExpenses = shoot_expenses.filter(r => r.revenue_paid);
+  const stripeTotal = paidShootExpenses.reduce((s, r) => s + r.stripe_cents, 0);
+  const gasTotal = paidShootExpenses.reduce((s, r) => s + r.gas_cents, 0);
+  const editingTotal = paidShootExpenses.reduce((s, r) => s + r.editing_cents, 0);
+  const shootExpenseTotal = paidShootExpenses.reduce((s, r) => s + r.expense_cents, 0);
 
   // ── Operating budget: manual rows in range ───────────────────────────────
   const { data: ops } = await db
