@@ -27,6 +27,20 @@ type MeData = {
   };
   wage_floor_cents: number | null;
   payout_cents: number | null;
+  pay_period: {
+    key: string;
+    label: string;
+    start: string;
+    end: string;
+    prev_key: string;
+    next_key: string;
+    is_current: boolean;
+    weeks: { week_start: string; label: string; seconds: number }[];
+    total_seconds: number;
+    wage_floor_cents: number | null;
+    commission_cents: number | null;
+    payout_cents: number | null;
+  };
   is_leif: boolean;
 };
 
@@ -60,6 +74,7 @@ export default function MyNocturnePage() {
   const [viewBlock, setViewBlock] = useState<Block | null>(null);
   const [clocking, setClocking] = useState(false);
   const [liveElapsed, setLiveElapsed] = useState(0);
+  const [period, setPeriod] = useState<string | null>(null);
 
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
@@ -72,15 +87,21 @@ export default function MyNocturnePage() {
     });
   }, [router]);
 
-  const load = useCallback((person: Person) => {
+  const load = useCallback((person: Person, periodKey?: string | null) => {
     setLoading(true);
-    fetch(`/api/me?person=${person}&month=${month}`)
+    const q = new URLSearchParams({ person, month });
+    if (periodKey) q.set("period", periodKey);
+    fetch(`/api/me?${q.toString()}`)
       .then(r => r.json())
-      .then(d => setData(d))
+      .then(d => { setData(d); setPeriod(d.pay_period?.key ?? null); })
       .finally(() => setLoading(false));
   }, [month]);
 
-  useEffect(() => { if (checked) load(viewing); }, [checked, viewing, load]);
+  useEffect(() => { if (checked) load(viewing, period); }, [checked, viewing, load]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function goToPeriod(key: string) {
+    load(viewing, key);
+  }
 
   useEffect(() => {
     const active = data?.hours.active;
@@ -110,7 +131,7 @@ export default function MyNocturnePage() {
       });
     }
     setClocking(false);
-    load(viewing);
+    load(viewing, period);
   }
 
   if (!checked) return null;
@@ -192,20 +213,47 @@ export default function MyNocturnePage() {
               </div>
             </Section>
 
-            {/* Pay — guaranteed minimum wage draw against commission (Leif only) */}
-            {data.is_leif && (
-              <Section title="Pay — Guaranteed Wage Draw Against Commission">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/[0.07] border border-white/[0.07]">
-                  <Stat label="Hours This Month" value={fmtHrs(data.hours.month_seconds)} />
-                  <Stat label="Wage Floor ($7.25/hr)" value={money(data.wage_floor_cents)} blur={blur} />
-                  <Stat label="Commission Earned" value={money(data.commission_cents)} blur={blur} />
+            {/* Pay period — hours per week, batched for semi-monthly payroll (1st & 15th) */}
+            <Section
+              title="Pay Period"
+              action={
+                <div className="flex items-center gap-2">
+                  <button onClick={() => goToPeriod(data.pay_period.prev_key)} className="text-[#555] hover:text-white transition-colors px-1" title="Previous period">‹</button>
+                  <span className="text-xs text-white min-w-[140px] text-center">{data.pay_period.label}{data.pay_period.is_current ? " · Current" : ""}</span>
+                  <button onClick={() => goToPeriod(data.pay_period.next_key)} className="text-[#555] hover:text-white transition-colors px-1" title="Next period">›</button>
                 </div>
-                <div className="border border-white/[0.07] border-t-0 px-5 py-4 flex items-center justify-between">
-                  <span className="text-xs text-[#666]">Payout — greater of wage floor or commission</span>
-                  <span className={`text-xl font-bold text-[#4ade80] transition-all ${blur}`}>{money(data.payout_cents)}</span>
+              }
+            >
+              <div className="border border-white/[0.07]">
+                {data.pay_period.weeks.length === 0 ? (
+                  <Empty text="No hours logged this period" />
+                ) : (
+                  data.pay_period.weeks.map(w => (
+                    <div key={w.week_start} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
+                      <span className="text-[#888]">{w.label}</span>
+                      <span className="tabular-nums font-medium">{fmtHrs(w.seconds)}</span>
+                    </div>
+                  ))
+                )}
+                <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03]">
+                  <span className="text-xs tracking-[2px] uppercase text-[#555]">Period Total</span>
+                  <span className="tabular-nums font-bold">{fmtHrs(data.pay_period.total_seconds)}</span>
                 </div>
-              </Section>
-            )}
+              </div>
+
+              {data.is_leif && (
+                <div className="mt-3 border border-white/[0.07]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-white/[0.07]">
+                    <Stat label="Wage Floor ($7.25/hr)" value={money(data.pay_period.wage_floor_cents)} blur={blur} />
+                    <Stat label="Commission Earned" value={money(data.pay_period.commission_cents)} blur={blur} />
+                  </div>
+                  <div className="px-5 py-4 flex items-center justify-between border-t border-white/[0.07]">
+                    <span className="text-xs text-[#666]">Payout — greater of wage floor or commission</span>
+                    <span className={`text-xl font-bold text-[#4ade80] transition-all ${blur}`}>{money(data.pay_period.payout_cents)}</span>
+                  </div>
+                </div>
+              )}
+            </Section>
 
             {/* Earnings */}
             <Section title={data.is_leif ? "Commission — This Month" : "Business Profit — This Month"}>
