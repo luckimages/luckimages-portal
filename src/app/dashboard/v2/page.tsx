@@ -16,6 +16,7 @@ const APPS = [
   { label: "Marketing",   href: "/dashboard/marketing",    color: "#888" },
   { label: "Traffic",      href: "/dashboard/analytics",    color: "#888" },
   { label: "Revenue",     href: "/dashboard/revenue",      color: "#888" },
+  { label: "My Nocturne", href: "/dashboard/me",           color: "#888" },
 
   { label: "Updates",     href: "/dashboard/updates",      color: "#888" },
 ];
@@ -31,6 +32,7 @@ function APP_ICON({ name, color }: { name: string; color: string }) {
     "Updates":      <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" {...s}/><path d="M13.73 21a2 2 0 0 1-3.46 0" {...s}/></>,
     "Revenue":      <><line x1="12" y1="1" x2="12" y2="23" {...s}/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" {...s}/></>,
     "Shoot Log":    <><rect x="3" y="3" width="18" height="18" rx="2" {...s}/><path d="M3 9h18" {...s}/><path d="M9 21V9" {...s}/></>,
+    "My Nocturne":  <><circle cx="12" cy="8" r="4" {...s}/><path d="M4 21v-1a8 8 0 0 1 16 0v1" {...s}/></>,
     "Team":         <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" {...s}/><circle cx="9" cy="7" r="4" {...s}/><path d="M23 21v-2a4 4 0 0 0-3-3.87" {...s}/><path d="M16 3.13a4 4 0 0 1 0 7.75" {...s}/></>,
   };
   return (

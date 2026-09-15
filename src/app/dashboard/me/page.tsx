@@ -1,0 +1,215 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
+import { ADMIN_EMAILS } from "@/lib/constants";
+
+type Person = "ryan" | "leif";
+
+type MeData = {
+  person: Person;
+  person_name: string;
+  month: string;
+  commission_cents: number | null;
+  commission_shoots: { shoot_id: string; date: string; address: string; client: string; revenue_cents: number; profit_cents: number; revenue_paid: boolean }[];
+  shoots: { id: string; address: string; scheduled_at: string; status: string; price: number | null; package_name: string | null }[];
+  mileage: { days: { day: string; effective_miles: number; gas_cost_cents: number; deduction_cents: number }[]; total_miles: number; total_gas_cents: number; total_deduction_cents: number };
+  cold_calling: { total_calls: number; by_outcome: Record<string, number>; recent: { id: string; outcome: string; called_at: string }[] };
+  sourced_leads_count: number;
+  availability: { id: string; all_day: boolean; start_at: string; end_at: string; note: string | null }[];
+  is_leif: boolean;
+};
+
+function money(cents: number | null | undefined) {
+  return ((cents ?? 0) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+function dateStr(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: "#fbbf24", scheduled: "#60a5fa", en_route: "#f472b6", on_site: "#f472b6",
+  wrapping: "#facc15", editing: "#facc15", delivered: "#34d399", completed: "#4ade80",
+};
+
+export default function MyNocturnePage() {
+  const router = useRouter();
+  const [checked, setChecked] = useState(false);
+  const [selfPerson, setSelfPerson] = useState<Person | null>(null);
+  const [viewing, setViewing] = useState<Person>("ryan");
+  const [data, setData] = useState<MeData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [month] = useState(new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      const email = (data.user?.email || "").toLowerCase();
+      if (!data.user || !ADMIN_EMAILS.includes(email)) { router.replace("/dashboard"); return; }
+      const self: Person = email === "leif@luckimages.com" ? "leif" : "ryan";
+      setSelfPerson(self);
+      setViewing(self);
+      setChecked(true);
+    });
+  }, [router]);
+
+  const load = useCallback((person: Person) => {
+    setLoading(true);
+    fetch(`/api/me?person=${person}&month=${month}`)
+      .then(r => r.json())
+      .then(d => setData(d))
+      .finally(() => setLoading(false));
+  }, [month]);
+
+  useEffect(() => { if (checked) load(viewing); }, [checked, viewing, load]);
+
+  if (!checked) return null;
+
+  return (
+    <div className="min-h-screen bg-[#0c0c0c] text-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
+          <div>
+            <div className="text-[10px] tracking-[3px] uppercase text-[#555]">My Nocturne</div>
+            <div className="text-2xl font-bold mt-1">{data?.person_name ?? "..."}'s Dashboard</div>
+          </div>
+          <div className="flex border border-white/10">
+            {(["ryan", "leif"] as Person[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setViewing(p)}
+                className={`px-4 py-2 text-xs tracking-[1px] uppercase transition-colors ${
+                  viewing === p ? "bg-white text-black font-bold" : "text-[#555] hover:text-white"
+                }`}
+              >
+                {p === "ryan" ? "Ryan" : "Leif"}{selfPerson === p ? " (Me)" : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading && !data && (
+          <div className="border border-white/5 px-5 py-10 text-center text-[#444] text-xs tracking-widest uppercase">Loading...</div>
+        )}
+
+        {data && (
+          <div className="flex flex-col gap-6">
+            {/* Earnings */}
+            <Section title={data.is_leif ? "Commission — This Month" : "Business Profit — This Month"}>
+              <div className="text-4xl font-bold text-[#4ade80]">
+                {data.is_leif ? money(data.commission_cents) : "—"}
+              </div>
+              {data.is_leif && (
+                <div className="text-xs text-[#666] mt-1">50% of profit on {data.commission_shoots.length} sourced shoot{data.commission_shoots.length === 1 ? "" : "s"} · {data.sourced_leads_count} total leads sourced</div>
+              )}
+              {!data.is_leif && (
+                <div className="text-xs text-[#666] mt-1">Company owner — see <a href="/dashboard/revenue" className="underline hover:text-white">Revenue</a> for full P&L</div>
+              )}
+              {data.commission_shoots.length > 0 && (
+                <div className="mt-4 border border-white/[0.07]">
+                  {data.commission_shoots.map(s => (
+                    <div key={s.shoot_id} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
+                      <div>
+                        <span className="text-[#555] mr-3 text-xs">{dateStr(s.date)}</span>
+                        {s.address}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={s.revenue_paid ? "text-[#4ade80]" : "text-[#fbbf24]"}>{money(s.profit_cents / 2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+
+            {/* Shoots */}
+            <Section title={`My Shoots — ${data.shoots.length} This Month`}>
+              {data.shoots.length === 0 ? (
+                <Empty text="No shoots this month" />
+              ) : (
+                <div className="border border-white/[0.07]">
+                  {data.shoots.map(s => (
+                    <div key={s.id} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
+                      <div>
+                        <span className="text-[#555] mr-3 text-xs">{dateStr(s.scheduled_at)}</span>
+                        {s.address}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {s.price != null && <span className="text-[#888]">{money(s.price * 100)}</span>}
+                        <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded" style={{ color: STATUS_COLOR[s.status] || "#888", background: `${STATUS_COLOR[s.status] || "#888"}1a` }}>
+                          {s.status.replace("_", " ")}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+
+            {/* Mileage */}
+            <Section title="Mileage — This Month">
+              <div className="grid grid-cols-3 gap-px bg-white/[0.07] border border-white/[0.07]">
+                <Stat label="Miles" value={data.mileage.total_miles.toLocaleString()} />
+                <Stat label="Gas Cost" value={money(data.mileage.total_gas_cents)} />
+                <Stat label="IRS Deduction" value={money(data.mileage.total_deduction_cents)} />
+              </div>
+            </Section>
+
+            {/* Cold Calling */}
+            <Section title="Cold Calling — This Month">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.07] border border-white/[0.07] mb-3">
+                <Stat label="Total Calls" value={String(data.cold_calling.total_calls)} />
+                {Object.entries(data.cold_calling.by_outcome).slice(0, 3).map(([k, v]) => (
+                  <Stat key={k} label={k.replace(/_/g, " ")} value={String(v)} />
+                ))}
+              </div>
+              {data.cold_calling.total_calls === 0 && <Empty text="No calls logged this month" />}
+            </Section>
+
+            {/* Availability */}
+            <Section title="Upcoming Availability Blocks">
+              {data.availability.length === 0 ? (
+                <Empty text="No upcoming blocks — fully available" />
+              ) : (
+                <div className="border border-white/[0.07]">
+                  {data.availability.map(b => (
+                    <div key={b.id} className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] last:border-b-0 text-sm">
+                      <div>
+                        {b.all_day ? dateStr(b.start_at) : `${dateStr(b.start_at)} ${new Date(b.start_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+                        {" – "}
+                        {b.all_day ? dateStr(b.end_at) : new Date(b.end_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </div>
+                      {b.note && <span className="text-[#666] text-xs">{b.note}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] tracking-[2px] uppercase text-[#555] mb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-[#0c0c0c] px-4 py-4">
+      <div className="text-lg font-bold">{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-[#555] mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return <div className="border border-white/5 px-5 py-6 text-center text-[#444] text-xs tracking-widest uppercase">{text}</div>;
+}
