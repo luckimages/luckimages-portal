@@ -362,6 +362,21 @@ export default function MyNocturnePage() {
                 </div>
               )}
             </Section>
+
+            {/* File Archive — shared between Ryan and Leif */}
+            <a
+              href="/dashboard/archive"
+              className="flex items-center justify-between border border-white/[0.07] px-5 py-4 hover:bg-white/[0.02] hover:border-white/20 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#fbbf24]">
+                  <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/>
+                </svg>
+                <span className="text-sm font-semibold">File Archive</span>
+                <span className="text-xs text-[#666]">Shared business files — contracts, tax docs, and more</span>
+              </div>
+              <span className="text-[#555] group-hover:text-white transition-colors">→</span>
+            </a>
           </div>
         ); })()}
 
