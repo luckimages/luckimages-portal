@@ -18,10 +18,9 @@ export const metadata: Metadata = {
 };
 
 const STATS = [
-  { value: "5", label: "Years in Business" },
-  { value: "500+", label: "Properties Shot" },
+  { value: "6", label: "Years in Business" },
+  { value: "800+", label: "Properties Shot" },
   { value: "24hr", label: "Turnaround" },
-  { value: "10+", label: "Years in Real Estate" },
 ];
 
 export default function AboutPage() {
@@ -47,7 +46,7 @@ export default function AboutPage() {
               Luck Images produces premium Real Estate media for Austin's top agents and developers. Why leave your listing to chance when you can have Luck on your side?
             </p>
           </FadeUp>
-          <FadeUp delay={0.15} className="mt-16 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+          <FadeUp delay={0.15} className="mt-16 max-w-2xl mx-auto grid grid-cols-3 gap-8">
             {STATS.map(s => (
               <div key={s.label} className="text-center [text-shadow:0_2px_24px_rgba(0,0,0,0.9)]">
                 <p className="text-4xl font-black mb-2">{s.value}</p>
