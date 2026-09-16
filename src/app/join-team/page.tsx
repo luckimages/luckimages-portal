@@ -7,19 +7,19 @@ import { createClient } from "@/lib/supabase";
 
 export default function JoinTeamPage() {
   const router = useRouter();
-  const [teamId, setTeamId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [teamName, setTeamName] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "joining" | "done" | "error" | "no-team">("loading");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tid = params.get("team_id");
-    if (!tid) { setStatus("no-team"); return; }
-    setTeamId(tid);
+    const t = params.get("token");
+    if (!t) { setStatus("no-team"); return; }
+    setToken(t);
 
-    // Fetch team name
-    fetch(`/api/portal/team-name?team_id=${tid}`)
+    // Fetch team name (also confirms the invite is still valid/unexpired)
+    fetch(`/api/portal/team-name?token=${t}`)
       .then(r => r.json())
       .then(async d => {
         if (!d.name) { setStatus("no-team"); return; }
@@ -34,7 +34,7 @@ export default function JoinTeamPage() {
           const res = await fetch("/api/portal/join-team", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ teamId: tid }),
+            body: JSON.stringify({ token: t }),
           });
           if (res.ok) {
             setStatus("done");
@@ -95,9 +95,13 @@ export default function JoinTeamPage() {
     );
   }
 
-  // status === "ready" — not logged in, show options
-  const loginUrl = `/login?team_id=${teamId}&redirect=/join-team%3Fteam_id%3D${teamId}`;
-  const registerUrl = `/register?team_id=${teamId}`;
+  // status === "ready" — not logged in, show options. login/page.tsx itself
+  // performs the join (it reads ?token= too) before redirecting, so this
+  // sends them straight to /client rather than back through here — the
+  // token is single-use now, so a second join-team hit after login would
+  // find it already consumed and show an error despite having succeeded.
+  const loginUrl = `/login?token=${token}&redirect=/client`;
+  const registerUrl = `/register?token=${token}`;
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">

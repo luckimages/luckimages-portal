@@ -48,14 +48,14 @@ export default function LoginPage() {
     } else {
       const params = new URLSearchParams(window.location.search);
       const redirect = params.get("redirect");
-      const teamId = params.get("team_id");
+      const teamToken = params.get("token");
       const role = data.user?.user_metadata?.role || "realtor";
 
-      if (teamId) {
+      if (teamToken) {
         await fetch("/api/portal/join-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ teamId }),
+          body: JSON.stringify({ token: teamToken }),
         });
       }
 

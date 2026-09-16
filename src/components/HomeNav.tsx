@@ -124,7 +124,12 @@ export default function HomeNav() {
             Portal →
           </Link>
         )}
-        <button onClick={() => setMenuOpen(!menuOpen)} className="text-white/70 hover:text-white transition-colors p-1">
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
+          className="text-white/70 hover:text-white transition-colors p-1"
+        >
           {menuOpen ? (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           ) : (

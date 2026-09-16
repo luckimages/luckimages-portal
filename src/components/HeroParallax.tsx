@@ -63,9 +63,10 @@ export default function HeroParallax() {
 
       {/* Controls */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-5">
-        <button onClick={prev} className="text-white/30 hover:text-white/70 transition-colors text-base leading-none">←</button>
+        <button onClick={prev} aria-label="Previous photo" className="text-white/30 hover:text-white/70 transition-colors text-base leading-none">←</button>
         <button
           onClick={() => setPlaying((p) => !p)}
+          aria-label={playing ? "Pause slideshow" : "Play slideshow"}
           className="text-white/30 hover:text-white/70 transition-colors"
         >
           {playing ? (
@@ -79,7 +80,7 @@ export default function HeroParallax() {
             </svg>
           )}
         </button>
-        <button onClick={next} className="text-white/30 hover:text-white/70 transition-colors text-base leading-none">→</button>
+        <button onClick={next} aria-label="Next photo" className="text-white/30 hover:text-white/70 transition-colors text-base leading-none">→</button>
       </div>
     </>
   );

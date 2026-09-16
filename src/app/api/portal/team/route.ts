@@ -103,7 +103,18 @@ async function sendTeamInvite({ team, inviterName, inviteEmail, inviteName }: {
   inviteName: string;
 }) {
   const SITE_URL = "https://www.luckimages.com";
-  const params = new URLSearchParams({ team_id: team.id });
+
+  const { data: invite, error: inviteErr } = await db
+    .from("team_invites")
+    .insert({ team_id: team.id, email: inviteEmail.trim().toLowerCase() })
+    .select("token")
+    .single();
+  if (inviteErr || !invite) {
+    console.error("sendTeamInvite: failed to create invite row", inviteErr);
+    return;
+  }
+
+  const params = new URLSearchParams({ token: invite.token });
   const joinUrl = `${SITE_URL}/join-team?${params.toString()}`;
   const firstName = (inviteName || inviteEmail).split(" ")[0];
 

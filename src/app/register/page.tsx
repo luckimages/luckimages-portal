@@ -38,7 +38,7 @@ export default function RegisterPage() {
   // input they find. Any value here means it wasn't a human.
   const [honey, setHoney] = useState("");
   const [isInvited, setIsInvited] = useState(false);
-  const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamToken, setTeamToken] = useState<string | null>(null);
   const [teamName, setTeamName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,8 +54,8 @@ export default function RegisterPage() {
     const prefillName  = params.get("name");
     const prefillEmail = params.get("email");
     const prefillPhone = params.get("phone");
-    const tid = params.get("team_id");
-    if (prefillName || prefillEmail || prefillPhone || tid) {
+    const token = params.get("token");
+    if (prefillName || prefillEmail || prefillPhone || token) {
       setIsInvited(true);
       setForm(f => ({
         ...f,
@@ -64,12 +64,17 @@ export default function RegisterPage() {
         ...(prefillPhone ? { phone: prefillPhone }     : {}),
       }));
     }
-    if (tid) {
-      setTeamId(tid);
-      // Fetch team name to show in the UI
-      fetch(`/api/portal/team-name?team_id=${tid}`)
+    if (token) {
+      setTeamToken(token);
+      // Fetch team name + the invited email (must match what's submitted
+      // below, so it's prefilled here rather than left for the user to
+      // mistype) to show in the UI.
+      fetch(`/api/portal/team-name?token=${token}`)
         .then(r => r.json())
-        .then(d => { if (d.name) setTeamName(d.name); });
+        .then(d => {
+          if (d.name) setTeamName(d.name);
+          if (d.email) setForm(f => ({ ...f, email: f.email || d.email }));
+        });
     }
   }, []);
 
@@ -119,11 +124,11 @@ export default function RegisterPage() {
       });
 
       // Join team if invited via team link
-      if (teamId) {
+      if (teamToken) {
         await fetch("/api/portal/join-team", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ teamId }),
+          body: JSON.stringify({ token: teamToken }),
         });
       }
     }
