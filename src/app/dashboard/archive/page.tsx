@@ -93,6 +93,74 @@ export default function ArchivePage() {
     load(currentFolderId, sort);
   }
 
+  // Fallback path: routes the bytes through our own server instead of
+  // straight to R2. Used when the direct upload fails at the network level
+  // (e.g. a firewall silently blocking the connection to
+  // r2.cloudflarestorage.com — shows up as a bare "Failed to fetch" with no
+  // other detail). Capped at ~4MB server-side, so it's a rescue for
+  // documents, not a replacement for the unlimited direct path.
+  async function uploadViaProxy(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("name", file.name);
+    if (currentFolderId) form.append("folder_id", currentFolderId);
+    const res = await fetch("/api/archive/upload-proxy", { method: "POST", body: form });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Upload failed (${res.status})`);
+    }
+  }
+
+  async function uploadOneFile(file: File) {
+    const urlRes = await fetch("/api/archive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "upload_url", name: file.name, content_type: file.type, folder_id: currentFolderId }),
+    });
+    if (!urlRes.ok) throw new Error(`Couldn't get an upload link (${urlRes.status})`);
+    const { uploadUrl, fileKey } = await urlRes.json();
+    if (!uploadUrl) throw new Error("Couldn't get an upload link");
+
+    // A stalled connection (e.g. a network/firewall silently dropping the
+    // request) can otherwise hang indefinitely with no error at all — cap
+    // it so the UI always resolves one way or another.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3 * 60 * 1000);
+    let putRes: Response;
+    try {
+      putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        signal: controller.signal,
+      });
+    } catch (directErr) {
+      clearTimeout(timeout);
+      // Network-level failure on the direct-to-storage leg (not an HTTP
+      // error — fetch() itself rejected) — fall back to the proxy instead
+      // of failing outright.
+      if (directErr instanceof DOMException && directErr.name === "AbortError") throw new Error("Upload to storage timed out");
+      await uploadViaProxy(file);
+      return;
+    }
+    clearTimeout(timeout);
+    if (!putRes.ok) throw new Error(`Upload to storage failed (${putRes.status})`);
+
+    const recordRes = await fetch("/api/archive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "record_file",
+        folder_id: currentFolderId,
+        name: file.name,
+        file_key: fileKey,
+        size_bytes: file.size,
+        content_type: file.type,
+      }),
+    });
+    if (!recordRes.ok) throw new Error(`Uploaded but couldn't save it (${recordRes.status})`);
+  }
+
   async function uploadFiles(fileList: FileList | File[]) {
     setUploading(true);
     setUploadError(null);
@@ -100,49 +168,9 @@ export default function ArchivePage() {
 
     for (const file of Array.from(fileList)) {
       try {
-        const urlRes = await fetch("/api/archive", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "upload_url", name: file.name, content_type: file.type, folder_id: currentFolderId }),
-        });
-        if (!urlRes.ok) throw new Error(`Couldn't get an upload link (${urlRes.status})`);
-        const { uploadUrl, fileKey } = await urlRes.json();
-        if (!uploadUrl) throw new Error("Couldn't get an upload link");
-
-        // A stalled connection (e.g. a network/firewall silently dropping the
-        // request) can otherwise hang indefinitely with no error at all — cap
-        // it so the UI always resolves one way or another.
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3 * 60 * 1000);
-        let putRes: Response;
-        try {
-          putRes = await fetch(uploadUrl, {
-            method: "PUT",
-            body: file,
-            headers: { "Content-Type": file.type || "application/octet-stream" },
-            signal: controller.signal,
-          });
-        } finally {
-          clearTimeout(timeout);
-        }
-        if (!putRes.ok) throw new Error(`Upload to storage failed (${putRes.status})`);
-
-        const recordRes = await fetch("/api/archive", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "record_file",
-            folder_id: currentFolderId,
-            name: file.name,
-            file_key: fileKey,
-            size_bytes: file.size,
-            content_type: file.type,
-          }),
-        });
-        if (!recordRes.ok) throw new Error(`Uploaded but couldn't save it (${recordRes.status})`);
+        await uploadOneFile(file);
       } catch (e) {
-        const reason = e instanceof DOMException && e.name === "AbortError" ? "timed out" : e instanceof Error ? e.message : "unknown error";
-        failures.push(`${file.name}: ${reason}`);
+        failures.push(`${file.name}: ${e instanceof Error ? e.message : "unknown error"}`);
       }
     }
 
