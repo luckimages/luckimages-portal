@@ -86,9 +86,26 @@ const MISSING_PHOTOS: Record<string, string[]> = {
 };
 
 // Placeholder counts for services with no source photos recovered at all.
-const GALLERY_COUNTS: Record<string, number> = {
-  "brochures": 6,
-};
+const GALLERY_COUNTS: Record<string, number> = {};
+
+const BROCHURE_STEPS = [
+  {
+    title: "Finish your shoot",
+    body: "Once your listing photos are delivered in the portal, the brochure builder unlocks for that shoot automatically.",
+  },
+  {
+    title: "Pick your photos",
+    body: "Choose the shots from your gallery you want featured — cover image, interior highlights, and everything between.",
+  },
+  {
+    title: "Add your details",
+    body: "Drop in price, beds/baths/sqft, a description, key features, your headshot, and your brokerage logo.",
+  },
+  {
+    title: "Get a print-ready PDF",
+    body: "The portal lays it all out for you — a polished, agent-branded brochure ready to print or send, in minutes.",
+  },
+];
 
 const GALLERY_SERVICES = new Set([...Object.keys(GALLERY_PHOTOS), ...Object.keys(GALLERY_COUNTS)]);
 
@@ -167,8 +184,44 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         </section>
       )}
 
+      {/* Brochures — how it works, in lieu of a portfolio gallery */}
+      {slug === "brochures" && (
+        <section className="px-6 md:px-16 lg:px-24 pb-24 max-w-[1600px] mx-auto w-full">
+          <FadeUp>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              How It Works
+            </p>
+          </FadeUp>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+            {BROCHURE_STEPS.map((step, i) => (
+              <FadeUp key={step.title} delay={0.05 * i}>
+                <div className="border border-white/10 p-6 h-full">
+                  <span className="text-xs tracking-[3px] uppercase text-white/30 block mb-4">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="text-sm tracking-[2px] uppercase font-semibold mb-2">{step.title}</h3>
+                  <p className="text-white/50 text-sm leading-relaxed">{step.body}</p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+
+          <FadeUp>
+            <div className="border border-white/15 bg-white/[0.03] py-14 px-6 text-center">
+              <p className="text-[clamp(32px,6vw,56px)] font-black tracking-tight uppercase leading-none mb-3">
+                Coming Soon
+              </p>
+              <p className="text-white/50 text-sm max-w-md mx-auto">
+                The in-portal brochure builder is on the way. Have a listing that needs one now? Reach out and we&apos;ll take care of it.
+              </p>
+            </div>
+          </FadeUp>
+        </section>
+      )}
+
       {/* Gallery */}
-      {GALLERY_SERVICES.has(slug) && (
+      {slug !== "brochures" && GALLERY_SERVICES.has(slug) && (
         <section className="px-6 md:px-16 lg:px-24 pb-24 max-w-[1600px] mx-auto w-full">
           <FadeUp>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
