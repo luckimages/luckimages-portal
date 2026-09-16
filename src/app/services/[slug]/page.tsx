@@ -65,6 +65,7 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
     "2506CarlowDr-10.jpg", "315RingtailStreamDr-17.jpg", "1008ConcordiaDr-27.jpg",
     "593CrosswaterLn-31.jpg", "5409Hitcherbend-18.jpg", "6701BackBayLn-15.jpg",
     "1005PartidaTrail-19.jpg", "2506CarlowDr-11.jpg", "6701BackBayLn-17.jpg",
+    "104WesthavenDrive-11.jpg", "800embassy212-9.jpg", "593CrosswaterLn-59.jpg", "593CrosswaterLn-16.jpg",
   ],
   "drone": [
     "drone-1.jpg", "1802MapleDrone-2.jpg", "1136CountyRoad484Drone-5.jpg",
@@ -80,12 +81,7 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
 
 // Filenames confirmed to have existed on the original site but not found
 // on disk -- shown as labeled placeholders so it's obvious what to look for.
-const MISSING_PHOTOS: Record<string, string[]> = {
-  "listing-photos": [
-    "800EmbassyDr212-8.jpg", "5908backbay_exterior-5.jpg",
-    "10305channelisland-9.jpg", "website_redo_small-9.jpg",
-  ],
-};
+const MISSING_PHOTOS: Record<string, string[]> = {};
 
 // Placeholder counts for services with no source photos recovered at all.
 const GALLERY_COUNTS: Record<string, number> = {};
