@@ -81,6 +81,14 @@ function csvCell(v: string): string {
   return `"${v.replace(/"/g, '""')}"`;
 }
 
+// Blue = sent but no click yet, yellow = clicked, green = registered —
+// whichever is furthest along wins, regardless of the others' state.
+function statusColor(r: { clickedAt: string | null; registeredAt: string | null }): string {
+  if (r.registeredAt) return "#4ade80";
+  if (r.clickedAt) return "#fbbf24";
+  return "#60a5fa";
+}
+
 export default function InviteAllPage() {
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -94,6 +102,9 @@ export default function InviteAllPage() {
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [batchDetail, setBatchDetail] = useState<ContactFunnelRow[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [notClickedOpen, setNotClickedOpen] = useState(false);
+  const [perContactOpen, setPerContactOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<"status" | "alpha" | "time">("status");
 
   useEffect(() => {
     async function load() {
@@ -383,6 +394,8 @@ export default function InviteAllPage() {
   const registeredCount = batchDetail.filter(r => r.clickedAt && r.registeredAt).length;
   const notClicked = batchDetail.filter(r => !r.clickedAt);
   const sortedDetail = [...batchDetail].sort((a, b) => {
+    if (sortMode === "alpha") return a.name.localeCompare(b.name);
+    if (sortMode === "time") return a.sentAt.localeCompare(b.sentAt);
     const rank = (r: ContactFunnelRow) => (r.registeredAt ? 2 : r.clickedAt ? 1 : 0);
     return rank(b) - rank(a);
   });
@@ -427,6 +440,196 @@ export default function InviteAllPage() {
             Send personalized portal invite emails to past clients who don&apos;t have an account yet.
             Each gets a personalized link to create their account.
           </p>
+        </div>
+
+        {/* Results */}
+        <div className="mb-12">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Results
+          </p>
+
+          {batches.length === 0 ? (
+            <p className="text-xs text-[#444]">No invites sent yet — send your first batch below to see results here.</p>
+          ) : (
+            <>
+              {/* Batch picker */}
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+                {batches.map(b => (
+                  <button
+                    key={b.batchId}
+                    onClick={() => setActiveBatchId(b.batchId)}
+                    className={`shrink-0 text-left px-4 py-2 border text-xs transition-colors ${b.batchId === activeBatchId ? "border-white bg-white/10" : "border-white/10 text-[#666] hover:border-white/30"}`}
+                  >
+                    <p>{fmtDateTime(b.sentAt)} · {b.recipientCount} recipient{b.recipientCount !== 1 ? "s" : ""}</p>
+                    <p className="text-[10px] text-[#555] uppercase tracking-wide">by {b.sentBy}</p>
+                  </button>
+                ))}
+              </div>
+
+              {detailLoading ? (
+                <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
+              ) : (
+                <>
+                  {/* Funnel */}
+                  <div className="border border-white/10 p-6 flex flex-col md:flex-row items-stretch gap-4 mb-6">
+                    {[
+                      { label: "Sent", value: sentCount, color: "#a78bfa" },
+                      { label: "Clicked", value: clickedCount, color: "#60a5fa" },
+                      { label: "Registered", value: registeredCount, color: "#4ade80" },
+                    ].map((stage, i, arr) => {
+                      const prev = i > 0 ? arr[i - 1].value : null;
+                      const rate = prev && prev > 0 ? Math.round((stage.value / prev) * 100) : null;
+                      return (
+                        <div key={stage.label} className="flex items-center gap-4 flex-1">
+                          <div className="flex-1 text-center">
+                            <p className="text-3xl font-black" style={{ color: stage.color }}>{stage.value.toLocaleString()}</p>
+                            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">{stage.label}</p>
+                            {rate !== null && <p className="text-[10px] text-[#444] mt-1">{rate}% of previous</p>}
+                          </div>
+                          {i < arr.length - 1 && <span className="text-[#333] text-lg">→</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Not yet clicked — collapsible */}
+                  {notClicked.length > 0 && (
+                    <div className="border border-white/10 p-5 mb-6">
+                      <div className="flex items-center justify-between">
+                        <button onClick={() => setNotClickedOpen(o => !o)} className="flex items-center gap-2 text-[10px] tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">
+                          <span className={`inline-block transition-transform ${notClickedOpen ? "rotate-90" : ""}`}>▸</span>
+                          Not Yet Clicked ({notClicked.length})
+                        </button>
+                        <button onClick={resendAllUnclicked} disabled={sending} className="text-[10px] tracking-wide uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
+                          Resend All
+                        </button>
+                      </div>
+                      {notClickedOpen && (
+                        <div className="divide-y divide-white/5 mt-3">
+                          {notClicked.map(r => (
+                            <div key={r.contactId} className="flex items-center justify-between py-2">
+                              <div>
+                                <p className="text-sm">{r.name}</p>
+                                <p className="text-xs text-[#555]">{r.email}</p>
+                              </div>
+                              <button onClick={() => resendTo(r)} disabled={sending} className="text-[10px] tracking-wide uppercase text-[#666] hover:text-white transition-colors disabled:opacity-40">
+                                Resend
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Location + device breakdown */}
+                  {clickedCount > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      <div className="border border-white/10 p-5">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">By Location</p>
+                        <div className="space-y-1.5">
+                          {locationBreakdown.map(([label, count]) => (
+                            <div key={label} className="flex items-center justify-between text-xs">
+                              <span className="text-white/80">{label}</span>
+                              <span className="text-[#a78bfa] font-semibold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="border border-white/10 p-5">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">By Device</p>
+                        <div className="space-y-1.5">
+                          {deviceBreakdown.map(([label, count]) => (
+                            <div key={label} className="flex items-center justify-between text-xs">
+                              <span className="text-white/80">{label}</span>
+                              <span className="text-[#a78bfa] font-semibold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Per-contact table — collapsible */}
+                  <div className="border border-white/10">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 flex-wrap gap-3">
+                      <button onClick={() => setPerContactOpen(o => !o)} className="flex items-center gap-2 text-[10px] tracking-[2px] uppercase text-[#555] hover:text-white transition-colors">
+                        <span className={`inline-block transition-transform ${perContactOpen ? "rotate-90" : ""}`}>▸</span>
+                        Per Contact ({batchDetail.length})
+                      </button>
+                      <div className="flex items-center gap-4">
+                        {perContactOpen && (
+                          <div className="flex items-center gap-1">
+                            {([
+                              { key: "status", label: "Status" },
+                              { key: "alpha", label: "A–Z" },
+                              { key: "time", label: "Sent Time" },
+                            ] as const).map(opt => (
+                              <button
+                                key={opt.key}
+                                onClick={() => setSortMode(opt.key)}
+                                className={`text-[9px] tracking-wide uppercase px-2 py-1 border transition-colors ${sortMode === opt.key ? "border-white text-white" : "border-white/10 text-[#555] hover:text-white hover:border-white/30"}`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button onClick={exportCsv} className="text-[10px] tracking-wide uppercase text-[#666] hover:text-white transition-colors">
+                          Export CSV
+                        </button>
+                      </div>
+                    </div>
+                    {perContactOpen && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-[10px] tracking-wide uppercase text-[#555] border-b border-white/5">
+                              <th className="text-left px-5 py-2 font-normal">Name</th>
+                              <th className="text-left px-3 py-2 font-normal">Sent</th>
+                              <th className="text-left px-3 py-2 font-normal">Clicked</th>
+                              <th className="text-left px-3 py-2 font-normal">Dwell</th>
+                              <th className="text-left px-3 py-2 font-normal">Registered</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {sortedDetail.map(r => (
+                              <tr key={r.contactId}>
+                                <td className="px-5 py-2.5" style={{ boxShadow: `inset 3px 0 0 0 ${statusColor(r)}` }}>
+                                  <p className="text-white">{r.name}</p>
+                                  <p className="text-[#555]">{r.email}</p>
+                                </td>
+                                <td className="px-3 py-2.5 text-[#888]">{fmtDate(r.sentAt)}</td>
+                                <td className="px-3 py-2.5">
+                                  {r.clickedAt ? (
+                                    <>
+                                      <p className="text-[#60a5fa]">{fmtDate(r.clickedAt)}</p>
+                                      <p className="text-[#444]">{fmtElapsed(r.sentAt, r.clickedAt)} after send</p>
+                                    </>
+                                  ) : <span className="text-[#444]">—</span>}
+                                </td>
+                                <td className="px-3 py-2.5 text-[#888]">
+                                  {r.dwellSeconds != null ? fmtDwell(r.dwellSeconds) : r.clickedAt ? <span className="text-[#444]">in progress</span> : <span className="text-[#444]">—</span>}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  {r.registeredAt ? (
+                                    <>
+                                      <p className="text-[#4ade80]">{fmtDate(r.registeredAt)}</p>
+                                      <p className="text-[#444]">{fmtElapsed(r.sentAt, r.registeredAt)} after send</p>
+                                    </>
+                                  ) : <span className="text-[#444]">—</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         {/* Stats + actions */}
@@ -536,167 +739,6 @@ export default function InviteAllPage() {
         )}
 
         <p className="text-[10px] text-[#333] mt-4">Only showing contacts with emails who haven&apos;t signed up yet. Contacts already in the portal are excluded.</p>
-
-        {/* Results */}
-        <div className="mt-16">
-          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
-            Results
-          </p>
-
-          {batches.length === 0 ? (
-            <p className="text-xs text-[#444]">No invites sent yet — send your first batch above to see results here.</p>
-          ) : (
-            <>
-              {/* Batch picker */}
-              <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
-                {batches.map(b => (
-                  <button
-                    key={b.batchId}
-                    onClick={() => setActiveBatchId(b.batchId)}
-                    className={`shrink-0 text-left px-4 py-2 border text-xs transition-colors ${b.batchId === activeBatchId ? "border-white bg-white/10" : "border-white/10 text-[#666] hover:border-white/30"}`}
-                  >
-                    <p>{fmtDateTime(b.sentAt)} · {b.recipientCount} recipient{b.recipientCount !== 1 ? "s" : ""}</p>
-                    <p className="text-[10px] text-[#555] uppercase tracking-wide">by {b.sentBy}</p>
-                  </button>
-                ))}
-              </div>
-
-              {detailLoading ? (
-                <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
-              ) : (
-                <>
-                  {/* Funnel */}
-                  <div className="border border-white/10 p-6 flex flex-col md:flex-row items-stretch gap-4 mb-6">
-                    {[
-                      { label: "Sent", value: sentCount, color: "#a78bfa" },
-                      { label: "Clicked", value: clickedCount, color: "#60a5fa" },
-                      { label: "Registered", value: registeredCount, color: "#4ade80" },
-                    ].map((stage, i, arr) => {
-                      const prev = i > 0 ? arr[i - 1].value : null;
-                      const rate = prev && prev > 0 ? Math.round((stage.value / prev) * 100) : null;
-                      return (
-                        <div key={stage.label} className="flex items-center gap-4 flex-1">
-                          <div className="flex-1 text-center">
-                            <p className="text-3xl font-black" style={{ color: stage.color }}>{stage.value.toLocaleString()}</p>
-                            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">{stage.label}</p>
-                            {rate !== null && <p className="text-[10px] text-[#444] mt-1">{rate}% of previous</p>}
-                          </div>
-                          {i < arr.length - 1 && <span className="text-[#333] text-lg">→</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Not yet clicked */}
-                  {notClicked.length > 0 && (
-                    <div className="border border-white/10 p-5 mb-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Not Yet Clicked ({notClicked.length})</p>
-                        <button onClick={resendAllUnclicked} disabled={sending} className="text-[10px] tracking-wide uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
-                          Resend All
-                        </button>
-                      </div>
-                      <div className="divide-y divide-white/5">
-                        {notClicked.map(r => (
-                          <div key={r.contactId} className="flex items-center justify-between py-2">
-                            <div>
-                              <p className="text-sm">{r.name}</p>
-                              <p className="text-xs text-[#555]">{r.email}</p>
-                            </div>
-                            <button onClick={() => resendTo(r)} disabled={sending} className="text-[10px] tracking-wide uppercase text-[#666] hover:text-white transition-colors disabled:opacity-40">
-                              Resend
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Location + device breakdown */}
-                  {clickedCount > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                      <div className="border border-white/10 p-5">
-                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">By Location</p>
-                        <div className="space-y-1.5">
-                          {locationBreakdown.map(([label, count]) => (
-                            <div key={label} className="flex items-center justify-between text-xs">
-                              <span className="text-white/80">{label}</span>
-                              <span className="text-[#a78bfa] font-semibold">{count}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="border border-white/10 p-5">
-                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">By Device</p>
-                        <div className="space-y-1.5">
-                          {deviceBreakdown.map(([label, count]) => (
-                            <div key={label} className="flex items-center justify-between text-xs">
-                              <span className="text-white/80">{label}</span>
-                              <span className="text-[#a78bfa] font-semibold">{count}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Per-contact table */}
-                  <div className="border border-white/10">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
-                      <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Per Contact</p>
-                      <button onClick={exportCsv} className="text-[10px] tracking-wide uppercase text-[#666] hover:text-white transition-colors">
-                        Export CSV
-                      </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-[10px] tracking-wide uppercase text-[#555] border-b border-white/5">
-                            <th className="text-left px-5 py-2 font-normal">Name</th>
-                            <th className="text-left px-3 py-2 font-normal">Sent</th>
-                            <th className="text-left px-3 py-2 font-normal">Clicked</th>
-                            <th className="text-left px-3 py-2 font-normal">Dwell</th>
-                            <th className="text-left px-3 py-2 font-normal">Registered</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {sortedDetail.map(r => (
-                            <tr key={r.contactId}>
-                              <td className="px-5 py-2.5">
-                                <p className="text-white">{r.name}</p>
-                                <p className="text-[#555]">{r.email}</p>
-                              </td>
-                              <td className="px-3 py-2.5 text-[#888]">{fmtDate(r.sentAt)}</td>
-                              <td className="px-3 py-2.5">
-                                {r.clickedAt ? (
-                                  <>
-                                    <p className="text-[#60a5fa]">{fmtDate(r.clickedAt)}</p>
-                                    <p className="text-[#444]">{fmtElapsed(r.sentAt, r.clickedAt)} after send</p>
-                                  </>
-                                ) : <span className="text-[#444]">—</span>}
-                              </td>
-                              <td className="px-3 py-2.5 text-[#888]">
-                                {r.dwellSeconds != null ? fmtDwell(r.dwellSeconds) : r.clickedAt ? <span className="text-[#444]">in progress</span> : <span className="text-[#444]">—</span>}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                {r.registeredAt ? (
-                                  <>
-                                    <p className="text-[#4ade80]">{fmtDate(r.registeredAt)}</p>
-                                    <p className="text-[#444]">{fmtElapsed(r.sentAt, r.registeredAt)} after send</p>
-                                  </>
-                                ) : <span className="text-[#444]">—</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
       </div>
     </main>
   );
