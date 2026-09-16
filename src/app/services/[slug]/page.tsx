@@ -105,6 +105,25 @@ const BROCHURE_STEPS = [
   },
 ];
 
+const MATTERPORT_STEPS = [
+  {
+    title: "We scan the space",
+    body: "During your shoot, our Matterport camera captures every room in full 3D — no extra time added to your appointment.",
+  },
+  {
+    title: "The tour gets processed",
+    body: "Matterport stitches the scan into an immersive, walkable dollhouse view buyers can explore room by room.",
+  },
+  {
+    title: "You get a shareable link",
+    body: "Drop the tour straight into the MLS, Zillow, your listing site, or social — no app or download required for buyers.",
+  },
+  {
+    title: "Buyers explore anytime",
+    body: "Self-guided 3D tours qualify buyers before they ever step inside, so the showings you do take are the ones that count.",
+  },
+];
+
 const GALLERY_SERVICES = new Set([...Object.keys(GALLERY_PHOTOS), ...Object.keys(GALLERY_COUNTS)]);
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -218,8 +237,70 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         </section>
       )}
 
+      {/* Matterport — how it works, why it's a great add-on, in lieu of a portfolio gallery */}
+      {slug === "matterport" && (
+        <section className="px-6 md:px-16 lg:px-24 pb-24 max-w-[1600px] mx-auto w-full">
+          <FadeUp>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              How It Works
+            </p>
+          </FadeUp>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+            {MATTERPORT_STEPS.map((step, i) => (
+              <FadeUp key={step.title} delay={0.05 * i}>
+                <div className="border border-white/10 p-6 h-full">
+                  <span className="text-xs tracking-[3px] uppercase text-white/30 block mb-4">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="text-sm tracking-[2px] uppercase font-semibold mb-2">{step.title}</h3>
+                  <p className="text-white/50 text-sm leading-relaxed">{step.body}</p>
+                </div>
+              </FadeUp>
+            ))}
+          </div>
+
+          <FadeUp>
+            <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+              Why It's Worth It
+            </p>
+          </FadeUp>
+          <div className="grid sm:grid-cols-3 gap-8 mb-16">
+            <FadeUp delay={0.05}>
+              <div className="border border-white/10 p-6 h-full">
+                <h3 className="text-sm tracking-[2px] uppercase font-semibold mb-2">Fewer Wasted Showings</h3>
+                <p className="text-white/50 text-sm leading-relaxed">Buyers walk through remotely first, so the people who show up in person are already sold on the space.</p>
+              </div>
+            </FadeUp>
+            <FadeUp delay={0.1}>
+              <div className="border border-white/10 p-6 h-full">
+                <h3 className="text-sm tracking-[2px] uppercase font-semibold mb-2">Listings Stand Out</h3>
+                <p className="text-white/50 text-sm leading-relaxed">A 3D tour signals a premium listing and keeps buyers on your page longer than photos alone.</p>
+              </div>
+            </FadeUp>
+            <FadeUp delay={0.15}>
+              <div className="border border-white/10 p-6 h-full">
+                <h3 className="text-sm tracking-[2px] uppercase font-semibold mb-2">Reaches Out-of-Town Buyers</h3>
+                <p className="text-white/50 text-sm leading-relaxed">Relocating or out-of-state buyers can explore every room from anywhere, no flight required.</p>
+              </div>
+            </FadeUp>
+          </div>
+
+          <FadeUp>
+            <div className="border border-white/15 bg-white/[0.03] py-14 px-6 text-center">
+              <p className="text-[clamp(32px,6vw,56px)] font-black tracking-tight uppercase leading-none mb-3">
+                Coming Soon
+              </p>
+              <p className="text-white/50 text-sm max-w-md mx-auto">
+                In-portal Matterport booking is on the way. Need a 3D tour for a listing now? Reach out and we&apos;ll get it scheduled.
+              </p>
+            </div>
+          </FadeUp>
+        </section>
+      )}
+
       {/* Gallery */}
-      {slug !== "brochures" && GALLERY_SERVICES.has(slug) && (
+      {slug !== "brochures" && slug !== "matterport" && GALLERY_SERVICES.has(slug) && (
         <section className="px-6 md:px-16 lg:px-24 pb-24 max-w-[1600px] mx-auto w-full">
           <FadeUp>
             <p className="text-xs tracking-[4px] uppercase text-[#555] mb-8 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
