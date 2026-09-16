@@ -71,7 +71,10 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
     "1107CountryRoad322Drone-3.jpg", "197BristleconeDr-Drone-15.jpg",
     "104WesthavenDrone-5.jpg", "116MallardDrone-2.jpg", "aerial-8.jpg",
   ],
-  "twilight": ["WebTwilight-2.jpg", "WebTwilight-3.jpg"],
+  "twilight": [
+    "WebTwilight-2.jpg", "WebTwilight-3.jpg",
+    "15101JosephDr-1.jpg", "guartwilight-1.jpg", "11121SavinTwilight-1.jpg", "15101JosephDr-49.jpg",
+  ],
   "floorplans": ["web-floorplan-1.jpg", "web-floorplan-2.jpg", "web-floorplan-3.jpg", "web-floorplan-4.jpg"],
 };
 
@@ -82,7 +85,6 @@ const MISSING_PHOTOS: Record<string, string[]> = {
     "800EmbassyDr212-8.jpg", "5908backbay_exterior-5.jpg",
     "10305channelisland-9.jpg", "website_redo_small-9.jpg",
   ],
-  "twilight": ["WebTwilight-1.jpg", "WebTwilight-4.jpg", "WebTwilight-11.jpg", "WebTwilight-12.jpg"],
 };
 
 // Placeholder counts for services with no source photos recovered at all.
