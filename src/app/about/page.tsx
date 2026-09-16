@@ -110,13 +110,13 @@ export default function AboutPage() {
                 <h2 className="text-4xl font-black tracking-tight uppercase mb-6">Leif Tilton</h2>
               </div>
               <p className="text-[#888] leading-relaxed">
-                Leif Tilton serves as Chief Operating Officer of Luck Images, overseeing the day-to-day operations that keep the team running smoothly for clients across Austin. From scheduling and logistics to client relationships, Leif makes sure every shoot is delivered on time and to the standard agents expect.
+                Leif Tilton serves as Chief Operating Officer at Luck Images, overseeing the business and client experience that supports the company's growing team and its Real Estate clients throughout the greater Austin area.
               </p>
               <p className="text-[#888] leading-relaxed">
-                With a background rooted in Real Estate and a sharp eye for operational detail, Leif works closely with Ryan to grow Luck Images while keeping the client experience simple and reliable.
+                With a background in management and team leadership, Leif brings an organized, relationship-focused approach to the business. His focus is on making every part of the Luck Images experience simple and reliable, from the first point of contact and scheduling to communication, delivery, and ongoing client relationships.
               </p>
               <p className="text-[#888] leading-relaxed">
-                Leif's focus is on the systems behind the scenes, so every agent gets a seamless experience from booking to delivery.
+                Leif works closely with the Luck Images team to strengthen operations, develop client relationships, and build systems that allow the company to continue growing while maintaining the quality and personal service its clients expect.
               </p>
             </div>
           </div>
