@@ -998,38 +998,66 @@ export default function ClientPage() {
         )}
 
         {/* TEAM */}
-        {tab === "team" && (
-          <div className="max-w-2xl flex flex-col gap-6">
-            {!team ? (
-              <div className="bg-[#111] border border-white/10 p-8 flex flex-col gap-4">
-                <div>
-                  <h2 className="text-xl font-black uppercase tracking-tight mb-2">Start a Team</h2>
-                  <p className="text-sm text-[#666]">Share shoots, media, and invoices with your teammates — each with their own login. You'll be the team lead, able to manage members and team details.</p>
+        {tab === "team" && (!team ? (
+          <div className="w-full flex flex-col items-center gap-10">
+            {/* Explainer — full width, so it reads like an intro to the
+                feature rather than instructions crammed above a form. */}
+            <div className="max-w-2xl text-center flex flex-col gap-4">
+              <h2 className="text-2xl font-black uppercase tracking-tight">What's a Team?</h2>
+              <p className="text-sm text-[#888] leading-relaxed">
+                A Team shares one view of your shoots, photos/videos, and invoices with everyone
+                on it — built for agents who work together on the same listings, or brokers who
+                want their whole group in one place. Instead of forwarding galleries and invoices
+                back and forth, everyone just logs into their own account and sees the same shared
+                history.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-4 text-left mt-2">
+                <div className="bg-[#111] border border-white/10 p-4">
+                  <p className="text-xs tracking-[2px] uppercase text-[#4ade80] mb-1.5">Shared Access</p>
+                  <p className="text-xs text-[#666] leading-relaxed">Every shoot, photo/video gallery, and invoice on the team is visible to all its members — no re-sending files.</p>
                 </div>
-                <form onSubmit={async e => {
-                  e.preventDefault();
-                  setCreatingTeam(true);
-                  const res = await fetch("/api/portal/team", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ teamName: newTeamName, inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
-                  });
-                  if (res.ok) {
-                    setTeamInviteStatus("sent");
-                    fetch("/api/portal/team").then(r => r.json()).then(d => { if (d.members) setTeamMembers(d.members); if (d.myRole) setMyTeamRole(d.myRole); if (d.team) setTeam(d.team); });
-                  }
-                  setCreatingTeam(false);
-                }} className="flex flex-col gap-3">
-                  <input required value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name (e.g. The Horn Co Team)" className={inputCls} />
-                  <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-2">First teammate to invite</p>
-                  <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
-                  <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
-                  <button type="submit" disabled={creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
-                    {creatingTeam ? "Creating..." : "Create Team & Send Invite →"}
-                  </button>
-                </form>
+                <div className="bg-[#111] border border-white/10 p-4">
+                  <p className="text-xs tracking-[2px] uppercase text-[#4ade80] mb-1.5">Own Logins</p>
+                  <p className="text-xs text-[#666] leading-relaxed">Invite teammates by email — each person registers their own account, not a shared password.</p>
+                </div>
+                <div className="bg-[#111] border border-white/10 p-4">
+                  <p className="text-xs tracking-[2px] uppercase text-[#4ade80] mb-1.5">One Lead</p>
+                  <p className="text-xs text-[#666] leading-relaxed">Whoever creates the team is its Lead — the only one who can rename it, set a logo, or remove members. Leadership can be handed off later.</p>
+                </div>
               </div>
-            ) : (
+            </div>
+
+            <div className="bg-[#111] border border-white/10 p-8 flex flex-col gap-4 w-full max-w-md">
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight mb-2">Start a Team</h3>
+                <p className="text-sm text-[#666]">You'll be the team lead, able to manage members and team details.</p>
+              </div>
+              <form onSubmit={async e => {
+                e.preventDefault();
+                setCreatingTeam(true);
+                const res = await fetch("/api/portal/team", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ teamName: newTeamName, inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
+                });
+                if (res.ok) {
+                  setTeamInviteStatus("sent");
+                  fetch("/api/portal/team").then(r => r.json()).then(d => { if (d.members) setTeamMembers(d.members); if (d.myRole) setMyTeamRole(d.myRole); if (d.team) setTeam(d.team); });
+                }
+                setCreatingTeam(false);
+              }} className="flex flex-col gap-3">
+                <input required value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name (e.g. The Horn Co Team)" className={inputCls} />
+                <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-2">First teammate to invite</p>
+                <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
+                <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
+                <button type="submit" disabled={creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                  {creatingTeam ? "Creating..." : "Create Team & Send Invite →"}
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-2xl flex flex-col gap-6">
               <>
                 {teamActionError && (
                   <div className="bg-red-400/10 border border-red-400/20 p-3">
@@ -1156,9 +1184,8 @@ export default function ClientPage() {
                   )}
                 </div>
               </>
-            )}
           </div>
-        )}
+        ))}
 
         {/* SHOOT LOG */}
         {tab === "gallery" && (
