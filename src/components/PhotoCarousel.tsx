@@ -52,7 +52,7 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
               <img
                 src={p.src}
                 alt={p.alt || ""}
-                className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                className="absolute inset-0 w-full h-full object-contain hover:scale-105 transition-transform duration-500"
                 draggable={false}
               />
             ) : (
@@ -98,7 +98,7 @@ export default function PhotoCarousel({ photos }: { photos: Photo[] }) {
             style={{ aspectRatio: "3/2" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <img src={current.src} alt="" className="w-full h-full object-cover" draggable={false} />
+            <img src={current.src} alt="" className="w-full h-full object-contain" draggable={false} />
             <p className="absolute -bottom-7 left-0 right-0 text-center text-xs tracking-[2px] text-white/30 uppercase">
               {lightboxIndex! + 1} / {photos.length}
             </p>
