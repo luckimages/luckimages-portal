@@ -272,7 +272,7 @@ export default function InviteAllPage() {
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
         <tr><td style="border:1px solid rgba(255,255,255,0.15);padding:40px;background:rgba(12,12,12,0.55);">
           <h1 style="margin:0 0 20px;font-size:22px;font-weight:900;letter-spacing:-0.5px;text-transform:uppercase;color:#fff;">
-            Luck Images's New Client Portal
+            Luck Images<br />New Realtor Portal
           </h1>
           <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#888;">
             You're invited, ${firstName}.
