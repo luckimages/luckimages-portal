@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 const STATS = [
   { value: "6", label: "Years in Business" },
   { value: "800+", label: "Properties Shot" },
-  { value: "1.4M", label: "SQFT Captured" },
+  { value: "1.4M", label: "SQ FT Captured" },
   { value: "24hr", label: "Turnaround" },
 ];
 
