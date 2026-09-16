@@ -267,16 +267,16 @@ export default function InviteAllPage() {
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#0c0c0c;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0c0c0c;">
+  <table width="100%" cellpadding="0" cellspacing="0" background="${SITE_URL}/hero-1.jpg" style="background-color:#0c0c0c;background-image:linear-gradient(rgba(12,12,12,0.72),rgba(12,12,12,0.72)),url('${SITE_URL}/hero-1.jpg');background-size:cover;background-position:center;">
     <tr><td align="center" style="padding:48px 24px;">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
-        <tr><td style="padding-bottom:28px;">
-          <p style="margin:0;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#444;">Luck Images — Client Portal</p>
-        </td></tr>
-        <tr><td style="border:1px solid rgba(255,255,255,0.1);padding:40px;">
+        <tr><td style="border:1px solid rgba(255,255,255,0.15);padding:40px;background:rgba(12,12,12,0.55);">
           <h1 style="margin:0 0 20px;font-size:22px;font-weight:900;letter-spacing:-0.5px;text-transform:uppercase;color:#fff;">
-            You're Invited, ${firstName}
+            Luck Images's New Client Portal
           </h1>
+          <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#888;">
+            You're invited, ${firstName}.
+          </p>
           <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#888;">
             I've built a private client portal for Luck Images — a hub where you can view all your past shoots, download delivered photos, and track invoices in one place.
           </p>
