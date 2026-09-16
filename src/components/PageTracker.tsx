@@ -54,9 +54,12 @@ export default function PageTracker() {
       .then(({ data }) => data.user ?? null)
       .catch(() => null)
       .then((user) => {
-        // Don't track Ryan/Leif's own visits at all -- skips both the
+        // Don't track Ryan/Leif's own incidental browsing -- skips both the
         // analytics noise and any need to filter it out after the fact.
-        if (user?.email && ADMIN_EMAILS.includes(user.email)) return null;
+        // Exception: a visit attributed to a tracked link (?lc=) is a
+        // deliberate test of that link, not incidental browsing, so it
+        // still needs a page_views row or dwell time can never show up.
+        if (user?.email && ADMIN_EMAILS.includes(user.email) && !linkClickId) return null;
 
         return fetch("/api/track-pageview", {
           method: "POST",
