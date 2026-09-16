@@ -53,10 +53,6 @@ export default function ContactPage() {
         <p className="text-xs tracking-[4px] uppercase text-[#666] mb-4">Get In Touch</p>
         <h1 className="text-[clamp(40px,6vw,80px)] font-black tracking-tight leading-none uppercase mb-6">Let's Work Together</h1>
         <p className="text-[#666] text-lg whitespace-nowrap">Fill out the form below and a member of our team will reach out shortly.</p>
-        <p className="text-[#666] text-sm mt-3">
-          Or call <a href="tel:5123751585" className="text-white/70 hover:text-white transition-colors">(512) 375-1585</a>
-          {" "}or email <a href="mailto:ryan@luckimages.com" className="text-white/70 hover:text-white transition-colors">ryan@luckimages.com</a>
-        </p>
       </FadeUp>
 
       <FadeUp delay={0.1} className="flex-1 px-6 pb-24 max-w-3xl mx-auto w-full">
