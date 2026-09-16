@@ -11,6 +11,7 @@ const CONTACT_REF_TABLES = [
   { table: "cold_calls",  col: "contact_id" },
   { table: "messages",    col: "contact_id" },
   { table: "quotes",      col: "contact_id" },
+  { table: "mass_invite_sends", col: "contact_id" },
 ];
 
 export async function POST(req: Request) {

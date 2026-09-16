@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 const supabase = createClient();
+const SITE_URL = "https://www.luckimages.com";
+const COOLDOWN_DAYS = 7;
 
 type Contact = {
   id: string;
@@ -17,7 +19,67 @@ type Contact = {
   user_id: string | null;
 };
 
+type InviteTarget = { id: string; name: string; email: string; phone: string | null };
+
 type InviteStatus = "idle" | "pending" | "done" | "error";
+
+type SendRow = { id: string; batch_id: string; contact_id: string; sent_by: string; sent_at: string };
+
+type ClickRow = { id: string; contact_id: string; clicked_at: string };
+
+type ViewRow = {
+  link_click_id: string | null;
+  duration_seconds: number | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  user_agent: string | null;
+};
+
+type BatchSummary = { batchId: string; sentBy: string; sentAt: string; recipientCount: number };
+
+type ContactFunnelRow = {
+  contactId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  sentAt: string;
+  clickedAt: string | null;
+  dwellSeconds: number | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  device: string | null;
+  registeredAt: string | null;
+};
+
+function coarseDevice(ua: string | null): string {
+  if (!ua) return "Unknown";
+  if (/iPad/i.test(ua)) return "iPad";
+  if (/iPhone/i.test(ua)) return "iPhone";
+  if (/Android/i.test(ua)) return "Android";
+  if (/Macintosh/i.test(ua)) return "Mac";
+  if (/Windows/i.test(ua)) return "Windows";
+  return "Other";
+}
+
+// How long after send a contact clicked or registered — surfaces fast
+// responders as the hottest leads.
+function fmtElapsed(fromIso: string, toIso: string): string {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  if (ms < 0) return "—";
+  const mins = Math.round(ms / 60000);
+  if (mins < 1) return "<1m";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ${mins % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
+
+function csvCell(v: string): string {
+  return `"${v.replace(/"/g, '""')}"`;
+}
 
 export default function InviteAllPage() {
   const router = useRouter();
@@ -27,6 +89,11 @@ export default function InviteAllPage() {
   const [statuses, setStatuses] = useState<Record<string, InviteStatus>>({});
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);
+
+  const [sends, setSends] = useState<SendRow[]>([]);
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [batchDetail, setBatchDetail] = useState<ContactFunnelRow[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -42,34 +109,130 @@ export default function InviteAllPage() {
         .order("total_revenue", { ascending: false, nullsFirst: false });
       setContacts((data || []).filter(c => c.email));
       setLoading(false);
+      await loadSends();
     }
     load();
   }, []);
 
-  function toggleAll() {
-    if (selected.size === contacts.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(contacts.map(c => c.id)));
+  async function loadSends() {
+    const { data } = await supabase
+      .from("mass_invite_sends")
+      .select("id, batch_id, contact_id, sent_by, sent_at")
+      .order("sent_at", { ascending: false })
+      .limit(2000);
+    const rows = (data || []) as SendRow[];
+    setSends(rows);
+    if (rows.length > 0) setActiveBatchId(prev => prev ?? rows[0].batch_id);
+  }
+
+  const batches: BatchSummary[] = (() => {
+    const byBatch = new Map<string, SendRow[]>();
+    for (const r of sends) {
+      const list = byBatch.get(r.batch_id);
+      if (list) list.push(r); else byBatch.set(r.batch_id, [r]);
     }
+    return [...byBatch.entries()]
+      .map(([batchId, rows]) => ({
+        batchId,
+        sentBy: rows[0].sent_by,
+        sentAt: rows.reduce((min, r) => (r.sent_at < min ? r.sent_at : min), rows[0].sent_at),
+        recipientCount: rows.length,
+      }))
+      .sort((a, b) => b.sentAt.localeCompare(a.sentAt));
+  })();
+
+  // Most recent invite each contact has ever been sent, across all batches —
+  // powers the re-invite cooldown badge in the picker below.
+  const lastSentByContact: Record<string, string> = (() => {
+    const map: Record<string, string> = {};
+    for (const r of sends) {
+      if (!map[r.contact_id] || r.sent_at > map[r.contact_id]) map[r.contact_id] = r.sent_at;
+    }
+    return map;
+  })();
+
+  function cooldownDaysAgo(contactId: string): number | null {
+    const last = lastSentByContact[contactId];
+    if (!last) return null;
+    const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+    return days < COOLDOWN_DAYS ? days : null;
   }
 
-  function toggle(id: string) {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDetail() {
+      if (!activeBatchId) { setBatchDetail([]); return; }
+      setDetailLoading(true);
+      const thisBatchRows = sends.filter(r => r.batch_id === activeBatchId);
+      const contactIds = thisBatchRows.map(r => r.contact_id);
+      if (contactIds.length === 0) { setBatchDetail([]); setDetailLoading(false); return; }
 
-  async function sendInvites() {
-    if (selected.size === 0) return;
+      const [{ data: contactsData }, { data: clicksData }] = await Promise.all([
+        supabase.from("contacts").select("id, name, email, phone, registered_at").in("id", contactIds),
+        supabase.from("link_clicks").select("id, contact_id, clicked_at").eq("service", "portal_invite").in("contact_id", contactIds),
+      ]);
+      const clicks = (clicksData || []) as ClickRow[];
+      const clickIds = clicks.map(c => c.id);
+      const { data: viewsData } = clickIds.length
+        ? await supabase.from("page_views")
+            .select("link_click_id, duration_seconds, country, region, city, user_agent")
+            .in("link_click_id", clickIds)
+        : { data: [] as ViewRow[] };
+      const views = (viewsData || []) as ViewRow[];
+
+      const contactsById: Record<string, { id: string; name: string; email: string; phone: string | null; registered_at: string | null }> =
+        Object.fromEntries((contactsData || []).map(c => [c.id, c]));
+      const viewByClickId: Record<string, ViewRow> = Object.fromEntries(
+        views.filter(v => v.link_click_id).map(v => [v.link_click_id as string, v])
+      );
+
+      const rows: ContactFunnelRow[] = thisBatchRows.map(row => {
+        // A resend produces the exact same tracked URL for that contact (it
+        // encodes contact_id, not batch_id), so a click can't be physically
+        // distinguished as coming from this send vs. an earlier resend —
+        // attribute it to whichever batch's [sent_at, next resend's sent_at)
+        // window it falls in.
+        const nextSentAt = sends
+          .filter(r => r.contact_id === row.contact_id && r.sent_at > row.sent_at)
+          .reduce((min: string | null, r) => (!min || r.sent_at < min ? r.sent_at : min), null);
+
+        const windowClicks = clicks
+          .filter(c => c.contact_id === row.contact_id && c.clicked_at >= row.sent_at && (!nextSentAt || c.clicked_at < nextSentAt))
+          .sort((a, b) => a.clicked_at.localeCompare(b.clicked_at));
+        const firstClick = windowClicks[0] || null;
+        const view = firstClick ? viewByClickId[firstClick.id] : undefined;
+        const contact = contactsById[row.contact_id];
+
+        return {
+          contactId: row.contact_id,
+          name: contact?.name || "—",
+          email: contact?.email || "—",
+          phone: contact?.phone ?? null,
+          sentAt: row.sent_at,
+          clickedAt: firstClick?.clicked_at ?? null,
+          dwellSeconds: view?.duration_seconds ?? null,
+          country: view?.country ?? null,
+          region: view?.region ?? null,
+          city: view?.city ?? null,
+          device: view ? coarseDevice(view.user_agent) : null,
+          registeredAt: contact?.registered_at ?? null,
+        };
+      });
+
+      if (!cancelled) { setBatchDetail(rows); setDetailLoading(false); }
+    }
+    loadDetail();
+    return () => { cancelled = true; };
+  }, [activeBatchId, sends]);
+
+  async function sendToContacts(toInvite: InviteTarget[]) {
+    if (toInvite.length === 0) return;
     setSending(true);
     setSent(0);
 
-    const toInvite = contacts.filter(c => selected.has(c.id));
-
-    const SITE_URL = "https://www.luckimages.com";
+    const { data: { user } } = await supabase.auth.getUser();
+    const senderTag = user?.email?.split("@")[0]?.toLowerCase() || "ryan";
+    const batchId = crypto.randomUUID();
 
     for (const contact of toInvite) {
       setStatuses(s => ({ ...s, [contact.id]: "pending" }));
@@ -81,6 +244,13 @@ export default function InviteAllPage() {
         const params = new URLSearchParams({ contact_id: contact.id, name: contact.name, email: contact.email });
         if (contact.phone) params.set("phone", contact.phone);
         const registerUrl = `${SITE_URL}/register?${params.toString()}`;
+
+        // Route through track-link so the click gets recorded — service
+        // "portal_invite" keeps these queryable separately from other
+        // custom-URL track-link uses (e.g. the Instagram DM generator's
+        // service="instagram-dm" links). The redirect appends ?lc=<id>,
+        // which PageTracker reports dwell time against once they land.
+        const trackedUrl = `${SITE_URL}/api/track-link?url=${encodeURIComponent(registerUrl)}&contact=${contact.id}&service=portal_invite`;
 
         const html = `<!DOCTYPE html>
 <html>
@@ -103,7 +273,7 @@ export default function InviteAllPage() {
             Your info is already on file — just click below to set a password and you're in. Takes about 30 seconds.
           </p>
           <table cellpadding="0" cellspacing="0"><tr><td>
-            <a href="${registerUrl}" style="display:inline-block;background:#fff;color:#000;text-decoration:none;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:14px 32px;">
+            <a href="${trackedUrl}" style="display:inline-block;background:#fff;color:#000;text-decoration:none;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:14px 32px;">
               Create Your Account →
             </a>
           </td></tr></table>
@@ -134,6 +304,14 @@ export default function InviteAllPage() {
         if (!res.ok) throw new Error("Send failed");
         setStatuses(s => ({ ...s, [contact.id]: "done" }));
         setSent(n => n + 1);
+
+        // Best-effort tracking write — a failure here must not flip a
+        // genuinely-sent email to "error" in the UI, so it's caught on its
+        // own, outside the send's own try/catch failure path.
+        const { error: trackErr } = await supabase
+          .from("mass_invite_sends")
+          .insert({ batch_id: batchId, contact_id: contact.id, sent_by: senderTag });
+        if (trackErr) console.error("mass_invite_sends insert failed", trackErr);
       } catch {
         setStatuses(s => ({ ...s, [contact.id]: "error" }));
       }
@@ -143,10 +321,91 @@ export default function InviteAllPage() {
     }
 
     setSending(false);
+    setActiveBatchId(batchId);
+    await loadSends();
+  }
+
+  async function sendInvites() {
+    await sendToContacts(contacts.filter(c => selected.has(c.id)));
+  }
+
+  async function resendTo(row: ContactFunnelRow) {
+    await sendToContacts([{ id: row.contactId, name: row.name, email: row.email, phone: row.phone }]);
+  }
+
+  async function resendAllUnclicked() {
+    const targets = batchDetail
+      .filter(r => !r.clickedAt)
+      .map(r => ({ id: r.contactId, name: r.name, email: r.email, phone: r.phone }));
+    await sendToContacts(targets);
+  }
+
+  function exportCsv() {
+    const header = ["Name", "Email", "Sent At", "Clicked At", "Time to Click", "Dwell (s)", "Registered At", "Time to Register", "Location", "Device"];
+    const rows = batchDetail.map(r => [
+      r.name,
+      r.email,
+      new Date(r.sentAt).toISOString(),
+      r.clickedAt ? new Date(r.clickedAt).toISOString() : "",
+      r.clickedAt ? fmtElapsed(r.sentAt, r.clickedAt) : "",
+      r.dwellSeconds != null ? String(Math.round(r.dwellSeconds)) : "",
+      r.registeredAt ? new Date(r.registeredAt).toISOString() : "",
+      r.registeredAt ? fmtElapsed(r.sentAt, r.registeredAt) : "",
+      [r.city, r.region, r.country].filter(Boolean).join(", "),
+      r.device || "",
+    ]);
+    const csv = [header, ...rows].map(row => row.map(cell => csvCell(String(cell))).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mass-invite-${(activeBatchId || "batch").slice(0, 8)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const totalSelected = selected.size;
   const doneCount = Object.values(statuses).filter(s => s === "done").length;
+
+  const fmtDate = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const fmtDwell = (seconds: number) => {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  };
+
+  const sentCount = batchDetail.length;
+  const clickedCount = batchDetail.filter(r => r.clickedAt).length;
+  const registeredCount = batchDetail.filter(r => r.clickedAt && r.registeredAt).length;
+  const notClicked = batchDetail.filter(r => !r.clickedAt);
+  const sortedDetail = [...batchDetail].sort((a, b) => {
+    const rank = (r: ContactFunnelRow) => (r.registeredAt ? 2 : r.clickedAt ? 1 : 0);
+    return rank(b) - rank(a);
+  });
+
+  const locationBreakdown = (() => {
+    const counts: Record<string, number> = {};
+    for (const r of batchDetail) {
+      if (!r.clickedAt) continue;
+      const label = [r.city, r.region].filter(Boolean).join(", ") || r.country || "Unknown";
+      counts[label] = (counts[label] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  })();
+
+  const deviceBreakdown = (() => {
+    const counts: Record<string, number> = {};
+    for (const r of batchDetail) {
+      if (!r.clickedAt) continue;
+      const label = r.device || "Unknown";
+      counts[label] = (counts[label] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  })();
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -166,7 +425,7 @@ export default function InviteAllPage() {
           <h1 className="text-3xl font-black tracking-tight uppercase">Mass Portal Invite</h1>
           <p className="text-sm text-[#555] mt-2">
             Send personalized portal invite emails to past clients who don&apos;t have an account yet.
-            Each gets a unique magic link valid for 24 hours.
+            Each gets a personalized link to create their account.
           </p>
         </div>
 
@@ -185,7 +444,7 @@ export default function InviteAllPage() {
             )}
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={toggleAll} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-2">
+            <button onClick={() => setSelected(selected.size === contacts.length ? new Set() : new Set(contacts.map(c => c.id)))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-2">
               {selected.size === contacts.length ? "Deselect All" : `Select All (${contacts.length})`}
             </button>
             <button
@@ -212,10 +471,18 @@ export default function InviteAllPage() {
             {contacts.map(c => {
               const status = statuses[c.id];
               const isSelected = selected.has(c.id);
+              const cooldown = cooldownDaysAgo(c.id);
               return (
                 <div
                   key={c.id}
-                  onClick={() => { if (!sending) toggle(c.id); }}
+                  onClick={() => {
+                    if (sending) return;
+                    setSelected(prev => {
+                      const next = new Set(prev);
+                      next.has(c.id) ? next.delete(c.id) : next.add(c.id);
+                      return next;
+                    });
+                  }}
                   className={`flex items-center gap-4 px-5 py-3.5 cursor-pointer transition-colors ${isSelected ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"}`}
                 >
                   {/* Checkbox */}
@@ -236,6 +503,13 @@ export default function InviteAllPage() {
                     <p className="text-sm font-medium">{c.name}</p>
                     <p className="text-xs text-[#555]">{c.email}</p>
                   </div>
+
+                  {/* Re-invite cooldown badge — a heads-up, not a block */}
+                  {cooldown !== null && (
+                    <span className="text-[9px] tracking-wide uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5 rounded-full shrink-0 hidden sm:inline">
+                      Invited {cooldown === 0 ? "today" : `${cooldown}d ago`}
+                    </span>
+                  )}
 
                   {/* Stage */}
                   <span className="text-[10px] tracking-wide text-[#444] hidden sm:inline">{c.stage}</span>
@@ -262,6 +536,167 @@ export default function InviteAllPage() {
         )}
 
         <p className="text-[10px] text-[#333] mt-4">Only showing contacts with emails who haven&apos;t signed up yet. Contacts already in the portal are excluded.</p>
+
+        {/* Results */}
+        <div className="mt-16">
+          <p className="text-xs tracking-[4px] uppercase text-[#555] mb-5 flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">
+            Results
+          </p>
+
+          {batches.length === 0 ? (
+            <p className="text-xs text-[#444]">No invites sent yet — send your first batch above to see results here.</p>
+          ) : (
+            <>
+              {/* Batch picker */}
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
+                {batches.map(b => (
+                  <button
+                    key={b.batchId}
+                    onClick={() => setActiveBatchId(b.batchId)}
+                    className={`shrink-0 text-left px-4 py-2 border text-xs transition-colors ${b.batchId === activeBatchId ? "border-white bg-white/10" : "border-white/10 text-[#666] hover:border-white/30"}`}
+                  >
+                    <p>{fmtDateTime(b.sentAt)} · {b.recipientCount} recipient{b.recipientCount !== 1 ? "s" : ""}</p>
+                    <p className="text-[10px] text-[#555] uppercase tracking-wide">by {b.sentBy}</p>
+                  </button>
+                ))}
+              </div>
+
+              {detailLoading ? (
+                <p className="text-xs tracking-[3px] uppercase text-[#444]">Loading...</p>
+              ) : (
+                <>
+                  {/* Funnel */}
+                  <div className="border border-white/10 p-6 flex flex-col md:flex-row items-stretch gap-4 mb-6">
+                    {[
+                      { label: "Sent", value: sentCount, color: "#a78bfa" },
+                      { label: "Clicked", value: clickedCount, color: "#60a5fa" },
+                      { label: "Registered", value: registeredCount, color: "#4ade80" },
+                    ].map((stage, i, arr) => {
+                      const prev = i > 0 ? arr[i - 1].value : null;
+                      const rate = prev && prev > 0 ? Math.round((stage.value / prev) * 100) : null;
+                      return (
+                        <div key={stage.label} className="flex items-center gap-4 flex-1">
+                          <div className="flex-1 text-center">
+                            <p className="text-3xl font-black" style={{ color: stage.color }}>{stage.value.toLocaleString()}</p>
+                            <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">{stage.label}</p>
+                            {rate !== null && <p className="text-[10px] text-[#444] mt-1">{rate}% of previous</p>}
+                          </div>
+                          {i < arr.length - 1 && <span className="text-[#333] text-lg">→</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Not yet clicked */}
+                  {notClicked.length > 0 && (
+                    <div className="border border-white/10 p-5 mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Not Yet Clicked ({notClicked.length})</p>
+                        <button onClick={resendAllUnclicked} disabled={sending} className="text-[10px] tracking-wide uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
+                          Resend All
+                        </button>
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {notClicked.map(r => (
+                          <div key={r.contactId} className="flex items-center justify-between py-2">
+                            <div>
+                              <p className="text-sm">{r.name}</p>
+                              <p className="text-xs text-[#555]">{r.email}</p>
+                            </div>
+                            <button onClick={() => resendTo(r)} disabled={sending} className="text-[10px] tracking-wide uppercase text-[#666] hover:text-white transition-colors disabled:opacity-40">
+                              Resend
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Location + device breakdown */}
+                  {clickedCount > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      <div className="border border-white/10 p-5">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">By Location</p>
+                        <div className="space-y-1.5">
+                          {locationBreakdown.map(([label, count]) => (
+                            <div key={label} className="flex items-center justify-between text-xs">
+                              <span className="text-white/80">{label}</span>
+                              <span className="text-[#a78bfa] font-semibold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="border border-white/10 p-5">
+                        <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-3">By Device</p>
+                        <div className="space-y-1.5">
+                          {deviceBreakdown.map(([label, count]) => (
+                            <div key={label} className="flex items-center justify-between text-xs">
+                              <span className="text-white/80">{label}</span>
+                              <span className="text-[#a78bfa] font-semibold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Per-contact table */}
+                  <div className="border border-white/10">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Per Contact</p>
+                      <button onClick={exportCsv} className="text-[10px] tracking-wide uppercase text-[#666] hover:text-white transition-colors">
+                        Export CSV
+                      </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[10px] tracking-wide uppercase text-[#555] border-b border-white/5">
+                            <th className="text-left px-5 py-2 font-normal">Name</th>
+                            <th className="text-left px-3 py-2 font-normal">Sent</th>
+                            <th className="text-left px-3 py-2 font-normal">Clicked</th>
+                            <th className="text-left px-3 py-2 font-normal">Dwell</th>
+                            <th className="text-left px-3 py-2 font-normal">Registered</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {sortedDetail.map(r => (
+                            <tr key={r.contactId}>
+                              <td className="px-5 py-2.5">
+                                <p className="text-white">{r.name}</p>
+                                <p className="text-[#555]">{r.email}</p>
+                              </td>
+                              <td className="px-3 py-2.5 text-[#888]">{fmtDate(r.sentAt)}</td>
+                              <td className="px-3 py-2.5">
+                                {r.clickedAt ? (
+                                  <>
+                                    <p className="text-[#60a5fa]">{fmtDate(r.clickedAt)}</p>
+                                    <p className="text-[#444]">{fmtElapsed(r.sentAt, r.clickedAt)} after send</p>
+                                  </>
+                                ) : <span className="text-[#444]">—</span>}
+                              </td>
+                              <td className="px-3 py-2.5 text-[#888]">
+                                {r.dwellSeconds != null ? fmtDwell(r.dwellSeconds) : r.clickedAt ? <span className="text-[#444]">in progress</span> : <span className="text-[#444]">—</span>}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                {r.registeredAt ? (
+                                  <>
+                                    <p className="text-[#4ade80]">{fmtDate(r.registeredAt)}</p>
+                                    <p className="text-[#444]">{fmtElapsed(r.sentAt, r.registeredAt)} after send</p>
+                                  </>
+                                ) : <span className="text-[#444]">—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </main>
   );

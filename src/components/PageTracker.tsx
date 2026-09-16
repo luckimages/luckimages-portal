@@ -6,7 +6,10 @@ import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 // Only track public marketing pages — not the portal, admin tools, or auth flows.
-const EXCLUDED_PREFIXES = ["/dashboard", "/admin", "/client", "/photographer", "/login", "/register", "/choose-portal", "/api", "/auth"];
+// /register is intentionally included (not excluded): mass-invite links route
+// through /api/track-link with an ?lc= id, and this is what lets dwell time
+// on the registration page get reported back against that click.
+const EXCLUDED_PREFIXES = ["/dashboard", "/admin", "/client", "/photographer", "/login", "/choose-portal", "/api", "/auth"];
 
 function isTrackable(pathname: string) {
   return !EXCLUDED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
