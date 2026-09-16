@@ -72,6 +72,7 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
     "104WesthavenDrone-5.jpg", "116MallardDrone-2.jpg", "aerial-8.jpg",
   ],
   "twilight": ["WebTwilight-2.jpg", "WebTwilight-3.jpg"],
+  "floorplans": ["web-floorplan-1.jpg", "web-floorplan-2.jpg", "web-floorplan-3.jpg", "web-floorplan-4.jpg"],
 };
 
 // Filenames confirmed to have existed on the original site but not found
@@ -86,7 +87,6 @@ const MISSING_PHOTOS: Record<string, string[]> = {
 
 // Placeholder counts for services with no source photos recovered at all.
 const GALLERY_COUNTS: Record<string, number> = {
-  "floorplans": 6,
   "brochures": 6,
 };
 
