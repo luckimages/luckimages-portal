@@ -87,6 +87,10 @@ export default function AboutPage() {
               <p className="text-[#888] leading-relaxed">
                 Ryan's focus is on capturing what makes each home unique, while providing clients with a simple and seamless experience.
               </p>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-white/10 mt-2">
+                <a href="tel:5123751585" className="text-sm text-[#888] hover:text-white transition-colors">(512) 375-1585</a>
+                <a href="mailto:ryan@luckimages.com" className="text-sm text-[#888] hover:text-white transition-colors">ryan@luckimages.com</a>
+              </div>
             </div>
           </div>
         </section>
@@ -118,6 +122,10 @@ export default function AboutPage() {
               <p className="text-[#888] leading-relaxed">
                 Leif works closely with the Luck Images team to strengthen operations, develop client relationships, and build systems that allow the company to continue growing while maintaining the quality and personal service its clients expect.
               </p>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-white/10 mt-2">
+                <a href="tel:5125089424" className="text-sm text-[#888] hover:text-white transition-colors">(512) 508-9424</a>
+                <a href="mailto:leif@luckimages.com" className="text-sm text-[#888] hover:text-white transition-colors">leif@luckimages.com</a>
+              </div>
             </div>
           </div>
         </section>
@@ -125,7 +133,10 @@ export default function AboutPage() {
 
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">
         <span className="text-xs tracking-[3px] uppercase text-[#444]">© 2026 Luck Images</span>
-        <a href="mailto:ryan@luckimages.com" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">ryan@luckimages.com</a>
+        <div className="flex items-center gap-4">
+          <a href="/contact" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">ryan@luckimages.com</a>
+          <a href="/contact" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">leif@luckimages.com</a>
+        </div>
       </footer>
     </main>
   );

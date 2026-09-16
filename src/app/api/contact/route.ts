@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       from: "Ryan Luck <ryan@luckimages.com>",
       to: ["ryan@luckimages.com"],
+      cc: ["leif@luckimages.com"],
       reply_to: email,
       subject: `New inquiry — ${firstName} ${lastName} · ${address}`,
       text: body,

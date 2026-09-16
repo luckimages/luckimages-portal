@@ -20,7 +20,10 @@ export default function QuotePage() {
       </div>
       <footer className="border-t border-white/10 px-8 py-8 flex items-center justify-between mt-auto">
         <span className="text-xs tracking-[3px] uppercase text-[#444]">© 2026 Luck Images</span>
-        <Link href="mailto:ryan@luckimages.com" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">ryan@luckimages.com</Link>
+        <div className="flex items-center gap-4">
+          <Link href="/contact" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">ryan@luckimages.com</Link>
+          <Link href="/contact" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">leif@luckimages.com</Link>
+        </div>
       </footer>
     </main>
   );
