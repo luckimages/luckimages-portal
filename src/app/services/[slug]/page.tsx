@@ -124,9 +124,10 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
+      <HomeNav />
+
       {/* Hero */}
       <div className="relative flex flex-col items-center justify-center text-center px-6 py-32 overflow-hidden">
-        <HomeNav />
         <img
           src="/hero-1.jpg"
           alt=""
