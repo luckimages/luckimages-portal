@@ -23,7 +23,7 @@ type InviteTarget = { id: string; name: string; email: string; phone: string | n
 
 type InviteStatus = "idle" | "pending" | "done" | "error";
 
-type SendRow = { id: string; batch_id: string; contact_id: string; sent_by: string; sent_at: string };
+type SendRow = { id: string; batch_id: string; contact_id: string; sent_by: string; sent_at: string; status: "sent" | "error"; error_message: string | null };
 
 type ClickRow = { id: string; contact_id: string; clicked_at: string };
 
@@ -44,6 +44,8 @@ type ContactFunnelRow = {
   email: string;
   phone: string | null;
   sentAt: string;
+  sendStatus: "sent" | "error";
+  errorMessage: string | null;
   clickedAt: string | null;
   dwellSeconds: number | null;
   country: string | null;
@@ -81,9 +83,10 @@ function csvCell(v: string): string {
   return `"${v.replace(/"/g, '""')}"`;
 }
 
-// Blue = sent but no click yet, yellow = clicked, green = registered —
-// whichever is furthest along wins, regardless of the others' state.
-function statusColor(r: { clickedAt: string | null; registeredAt: string | null }): string {
+// Red = send failed, blue = sent but no click yet, yellow = clicked,
+// green = registered — whichever is furthest along wins (error always wins).
+function statusColor(r: { sendStatus: "sent" | "error"; clickedAt: string | null; registeredAt: string | null }): string {
+  if (r.sendStatus === "error") return "#f87171";
   if (r.registeredAt) return "#4ade80";
   if (r.clickedAt) return "#fbbf24";
   return "#60a5fa";
@@ -127,7 +130,7 @@ export default function InviteAllPage() {
   async function loadSends() {
     const { data } = await supabase
       .from("mass_invite_sends")
-      .select("id, batch_id, contact_id, sent_by, sent_at")
+      .select("id, batch_id, contact_id, sent_by, sent_at, status, error_message")
       .order("sent_at", { ascending: false })
       .limit(2000);
     const rows = (data || []) as SendRow[];
@@ -219,6 +222,8 @@ export default function InviteAllPage() {
           email: contact?.email || "—",
           phone: contact?.phone ?? null,
           sentAt: row.sent_at,
+          sendStatus: row.status ?? "sent",
+          errorMessage: row.error_message ?? null,
           clickedAt: firstClick?.clicked_at ?? null,
           dwellSeconds: view?.duration_seconds ?? null,
           country: view?.country ?? null,
@@ -246,6 +251,8 @@ export default function InviteAllPage() {
 
     for (const contact of toInvite) {
       setStatuses(s => ({ ...s, [contact.id]: "pending" }));
+      let sendOk = false;
+      let errorMessage: string | null = null;
       try {
         const firstName = contact.name.split(" ")[0];
 
@@ -311,20 +318,25 @@ export default function InviteAllPage() {
             category: "Portal Invite",
           }),
         });
-        if (!res.ok) throw new Error("Send failed");
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || `Send failed (${res.status})`);
+        }
+        sendOk = true;
         setStatuses(s => ({ ...s, [contact.id]: "done" }));
         setSent(n => n + 1);
-
-        // Best-effort tracking write — a failure here must not flip a
-        // genuinely-sent email to "error" in the UI, so it's caught on its
-        // own, outside the send's own try/catch failure path.
-        const { error: trackErr } = await supabase
-          .from("mass_invite_sends")
-          .insert({ batch_id: batchId, contact_id: contact.id, sent_by: senderTag });
-        if (trackErr) console.error("mass_invite_sends insert failed", trackErr);
-      } catch {
+      } catch (err) {
+        errorMessage = err instanceof Error ? err.message : "Send failed";
         setStatuses(s => ({ ...s, [contact.id]: "error" }));
       }
+
+      // Record every attempt, success or failure, so a real send failure
+      // (bad Resend key, API error, etc.) shows up in Results as "ERROR"
+      // instead of silently vanishing once the page is refreshed.
+      const { error: trackErr } = await supabase
+        .from("mass_invite_sends")
+        .insert({ batch_id: batchId, contact_id: contact.id, sent_by: senderTag, status: sendOk ? "sent" : "error", error_message: errorMessage });
+      if (trackErr) console.error("mass_invite_sends insert failed", trackErr);
 
       // Small delay to avoid Resend rate limits
       await new Promise(r => setTimeout(r, 400));
@@ -351,10 +363,12 @@ export default function InviteAllPage() {
   }
 
   function exportCsv() {
-    const header = ["Name", "Email", "Sent At", "Clicked At", "Time to Click", "Dwell (s)", "Registered At", "Time to Register", "Location", "Device"];
+    const header = ["Name", "Email", "Send Status", "Error", "Sent At", "Clicked At", "Time to Click", "Dwell (s)", "Registered At", "Time to Register", "Location", "Device"];
     const rows = batchDetail.map(r => [
       r.name,
       r.email,
+      r.sendStatus === "error" ? "ERROR" : "sent",
+      r.errorMessage || "",
       new Date(r.sentAt).toISOString(),
       r.clickedAt ? new Date(r.clickedAt).toISOString() : "",
       r.clickedAt ? fmtElapsed(r.sentAt, r.clickedAt) : "",
@@ -388,14 +402,15 @@ export default function InviteAllPage() {
     return s > 0 ? `${m}m ${s}s` : `${m}m`;
   };
 
-  const sentCount = batchDetail.length;
-  const clickedCount = batchDetail.filter(r => r.clickedAt).length;
-  const registeredCount = batchDetail.filter(r => r.clickedAt && r.registeredAt).length;
-  const notClicked = batchDetail.filter(r => !r.clickedAt);
+  const erroredCount = batchDetail.filter(r => r.sendStatus === "error").length;
+  const sentCount = batchDetail.filter(r => r.sendStatus !== "error").length;
+  const clickedCount = batchDetail.filter(r => r.sendStatus !== "error" && r.clickedAt).length;
+  const registeredCount = batchDetail.filter(r => r.sendStatus !== "error" && r.clickedAt && r.registeredAt).length;
+  const notClicked = batchDetail.filter(r => r.sendStatus !== "error" && !r.clickedAt);
   const sortedDetail = [...batchDetail].sort((a, b) => {
     if (sortMode === "alpha") return a.name.localeCompare(b.name);
     if (sortMode === "time") return a.sentAt.localeCompare(b.sentAt);
-    const rank = (r: ContactFunnelRow) => (r.registeredAt ? 2 : r.clickedAt ? 1 : 0);
+    const rank = (r: ContactFunnelRow) => (r.sendStatus === "error" ? 3 : r.registeredAt ? 2 : r.clickedAt ? 1 : 0);
     return rank(b) - rank(a);
   });
 
@@ -484,6 +499,9 @@ export default function InviteAllPage() {
                             <p className="text-3xl font-black" style={{ color: stage.color }}>{stage.value.toLocaleString()}</p>
                             <p className="text-[10px] tracking-[2px] uppercase text-[#555] mt-1">{stage.label}</p>
                             {rate !== null && <p className="text-[10px] text-[#444] mt-1">{rate}% of previous</p>}
+                            {stage.label === "Sent" && erroredCount > 0 && (
+                              <p className="text-[10px] text-[#f87171] mt-1">{erroredCount} failed to send</p>
+                            )}
                           </div>
                           {i < arr.length - 1 && <span className="text-[#333] text-lg">→</span>}
                         </div>
@@ -598,7 +616,13 @@ export default function InviteAllPage() {
                                   <p className="text-white">{r.name}</p>
                                   <p className="text-[#555]">{r.email}</p>
                                 </td>
-                                <td className="px-3 py-2.5 text-[#888]">{fmtDate(r.sentAt)}</td>
+                                <td className="px-3 py-2.5">
+                                  {r.sendStatus === "error" ? (
+                                    <span className="text-[#f87171] font-semibold" title={r.errorMessage || "Send failed"}>ERROR</span>
+                                  ) : (
+                                    <span className="text-[#888]">{fmtDate(r.sentAt)}</span>
+                                  )}
+                                </td>
                                 <td className="px-3 py-2.5">
                                   {r.clickedAt ? (
                                     <>
