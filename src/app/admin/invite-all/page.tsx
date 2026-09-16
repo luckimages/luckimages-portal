@@ -116,7 +116,6 @@ export default function InviteAllPage() {
         .not("email", "is", null)
         .is("user_id", null)
         .neq("stage", "deleted")
-        .neq("stage", "lead")
         .order("total_revenue", { ascending: false, nullsFirst: false });
       setContacts((data || []).filter(c => c.email));
       setLoading(false);
