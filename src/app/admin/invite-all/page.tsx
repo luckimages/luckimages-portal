@@ -299,7 +299,7 @@ export default function InviteAllPage() {
           </p>
         </td></tr>
         <tr><td style="padding-top:24px;">
-          <p style="margin:0;font-size:11px;color:#333;letter-spacing:1px;">Ryan Luck &amp; Leif Tilton — Luck Images · Austin, TX · <a href="mailto:ryan@luckimages.com" x-apple-data-detectors="false" style="color:#333;text-decoration:none;">ryan@luckimages.com</a> · <a href="mailto:leif@luckimages.com" x-apple-data-detectors="false" style="color:#333;text-decoration:none;">leif@luckimages.com</a></p>
+          <p style="margin:0;font-size:11px;color:#fff;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.8);">Ryan Luck &amp; Leif Tilton — Luck Images · Austin, TX · <a href="mailto:ryan@luckimages.com" x-apple-data-detectors="false" style="color:#fff;text-decoration:none;">ryan@luckimages.com</a> · <a href="mailto:leif@luckimages.com" x-apple-data-detectors="false" style="color:#fff;text-decoration:none;">leif@luckimages.com</a></p>
         </td></tr>
       </table>
     </td></tr>
