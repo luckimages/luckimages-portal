@@ -34,6 +34,7 @@ export default function ArchivePage() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [shareFile, setShareFile] = useState<ArchiveFile | null>(null);
@@ -94,28 +95,59 @@ export default function ArchivePage() {
 
   async function uploadFiles(fileList: FileList | File[]) {
     setUploading(true);
+    setUploadError(null);
+    const failures: string[] = [];
+
     for (const file of Array.from(fileList)) {
-      const urlRes = await fetch("/api/archive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "upload_url", name: file.name, content_type: file.type, folder_id: currentFolderId }),
-      }).then(r => r.json());
-      if (!urlRes.uploadUrl) continue;
-      await fetch(urlRes.uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
-      await fetch("/api/archive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "record_file",
-          folder_id: currentFolderId,
-          name: file.name,
-          file_key: urlRes.fileKey,
-          size_bytes: file.size,
-          content_type: file.type,
-        }),
-      });
+      try {
+        const urlRes = await fetch("/api/archive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "upload_url", name: file.name, content_type: file.type, folder_id: currentFolderId }),
+        });
+        if (!urlRes.ok) throw new Error(`Couldn't get an upload link (${urlRes.status})`);
+        const { uploadUrl, fileKey } = await urlRes.json();
+        if (!uploadUrl) throw new Error("Couldn't get an upload link");
+
+        // A stalled connection (e.g. a network/firewall silently dropping the
+        // request) can otherwise hang indefinitely with no error at all — cap
+        // it so the UI always resolves one way or another.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3 * 60 * 1000);
+        let putRes: Response;
+        try {
+          putRes = await fetch(uploadUrl, {
+            method: "PUT",
+            body: file,
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+        if (!putRes.ok) throw new Error(`Upload to storage failed (${putRes.status})`);
+
+        const recordRes = await fetch("/api/archive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "record_file",
+            folder_id: currentFolderId,
+            name: file.name,
+            file_key: fileKey,
+            size_bytes: file.size,
+            content_type: file.type,
+          }),
+        });
+        if (!recordRes.ok) throw new Error(`Uploaded but couldn't save it (${recordRes.status})`);
+      } catch (e) {
+        const reason = e instanceof DOMException && e.name === "AbortError" ? "timed out" : e instanceof Error ? e.message : "unknown error";
+        failures.push(`${file.name}: ${reason}`);
+      }
     }
+
     setUploading(false);
+    if (failures.length) setUploadError(failures.join(" · "));
     load(currentFolderId, sort);
   }
 
@@ -191,6 +223,13 @@ export default function ArchivePage() {
             onChange={e => { if (e.target.files?.length) uploadFiles(e.target.files); e.target.value = ""; }}
           />
         </div>
+
+        {uploadError && (
+          <div className="flex items-center justify-between gap-3 mb-4 border border-[#f87171]/30 bg-[#f87171]/5 px-3 py-2 text-xs text-[#f87171]">
+            <span className="truncate">{uploadError}</span>
+            <button onClick={() => setUploadError(null)} className="shrink-0 hover:text-white transition-colors">✕</button>
+          </div>
+        )}
 
         {newFolderOpen && (
           <div className="flex items-center gap-2 mb-4 border border-white/10 p-3">
