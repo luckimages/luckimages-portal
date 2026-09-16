@@ -277,10 +277,10 @@ export default function InviteAllPage() {
             You're invited, ${firstName}.
           </p>
           <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#888;">
-            I've built a private client portal for Luck Images — a hub where you can view all your past shoots, download delivered photos, and track invoices in one place.
+            Luck Images is proud to announce the launch of our new Realtor Portal — a hub where you can book shoots, download delivered media, and track invoices all in one place.
           </p>
           <p style="margin:0 0 32px;font-size:14px;line-height:1.6;color:#888;">
-            Your info is already on file — just click below to set a password and you're in. Takes about 30 seconds.
+            As a past client your info is already in the portal — just click below to set a password and you're in!
           </p>
           <table cellpadding="0" cellspacing="0"><tr><td>
             <a href="${trackedUrl}" style="display:inline-block;background:#fff;color:#000;text-decoration:none;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:14px 32px;">
