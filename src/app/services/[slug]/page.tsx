@@ -69,7 +69,7 @@ const GALLERY_PHOTOS: Record<string, string[]> = {
   "drone": [
     "drone-1.jpg", "1802MapleDrone-2.jpg", "1136CountyRoad484Drone-5.jpg",
     "1107CountryRoad322Drone-3.jpg", "197BristleconeDr-Drone-15.jpg",
-    "104WesthavenDrone-5.jpg", "116MallardDrone-2.jpg",
+    "104WesthavenDrone-5.jpg", "116MallardDrone-2.jpg", "aerial-8.jpg",
   ],
   "twilight": ["WebTwilight-2.jpg", "WebTwilight-3.jpg"],
 };
