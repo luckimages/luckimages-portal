@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { teamLogoUrl } from "@/lib/teamLogoUrl";
 
 const db = createServiceClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +19,7 @@ export async function GET() {
 
   const { data: membership } = await db
     .from("team_members")
-    .select("team_id")
+    .select("team_id, role")
     .eq("contact_id", contact.id)
     .single();
 
@@ -32,11 +33,40 @@ export async function GET() {
 
   const { data: members } = await db
     .from("team_members")
-    .select("contact_id, joined_at, contacts(id, name, email, phone)")
+    .select("contact_id, role, joined_at, contacts(id, name, email, phone)")
     .eq("team_id", membership.team_id)
     .order("joined_at");
 
-  return NextResponse.json({ team, members: members || [] });
+  return NextResponse.json({
+    team: team ? { ...team, logo_url: teamLogoUrl(team.id) } : null,
+    members: members || [],
+    myRole: membership.role,
+  });
+}
+
+// PUT — edit team name/brokerage (lead only)
+export async function PUT(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { teamName, brokerage } = await req.json();
+  if (!teamName?.trim()) return NextResponse.json({ error: "Team name required" }, { status: 400 });
+
+  const { data: contact } = await db.from("contacts").select("id").eq("user_id", user.id).single();
+  if (!contact) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+
+  const { data: membership } = await db.from("team_members").select("team_id, role").eq("contact_id", contact.id).single();
+  if (!membership) return NextResponse.json({ error: "Not in a team" }, { status: 400 });
+  if (membership.role !== "lead") return NextResponse.json({ error: "Only a team lead can edit team details" }, { status: 403 });
+
+  const { error } = await db.from("teams").update({
+    name: teamName.trim(),
+    brokerage: brokerage?.trim() || null,
+  }).eq("id", membership.team_id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
 }
 
 // POST — create a team + add creator as first member, then invite teammate
@@ -64,8 +94,8 @@ export async function POST(req: Request) {
   }).select().single();
   if (teamErr || !team) return NextResponse.json({ error: "Failed to create team" }, { status: 500 });
 
-  // Add creator as first member
-  await db.from("team_members").insert({ team_id: team.id, contact_id: contact.id, invited_by: contact.id });
+  // Add creator as first member, and as the team's lead
+  await db.from("team_members").insert({ team_id: team.id, contact_id: contact.id, invited_by: contact.id, role: "lead" });
 
   // Send invite to teammate
   await sendTeamInvite({ team, inviterName: contact.name, inviteEmail, inviteName });

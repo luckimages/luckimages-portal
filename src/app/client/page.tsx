@@ -180,7 +180,7 @@ export default function ClientPage() {
   const [memberSince, setMemberSince] = useState("");
   const [shoots, setShoots] = useState<Shoot[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [tab, setTab] = useState<"overview" | "book" | "gallery" | "invoices" | "profile">("overview");
+  const [tab, setTab] = useState<"overview" | "book" | "gallery" | "invoices" | "team" | "profile">("overview");
   const [referral, setReferral] = useState({ name: "", email: "" });
   const [referralStatus, setReferralStatus] = useState<"" | "sending" | "sent" | "error">("");
   const [profile, setProfile] = useState({ name: "", email: "", phone: "", brokerage: "", areas: "", birthday: "", mailingList: false, referralSource: "" });
@@ -190,12 +190,22 @@ export default function ClientPage() {
   const [bookingStatus, setBookingStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState<string | null>(null);
-  const [team, setTeam] = useState<{ id: string; name: string } | null>(null);
-  const [teamMembers, setTeamMembers] = useState<{ contact_id: string; contacts: { name: string; email: string | null } }[]>([]);
+  const [team, setTeam] = useState<{ id: string; name: string; brokerage: string | null; logo_url: string } | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{ contact_id: string; role: "lead" | "member"; contacts: { name: string; email: string | null } }[]>([]);
+  const [myTeamRole, setMyTeamRole] = useState<"lead" | "member" | null>(null);
   const [teamInvite, setTeamInvite] = useState({ name: "", email: "" });
   const [teamInviteStatus, setTeamInviteStatus] = useState<"" | "sending" | "sent" | "error">("");
   const [newTeamName, setNewTeamName] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
+  const [teamDetailsEditing, setTeamDetailsEditing] = useState(false);
+  const [teamNameEdit, setTeamNameEdit] = useState("");
+  const [teamBrokerageEdit, setTeamBrokerageEdit] = useState("");
+  const [savingTeamDetails, setSavingTeamDetails] = useState(false);
+  const [uploadingTeamLogo, setUploadingTeamLogo] = useState(false);
+  const [teamLogoBust, setTeamLogoBust] = useState(0);
+  const [teamActionError, setTeamActionError] = useState("");
+  const [teamActionLoadingId, setTeamActionLoadingId] = useState<string | null>(null);
+  const teamLogoFileRef = useRef<HTMLInputElement>(null);
   const [expandedShootId, setExpandedShootId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
@@ -249,6 +259,7 @@ export default function ClientPage() {
           if (teamData.team) {
             setTeam(teamData.team);
             setTeamMembers(teamData.members || []);
+            setMyTeamRole(teamData.myRole || null);
             const memberIds = (teamData.members || []).map((m: { contact_id: string }) => m.contact_id);
             teamContactIds = [...new Set([contactId, ...memberIds])];
           }
@@ -428,6 +439,84 @@ export default function ClientPage() {
     setTimeout(() => setProfileStatus(""), 3000);
   }
 
+  async function saveTeamDetails(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingTeamDetails(true);
+    setTeamActionError("");
+    const res = await fetch("/api/portal/team", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamName: teamNameEdit, brokerage: teamBrokerageEdit }),
+    });
+    if (res.ok) {
+      setTeam(t => t ? { ...t, name: teamNameEdit, brokerage: teamBrokerageEdit || null } : t);
+      setTeamDetailsEditing(false);
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setTeamActionError(d.error || "Couldn't save team details.");
+    }
+    setSavingTeamDetails(false);
+  }
+
+  async function uploadTeamLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files?.[0]) return;
+    setUploadingTeamLogo(true);
+    setTeamActionError("");
+    const fd = new FormData();
+    fd.append("file", e.target.files[0]);
+    const res = await fetch("/api/portal/team/logo", { method: "POST", body: fd });
+    if (res.ok) {
+      setTeamLogoBust(Date.now());
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setTeamActionError(d.error || "Couldn't upload the team logo.");
+    }
+    setUploadingTeamLogo(false);
+    if (teamLogoFileRef.current) teamLogoFileRef.current.value = "";
+  }
+
+  async function changeMemberRole(memberContactId: string, role: "lead" | "member") {
+    setTeamActionLoadingId(memberContactId);
+    setTeamActionError("");
+    const res = await fetch("/api/portal/team/member", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: memberContactId, role }),
+    });
+    if (res.ok) {
+      setTeamMembers(prev => prev.map(m => m.contact_id === memberContactId ? { ...m, role } : m));
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setTeamActionError(d.error || "Couldn't change that member's role.");
+    }
+    setTeamActionLoadingId(null);
+  }
+
+  async function removeMember(memberContactId: string, isSelf: boolean) {
+    if (isSelf && !confirm("Leave this team? You'll lose access to shared shoots and invoices.")) return;
+    if (!isSelf && !confirm("Remove this person from the team?")) return;
+    setTeamActionLoadingId(memberContactId);
+    setTeamActionError("");
+    const res = await fetch("/api/portal/team/member", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId: memberContactId }),
+    });
+    if (res.ok) {
+      if (isSelf) {
+        setTeam(null);
+        setTeamMembers([]);
+        setMyTeamRole(null);
+      } else {
+        setTeamMembers(prev => prev.filter(m => m.contact_id !== memberContactId));
+      }
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setTeamActionError(d.error || "Couldn't remove that member.");
+    }
+    setTeamActionLoadingId(null);
+  }
+
   function signOut() {
     const form = document.createElement("form");
     form.method = "post"; form.action = "/api/auth/signout";
@@ -484,9 +573,9 @@ export default function ClientPage() {
 
         {/* TABS */}
         <div className="flex border-b border-white/10 mb-8 gap-1 overflow-x-auto">
-          {(["overview", "book", "gallery", "invoices", "profile"] as const).map(t => (
+          {(["overview", "book", "gallery", "invoices", "team", "profile"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} className={tabCls(t)}>
-              {t === "overview" ? "Home" : t === "book" ? "Book a Shoot" : t === "gallery" ? "Shoot Log" : t === "invoices" ? "Invoices" : "Profile"}
+              {t === "overview" ? "Home" : t === "book" ? "Book a Shoot" : t === "gallery" ? "Shoot Log" : t === "invoices" ? "Invoices" : t === "team" ? "Team" : "Profile"}
             </button>
           ))}
         </div>
@@ -616,52 +705,24 @@ export default function ClientPage() {
                 </button>
               </div>
 
-              {/* Team block */}
+              {/* Team block — full management lives in the Team tab; this is
+                  just a status summary + jump-off point. */}
               <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
                 {team ? (
                   <>
-                    <div>
-                      <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Your Team</p>
-                      <p className="text-base font-bold text-white">{team.name}</p>
-                    </div>
-                    <div className="space-y-2">
-                      {teamMembers.map(m => (
-                        <div key={m.contact_id} className="flex items-center gap-3 py-1.5 border-b border-white/5 last:border-0">
-                          <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                            {m.contacts?.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-white">{m.contacts?.name}</p>
-                            {m.contacts?.email && <p className="text-[11px] text-[#555]">{m.contacts.email}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {teamInviteStatus === "sent" ? (
-                      <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-3 text-center">
-                        <p className="text-[#4ade80] text-xs">Invite sent!</p>
-                        <button onClick={() => { setTeamInviteStatus(""); setTeamInvite({ name: "", email: "" }); }} className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white mt-1 transition-colors">Invite Another</button>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center text-sm font-bold text-white shrink-0">
+                        <img src={`${team.logo_url}?t=${teamLogoBust}`} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       </div>
-                    ) : (
-                      <form onSubmit={async e => {
-                        e.preventDefault();
-                        setTeamInviteStatus("sending");
-                        const res = await fetch("/api/portal/team", {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
-                        });
-                        setTeamInviteStatus(res.ok ? "sent" : "error");
-                      }} className="flex flex-col gap-2 border-t border-white/5 pt-4">
-                        <p className="text-[10px] tracking-[2px] uppercase text-[#555]">Add Teammate</p>
-                        <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
-                        <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
-                        {teamInviteStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again.</p>}
-                        <button type="submit" disabled={teamInviteStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
-                          {teamInviteStatus === "sending" ? "Sending..." : "Send Invite →"}
-                        </button>
-                      </form>
-                    )}
+                      <div>
+                        <p className="text-xs tracking-[2px] uppercase text-[#555] mb-1">Your Team</p>
+                        <p className="text-base font-bold text-white">{team.name}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-[#666]">{teamMembers.length} member{teamMembers.length !== 1 ? "s" : ""}</p>
+                    <button onClick={() => setTab("team")} className="mt-auto text-xs tracking-[3px] uppercase border border-white/20 py-3 px-6 hover:bg-white/5 transition-colors">
+                      Manage Team →
+                    </button>
                   </>
                 ) : (
                   <>
@@ -669,31 +730,9 @@ export default function ClientPage() {
                       <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Start a Team</p>
                       <p className="text-xs text-[#666]">Share shoots, media, and invoices with your teammates — each with their own login.</p>
                     </div>
-                    <form onSubmit={async e => {
-                      e.preventDefault();
-                      setCreatingTeam(true);
-                      const res = await fetch("/api/portal/team", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ teamName: newTeamName, inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
-                      });
-                      if (res.ok) {
-                        const d = await res.json();
-                        setTeam(d.team);
-                        setTeamInviteStatus("sent");
-                        // Reload team members
-                        fetch("/api/portal/team").then(r => r.json()).then(d => { if (d.members) setTeamMembers(d.members); });
-                      }
-                      setCreatingTeam(false);
-                    }} className="flex flex-col gap-3">
-                      <input required value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name (e.g. The Horn Co Team)" className={inputCls} />
-                      <p className="text-[10px] tracking-[1px] uppercase text-[#444]">First teammate to invite</p>
-                      <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
-                      <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
-                      <button type="submit" disabled={creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
-                        {creatingTeam ? "Creating..." : "Create Team & Send Invite →"}
-                      </button>
-                    </form>
+                    <button onClick={() => setTab("team")} className="mt-auto text-xs tracking-[3px] uppercase border border-white/20 py-3 px-6 hover:bg-white/5 transition-colors">
+                      Start a Team →
+                    </button>
                   </>
                 )}
               </div>
@@ -954,6 +993,169 @@ export default function ClientPage() {
                   </tbody>
                 </table>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* TEAM */}
+        {tab === "team" && (
+          <div className="max-w-2xl flex flex-col gap-6">
+            {!team ? (
+              <div className="bg-[#111] border border-white/10 p-8 flex flex-col gap-4">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight mb-2">Start a Team</h2>
+                  <p className="text-sm text-[#666]">Share shoots, media, and invoices with your teammates — each with their own login. You'll be the team lead, able to manage members and team details.</p>
+                </div>
+                <form onSubmit={async e => {
+                  e.preventDefault();
+                  setCreatingTeam(true);
+                  const res = await fetch("/api/portal/team", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ teamName: newTeamName, inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
+                  });
+                  if (res.ok) {
+                    setTeamInviteStatus("sent");
+                    fetch("/api/portal/team").then(r => r.json()).then(d => { if (d.members) setTeamMembers(d.members); if (d.myRole) setMyTeamRole(d.myRole); if (d.team) setTeam(d.team); });
+                  }
+                  setCreatingTeam(false);
+                }} className="flex flex-col gap-3">
+                  <input required value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="Team name (e.g. The Horn Co Team)" className={inputCls} />
+                  <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-2">First teammate to invite</p>
+                  <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
+                  <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
+                  <button type="submit" disabled={creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                    {creatingTeam ? "Creating..." : "Create Team & Send Invite →"}
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <>
+                {teamActionError && (
+                  <div className="bg-red-400/10 border border-red-400/20 p-3">
+                    <p className="text-xs text-red-400">{teamActionError}</p>
+                  </div>
+                )}
+
+                {/* Team header: logo, name, brokerage */}
+                <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-white/10 border border-white/10 overflow-hidden flex items-center justify-center text-xl font-bold text-white">
+                        {team.name.charAt(0)}
+                        <img src={`${team.logo_url}?t=${teamLogoBust}`} alt="" className="absolute inset-0 w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      </div>
+                      {myTeamRole === "lead" && (
+                        <button
+                          onClick={() => teamLogoFileRef.current?.click()}
+                          disabled={uploadingTeamLogo}
+                          className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#222] border border-white/20 flex items-center justify-center hover:bg-[#333] transition-colors disabled:opacity-40"
+                        >
+                          <span className="text-[10px]">📷</span>
+                        </button>
+                      )}
+                      <input ref={teamLogoFileRef} type="file" accept="image/*" className="hidden" onChange={uploadTeamLogo} />
+                    </div>
+
+                    {teamDetailsEditing ? (
+                      <form onSubmit={saveTeamDetails} className="flex-1 flex flex-col gap-2">
+                        <input required value={teamNameEdit} onChange={e => setTeamNameEdit(e.target.value)} placeholder="Team name" className={inputCls} />
+                        <input value={teamBrokerageEdit} onChange={e => setTeamBrokerageEdit(e.target.value)} placeholder="Brokerage (optional)" className={inputCls} />
+                        <div className="flex gap-2">
+                          <button type="submit" disabled={savingTeamDetails} className="text-xs tracking-[2px] uppercase bg-white text-black font-semibold py-2 px-4 hover:bg-white/90 transition-colors disabled:opacity-50">
+                            {savingTeamDetails ? "Saving..." : "Save"}
+                          </button>
+                          <button type="button" onClick={() => setTeamDetailsEditing(false)} className="text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors">Cancel</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex-1">
+                        <p className="text-xl font-black uppercase tracking-tight">{team.name}</p>
+                        {team.brokerage && <p className="text-xs text-[#666] mt-0.5">{team.brokerage}</p>}
+                        {myTeamRole === "lead" && (
+                          <button
+                            onClick={() => { setTeamNameEdit(team.name); setTeamBrokerageEdit(team.brokerage || ""); setTeamDetailsEditing(true); }}
+                            className="text-[10px] tracking-[2px] uppercase text-white/40 hover:text-white transition-colors mt-1"
+                          >
+                            Edit Details
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Roster */}
+                <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-1">
+                  <p className="text-xs tracking-[2px] uppercase text-[#555] mb-3">Members</p>
+                  {teamMembers.map(m => {
+                    const isSelf = m.contact_id === contactId;
+                    const busy = teamActionLoadingId === m.contact_id;
+                    return (
+                      <div key={m.contact_id} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
+                        <div className="relative w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-bold text-white shrink-0 overflow-hidden">
+                          {m.contacts?.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
+                          <img src={getAvatarUrl(m.contact_id)} alt="" className="absolute inset-0 w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{m.contacts?.name}{isSelf ? " (You)" : ""}</p>
+                          {m.contacts?.email && <p className="text-[11px] text-[#555] truncate">{m.contacts.email}</p>}
+                        </div>
+                        <span className={`text-[9px] tracking-[1px] uppercase px-2 py-1 shrink-0 ${m.role === "lead" ? "text-[#4ade80] border border-[#4ade80]/30" : "text-[#666] border border-white/10"}`}>
+                          {m.role === "lead" ? "Lead" : "Member"}
+                        </span>
+                        {myTeamRole === "lead" && !isSelf && (
+                          <button
+                            onClick={() => changeMemberRole(m.contact_id, m.role === "lead" ? "member" : "lead")}
+                            disabled={busy}
+                            className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white transition-colors shrink-0 disabled:opacity-40"
+                          >
+                            {m.role === "lead" ? "Demote" : "Promote"}
+                          </button>
+                        )}
+                        {(myTeamRole === "lead" || isSelf) && (
+                          <button
+                            onClick={() => removeMember(m.contact_id, isSelf)}
+                            disabled={busy}
+                            className="text-[10px] tracking-[1px] uppercase text-red-400/70 hover:text-red-400 transition-colors shrink-0 disabled:opacity-40"
+                          >
+                            {isSelf ? "Leave" : "Remove"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Invite */}
+                <div className="bg-[#111] border border-white/10 p-6">
+                  {teamInviteStatus === "sent" ? (
+                    <div className="bg-[#4ade8018] border border-[#4ade80]/20 p-3 text-center">
+                      <p className="text-[#4ade80] text-xs">Invite sent!</p>
+                      <button onClick={() => { setTeamInviteStatus(""); setTeamInvite({ name: "", email: "" }); }} className="text-[10px] tracking-[1px] uppercase text-white/40 hover:text-white mt-1 transition-colors">Invite Another</button>
+                    </div>
+                  ) : (
+                    <form onSubmit={async e => {
+                      e.preventDefault();
+                      setTeamInviteStatus("sending");
+                      const res = await fetch("/api/portal/team", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ inviteEmail: teamInvite.email, inviteName: teamInvite.name }),
+                      });
+                      setTeamInviteStatus(res.ok ? "sent" : "error");
+                    }} className="flex flex-col gap-2">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1">Invite Teammate</p>
+                      <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
+                      <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
+                      {teamInviteStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again.</p>}
+                      <button type="submit" disabled={teamInviteStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50 mt-1">
+                        {teamInviteStatus === "sending" ? "Sending..." : "Send Invite →"}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
