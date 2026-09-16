@@ -89,7 +89,7 @@ export default function AboutPage() {
               </p>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-white/10 mt-2">
                 <a href="tel:5123751585" className="text-sm text-[#888] hover:text-white transition-colors">(512) 375-1585</a>
-                <a href="mailto:ryan@luckimages.com" className="text-sm text-[#888] hover:text-white transition-colors">ryan@luckimages.com</a>
+                <a href="/contact" className="text-sm text-[#888] hover:text-white transition-colors">ryan@luckimages.com</a>
               </div>
             </div>
           </div>
@@ -124,7 +124,7 @@ export default function AboutPage() {
               </p>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-white/10 mt-2">
                 <a href="tel:5125089424" className="text-sm text-[#888] hover:text-white transition-colors">(512) 508-9424</a>
-                <a href="mailto:leif@luckimages.com" className="text-sm text-[#888] hover:text-white transition-colors">leif@luckimages.com</a>
+                <a href="/contact" className="text-sm text-[#888] hover:text-white transition-colors">leif@luckimages.com</a>
               </div>
             </div>
           </div>
