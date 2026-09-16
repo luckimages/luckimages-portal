@@ -138,7 +138,7 @@ export default function ArchivePage() {
 
   return (
     <div
-      className="min-h-screen bg-[#0c0c0c] text-white"
+      className="min-h-dvh bg-[#0c0c0c] text-white"
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); }}
@@ -147,7 +147,7 @@ export default function ArchivePage() {
         <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
           <div>
             <div className="text-[10px] tracking-[3px] uppercase text-[#555]">My Nocturne</div>
-            <div className="text-2xl font-bold mt-1">File Archive</div>
+            <h1 className="text-3xl font-black tracking-tight uppercase mt-1">File Archive</h1>
           </div>
           <a href="/dashboard/me" className="text-xs text-[#555] hover:text-white transition-colors">← Back to My Nocturne</a>
         </div>

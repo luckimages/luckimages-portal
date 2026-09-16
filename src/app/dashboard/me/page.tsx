@@ -142,12 +142,12 @@ export default function MyNocturnePage() {
   if (!checked) return null;
 
   return (
-    <div className="min-h-screen bg-[#0c0c0c] text-white">
+    <div className="min-h-dvh bg-[#0c0c0c] text-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
           <div>
             <div className="text-[10px] tracking-[3px] uppercase text-[#555]">My Nocturne</div>
-            <div className="text-2xl font-bold mt-1">{data?.person_name ?? "..."}'s Dashboard</div>
+            <h1 className="text-3xl font-black tracking-tight uppercase mt-1">{data?.person_name ?? "..."}&apos;s Dashboard</h1>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex border border-white/10">
