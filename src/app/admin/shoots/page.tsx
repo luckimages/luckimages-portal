@@ -694,8 +694,6 @@ function ShootsPage() {
     resetNewShoot();
   }
   const [statusError, setStatusError] = useState<Record<string, string>>({});
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState("");
 
   const loadShoots = useCallback(async () => {
     setLoading(true);
@@ -896,14 +894,6 @@ function ShootsPage() {
       return;
     }
     setShoots(prev => prev.map(s => s.id === id ? { ...s, status: "delivered" } : s));
-  }
-
-  async function syncSheet() {
-    setSyncing(true); setSyncMsg("");
-    const res = await fetch("/api/admin/sync-shoots-sheet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trigger: "manual" }) });
-    const data = await res.json();
-    setSyncMsg(data.ok ? `✓ Synced ${data.rows} rows at ${data.syncedAt}` : `✗ ${data.error}`);
-    setSyncing(false);
   }
 
   // Board computed. Paid/completed shoots fall off the board after 7 days —
@@ -1159,18 +1149,8 @@ function ShootsPage() {
               {lastRefresh.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}
             </span>
           )}
-          <button onClick={syncSheet} disabled={syncing}
-            className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all disabled:opacity-40">
-            {syncing ? "Syncing..." : "↑ Sync"}
-          </button>
         </div>
       </div>
-
-      {syncMsg && (
-        <div className={`px-4 md:px-8 py-2 text-xs font-medium ${syncMsg.startsWith("✓") ? "bg-[#4ade80]/10 text-[#4ade80]" : "bg-red-900/20 text-red-400"}`}>
-          {syncMsg}
-        </div>
-      )}
 
       {/* ── LOG VIEW ── */}
       {view === "log" && (

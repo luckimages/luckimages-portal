@@ -13,6 +13,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  // Save to Nocturne first (Command Center → Updates → Website Inquiries) so
+  // the lead survives even if the email below fails or gets junked.
+  const { error: saveError } = await db.from("contact_inquiries").insert({
+    first_name: firstName,
+    last_name: lastName || null,
+    email,
+    phone,
+    address,
+    listing_type: listingType || null,
+    services,
+    deliver_by: deliverBy || null,
+    details: details || null,
+  });
+  if (saveError) console.error("contact: failed to save inquiry", saveError);
+
   const body = [
     `Name: ${firstName} ${lastName}`,
     `Email: ${email}`,
@@ -42,7 +57,9 @@ export async function POST(request: NextRequest) {
 
   if (!res.ok) {
     console.error("Resend error:", await res.text());
-    return NextResponse.json({ error: "Failed to send" }, { status: 500 });
+    // Only tell the visitor it failed if it also didn't save — otherwise we
+    // have it in Nocturne and they'd just resubmit a duplicate.
+    if (saveError) return NextResponse.json({ error: "Failed to send" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

@@ -20,16 +20,21 @@ export const metadata: Metadata = {
   },
 };
 
+// Matterport is priced by sq ft like Listing Photos, but its tier table is
+// left off this page — visitors get their exact price from the quote
+// generator above once they enter sq ft. Shows the dollhouse description instead.
+const DESCRIPTION_ONLY = new Set(["matterport", "matterport_addon"]);
+
 const STANDALONE = PRIMARY_SERVICES.map((s) => ({
   name: s.name,
-  description: s.description,
-  tiers: displayTiers(s.pricing),
+  description: DESCRIPTION_ONLY.has(s.id) ? s.quoteNote : s.description,
+  tiers: DESCRIPTION_ONLY.has(s.id) ? [] : displayTiers(s.pricing),
 }));
 
 const ADDON_ROWS = ADDONS.map((a) => ({
   name: a.name,
-  description: a.description,
-  tiers: displayTiers(a.pricing),
+  description: DESCRIPTION_ONLY.has(a.id) ? a.quoteNote : a.description,
+  tiers: DESCRIPTION_ONLY.has(a.id) ? [] : displayTiers(a.pricing),
 }));
 
 export default function PricingPage() {
@@ -67,7 +72,7 @@ export default function PricingPage() {
             {STANDALONE.map((s) => (
               <div key={s.name} className="bg-[#0c0c0c] p-8">
                 <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{s.name}</h3>
-                <p className="text-xs text-[#555] mb-5">{s.description}</p>
+                <p className={`text-xs text-[#555] ${s.tiers.length ? "mb-5" : ""}`}>{s.description}</p>
                 <div className="flex flex-col gap-2">
                   {s.tiers.map((t) => (
                     <div key={t.label} className="flex items-center justify-between">
@@ -93,7 +98,7 @@ export default function PricingPage() {
             {ADDON_ROWS.map((a) => (
               <div key={a.name} className="bg-[#0c0c0c] p-8">
                 <h3 className="text-sm font-semibold tracking-[2px] uppercase mb-1">{a.name}</h3>
-                <p className="text-xs text-[#555] mb-5">{a.description}</p>
+                <p className={`text-xs text-[#555] ${a.tiers.length ? "mb-5" : ""}`}>{a.description}</p>
                 <div className="flex flex-col gap-2">
                   {a.tiers.map((t) => (
                     <div key={t.label} className="flex items-center justify-between">

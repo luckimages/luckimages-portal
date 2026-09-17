@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/admin/sync-shoots-sheet",
-      "schedule": "0 6 * * *"
-    },
-    {
       "path": "/api/cron/advance-status",
       "schedule": "0 5 * * *"
     },

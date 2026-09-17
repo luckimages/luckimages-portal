@@ -26,6 +26,20 @@ type Registration = {
   registered_at: string;
 };
 
+type Inquiry = {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  listing_type: string | null;
+  services: string[] | null;
+  deliver_by: string | null;
+  details: string | null;
+  created_at: string;
+};
+
 type Photographer = { id: string; name: string; email: string };
 
 function toDatetimeLocal(iso: string) {
@@ -92,6 +106,10 @@ export default function UpdatesPage() {
   const [loadingRegs, setLoadingRegs] = useState(true);
   const [expandedShoot, setExpandedShoot] = useState<string | null>(null);
   const [expandedReg, setExpandedReg] = useState<string | null>(null);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loadingInquiries, setLoadingInquiries] = useState(true);
+  const [inquiriesError, setInquiriesError] = useState(false);
+  const [expandedInquiry, setExpandedInquiry] = useState<string | null>(null);
   const [editDatetime, setEditDatetime] = useState<Record<string, string>>({});
   const [editPhotographers, setEditPhotographers] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -103,6 +121,7 @@ export default function UpdatesPage() {
 
   const pendingAcks = useAcks("pending_shoot");
   const regAcks = useAcks("new_registration");
+  const inquiryAcks = useAcks("website_inquiry");
 
   const loadShoots = useCallback(async () => {
     const res = await fetch("/api/admin/shoots");
@@ -122,11 +141,23 @@ export default function UpdatesPage() {
     setLoadingRegs(false);
   }, []);
 
+  const loadInquiries = useCallback(async () => {
+    const res = await fetch("/api/admin/inquiries");
+    if (res.ok) {
+      const { inquiries } = await res.json();
+      setInquiries(inquiries || []);
+    } else {
+      setInquiriesError(true);
+    }
+    setLoadingInquiries(false);
+  }, []);
+
   useEffect(() => {
     loadShoots();
     loadRegs();
+    loadInquiries();
     fetch("/api/admin/photographers").then(r => r.ok ? r.json() : []).then(setPhotographers);
-  }, [loadShoots, loadRegs]);
+  }, [loadShoots, loadRegs, loadInquiries]);
 
   // Deep link from the board's Pending Shoots widget (?shoot=<id>) — expand
   // that specific shoot automatically and scroll it into view, once.
@@ -211,6 +242,14 @@ export default function UpdatesPage() {
     });
   }
 
+  function toggleInquiryExpand(q: Inquiry) {
+    setExpandedInquiry(prev => {
+      const next = prev === q.id ? null : q.id;
+      if (next) inquiryAcks.ack(q.id);
+      return next;
+    });
+  }
+
   async function postUpdate(e: React.FormEvent) {
     e.preventDefault();
     if (!updateInput.trim()) return;
@@ -224,11 +263,12 @@ export default function UpdatesPage() {
 
   const unackedShoots = pendingShoots.filter(s => !pendingAcks.acked.has(s.id)).length;
   const unackedRegs = registrations.filter(r => !regAcks.acked.has(r.id)).length;
+  const unackedInquiries = inquiries.filter(q => !inquiryAcks.acked.has(q.id)).length;
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       {conflictMsg && <ConflictBanner message={conflictMsg} onDismiss={() => setConflictMsg(null)} />}
-      <div className="flex-1 px-4 md:px-8 py-8 max-w-6xl mx-auto w-full space-y-8">
+      <div className="flex-1 px-4 md:px-8 py-8 w-full space-y-8">
 
         <div>
           <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Command Center</p>
@@ -237,6 +277,9 @@ export default function UpdatesPage() {
             Full history now lives on the <a href="/dashboard/calendar" className="text-[#666] underline hover:text-white transition-colors">Calendar</a> — filterable by type.
           </p>
         </div>
+
+        {/* Boxes sit side by side in 3 columns on desktop, stacked on mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* ══ PENDING SHOOTS BOX ══ */}
         <div className="bg-[#111] border border-white/10">
@@ -396,6 +439,75 @@ export default function UpdatesPage() {
               })}
             </div>
           )}
+        </div>
+
+        {/* ══ WEBSITE INQUIRIES BOX (luckimages.com/contact form) ══ */}
+        <div className="bg-[#111] border border-white/10">
+          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+            <p className="text-xs tracking-[2px] uppercase text-[#888] font-semibold">✉️ Website Inquiries</p>
+            {unackedInquiries > 0 && <span className="text-[10px] font-bold px-2 py-0.5 bg-[#60a5fa] text-black rounded-full">{unackedInquiries} new</span>}
+          </div>
+          {loadingInquiries ? (
+            <p className="text-xs text-[#444] italic p-6">Loading...</p>
+          ) : inquiriesError ? (
+            <p className="text-xs text-red-400/80 italic p-6">Couldn&apos;t load inquiries.</p>
+          ) : inquiries.length === 0 ? (
+            <p className="text-xs text-[#333] italic p-6">No website inquiries yet.</p>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {inquiries.map(q => {
+                const isUnacked = !inquiryAcks.acked.has(q.id);
+                const isExpanded = expandedInquiry === q.id;
+                const name = [q.first_name, q.last_name].filter(Boolean).join(" ");
+                return (
+                  <div key={q.id} className={isUnacked ? "bg-[#60a5fa]/[0.06] border-l-2 border-l-[#60a5fa]" : ""}>
+                    <button onClick={() => toggleInquiryExpand(q)} className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold truncate">{name}</p>
+                          {isUnacked && <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-[#666] mt-0.5 truncate">
+                          {q.address || q.email} · {new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-[#333] shrink-0">{isExpanded ? "▲" : "▼"}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-5 pb-5 pt-1 border-t border-white/5 bg-white/[0.015] space-y-3">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                          <div className="min-w-0"><p className="text-[#444] mb-0.5">Email</p><a href={`mailto:${q.email}`} className="text-[#ccc] hover:text-white truncate block">{q.email}</a></div>
+                          <div><p className="text-[#444] mb-0.5">Phone</p>{q.phone ? <a href={`tel:${q.phone}`} className="text-[#ccc] hover:text-white">{q.phone}</a> : <p className="text-[#ccc]">—</p>}</div>
+                          <div><p className="text-[#444] mb-0.5">Listing Type</p><p className="text-[#ccc]">{q.listing_type || "—"}</p></div>
+                          <div><p className="text-[#444] mb-0.5">Needed By</p><p className="text-[#ccc]">{q.deliver_by ? new Date(`${q.deliver_by}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—"}</p></div>
+                        </div>
+                        {q.address && (
+                          <div className="text-xs"><p className="text-[#444] mb-0.5">Listing Address</p><p className="text-[#ccc]">{q.address}</p></div>
+                        )}
+                        {(q.services || []).length > 0 && (
+                          <div>
+                            <p className="text-[10px] tracking-[1px] uppercase text-[#555] mb-2">Services</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(q.services || []).map(svc => (
+                                <span key={svc} className="text-[11px] px-2 py-1 border border-white/10 text-[#ccc]">{svc}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {q.details && <p className="text-xs text-[#777] italic whitespace-pre-line">&ldquo;{q.details}&rdquo;</p>}
+                        <a href={`mailto:${q.email}?subject=${encodeURIComponent(`Luck Images — ${q.address || "your inquiry"}`)}`}
+                          className="inline-block text-xs tracking-[1px] uppercase py-2 px-4 border border-white/20 text-white hover:bg-white/5 transition-colors">
+                          Reply by Email →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         </div>
 
         {/* Post a manual update — still feeds the Calendar's "Nocturne" filter */}
