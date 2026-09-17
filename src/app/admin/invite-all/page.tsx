@@ -48,6 +48,7 @@ type ContactFunnelRow = {
   errorMessage: string | null;
   clickedAt: string | null;
   dwellSeconds: number | null;
+  hasPageView: boolean;
   country: string | null;
   region: string | null;
   city: string | null;
@@ -226,6 +227,7 @@ export default function InviteAllPage() {
           errorMessage: row.error_message ?? null,
           clickedAt: firstClick?.clicked_at ?? null,
           dwellSeconds: view?.duration_seconds ?? null,
+          hasPageView: view !== undefined,
           country: view?.country ?? null,
           region: view?.region ?? null,
           city: view?.city ?? null,
@@ -632,7 +634,15 @@ export default function InviteAllPage() {
                                   ) : <span className="text-[#444]">—</span>}
                                 </td>
                                 <td className="px-3 py-2.5 text-[#888]">
-                                  {r.dwellSeconds != null ? fmtDwell(r.dwellSeconds) : r.clickedAt ? <span className="text-[#444]">in progress</span> : <span className="text-[#444]">—</span>}
+                                  {r.dwellSeconds != null ? (
+                                    fmtDwell(r.dwellSeconds)
+                                  ) : r.hasPageView ? (
+                                    <span className="text-[#444]">in progress</span>
+                                  ) : r.clickedAt ? (
+                                    <span className="text-[#666]" title="The link was hit but the page never actually loaded in a browser — likely an email security scanner pre-fetching the link, not a real visit">no visit (bot?)</span>
+                                  ) : (
+                                    <span className="text-[#444]">—</span>
+                                  )}
                                 </td>
                                 <td className="px-3 py-2.5">
                                   {r.registeredAt ? (
