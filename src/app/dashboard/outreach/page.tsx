@@ -598,6 +598,9 @@ export default function OutreachPage() {
   // Unsubscribed + Do Not Contact — hidden from template sends; the server
   // (/api/admin/send-email) skips them too as the backstop.
   const [optedOutIds, setOptedOutIds] = useState<Set<string>>(new Set());
+  // Narrow a template send to one tag (e.g. "Luxury") — contacts.tags.
+  const [tagsByContact, setTagsByContact] = useState<Record<string, string[]>>({});
+  const [recipientTag, setRecipientTag] = useState("all");
   const [qsRecipients, setQsRecipients] = useState<QuickRecipient[]>([]);
   const [qsSendMode, setQsSendMode] = useState<"individual" | "together">("individual");
   const [qsContactSearch, setQsContactSearch] = useState("");
@@ -627,6 +630,9 @@ export default function OutreachPage() {
       setLoading(false);
       fetch("/api/admin/contact-flags").then(r => r.ok ? r.json() : null).then(d => {
         if (d) setOptedOutIds(new Set([...(d.unsubscribed || []), ...(d.doNotContact || [])]));
+      });
+      fetch("/api/admin/tags?view=contacts").then(r => r.ok ? r.json() : null).then(d => {
+        if (d) setTagsByContact(d.tagsByContact || {});
       });
       // Pre-select contact from deep link
       if (contactParam) {
@@ -731,7 +737,8 @@ export default function OutreachPage() {
   const eligible = contacts.filter(c => activeTemplate.filter(c) && !optedOutIds.has(c.id));
   const optedOutCount = contacts.filter(c => activeTemplate.filter(c) && optedOutIds.has(c.id)).length;
   const filtered = eligible.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())
+    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())) &&
+    (recipientTag === "all" || (tagsByContact[c.id] || []).includes(recipientTag))
   );
 
   function toggleAll() {
@@ -1592,6 +1599,13 @@ export default function OutreachPage() {
                   <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Search contacts..."
                     className="flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#333]" />
+                  {Object.keys(tagsByContact).length > 0 && (
+                    <select value={recipientTag} onChange={e => setRecipientTag(e.target.value)}
+                      className="bg-[#111] border border-white/10 text-[10px] text-[#888] px-1.5 py-1 outline-none shrink-0 max-w-[110px]">
+                      <option value="all">All tags</option>
+                      {[...new Set(Object.values(tagsByContact).flat())].sort((a, b) => a.localeCompare(b)).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  )}
                   <span className="text-[10px] text-[#444] shrink-0" title={optedOutCount > 0 ? `${optedOutCount} hidden — unsubscribed or Do Not Contact` : undefined}>
                     {eligible.length}{optedOutCount > 0 && <span className="text-[#333]"> (+{optedOutCount} opted out)</span>}
                   </span>

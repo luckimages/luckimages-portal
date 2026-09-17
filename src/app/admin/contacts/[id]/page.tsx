@@ -7,6 +7,7 @@ import { formatPhone, normalizePhone } from "@/lib/format";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import { avatarUrl } from "@/lib/avatarUrl";
 import ContactFollowUpCard, { type FollowUpTodo } from "@/components/ContactFollowUpCard";
+import ContactTagsAndSequence from "@/components/ContactTagsAndSequence";
 
 function adminFirst(email: string): string {
   return (email?.split("@")[0] || email || "").replace(/^./, c => c.toUpperCase());
@@ -61,7 +62,11 @@ type Contact = {
   // Added by supabase-crm-phase1.sql
   do_not_contact?: boolean | null;
   email_unsubscribed_at?: string | null;
+  // Added by supabase-crm-phase2-3.sql
+  tags?: string[] | null;
 };
+
+type EmailReply = { id: string; from_email: string | null; from_name: string | null; subject: string | null; body_text: string | null; received_at: string };
 
 type WebInquiry = {
   id: string;
@@ -172,6 +177,7 @@ export default function ContactProfilePage() {
   const [followUpHistory, setFollowUpHistory] = useState<FollowUpTodo[]>([]);
   const [followUpsAvailable, setFollowUpsAvailable] = useState(true);
   const [inquiries, setInquiries] = useState<WebInquiry[]>([]);
+  const [replies, setReplies] = useState<EmailReply[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [historyTab, setHistoryTab] = useState<"activity" | "actions" | "leads" | "shoots" | "quotes">("activity");
@@ -258,13 +264,15 @@ export default function ContactProfilePage() {
       .then(d => setSourceReq(d.request))
       .catch(() => setSourceReq(null));
 
-    const [quotesRes, inquiriesRes] = await Promise.all([
+    const [quotesRes, inquiriesRes, repliesRes] = await Promise.all([
       fetch(`/api/admin/quotes?contact_id=${id}`),
       fetch(`/api/admin/inquiries?contact_id=${id}`),
+      fetch(`/api/admin/email-replies?contact_id=${id}`),
       loadFollowUp(),
     ]);
     if (quotesRes.ok) setQuotes(await quotesRes.json());
     if (inquiriesRes.ok) setInquiries((await inquiriesRes.json()).inquiries || []);
+    if (repliesRes.ok) setReplies((await repliesRes.json()).replies || []);
     setAllContacts((allC || []).filter((ct: { id: string }) => ct.id !== id) as Contact[]);
 
     // Team membership
@@ -582,6 +590,9 @@ export default function ContactProfilePage() {
           onClearUnsubscribe={clearUnsubscribe}
         />
 
+        {/* ═══ TAGS + SEQUENCE ═══ */}
+        <ContactTagsAndSequence key={contact.id} contactId={contact.id} initialTags={contact.tags || []} />
+
         {/* ═══ MAIN INFO CARD ═══ */}
         <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
 
@@ -897,7 +908,8 @@ export default function ContactProfilePage() {
               | { kind: "shoot"; ts: string; data: typeof shoots[0] }
               | { kind: "quote"; ts: string; data: typeof quotes[0] }
               | { kind: "inquiry"; ts: string; data: WebInquiry }
-              | { kind: "followup"; ts: string; data: FollowUpTodo };
+              | { kind: "followup"; ts: string; data: FollowUpTodo }
+              | { kind: "reply"; ts: string; data: EmailReply };
 
             const events: AnyEvent[] = [
               ...callLogs.map(l  => ({ kind: "call"  as const, ts: l.called_at,   data: l })),
@@ -906,6 +918,7 @@ export default function ContactProfilePage() {
               ...quotes.map(q    => ({ kind: "quote" as const, ts: q.created_at,   data: q })),
               ...inquiries.map(q => ({ kind: "inquiry" as const, ts: q.created_at, data: q })),
               ...followUpHistory.map(f => ({ kind: "followup" as const, ts: f.completed_at || "", data: f })),
+              ...replies.map(r => ({ kind: "reply" as const, ts: r.received_at, data: r })),
             ].filter(e => e.ts).sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
             if (events.length === 0) return (
@@ -947,9 +960,10 @@ export default function ContactProfilePage() {
                               event.kind === "email" ? "bg-[#a78bfa]/20 border border-[#a78bfa]/40 text-[#a78bfa]" :
                               event.kind === "inquiry" ? "bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[#38bdf8]" :
                               event.kind === "followup" ? "bg-[#4ade80]/20 border border-[#4ade80]/40 text-[#4ade80]" :
+                              event.kind === "reply" ? "bg-[#f472b6]/20 border border-[#f472b6]/40 text-[#f472b6]" :
                                                        "bg-[#34d399]/20 border border-[#34d399]/40 text-[#34d399]"
                             }`}>
-                              {event.kind === "shoot" ? "📷" : event.kind === "call" ? "📞" : event.kind === "email" ? "✉" : event.kind === "inquiry" ? "🌐" : event.kind === "followup" ? "✓" : "💬"}
+                              {event.kind === "shoot" ? "📷" : event.kind === "call" ? "📞" : event.kind === "email" ? "✉" : event.kind === "inquiry" ? "🌐" : event.kind === "followup" ? "✓" : event.kind === "reply" ? "↩" : "💬"}
                             </div>
                           </div>
 
@@ -985,6 +999,11 @@ export default function ContactProfilePage() {
                                 {event.kind === "followup" && (
                                   <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#4ade80] bg-[#4ade80]/10 border border-[#4ade80]/20">
                                     Follow-up Done
+                                  </span>
+                                )}
+                                {event.kind === "reply" && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#f472b6] bg-[#f472b6]/10 border border-[#f472b6]/20">
+                                    Email Reply
                                   </span>
                                 )}
                               </div>
@@ -1049,6 +1068,16 @@ export default function ContactProfilePage() {
                                     {q.quote_total != null && <span className="text-xs font-bold text-[#34d399]">${Number(q.quote_total).toLocaleString()}</span>}
                                   </div>
                                   {q.details && <p className="text-xs text-[#666] italic mt-1">&ldquo;{q.details}&rdquo;</p>}
+                                </div>
+                              );
+                            })()}
+                            {event.kind === "reply" && (() => {
+                              const r = event.data as EmailReply;
+                              return (
+                                <div>
+                                  <p className="text-sm font-medium">{r.subject || "(no subject)"}</p>
+                                  {r.body_text && <p className="text-xs text-[#666] mt-0.5 whitespace-pre-line line-clamp-4">{r.body_text}</p>}
+                                  <p className="text-[10px] text-[#333] mt-1">from {r.from_name || r.from_email}</p>
                                 </div>
                               );
                             })()}

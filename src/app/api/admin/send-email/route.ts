@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { adminSender, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
 import { registerLinkDomainsFromContent } from "@/lib/trustedLinkDomains";
+import { replyToAddress } from "@/lib/replyCapture";
 import {
   addUnsubscribeFooterHtml, addUnsubscribeFooterText, blockedContactIds,
   listUnsubscribeHeaders, marketingEmailStatus, unsubscribePageUrl,
@@ -73,7 +74,9 @@ export async function POST(req: Request) {
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: sender.from,
-      reply_to: sender.replyTo,
+      // Reply capture (when switched on) logs their reply on the contact and
+      // forwards it to this admin's inbox; otherwise replies go straight there.
+      reply_to: replyToAddress(admin.email, contactId) || sender.replyTo,
       to: [to],
       ...(ccList.length > 0 ? { cc: ccList } : {}),
       subject,

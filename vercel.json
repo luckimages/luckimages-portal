@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/recompute-mileage",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/client-retention",
+      "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/run-sequences",
+      "schedule": "0 15 * * *"
     }
   ]
 }

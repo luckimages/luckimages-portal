@@ -75,6 +75,10 @@ function ContactsPageInner() {
   const [dncIds, setDncIds] = useState<Set<string>>(new Set());
   const [filterFollowUp, setFilterFollowUp] = useState<"all" | "due_today" | "overdue" | "scheduled">("all");
   const [filterOptOut, setFilterOptOut] = useState<"all" | "unsubscribed" | "do_not_contact">("all");
+  // Tags + saved views (supabase-crm-phase2-3.sql)
+  const [tagsByContact, setTagsByContact] = useState<Record<string, string[]>>({});
+  const [filterTag, setFilterTag] = useState("all");
+  const [savedViews, setSavedViews] = useState<{ id: string; name: string; filters: Record<string, string | null> }[]>([]);
   const [filterStage, setFilterStage] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [statFilter, setStatFilter] = useState<"lead" | "realtor" | "employee" | null>(null);
@@ -115,6 +119,12 @@ function ContactsPageInner() {
       if (!d) return;
       setUnsubscribedIds(new Set(d.unsubscribed || []));
       setDncIds(new Set(d.doNotContact || []));
+    });
+    fetch("/api/admin/tags?view=contacts").then(r => r.ok ? r.json() : null).then(d => {
+      if (d) setTagsByContact(d.tagsByContact || {});
+    });
+    fetch("/api/admin/saved-views").then(r => r.ok ? r.json() : null).then(d => {
+      if (d) setSavedViews(d.views || []);
     });
 
     // Detect potential duplicates — same email (case-insensitive) or same name (honorifics stripped)
@@ -258,9 +268,40 @@ function ContactsPageInner() {
     setFilterType("all");
     setFilterFollowUp("all");
     setFilterOptOut("all");
+    setFilterTag("all");
   }
 
-  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all" || filterFollowUp !== "all" || filterOptOut !== "all";
+  function currentFilters() {
+    return { search, filterType, filterStage, filterFollowUp, filterOptOut, filterTag, statFilter };
+  }
+
+  function applyView(f: Record<string, string | null>) {
+    setSearch(f.search || "");
+    setFilterType(f.filterType || "all");
+    setFilterStage(f.filterStage || "all");
+    setFilterFollowUp((f.filterFollowUp as typeof filterFollowUp) || "all");
+    setFilterOptOut((f.filterOptOut as typeof filterOptOut) || "all");
+    setFilterTag(f.filterTag || "all");
+    setStatFilter((f.statFilter as typeof statFilter) || null);
+  }
+
+  async function saveView() {
+    const name = prompt("Name this view (e.g. Luxury agents, KW overdue):")?.trim();
+    if (!name) return;
+    const res = await fetch("/api/admin/saved-views", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, filters: currentFilters() }) });
+    if (res.ok) {
+      const { view } = await res.json();
+      setSavedViews(v => [...v, view]);
+    }
+  }
+
+  async function deleteView(id: string, name: string) {
+    if (!confirm(`Delete the saved view "${name}"?`)) return;
+    await fetch(`/api/admin/saved-views?id=${id}`, { method: "DELETE" });
+    setSavedViews(v => v.filter(x => x.id !== id));
+  }
+
+  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all" || filterFollowUp !== "all" || filterOptOut !== "all" || filterTag !== "all";
 
   const filtered = active.filter(c => {
     const q = search.toLowerCase();
@@ -280,7 +321,8 @@ function ContactsPageInner() {
     const matchOptOut = filterOptOut === "all" ||
       (filterOptOut === "unsubscribed" && unsubscribedIds.has(c.id)) ||
       (filterOptOut === "do_not_contact" && dncIds.has(c.id));
-    return matchSearch && matchStage && matchType && matchStat && matchFollowUp && matchOptOut;
+    const matchTag = filterTag === "all" || (tagsByContact[c.id] || []).includes(filterTag);
+    return matchSearch && matchStage && matchType && matchStat && matchFollowUp && matchOptOut && matchTag;
   });
 
   return (
@@ -396,6 +438,20 @@ function ContactsPageInner() {
 
       {/* Filters + Table */}
       <div className="max-w-6xl mx-auto px-4 md:px-8 pb-16">
+        {(savedViews.length > 0 || hasAnyFilter) && (
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span className="text-[10px] tracking-[2px] uppercase text-[#444] mr-1">Saved views</span>
+            {savedViews.map(v => (
+              <span key={v.id} className="group inline-flex items-center border border-white/10 hover:border-white/30 transition-colors">
+                <button onClick={() => applyView(v.filters || {})} className="text-[11px] text-[#ccc] hover:text-white px-2.5 py-1">{v.name}</button>
+                <button onClick={() => deleteView(v.id, v.name)} className="text-[#444] hover:text-red-400 pr-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity" aria-label={`Delete ${v.name}`}>×</button>
+              </span>
+            ))}
+            {hasAnyFilter && (
+              <button onClick={saveView} className="text-[10px] tracking-[1px] uppercase text-[#888] hover:text-white border border-dashed border-white/20 px-2.5 py-1">★ Save this view</button>
+            )}
+          </div>
+        )}
         <div className="flex items-center gap-3 flex-wrap mb-4">
           <input
             value={search}
@@ -422,6 +478,13 @@ function ContactsPageInner() {
             <option value="overdue">Overdue</option>
             <option value="scheduled">Has a follow-up</option>
           </select>
+          {Object.keys(tagsByContact).length > 0 && (
+            <select value={filterTag} onChange={e => setFilterTag(e.target.value)}
+              className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+              <option value="all">All tags</option>
+              {[...new Set(Object.values(tagsByContact).flat())].sort((a, b) => a.localeCompare(b)).map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
           <select value={filterOptOut} onChange={e => setFilterOptOut(e.target.value as typeof filterOptOut)}
             className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
             <option value="all">Any email status</option>
@@ -522,6 +585,14 @@ function ContactsPageInner() {
                               {unsubscribedIds.has(contact.id) && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-white/5 text-[#777]">Unsub</span>}
                             </div>
                             {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
+                            {(tagsByContact[contact.id] || []).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {tagsByContact[contact.id].slice(0, 3).map(t => (
+                                  <span key={t} className="text-[9px] px-1.5 py-0.5 bg-white/[0.05] border border-white/10 text-[#999]">{t}</span>
+                                ))}
+                                {tagsByContact[contact.id].length > 3 && <span className="text-[9px] text-[#555]">+{tagsByContact[contact.id].length - 3}</span>}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

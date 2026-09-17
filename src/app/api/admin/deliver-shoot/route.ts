@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import { notifyDelivery, ensureDeliveryInvoice, maybeCompleteShoot } from "@/lib/deliveryInvoice";
+import { addDays, contactIdForShoot, createAutoFollowUp, todayCentral } from "@/lib/followUps";
 
 function service() {
   return createServiceClient(
@@ -45,6 +46,22 @@ export async function POST(req: Request) {
 
   if (shoot.status !== "delivered") {
     try { await notifyDelivery(shootId); } catch (e) { console.error("delivery notify failed", e); }
+
+    // Post-delivery check-in 3 days out (Updates → Follow-ups Due). Once per
+    // shoot, and never on top of a follow-up that's already scheduled.
+    try {
+      const contactId = await contactIdForShoot(db, shoot);
+      if (contactId) {
+        await createAutoFollowUp(db, {
+          autoKey: `checkin:${shoot.id}`,
+          contactId,
+          dueDate: addDays(todayCentral(), 3),
+          title: `Check in — how did the ${shoot.address || "listing"} photos land?`,
+          note: "Photos delivered 3 days ago. Ask how the listing is doing and whether another one is coming up.",
+          createdBy: "delivery",
+        });
+      }
+    } catch (e) { console.error("post-delivery check-in failed", e); }
   }
 
   // Covers the case where there's no invoice to pay (e.g. a $0 shoot) or the

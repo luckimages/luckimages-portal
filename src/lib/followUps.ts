@@ -85,3 +85,50 @@ export async function completeFollowUps(db: SupabaseClient, contactId: string, c
     .is("completed_at", null);
   if (error) throw error;
 }
+
+// For automatic follow-ups (post-delivery check-ins, dormant-client nudges):
+// creates one only if `autoKey` has never been used (todos.auto_key is unique)
+// and, by default, only if the contact has no open follow-up already — an
+// automatic nudge never bumps something Ryan or Leif scheduled by hand.
+export async function createAutoFollowUp(
+  db: SupabaseClient,
+  opts: { autoKey: string; contactId: string; dueDate: string; title: string; note?: string | null; assignee?: FollowUpAssignee; createdBy: string; skipIfOpen?: boolean },
+): Promise<string | null> {
+  if (opts.skipIfOpen !== false) {
+    const { data: open } = await db.from("todos").select("id").eq("contact_id", opts.contactId).is("completed_at", null).limit(1).maybeSingle();
+    if (open) return null;
+  }
+  const { data, error } = await db.from("todos").insert({
+    text: opts.title,
+    title: opts.title,
+    notes: opts.note?.trim() || null,
+    list_id: await generalListId(db),
+    assigned_to: opts.assignee || "both",
+    due_date: opts.dueDate,
+    created_by: opts.createdBy,
+    is_urgent: false,
+    contact_id: opts.contactId,
+    auto_key: opts.autoKey,
+  }).select("id").single();
+  if (error) {
+    if (error.code === "23505") return null; // already created on an earlier run
+    throw error;
+  }
+  return data.id;
+}
+
+// The contact a shoot belongs to: its contact_id, or the contact linked to the
+// client's portal account.
+export async function contactIdForShoot(db: SupabaseClient, shoot: { contact_id?: string | null; client_id?: string | null }): Promise<string | null> {
+  if (shoot.contact_id) return shoot.contact_id;
+  if (!shoot.client_id) return null;
+  const { data } = await db.from("contacts").select("id").eq("user_id", shoot.client_id).limit(1).maybeSingle();
+  return data?.id ?? null;
+}
+
+export function assigneeFromSourcedBy(sourcedBy: string | null | undefined): FollowUpAssignee {
+  const s = (sourcedBy || "").toLowerCase();
+  if (s.includes("leif") && !s.includes("ryan")) return "leif";
+  if (s.includes("ryan") && !s.includes("leif")) return "ryan";
+  return "both";
+}
