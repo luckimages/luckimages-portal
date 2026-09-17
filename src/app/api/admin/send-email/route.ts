@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 import { adminSender, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
 import { registerLinkDomainsFromContent } from "@/lib/trustedLinkDomains";
+import {
+  addUnsubscribeFooterHtml, addUnsubscribeFooterText, blockedContactIds,
+  listUnsubscribeHeaders, marketingEmailStatus, unsubscribePageUrl,
+} from "@/lib/unsubscribe";
 
 export async function POST(req: Request) {
   const admin = await requireAdmin();
@@ -17,6 +21,40 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "RESEND_API_KEY is not configured" }, { status: 500 });
   }
 
+  // Every send through here is marketing/outreach (Outreach templates, Quick
+  // Send, Mass Invite, cold-call pitches), so it honors unsubscribe and Do Not
+  // Contact. Booking, delivery, and invoice emails don't come through here.
+  const status = await marketingEmailStatus(service, { contactId, email: to });
+  if (status.blocked) {
+    return NextResponse.json({
+      ok: false,
+      skipped: true,
+      reason: status.blocked,
+      error: status.blocked === "do_not_contact" ? "Skipped — marked Do Not Contact" : "Skipped — unsubscribed from emails",
+    }, { status: 409 });
+  }
+
+  // Group sends: quietly drop any Cc'd contact who's opted out.
+  let ccList: string[] = Array.isArray(cc) ? cc : [];
+  let extraContactIds: string[] = Array.isArray(additionalContactIds) ? additionalContactIds : [];
+  let skippedCc = 0;
+  if (extraContactIds.length > 0) {
+    const blocked = await blockedContactIds(service, extraContactIds);
+    if (blocked.size > 0) {
+      const { data: blockedRows } = await service.from("contacts").select("email").in("id", [...blocked]);
+      const blockedEmails = new Set((blockedRows || []).map(r => (r.email || "").toLowerCase()));
+      const before = ccList.length;
+      ccList = ccList.filter(e => !blockedEmails.has((e || "").toLowerCase()));
+      skippedCc = before - ccList.length;
+      extraContactIds = extraContactIds.filter(id => !blocked.has(id));
+    }
+  }
+
+  // One recipient → their personal one-click link. A shared group message
+  // can't know who clicked, so it links to the ask-for-your-email page.
+  const isGroup = ccList.length > 0;
+  const unsubscribeUrl = unsubscribePageUrl(isGroup ? null : status.token);
+
   // Send as the admin who clicked send (Leif from his portal → leif@…)
   const sender = adminSender(admin.email);
 
@@ -26,8 +64,9 @@ export async function POST(req: Request) {
   const nameRe = new RegExp(esc(SENDER_NAME_TOKEN), "g");
   const emailRe = new RegExp(esc(SENDER_EMAIL_TOKEN), "g");
   const fillTokens = (s: string) => s.replace(nameRe, sender.fullName).replace(emailRe, sender.replyTo);
-  const finalHtml = typeof html === "string" ? fillTokens(html) : html;
+  const finalHtml = typeof html === "string" ? addUnsubscribeFooterHtml(fillTokens(html), unsubscribeUrl) : html;
   const finalBody = typeof body === "string" ? fillTokens(body) : body;
+  const sentText = typeof finalBody === "string" ? addUnsubscribeFooterText(finalBody, unsubscribeUrl) : finalBody;
 
   const resendRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -36,9 +75,10 @@ export async function POST(req: Request) {
       from: sender.from,
       reply_to: sender.replyTo,
       to: [to],
-      ...(Array.isArray(cc) && cc.length > 0 ? { cc } : {}),
+      ...(ccList.length > 0 ? { cc: ccList } : {}),
       subject,
-      ...(finalHtml ? { html: finalHtml } : { text: finalBody }),
+      ...(finalHtml ? { html: finalHtml } : { text: sentText }),
+      ...(!isGroup && status.token ? { headers: listUnsubscribeHeaders(status.token) } : {}),
     }),
   });
 
@@ -68,9 +108,9 @@ export async function POST(req: Request) {
   // other recipient so they all show as "emailed" in Engagement, even though
   // only one message was physically sent and only the primary recipient's
   // link clicks can be attributed.
-  if (Array.isArray(additionalContactIds) && additionalContactIds.length > 0) {
+  if (extraContactIds.length > 0) {
     await service.from("email_log").insert(
-      additionalContactIds.map((id: string) => ({
+      extraContactIds.map((id: string) => ({
         contact_id: id,
         subject,
         body,
@@ -80,5 +120,5 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, skippedCc });
 }

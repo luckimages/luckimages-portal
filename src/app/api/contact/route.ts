@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { captureWebLead } from "@/lib/webLeads";
 
 export async function POST(request: NextRequest) {
   const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -13,9 +14,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // Save to Nocturne first (Command Center → Updates → Website Inquiries) so
+  // Into the CRM first: match or create the contact and give them a "call
+  // them" follow-up due today (Updates → Follow-ups Due).
+  const name = `${firstName} ${lastName || ""}`.trim();
+  const contactId = await captureWebLead(db, {
+    name,
+    email,
+    phone,
+    source: "website-form",
+    followUpNote: [
+      `Website contact form: ${services.join(", ")}`,
+      address,
+      deliverBy ? `Needed by ${deliverBy}` : null,
+      details || null,
+    ].filter(Boolean).join(" · "),
+  });
+
+  // Save the inquiry itself (Command Center → Updates → Website Inquiries) so
   // the lead survives even if the email below fails or gets junked.
   const { error: saveError } = await db.from("contact_inquiries").insert({
+    kind: "contact",
+    contact_id: contactId,
     first_name: firstName,
     last_name: lastName || null,
     email,

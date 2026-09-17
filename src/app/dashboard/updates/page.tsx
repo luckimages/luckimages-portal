@@ -38,7 +38,30 @@ type Inquiry = {
   deliver_by: string | null;
   details: string | null;
   created_at: string;
+  // Added by supabase-crm-phase1.sql
+  kind?: "contact" | "quote" | null;
+  contact_id?: string | null;
+  square_footage?: string | null;
+  quote_total?: number | null;
 };
+
+type FollowUp = {
+  id: string;
+  title: string | null;
+  notes: string | null;
+  due_date: string;
+  assigned_to: string | null;
+  contact_id: string;
+  contact: { id: string; name: string; phone: string | null; email: string | null; brokerage: string | null; stage: string | null; do_not_contact?: boolean | null } | null;
+};
+
+const ASSIGNEE_LABEL: Record<string, string> = { ryan: "Ryan", leif: "Leif", both: "Ryan & Leif" };
+
+function dueLabel(due: string, today: string): { text: string; cls: string } {
+  const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due.slice(0, 10)}T00:00:00Z`)) / 86400000);
+  if (days <= 0) return { text: "Due today", cls: "text-[#fbbf24]" };
+  return { text: `${days} day${days === 1 ? "" : "s"} overdue`, cls: "text-red-400" };
+}
 
 type Photographer = { id: string; name: string; email: string };
 
@@ -110,6 +133,11 @@ export default function UpdatesPage() {
   const [loadingInquiries, setLoadingInquiries] = useState(true);
   const [inquiriesError, setInquiriesError] = useState(false);
   const [expandedInquiry, setExpandedInquiry] = useState<string | null>(null);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [followUpToday, setFollowUpToday] = useState("");
+  const [loadingFollowUps, setLoadingFollowUps] = useState(true);
+  const [expandedFollowUp, setExpandedFollowUp] = useState<string | null>(null);
+  const [followUpBusy, setFollowUpBusy] = useState<string | null>(null);
   const [editDatetime, setEditDatetime] = useState<Record<string, string>>({});
   const [editPhotographers, setEditPhotographers] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -152,12 +180,23 @@ export default function UpdatesPage() {
     setLoadingInquiries(false);
   }, []);
 
+  const loadFollowUps = useCallback(async () => {
+    const res = await fetch("/api/admin/follow-ups?view=due");
+    if (res.ok) {
+      const d = await res.json();
+      setFollowUps(d.followUps || []);
+      setFollowUpToday(d.today || "");
+    }
+    setLoadingFollowUps(false);
+  }, []);
+
   useEffect(() => {
+    loadFollowUps();
     loadShoots();
     loadRegs();
     loadInquiries();
     fetch("/api/admin/photographers").then(r => r.ok ? r.json() : []).then(setPhotographers);
-  }, [loadShoots, loadRegs, loadInquiries]);
+  }, [loadFollowUps, loadShoots, loadRegs, loadInquiries]);
 
   // Deep link from the board's Pending Shoots widget (?shoot=<id>) — expand
   // that specific shoot automatically and scroll it into view, once.
@@ -242,6 +281,23 @@ export default function UpdatesPage() {
     });
   }
 
+  // Done or snooze — either way it leaves the due list. Tells the Command
+  // Center shell so its sidebar badge updates without waiting for a poll.
+  async function followUpAction(contactId: string, body: Record<string, unknown>) {
+    setFollowUpBusy(contactId);
+    const res = await fetch("/api/admin/follow-ups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId, ...body }),
+    });
+    setFollowUpBusy(null);
+    if (res.ok) {
+      setFollowUps(prev => prev.filter(f => f.contact_id !== contactId));
+      setExpandedFollowUp(null);
+      window.parent?.postMessage({ type: "nocturne:follow-ups-changed" }, window.location.origin);
+    }
+  }
+
   function toggleInquiryExpand(q: Inquiry) {
     setExpandedInquiry(prev => {
       const next = prev === q.id ? null : q.id;
@@ -278,8 +334,77 @@ export default function UpdatesPage() {
           </p>
         </div>
 
-        {/* Boxes sit side by side in 3 columns on desktop, stacked on mobile */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Boxes sit in a 2×2 grid on desktop, stacked on mobile */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+        {/* ══ FOLLOW-UPS DUE BOX ══ */}
+        <div className="bg-[#111] border border-white/10">
+          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+            <p className="text-xs tracking-[2px] uppercase text-[#888] font-semibold">⏰ Follow-ups Due</p>
+            {followUps.length > 0 && (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-black ${followUps.some(f => f.due_date.slice(0, 10) < followUpToday) ? "bg-red-400" : "bg-[#fbbf24]"}`}>
+                {followUps.length} due
+              </span>
+            )}
+          </div>
+          {loadingFollowUps ? (
+            <p className="text-xs text-[#444] italic p-6">Loading...</p>
+          ) : followUps.length === 0 ? (
+            <p className="text-xs text-[#333] italic p-6">Nothing due — you&apos;re caught up.</p>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {followUps.map(f => {
+                const due = dueLabel(f.due_date, followUpToday);
+                const isExpanded = expandedFollowUp === f.id;
+                const busy = followUpBusy === f.contact_id;
+                const name = f.contact?.name || f.title || "Contact";
+                return (
+                  <div key={f.id} className={due.cls === "text-red-400" ? "border-l-2 border-l-red-400/70" : "border-l-2 border-l-[#fbbf24]/70"}>
+                    <button onClick={() => setExpandedFollowUp(prev => prev === f.id ? null : f.id)} className="w-full text-left px-5 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold truncate">{name}</p>
+                          {f.contact?.do_not_contact && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-red-500/15 text-red-400">Do Not Contact</span>}
+                        </div>
+                        <p className="text-[11px] text-[#666] mt-0.5 truncate">
+                          <span className={due.cls}>{due.text}</span>
+                          {" · "}{ASSIGNEE_LABEL[f.assigned_to || "both"] || "Ryan & Leif"}
+                          {f.contact?.brokerage ? ` · ${f.contact.brokerage}` : ""}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-[#333] shrink-0">{isExpanded ? "▲" : "▼"}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-5 pb-5 pt-1 border-t border-white/5 bg-white/[0.015] space-y-3">
+                        {f.title && f.title !== `Follow up: ${name}` && <p className="text-xs text-white">{f.title}</p>}
+                        {f.notes && <p className="text-xs text-[#888] whitespace-pre-line">{f.notes}</p>}
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                          <div><p className="text-[#444] mb-0.5">Phone</p>{f.contact?.phone ? <a href={`tel:${f.contact.phone}`} className="text-[#ccc] hover:text-white">{f.contact.phone}</a> : <p className="text-[#ccc]">—</p>}</div>
+                          <div className="min-w-0"><p className="text-[#444] mb-0.5">Email</p>{f.contact?.email ? <a href={`mailto:${f.contact.email}`} className="text-[#ccc] hover:text-white truncate block">{f.contact.email}</a> : <p className="text-[#ccc]">—</p>}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button onClick={() => followUpAction(f.contact_id, { action: "complete" })} disabled={busy}
+                            className="text-xs tracking-[1px] uppercase font-bold py-2 px-4 bg-[#4ade80] text-black hover:bg-[#34d399] transition-colors disabled:opacity-40">
+                            ✓ Done
+                          </button>
+                          {[{ label: "Tomorrow", days: 1 }, { label: "3 Days", days: 3 }, { label: "1 Week", days: 7 }].map(o => (
+                            <button key={o.days} onClick={() => followUpAction(f.contact_id, { action: "snooze", days: o.days })} disabled={busy}
+                              className="text-xs tracking-[1px] uppercase py-2 px-3 border border-white/15 text-[#aaa] hover:text-white hover:bg-white/5 transition-colors disabled:opacity-40">
+                              {o.label}
+                            </button>
+                          ))}
+                          <a href={`/admin/contacts/${f.contact_id}`} className="text-xs tracking-[1px] uppercase py-2 px-4 border border-white/20 text-white hover:bg-white/5 transition-colors ml-auto">
+                            View Contact →
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* ══ PENDING SHOOTS BOX ══ */}
         <div className="bg-[#111] border border-white/10">
@@ -465,6 +590,9 @@ export default function UpdatesPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold truncate">{name}</p>
+                          <span className={`text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 ${q.kind === "quote" ? "bg-[#34d399]/15 text-[#34d399]" : "bg-[#60a5fa]/15 text-[#60a5fa]"}`}>
+                            {q.kind === "quote" ? "Quote" : "Contact Form"}
+                          </span>
                           {isUnacked && <span className="w-1.5 h-1.5 rounded-full bg-[#60a5fa] shrink-0" />}
                         </div>
                         <p className="text-[11px] text-[#666] mt-0.5 truncate">
@@ -494,11 +622,25 @@ export default function UpdatesPage() {
                             </div>
                           </div>
                         )}
+                        {q.kind === "quote" && (q.quote_total != null || q.square_footage) && (
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                            <div><p className="text-[#444] mb-0.5">Estimated Total</p><p className="text-[#4ade80] font-semibold">{q.quote_total != null ? `$${Number(q.quote_total).toLocaleString()}` : "—"}</p></div>
+                            <div><p className="text-[#444] mb-0.5">Sq Ft</p><p className="text-[#ccc]">{q.square_footage || "—"}</p></div>
+                          </div>
+                        )}
                         {q.details && <p className="text-xs text-[#777] italic whitespace-pre-line">&ldquo;{q.details}&rdquo;</p>}
-                        <a href={`mailto:${q.email}?subject=${encodeURIComponent(`Luck Images — ${q.address || "your inquiry"}`)}`}
-                          className="inline-block text-xs tracking-[1px] uppercase py-2 px-4 border border-white/20 text-white hover:bg-white/5 transition-colors">
-                          Reply by Email →
-                        </a>
+                        <div className="flex flex-wrap gap-2">
+                          <a href={`mailto:${q.email}?subject=${encodeURIComponent(`Luck Images — ${q.address || "your inquiry"}`)}`}
+                            className="inline-block text-xs tracking-[1px] uppercase py-2 px-4 border border-white/20 text-white hover:bg-white/5 transition-colors">
+                            Reply by Email →
+                          </a>
+                          {q.contact_id && (
+                            <a href={`/admin/contacts/${q.contact_id}`}
+                              className="inline-block text-xs tracking-[1px] uppercase py-2 px-4 border border-white/20 text-white hover:bg-white/5 transition-colors">
+                              View Contact →
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import { avatarUrl } from "@/lib/avatarUrl";
+import ContactFollowUpCard, { type FollowUpTodo } from "@/components/ContactFollowUpCard";
 
 function adminFirst(email: string): string {
   return (email?.split("@")[0] || email || "").replace(/^./, c => c.toUpperCase());
@@ -35,6 +36,8 @@ const CHANNEL_LABELS: Record<string, string> = {
   "networking":        "Networking",
   "partnership":       "Partner Referral",
   "direct-mail":       "Direct Mail",
+  "website-form":      "Website – Contact Form",
+  "website-quote":     "Website – Quote Request",
   "other":             "Other",
 };
 
@@ -55,6 +58,21 @@ type Contact = {
   lead_source: string | null;
   referred_by_contact_id: string | null;
   sourced_by: string | null;
+  // Added by supabase-crm-phase1.sql
+  do_not_contact?: boolean | null;
+  email_unsubscribed_at?: string | null;
+};
+
+type WebInquiry = {
+  id: string;
+  kind?: string | null;
+  services: string[] | null;
+  address: string | null;
+  details: string | null;
+  deliver_by: string | null;
+  square_footage?: string | null;
+  quote_total?: number | null;
+  created_at: string;
 };
 
 type CallLog = {
@@ -150,6 +168,10 @@ export default function ContactProfilePage() {
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const [team, setTeam] = useState<{ id: string; name: string } | null>(null);
+  const [followUp, setFollowUp] = useState<FollowUpTodo | null>(null);
+  const [followUpHistory, setFollowUpHistory] = useState<FollowUpTodo[]>([]);
+  const [followUpsAvailable, setFollowUpsAvailable] = useState(true);
+  const [inquiries, setInquiries] = useState<WebInquiry[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [historyTab, setHistoryTab] = useState<"activity" | "actions" | "leads" | "shoots" | "quotes">("activity");
@@ -191,6 +213,15 @@ export default function ContactProfilePage() {
   const [showLinkSearch, setShowLinkSearch] = useState(false);
   const [linking, setLinking] = useState(false);
 
+  const loadFollowUp = useCallback(async () => {
+    const res = await fetch(`/api/admin/follow-ups?contact_id=${id}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    setFollowUp(d.open || null);
+    setFollowUpHistory(d.history || []);
+    setFollowUpsAvailable(!d.unavailable);
+  }, [id]);
+
   const loadContact = useCallback(async () => {
     const supabase = createClient();
     const [{ data: c }, { data: calls }, { data: emails }, { data: allC }] = await Promise.all([
@@ -227,8 +258,13 @@ export default function ContactProfilePage() {
       .then(d => setSourceReq(d.request))
       .catch(() => setSourceReq(null));
 
-    const quotesRes = await fetch(`/api/admin/quotes?contact_id=${id}`);
+    const [quotesRes, inquiriesRes] = await Promise.all([
+      fetch(`/api/admin/quotes?contact_id=${id}`),
+      fetch(`/api/admin/inquiries?contact_id=${id}`),
+      loadFollowUp(),
+    ]);
     if (quotesRes.ok) setQuotes(await quotesRes.json());
+    if (inquiriesRes.ok) setInquiries((await inquiriesRes.json()).inquiries || []);
     setAllContacts((allC || []).filter((ct: { id: string }) => ct.id !== id) as Contact[]);
 
     // Team membership
@@ -267,7 +303,19 @@ export default function ContactProfilePage() {
     }
 
     setLoading(false);
-  }, [id, router]);
+  }, [id, router, loadFollowUp]);
+
+  async function setDoNotContact(next: boolean) {
+    if (!contact) return;
+    const { data } = await createClient().from("contacts").update({ do_not_contact: next }).eq("id", contact.id).select().single();
+    if (data) setContact(data);
+  }
+
+  async function clearUnsubscribe() {
+    if (!contact) return;
+    const { data } = await createClient().from("contacts").update({ email_unsubscribed_at: null }).eq("id", contact.id).select().single();
+    if (data) setContact(data);
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -512,12 +560,27 @@ export default function ContactProfilePage() {
                 </span>
               )}
               {contact.is_hot && <span className="text-[10px] tracking-[2px] uppercase text-[#fbbf24] border border-[#fbbf24]/30 px-2 py-0.5">Hot Lead</span>}
+              {contact.do_not_contact && <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase text-red-400 bg-red-500/10">Do Not Contact</span>}
+              {contact.email_unsubscribed_at && <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide uppercase text-[#888] bg-white/5">Unsubscribed</span>}
             </>
           )}
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 md:px-6 pb-16 space-y-6">
+
+        {/* ═══ FOLLOW-UP + DO NOT CONTACT ═══ */}
+        <ContactFollowUpCard
+          contactId={contact.id}
+          meEmail={meEmail}
+          open={followUp}
+          available={followUpsAvailable}
+          doNotContact={!!contact.do_not_contact}
+          unsubscribedAt={contact.email_unsubscribed_at || null}
+          onChanged={loadFollowUp}
+          onToggleDoNotContact={setDoNotContact}
+          onClearUnsubscribe={clearUnsubscribe}
+        />
 
         {/* ═══ MAIN INFO CARD ═══ */}
         <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
@@ -832,13 +895,17 @@ export default function ContactProfilePage() {
               | { kind: "call";  ts: string; data: CallLog }
               | { kind: "email"; ts: string; data: EmailLog }
               | { kind: "shoot"; ts: string; data: typeof shoots[0] }
-              | { kind: "quote"; ts: string; data: typeof quotes[0] };
+              | { kind: "quote"; ts: string; data: typeof quotes[0] }
+              | { kind: "inquiry"; ts: string; data: WebInquiry }
+              | { kind: "followup"; ts: string; data: FollowUpTodo };
 
             const events: AnyEvent[] = [
               ...callLogs.map(l  => ({ kind: "call"  as const, ts: l.called_at,   data: l })),
               ...emailLogs.map(l => ({ kind: "email" as const, ts: l.sent_at,      data: l })),
               ...shoots.map(s    => ({ kind: "shoot" as const, ts: s.scheduled_at || "", data: s })),
               ...quotes.map(q    => ({ kind: "quote" as const, ts: q.created_at,   data: q })),
+              ...inquiries.map(q => ({ kind: "inquiry" as const, ts: q.created_at, data: q })),
+              ...followUpHistory.map(f => ({ kind: "followup" as const, ts: f.completed_at || "", data: f })),
             ].filter(e => e.ts).sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
 
             if (events.length === 0) return (
@@ -878,9 +945,11 @@ export default function ContactProfilePage() {
                               event.kind === "shoot" ? "bg-[#60a5fa]/20 border border-[#60a5fa]/40 text-[#60a5fa]" :
                               event.kind === "call"  ? "bg-[#fbbf24]/20 border border-[#fbbf24]/40 text-[#fbbf24]" :
                               event.kind === "email" ? "bg-[#a78bfa]/20 border border-[#a78bfa]/40 text-[#a78bfa]" :
+                              event.kind === "inquiry" ? "bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[#38bdf8]" :
+                              event.kind === "followup" ? "bg-[#4ade80]/20 border border-[#4ade80]/40 text-[#4ade80]" :
                                                        "bg-[#34d399]/20 border border-[#34d399]/40 text-[#34d399]"
                             }`}>
-                              {event.kind === "shoot" ? "📷" : event.kind === "call" ? "📞" : event.kind === "email" ? "✉" : "💬"}
+                              {event.kind === "shoot" ? "📷" : event.kind === "call" ? "📞" : event.kind === "email" ? "✉" : event.kind === "inquiry" ? "🌐" : event.kind === "followup" ? "✓" : "💬"}
                             </div>
                           </div>
 
@@ -906,6 +975,16 @@ export default function ContactProfilePage() {
                                 {event.kind === "quote" && (
                                   <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#34d399] bg-[#34d399]/10 border border-[#34d399]/20">
                                     Quote
+                                  </span>
+                                )}
+                                {event.kind === "inquiry" && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#38bdf8] bg-[#38bdf8]/10 border border-[#38bdf8]/20">
+                                    {(event.data as WebInquiry).kind === "quote" ? "Website Quote Request" : "Website Inquiry"}
+                                  </span>
+                                )}
+                                {event.kind === "followup" && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase text-[#4ade80] bg-[#4ade80]/10 border border-[#4ade80]/20">
+                                    Follow-up Done
                                   </span>
                                 )}
                               </div>
@@ -955,6 +1034,31 @@ export default function ContactProfilePage() {
                                     {q.sqft && <span className="text-xs text-[#555]">{q.sqft} sqft</span>}
                                     <span className="text-xs font-bold text-[#34d399]">${q.total.toLocaleString()}</span>
                                   </div>
+                                </div>
+                              );
+                            })()}
+                            {event.kind === "inquiry" && (() => {
+                              const q = event.data as WebInquiry;
+                              return (
+                                <div>
+                                  {(q.services || []).length > 0 && <p className="text-sm font-medium">{(q.services || []).join(", ")}</p>}
+                                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                    {q.address && <span className="text-xs text-[#555]">📍 {q.address}</span>}
+                                    {q.square_footage && <span className="text-xs text-[#555]">{q.square_footage} sqft</span>}
+                                    {q.deliver_by && <span className="text-xs text-[#555]">Needed by {new Date(`${q.deliver_by}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                                    {q.quote_total != null && <span className="text-xs font-bold text-[#34d399]">${Number(q.quote_total).toLocaleString()}</span>}
+                                  </div>
+                                  {q.details && <p className="text-xs text-[#666] italic mt-1">&ldquo;{q.details}&rdquo;</p>}
+                                </div>
+                              );
+                            })()}
+                            {event.kind === "followup" && (() => {
+                              const f = event.data as FollowUpTodo;
+                              return (
+                                <div>
+                                  <p className="text-sm font-medium">{f.title || "Follow-up"}</p>
+                                  {f.notes && <p className="text-xs text-[#666] mt-0.5 whitespace-pre-line line-clamp-3">{f.notes}</p>}
+                                  {f.completed_by && <p className="text-[10px] text-[#333] mt-1">by {f.completed_by}</p>}
                                 </div>
                               );
                             })()}

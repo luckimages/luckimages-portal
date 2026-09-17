@@ -25,6 +25,7 @@ export type Todo = {
   id: string; text: string; title?: string; notes?: string; details?: string;
   created_by: string; created_at: string; completed_at: string | null;
   is_urgent: boolean; list_id?: string | null; assigned_to?: string; due_date?: string | null;
+  contact_id?: string | null; // set on contact follow-ups (lib/followUps.ts)
 };
 
 interface Props {
@@ -113,7 +114,12 @@ function SortableTask({
           {(task.notes || task.details) && !expanded && (
             <p className="text-xs text-[#555] truncate mt-0.5">{task.notes || task.details}</p>
           )}
-          {due && <p className={`text-xs mt-0.5 ${due.cls}`}>{due.label}</p>}
+          {(due || task.contact_id) && (
+            <p className="text-xs mt-0.5 flex items-center gap-2">
+              {task.contact_id && <span className="text-[10px] tracking-[1px] uppercase text-[#38bdf8]">Follow-up</span>}
+              {due && <span className={due.cls}>{due.label}</span>}
+            </p>
+          )}
         </div>
         {/* Assignee badge */}
         <button
@@ -144,6 +150,9 @@ function SortableTask({
               <div className="flex items-center gap-3 mt-1">
                 <span className={`text-xs ${userColor(task.created_by)}`}>{task.created_by}</span>
                 <span className="text-xs text-[#444]">{fmtTime(task.created_at)}</span>
+                {task.contact_id && (
+                  <a href={`/admin/contacts/${task.contact_id}`} className="text-xs text-[#38bdf8] hover:text-white transition-colors uppercase tracking-[1px]">Contact →</a>
+                )}
                 <button onClick={onEdit} className="text-xs text-[#555] hover:text-white transition-colors uppercase tracking-[1px]">Edit</button>
                 <button onClick={onDelete} className="text-xs text-[#444] hover:text-red-400 transition-colors uppercase tracking-[1px]">Delete</button>
               </div>

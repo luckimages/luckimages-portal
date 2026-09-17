@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { captureWebLead } from "@/lib/webLeads";
 
 function db() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -15,6 +16,31 @@ export async function POST(request: NextRequest) {
   if (!name || !email || !service) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+
+  // Into the CRM: contact + "call them" follow-up, and the request itself for
+  // Updates → Website Inquiries. Failures are logged, never block the email.
+  const addonNames: string[] = (addons || []).map((a: { name: string }) => a.name);
+  const contactId = await captureWebLead(db(), {
+    name,
+    email,
+    phone: null,
+    source: "website-quote",
+    followUpNote: [
+      `Quote request: ${[service.name, ...addonNames].join(", ")}`,
+      total != null ? `Est. $${total}` : null,
+      sqft ? `${sqft} sq ft` : null,
+    ].filter(Boolean).join(" · "),
+  });
+  const { error: saveError } = await db().from("contact_inquiries").insert({
+    kind: "quote",
+    contact_id: contactId,
+    first_name: name,
+    email,
+    services: [service.name, ...addonNames],
+    square_footage: sqft ? String(sqft) : null,
+    quote_total: typeof total === "number" ? total : Number(total) || null,
+  });
+  if (saveError) console.error("quote: failed to save inquiry", saveError);
 
   const addonLines = addons?.length
     ? addons.map((a: { name: string; price: number }) => `  · ${a.name} — $${a.price}`).join("\n")

@@ -343,6 +343,10 @@ function ColdCallsPage() {
   const [editNotes, setEditNotes] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [editFollowUpDate, setEditFollowUpDate] = useState("");
+  // Do Not Contact / unsubscribed (from /api/admin/contact-flags)
+  const [dncIds, setDncIds] = useState<Set<string>>(new Set());
+  const [unsubIds, setUnsubIds] = useState<Set<string>>(new Set());
+  const [hideDnc, setHideDnc] = useState(true);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -366,6 +370,12 @@ function ColdCallsPage() {
     const wl = (logs || []).filter((l: CallLog) => new Date(l.called_at) >= weekStart);
     setWeekCalls(wl.length);
     setWeekLeads(wl.filter((l: CallLog) => hasTag(l.outcome, "interested")).length);
+
+    fetch("/api/admin/contact-flags").then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      setDncIds(new Set(d.doNotContact || []));
+      setUnsubIds(new Set(d.unsubscribed || []));
+    });
 
     const pid = searchParams.get("contact");
     if (pid && cs) {
@@ -530,6 +540,7 @@ function ColdCallsPage() {
     }
     await supabase.from("contacts").update({ stage: stageFromOutcome(outcome) }).in("id", allContactsOnCall.map(c => c.id));
     await attributeSource(allContactsOnCall.map(c => c.id));
+    await syncFollowUp(contact.id, outcome, followUpDate, finalNotes);
     setLogging(false);
 
     showFlash(
@@ -637,12 +648,31 @@ function ColdCallsPage() {
     }
   }
 
+  // Keeps the contact's follow-up (contact page, Updates → Follow-ups Due,
+  // Todos) in step with the call just logged — same timing rule as the ⏰ Due
+  // badge: the chosen call-back date, else by outcome; closed/dead end it.
+  async function syncFollowUp(contactId: string, outcome: string, explicitDate: string, callNotes: string | null) {
+    const computed = nextFollowUpDate(outcome, new Date().toISOString());
+    const dueDate = explicitDate || (computed ? computed.toLocaleDateString("en-CA") : null);
+    const tagLabels = outcome.split(",").map(t => CALL_TAGS.find(x => x.key === t)?.label || t).join(", ");
+    await fetch("/api/admin/follow-ups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dueDate
+        ? { action: "set", contactId, dueDate, note: [`Cold call: ${tagLabels}`, callNotes].filter(Boolean).join("\n"), assignee: callerName === "leif" ? "leif" : "ryan" }
+        : { action: "complete", contactId }),
+    }).catch(() => {});
+  }
+
   async function saveEditedLog(log: CallLog) {
     if (editTags.size === 0) return;
     const supabase = createClient();
     const outcome = [...editTags].join(",");
     await supabase.from("cold_calls").update({ outcome, notes: editNotes || null, follow_up_date: editFollowUpDate || null }).eq("id", log.id);
     await recomputeStageForContacts(participantIds(log));
+    if (editFollowUpDate && editFollowUpDate !== (log.follow_up_date || "")) {
+      await syncFollowUp(log.contact_id, outcome, editFollowUpDate, editNotes || null);
+    }
 
     setEditingLogId(null);
     showFlash("Log updated");
@@ -680,7 +710,7 @@ function ColdCallsPage() {
     const selected = Array.from(pitchServices);
     const selectedLabels = PITCH_SERVICES.filter(s => selected.includes(s.key)).map(s => s.label);
     const isAll = selected.length === PITCH_SERVICES.length;
-    await fetch("/api/admin/send-email", {
+    const pitchRes = await fetch("/api/admin/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -695,6 +725,11 @@ function ColdCallsPage() {
       }),
     });
     setSendingPitch(false);
+    if (!pitchRes.ok) {
+      const d = await pitchRes.json().catch(() => ({}));
+      showFlash(d.skipped ? `Not sent — ${d.reason === "do_not_contact" ? "marked Do Not Contact" : "they unsubscribed from emails"}` : `Pitch email failed${d.error ? `: ${d.error}` : ""}`);
+      return;
+    }
     setPitchSent(true);
     showFlash("Pitch email sent ✓");
   }
@@ -1159,6 +1194,12 @@ function ColdCallsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <button onClick={() => openContact(c.id)} className="font-semibold hover:underline text-left">{c.name}</button>
+                        {dncIds.has(c.id) && (
+                          <p className="text-xs font-bold text-red-400 mt-1">⛔ Do Not Contact — they asked not to be contacted</p>
+                        )}
+                        {!dncIds.has(c.id) && unsubIds.has(c.id) && (
+                          <p className="text-xs text-[#888] mt-1">Unsubscribed from emails</p>
+                        )}
                         {c.brokerage && <p className="text-xs text-[#555] mt-0.5">{c.brokerage}</p>}
                         {attemptCounts[c.id] > 0 && (
                           <p className="text-xs text-[#fbbf24] mt-1">
@@ -1468,6 +1509,12 @@ function ColdCallsPage() {
             placeholder="Search by name or brokerage..."
             className="w-full bg-[#181818] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-white/30 placeholder:text-[#333]"
           />
+          {dncIds.size > 0 && (
+            <label className="flex items-center gap-2 text-[11px] text-[#666] cursor-pointer select-none -mt-2">
+              <input type="checkbox" checked={hideDnc} onChange={e => setHideDnc(e.target.checked)} className="accent-white" />
+              Hide Do Not Contact ({dncIds.size})
+            </label>
+          )}
 
           {/* Tabs */}
           <div className="flex overflow-x-auto border-b border-white/10">
@@ -1486,12 +1533,13 @@ function ColdCallsPage() {
 
           <div className="bg-[#111] border border-white/10 divide-y divide-white/5 flex-1 overflow-y-auto min-h-0">
             {(() => {
-              const visibleLogs = logSearch.trim()
+              const searchedLogs = logSearch.trim()
                 ? tabLogs[logTab].filter(l =>
                     (l.contact?.name || "").toLowerCase().includes(logSearch.toLowerCase()) ||
                     (l.contact?.brokerage || "").toLowerCase().includes(logSearch.toLowerCase())
                   )
                 : tabLogs[logTab];
+              const visibleLogs = hideDnc ? searchedLogs.filter(l => !dncIds.has(l.contact_id)) : searchedLogs;
               if (visibleLogs.length === 0) {
                 return <p className="px-5 py-10 text-xs text-[#333] italic text-center">Nothing here yet.</p>;
               }
@@ -1531,6 +1579,7 @@ function ColdCallsPage() {
                       >
                         {log.contact?.name || "Unknown"}
                       </button>
+                      {dncIds.has(log.contact_id) && <span className="ml-2 text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-red-500/15 text-red-400 align-middle">DNC</span>}
                       {log.contact?.brokerage && (
                         <p className="text-[11px] text-[#444] mt-0.5">{log.contact.brokerage}</p>
                       )}

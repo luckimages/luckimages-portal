@@ -7,6 +7,7 @@ import { ADMIN_EMAILS } from "@/lib/constants";
 import PendingShootModal from "@/components/PendingShootModal";
 import { useVisiblePolling } from "@/lib/useVisiblePolling";
 import ConflictBanner, { conflictMessage } from "@/components/ConflictBanner";
+import CommandSearch, { type SearchTarget } from "@/components/CommandSearch";
 
 const APPS = [
   { label: "Contacts",    href: "/admin/contacts",        color: "#888" },
@@ -68,6 +69,7 @@ type Todo = {
   list_id?: string | null;
   due_date?: string | null;
   completed_at: string | null;
+  contact_id?: string | null;
 };
 
 type PendingShootPreview = {
@@ -152,6 +154,12 @@ function DashboardV2Page() {
 
   const [todoLists, setTodoLists] = useState<TodoList[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  // Contact follow-ups due today or overdue — badge on the Updates app.
+  const [followUpsDue, setFollowUpsDue] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
+  // When ⌘K opens a specific contact/shoot, the app panel iframe loads that
+  // page instead of the app's home until another app is picked.
+  const [iframeOverride, setIframeOverride] = useState<{ label: string; href: string } | null>(null);
   const [todoTab, setTodoTab] = useState("asap");
 
   const [pendingShoots, setPendingShoots] = useState<PendingShootPreview[]>([]);
@@ -287,8 +295,32 @@ function DashboardV2Page() {
       const d = await res.json();
       setTodoLists(d.lists || []);
       setTodos(d.active || []);
+      const today = new Date().toLocaleDateString("en-CA");
+      setFollowUpsDue((d.active || []).filter((t: Todo) => t.contact_id && t.due_date && t.due_date.slice(0, 10) <= today).length);
     }
   }, []);
+
+  const openSearchHotkey = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      setSearchOpen(true);
+    }
+  }, []);
+
+  // ⌘K from anywhere in the Command Center (the app panel's iframe gets the
+  // same listener attached on load), and refresh the follow-up badge when a
+  // page inside the iframe completes or moves one.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin === window.location.origin && e.data?.type === "nocturne:follow-ups-changed") loadTodos();
+    }
+    window.addEventListener("keydown", openSearchHotkey);
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("keydown", openSearchHotkey);
+      window.removeEventListener("message", onMessage);
+    };
+  }, [openSearchHotkey, loadTodos]);
 
   const loadShoots = useCallback(async () => {
     const res = await fetch("/api/admin/shoots?full=1");
@@ -488,6 +520,11 @@ function DashboardV2Page() {
               </button>
             )
           )}
+          <button onClick={() => setSearchOpen(true)} aria-label="Search" title="Search (⌘K)"
+            className="flex items-center gap-2 text-white/60 hover:text-white transition-colors border border-white/20 hover:border-white/50 h-9 px-3 shrink-0">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+            <span className="hidden md:inline text-[10px] tracking-[1px] text-white/40">⌘K</span>
+          </button>
           <a href="/choose-portal" className="text-xs tracking-[3px] uppercase text-white/60 hover:text-white transition-colors border border-white/20 px-4 py-2 hover:border-white/50">Portals</a>
           <button
             onClick={() => {
@@ -846,7 +883,10 @@ function DashboardV2Page() {
                   </button>
                 </div>
               ) : (
-                <a key={label} href={app.href} className="bg-black flex flex-col items-center justify-center gap-3 p-5 hover:bg-white/5 active:bg-white/10 transition-colors group">
+                <a key={label} href={app.href} className="bg-black flex flex-col items-center justify-center gap-3 p-5 hover:bg-white/5 active:bg-white/10 transition-colors group relative">
+                  {app.label === "Updates" && followUpsDue > 0 && (
+                    <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{followUpsDue}</span>
+                  )}
                   <APP_ICON name={app.label} color={app.color} />
                   <span className="text-[9px] tracking-[2px] uppercase text-white/50 group-hover:text-white transition-colors text-center leading-tight">{app.label}</span>
                 </a>
@@ -870,8 +910,11 @@ function DashboardV2Page() {
                 {visibleApps.map(app => {
                   const isActive = app.label === activeLabel;
                   return (
-                    <button key={app.label} onClick={() => setSelectedAppLabel(app.label)}
-                      className={`flex flex-col items-center justify-center gap-1.5 py-4 px-1 transition-all border-l-2 ${isActive ? "border-white bg-white/5" : "border-transparent hover:bg-white/[0.03] hover:border-white/20"}`}>
+                    <button key={app.label} onClick={() => { setSelectedAppLabel(app.label); setIframeOverride(null); }}
+                      className={`relative flex flex-col items-center justify-center gap-1.5 py-4 px-1 transition-all border-l-2 ${isActive ? "border-white bg-white/5" : "border-transparent hover:bg-white/[0.03] hover:border-white/20"}`}>
+                      {app.label === "Updates" && followUpsDue > 0 && (
+                        <span title={`${followUpsDue} follow-up${followUpsDue === 1 ? "" : "s"} due`} className="absolute top-2 right-3 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{followUpsDue}</span>
+                      )}
                       <APP_ICON name={app.label} color={isActive ? "#fff" : "#555"} />
                       <span className={`text-[7px] tracking-[1.5px] uppercase text-center leading-tight transition-colors ${isActive ? "text-white" : "text-white/30"}`}>{app.label}</span>
                     </button>
@@ -883,8 +926,16 @@ function DashboardV2Page() {
               <div className="flex-1 min-w-0 relative">
                 {activeApp ? (
                   <iframe
-                    key={activeApp.href}
-                    src={activeApp.label === "Updates" && deepLinkShootId ? `${activeApp.href}?shoot=${deepLinkShootId}` : activeApp.href}
+                    key={iframeOverride?.label === activeApp.label ? iframeOverride.href : activeApp.href}
+                    src={
+                      iframeOverride?.label === activeApp.label ? iframeOverride.href
+                        : activeApp.label === "Updates" && deepLinkShootId ? `${activeApp.href}?shoot=${deepLinkShootId}`
+                        : activeApp.href
+                    }
+                    onLoad={e => {
+                      // Same-origin, so ⌘K keeps working while focus is inside the app page.
+                      try { e.currentTarget.contentWindow?.addEventListener("keydown", openSearchHotkey); } catch { /* not same-origin */ }
+                    }}
                     className="w-full h-full border-0 bg-[#0c0c0c]"
                     title={activeApp.label}
                   />
@@ -900,6 +951,24 @@ function DashboardV2Page() {
       </div>{/* end page 2 */}
 
       </div>{/* end sliding track */}
+
+      {searchOpen && (
+        <CommandSearch
+          onClose={() => setSearchOpen(false)}
+          onSelect={(target: SearchTarget) => {
+            setSearchOpen(false);
+            // Phones get the mobile app grid (no app panel), and a hidden app
+            // has no sidebar slot — just open the page directly.
+            if (!window.matchMedia("(min-width: 768px)").matches || hiddenApps.has(target.appLabel) || editMode) {
+              window.location.href = target.href;
+              return;
+            }
+            setSwipePage(1);
+            setSelectedAppLabel(target.appLabel);
+            setIframeOverride({ label: target.appLabel, href: target.href });
+          }}
+        />
+      )}
 
       {/* Confirm-or-reschedule a pending booking request */}
       {pendingModalId && (() => {

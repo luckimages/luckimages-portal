@@ -99,6 +99,9 @@ export default function InviteAllPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [statuses, setStatuses] = useState<Record<string, InviteStatus>>({});
+  // Unsubscribed / Do Not Contact contacts are left off the invite list
+  // (the send route also refuses them).
+  const [optedOutHidden, setOptedOutHidden] = useState(0);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(0);
 
@@ -121,7 +124,11 @@ export default function InviteAllPage() {
         .is("user_id", null)
         .neq("stage", "deleted")
         .order("total_revenue", { ascending: false, nullsFirst: false });
-      setContacts((data || []).filter(c => c.email));
+      const flags = await fetch("/api/admin/contact-flags").then(r => r.ok ? r.json() : null).catch(() => null);
+      const optedOut = new Set<string>([...(flags?.unsubscribed || []), ...(flags?.doNotContact || [])]);
+      const withEmail = (data || []).filter(c => c.email);
+      setOptedOutHidden(withEmail.filter(c => optedOut.has(c.id)).length);
+      setContacts(withEmail.filter(c => !optedOut.has(c.id)));
       setLoading(false);
       await loadSends();
     }
@@ -683,6 +690,9 @@ export default function InviteAllPage() {
             <button onClick={() => setSelected(selected.size === contacts.length ? new Set() : new Set(contacts.map(c => c.id)))} className="text-xs tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-4 py-2">
               {selected.size === contacts.length ? "Deselect All" : `Select All (${contacts.length})`}
             </button>
+            {optedOutHidden > 0 && (
+              <span className="text-[10px] text-[#555]">{optedOutHidden} hidden — unsubscribed or Do Not Contact</span>
+            )}
             <button
               onClick={sendInvites}
               disabled={sending || selected.size === 0}

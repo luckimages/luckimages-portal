@@ -20,7 +20,7 @@ type Contact = {
   registered_at: string | null;
 };
 
-type SendStatus = "idle" | "pending" | "done" | "error";
+type SendStatus = "idle" | "pending" | "done" | "error" | "skipped";
 
 type QuickBlock =
   | { id: string; type: "paragraph"; text: string }
@@ -594,6 +594,10 @@ export default function OutreachPage() {
   const [activeCampaign, setActiveCampaign] = useState<string | null>(null);
   const [qsSubject, setQsSubject] = useState("");
   const [qsStatus, setQsStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [qsNote, setQsNote] = useState("");
+  // Unsubscribed + Do Not Contact — hidden from template sends; the server
+  // (/api/admin/send-email) skips them too as the backstop.
+  const [optedOutIds, setOptedOutIds] = useState<Set<string>>(new Set());
   const [qsRecipients, setQsRecipients] = useState<QuickRecipient[]>([]);
   const [qsSendMode, setQsSendMode] = useState<"individual" | "together">("individual");
   const [qsContactSearch, setQsContactSearch] = useState("");
@@ -621,6 +625,9 @@ export default function OutreachPage() {
       const list = data || [];
       setContacts(list);
       setLoading(false);
+      fetch("/api/admin/contact-flags").then(r => r.ok ? r.json() : null).then(d => {
+        if (d) setOptedOutIds(new Set([...(d.unsubscribed || []), ...(d.doNotContact || [])]));
+      });
       // Pre-select contact from deep link
       if (contactParam) {
         const c = list.find(x => x.id === contactParam);
@@ -721,7 +728,8 @@ export default function OutreachPage() {
     );
   }
 
-  const eligible = contacts.filter(c => activeTemplate.filter(c));
+  const eligible = contacts.filter(c => activeTemplate.filter(c) && !optedOutIds.has(c.id));
+  const optedOutCount = contacts.filter(c => activeTemplate.filter(c) && optedOutIds.has(c.id)).length;
   const filtered = eligible.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())
   );
@@ -756,9 +764,13 @@ export default function OutreachPage() {
           body: JSON.stringify({ contactId: contact.id, to: contact.email, subject, html, category: activeTemplate.label }),
         });
 
-        if (!res.ok) throw new Error("Send failed");
-        setStatuses(s => ({ ...s, [contact.id]: "done" }));
-        setSentCount(n => n + 1);
+        if (res.status === 409) {
+          setStatuses(s => ({ ...s, [contact.id]: "skipped" }));
+        } else {
+          if (!res.ok) throw new Error("Send failed");
+          setStatuses(s => ({ ...s, [contact.id]: "done" }));
+          setSentCount(n => n + 1);
+        }
       } catch {
         setStatuses(s => ({ ...s, [contact.id]: "error" }));
       }
@@ -770,6 +782,7 @@ export default function OutreachPage() {
 
   const doneCount = Object.values(statuses).filter(s => s === "done").length;
   const errorCount = Object.values(statuses).filter(s => s === "error").length;
+  const skippedCount = Object.values(statuses).filter(s => s === "skipped").length;
 
   // ── Quick Send block editor: paragraphs + tracked buttons, reorderable ──
   function addParagraphBlock() {
@@ -858,6 +871,7 @@ export default function OutreachPage() {
     const hasContent = qsBlocks.some(b => (b.type === "paragraph" && b.text.trim()) || (b.type === "button" && b.label && b.url));
     if (qsRecipients.length === 0 || !qsSubject || !hasContent || qsStatus === "sending") return;
     setQsStatus("sending");
+    setQsNote("");
 
     try {
       if (qsSendMode === "together" && qsRecipients.length > 1) {
@@ -882,10 +896,14 @@ export default function OutreachPage() {
             category: "Quick Send",
           }),
         });
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 409) setQsNote(`Not sent — ${primary.email} ${d.reason === "do_not_contact" ? "is marked Do Not Contact" : "unsubscribed"}.`);
+        else if (d.skippedCc > 0) setQsNote(`${d.skippedCc} Cc'd recipient${d.skippedCc === 1 ? "" : "s"} left off (unsubscribed / Do Not Contact).`);
         setQsStatus(res.ok ? "done" : "error");
       } else {
         // Individual — a separate email (with its own tracked links) to each recipient.
         let failures = 0;
+        let skipped = 0;
         for (const r of qsRecipients) {
           const html = buildQuickSendHtml(qsSubject, qsBlocks, r.contactId);
           try {
@@ -894,11 +912,13 @@ export default function OutreachPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ contactId: r.contactId, to: r.email, subject: qsSubject, html, category: "Quick Send" }),
             });
-            if (!res.ok) failures++;
+            if (res.status === 409) skipped++;
+            else if (!res.ok) failures++;
           } catch {
             failures++;
           }
         }
+        if (skipped > 0) setQsNote(`${skipped} skipped (unsubscribed / Do Not Contact).`);
         setQsStatus(failures === 0 ? "done" : "error");
       }
     } catch {
@@ -1486,8 +1506,10 @@ export default function OutreachPage() {
                 {qsStatus === "sending" ? "Sending..." : qsStatus === "done" ? "✓ Sent" : qsStatus === "error" ? "Error — Retry" :
                   qsRecipients.length > 1 ? (qsSendMode === "together" ? "Send to all →" : `Send ${qsRecipients.length} individually →`) : "Send →"}
               </button>
+              {qsNote && <p className="text-[10px] text-[#888] text-center">{qsNote}</p>}
               {qsStatus === "done" && (
                 <button onClick={() => {
+                  setQsNote("");
                   setQsSubject("");
                   setQsBlocks([{ id: `b${Date.now()}`, type: "paragraph", text: "" }]);
                   setQsRecipients([]);
@@ -1570,7 +1592,9 @@ export default function OutreachPage() {
                   <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Search contacts..."
                     className="flex-1 bg-transparent text-xs text-white outline-none placeholder:text-[#333]" />
-                  <span className="text-[10px] text-[#444] shrink-0">{eligible.length}</span>
+                  <span className="text-[10px] text-[#444] shrink-0" title={optedOutCount > 0 ? `${optedOutCount} hidden — unsubscribed or Do Not Contact` : undefined}>
+                    {eligible.length}{optedOutCount > 0 && <span className="text-[#333]"> (+{optedOutCount} opted out)</span>}
+                  </span>
                   <button onClick={toggleAll}
                     className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors border border-white/10 px-2 py-1 shrink-0">
                     {selected.size === filtered.length && filtered.length > 0 ? "Deselect" : "All"}
@@ -1595,11 +1619,13 @@ export default function OutreachPage() {
                           status === "done"    ? "border-[#4ade80] bg-[#4ade80]/20" :
                           status === "error"   ? "border-red-500 bg-red-500/20" :
                           status === "pending" ? "border-[#fbbf24] bg-[#fbbf24]/10" :
+                          status === "skipped" ? "border-white/30 bg-white/5" :
                           isSelected ? "border-white bg-white/10" : "border-white/20"
                         }`}>
                           {status === "done"    && <span className="text-[#4ade80] text-[8px]">✓</span>}
                           {status === "error"   && <span className="text-red-400 text-[8px]">✕</span>}
                           {status === "pending" && <span className="w-1 h-1 rounded-full bg-[#fbbf24] animate-pulse block" />}
+                          {status === "skipped" && <span className="text-[#888] text-[8px]" title="Skipped — unsubscribed">–</span>}
                           {!status && isSelected && <span className="text-white text-[8px]">✓</span>}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1628,6 +1654,7 @@ export default function OutreachPage() {
                       <span className="text-white font-semibold">{selected.size}</span> selected
                       {doneCount > 0 && <span className="text-[#4ade80] ml-3">{doneCount} sent</span>}
                       {errorCount > 0 && <span className="text-red-400 ml-2">{errorCount} failed</span>}
+                      {skippedCount > 0 && <span className="text-[#888] ml-2">{skippedCount} skipped (unsubscribed)</span>}
                     </div>
                     <button onClick={sendAll} disabled={sending}
                       className="text-xs tracking-[1px] uppercase font-bold px-5 py-2 bg-white text-black hover:bg-white/90 transition-all disabled:opacity-40">

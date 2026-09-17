@@ -21,6 +21,8 @@ const CHANNEL_LABELS: Record<string, string> = {
   "networking":        "Networking",
   "partnership":       "Partner Referral",
   "direct-mail":       "Direct Mail",
+  "website-form":      "Website – Contact Form",
+  "website-quote":     "Website – Quote Request",
   "other":             "Other",
 };
 

@@ -67,6 +67,14 @@ function ContactsPageInner() {
   const [shootMap, setShootMap] = useState<Record<string, { count: number; lastDate: string | null }>>({});
   const [refMap, setRefMap]     = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
+  // Follow-ups (open one per contact) + email opt-out flags, from their own
+  // APIs so this page still loads if the CRM database update hasn't run yet.
+  const [followUpMap, setFollowUpMap] = useState<Record<string, { due_date: string; assigned_to: string | null }>>({});
+  const [followUpToday, setFollowUpToday] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const [unsubscribedIds, setUnsubscribedIds] = useState<Set<string>>(new Set());
+  const [dncIds, setDncIds] = useState<Set<string>>(new Set());
+  const [filterFollowUp, setFilterFollowUp] = useState<"all" | "due_today" | "overdue" | "scheduled">("all");
+  const [filterOptOut, setFilterOptOut] = useState<"all" | "unsubscribed" | "do_not_contact">("all");
   const [filterStage, setFilterStage] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [statFilter, setStatFilter] = useState<"lead" | "realtor" | "employee" | null>(null);
@@ -93,6 +101,21 @@ function ContactsPageInner() {
     ]);
     const list = data || [];
     setContacts(list);
+
+    fetch("/api/admin/follow-ups?view=open").then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      const map: Record<string, { due_date: string; assigned_to: string | null }> = {};
+      for (const f of d.followUps || []) {
+        if (f.due_date && (!map[f.contact_id] || f.due_date < map[f.contact_id].due_date)) map[f.contact_id] = { due_date: f.due_date.slice(0, 10), assigned_to: f.assigned_to };
+      }
+      setFollowUpMap(map);
+      if (d.today) setFollowUpToday(d.today);
+    });
+    fetch("/api/admin/contact-flags").then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      setUnsubscribedIds(new Set(d.unsubscribed || []));
+      setDncIds(new Set(d.doNotContact || []));
+    });
 
     // Detect potential duplicates — same email (case-insensitive) or same name (honorifics stripped)
     const HONORIFICS = /^(mr\.?|mrs\.?|ms\.?|dr\.?|prof\.?)\s+/i;
@@ -233,9 +256,11 @@ function ContactsPageInner() {
     setSearch("");
     setFilterStage("all");
     setFilterType("all");
+    setFilterFollowUp("all");
+    setFilterOptOut("all");
   }
 
-  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all";
+  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all" || filterFollowUp !== "all" || filterOptOut !== "all";
 
   const filtered = active.filter(c => {
     const q = search.toLowerCase();
@@ -247,7 +272,15 @@ function ContactsPageInner() {
     const matchStage = filterStage === "all" || c.stage === filterStage;
     const matchType = filterType === "all" || c.type === filterType;
     const matchStat = !statFilter || c.type === statFilter;
-    return matchSearch && matchStage && matchType && matchStat;
+    const due = followUpMap[c.id]?.due_date;
+    const matchFollowUp = filterFollowUp === "all" ||
+      (filterFollowUp === "due_today" && due === followUpToday) ||
+      (filterFollowUp === "overdue" && !!due && due < followUpToday) ||
+      (filterFollowUp === "scheduled" && !!due);
+    const matchOptOut = filterOptOut === "all" ||
+      (filterOptOut === "unsubscribed" && unsubscribedIds.has(c.id)) ||
+      (filterOptOut === "do_not_contact" && dncIds.has(c.id));
+    return matchSearch && matchStage && matchType && matchStat && matchFollowUp && matchOptOut;
   });
 
   return (
@@ -382,6 +415,19 @@ function ContactsPageInner() {
             <option value="all">All lead stages</option>
             {LEAD_STAGES.filter(s => s !== "dead").map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <select value={filterFollowUp} onChange={e => setFilterFollowUp(e.target.value as typeof filterFollowUp)}
+            className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+            <option value="all">All follow-ups</option>
+            <option value="due_today">Due today</option>
+            <option value="overdue">Overdue</option>
+            <option value="scheduled">Has a follow-up</option>
+          </select>
+          <select value={filterOptOut} onChange={e => setFilterOptOut(e.target.value as typeof filterOptOut)}
+            className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
+            <option value="all">Any email status</option>
+            <option value="unsubscribed">Unsubscribed</option>
+            <option value="do_not_contact">Do Not Contact</option>
+          </select>
           {hasAnyFilter && (
             <button onClick={clearAllFilters} className="text-xs text-[#555] hover:text-white transition-colors">Clear</button>
           )}
@@ -445,6 +491,7 @@ function ContactsPageInner() {
               <thead>
                 <tr className="border-b border-white/10 text-[#444] tracking-[1px] uppercase">
                   <th className="text-left px-4 py-3 font-normal">Name</th>
+                  <th className="text-left px-4 py-3 font-normal">Follow-up</th>
                   <th className="text-left px-4 py-3 font-normal">Phone</th>
                   <th className="text-left px-4 py-3 font-normal">Brokerage</th>
                   <th className="text-left px-4 py-3 font-normal">Status</th>
@@ -454,7 +501,7 @@ function ContactsPageInner() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-16 text-center text-[#333] italic">No contacts found</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-16 text-center text-[#333] italic">No contacts found</td></tr>
                 ) : filtered.map(contact => {
                   const tc = TYPE_COLORS[contact.type] || TYPE_COLORS.lead;
                   return (
@@ -471,10 +518,22 @@ function ContactsPageInner() {
                               {contact.is_hot && <span className="text-[#fbbf24] text-[10px]">●</span>}
                               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: tc.color }} />
                               <span className="font-medium">{contact.name}</span>
+                              {dncIds.has(contact.id) && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-red-500/15 text-red-400">DNC</span>}
+                              {unsubscribedIds.has(contact.id) && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-white/5 text-[#777]">Unsub</span>}
                             </div>
                             {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
                           </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {(() => {
+                          const due = followUpMap[contact.id]?.due_date;
+                          if (!due) return <span className="text-[#333]">—</span>;
+                          const days = Math.round((Date.parse(`${due}T00:00:00Z`) - Date.parse(`${followUpToday}T00:00:00Z`)) / 86400000);
+                          if (days < 0) return <span className="text-red-400 font-semibold">{-days}d overdue</span>;
+                          if (days === 0) return <span className="text-[#fbbf24] font-semibold">Today</span>;
+                          return <span className="text-[#888]">{new Date(`${due}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>;
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-[#666] font-mono whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : "—"}</td>
                       <td className="px-4 py-3 text-[#666]">{contact.brokerage || "—"}</td>

@@ -27,6 +27,8 @@ const CHANNELS: { key: string; label: string; icon: string; dedicated?: boolean 
   { key: "networking",        label: "Networking Events",         icon: "🤝" },
   { key: "partnership",       label: "Partner Referrals",         icon: "🔗" },
   { key: "direct-mail",       label: "Direct Mail",               icon: "✉️" },
+  { key: "website-form",      label: "Website – Contact Form",    icon: "🌐" },
+  { key: "website-quote",     label: "Website – Quote Request",   icon: "🧾" },
   { key: "other",             label: "Other",                     icon: "💬" },
 ];
 
