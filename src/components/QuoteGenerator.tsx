@@ -2,112 +2,94 @@
 
 import { useState } from "react";
 import {
-  PRIMARY_SERVICES,
-  ADDONS,
+  PRIMARY_SERVICES as PRICING_PRIMARY,
+  ADDONS as PRICING_ADDONS,
   addonsFor,
   resolvePrice,
-  type Addon,
-  type PricingShape,
 } from "@/lib/pricing";
 
-function needsSqft(pricing: PricingShape) {
-  return pricing.kind === "sqft";
+// Mirrors the client portal's "Book a Shoot" tab: a flat checkbox model with
+// no variant/quantity pickers, so every service shows its base/default price
+// and every tile is the same size. Keep these two surfaces in sync.
+const PRIMARY_SERVICES = PRICING_PRIMARY.map((s) => ({ key: s.name, label: s.name, id: s.id }));
+
+function selectedPrimaryName(selectedNames: string[]): string | null {
+  return PRICING_PRIMARY.find((p) => selectedNames.includes(p.name))?.name ?? null;
 }
 
-function displayPrice(pricing: PricingShape, sel: { sqft?: number; optionKey?: string; count?: number }): string {
-  if (needsSqft(pricing) && !sel.sqft) return "enter sq ft";
-  const price = resolvePrice(pricing, sel);
-  if (price === undefined) return "enter sq ft";
-  if (price === "custom") return "Custom";
-  return `$${price}`;
+function sortedAddonsFor(selectedNames: string[]) {
+  const primaryName = selectedPrimaryName(selectedNames);
+  const primary = PRICING_PRIMARY.find((p) => p.name === primaryName);
+  const compatibleIds = new Set(primary ? addonsFor(primary.id).map((a) => a.id) : []);
+  return [...PRICING_ADDONS]
+    .map((a) => ({ key: a.name, label: `+ ${a.name}`, id: a.id, active: compatibleIds.has(a.id) }))
+    .sort((a, b) => (a.active ? 0 : 1) - (b.active ? 0 : 1));
+}
+
+function servicePrice(key: string, sqft: number): number | null {
+  const primary = PRICING_PRIMARY.find((p) => p.name === key);
+  const addon = PRICING_ADDONS.find((a) => a.name === key);
+  const shape = primary?.pricing ?? addon?.pricing;
+  if (!shape) return null;
+  const price = resolvePrice(shape, { sqft });
+  return typeof price === "number" ? price : null;
+}
+
+function calcQuote(services: string[], sqft: number): { low: number; exact: boolean } {
+  let total = 0;
+  let allExact = true;
+  for (const s of services) {
+    const primary = PRICING_PRIMARY.find((p) => p.name === s);
+    const addon = PRICING_ADDONS.find((a) => a.name === s);
+    const shape = primary?.pricing ?? addon?.pricing;
+    if (!shape) continue;
+    const price = resolvePrice(shape, { sqft });
+    if (typeof price === "number") total += price;
+    else allExact = false;
+    if (shape.kind === "sqft" && !sqft) allExact = false;
+  }
+  return { low: total, exact: allExact && !!services.length };
 }
 
 export default function QuoteGenerator() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [sqft, setSqft] = useState("");
-  const [primaryId, setPrimaryId] = useState<string | null>(null);
-  const [primaryOptionKey, setPrimaryOptionKey] = useState<string | null>(null);
-  const [aerialCount, setAerialCount] = useState(10);
-  const [addonOptionKeys, setAddonOptionKeys] = useState<Record<string, string>>({});
-  const [addonCounts, setAddonCounts] = useState<Record<string, number>>({});
+  const [services, setServices] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const sqftNum = parseFloat(sqft) || 0;
-  const primaryService = PRIMARY_SERVICES.find((s) => s.id === primaryId);
-  const primaryPrice = primaryService
-    ? resolvePrice(primaryService.pricing, { sqft: sqftNum, optionKey: primaryOptionKey ?? undefined, count: aerialCount })
-    : null;
-  const isCustom = primaryPrice === "custom";
+  const sqftNum = parseInt(sqft) || 0;
 
-  const compatibleAddons = primaryService ? addonsFor(primaryService.id) : [];
-  const compatibleIds = new Set(compatibleAddons.map((a) => a.id));
-  const sortedAddons = [...ADDONS].sort((a, b) => {
-    const aOk = compatibleIds.has(a.id) ? 0 : 1;
-    const bOk = compatibleIds.has(b.id) ? 0 : 1;
-    return aOk - bOk;
-  });
-
-  const selectedAddons = compatibleAddons
-    .filter((a) => a.id in addonOptionKeys || a.id in addonCounts)
-    .map((a) => {
-      const price = resolvePrice(a.pricing, {
-        sqft: sqftNum,
-        optionKey: addonOptionKeys[a.id],
-        count: addonCounts[a.id],
-      });
-      return { name: a.name, price: typeof price === "number" ? price : 0 };
-    });
-
-  const total = (typeof primaryPrice === "number" ? primaryPrice : 0) + selectedAddons.reduce((sum, a) => sum + a.price, 0);
-
-  function selectPrimary(id: string) {
-    setPrimaryId((prev) => (prev === id ? null : id));
-    setPrimaryOptionKey(null);
-    setAerialCount(10);
-    setAddonOptionKeys({});
-    setAddonCounts({});
+  function toggleService(s: string) {
+    setServices((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
 
-  function toggleAddonOption(addon: Addon, optionKey: string) {
-    setAddonOptionKeys((prev) => {
-      const next = { ...prev };
-      if (next[addon.id] === optionKey) delete next[addon.id];
-      else next[addon.id] = optionKey;
-      return next;
+  // Only one primary at a time — selecting a new one replaces the old, and
+  // drops any add-ons that are no longer compatible with the new primary.
+  function selectPrimaryService(name: string) {
+    setServices((prev) => {
+      const wasSelected = prev.includes(name);
+      const primaryNames = new Set(PRICING_PRIMARY.map((p) => p.name));
+      const nonPrimary = prev.filter((s) => !primaryNames.has(s));
+      if (wasSelected) return nonPrimary;
+      const compatibleIds = new Set(addonsFor(PRICING_PRIMARY.find((p) => p.name === name)!.id).map((a) => a.id));
+      const compatibleNames = new Set(PRICING_ADDONS.filter((a) => compatibleIds.has(a.id)).map((a) => a.name));
+      const keptAddons = nonPrimary.filter((s) => compatibleNames.has(s));
+      return [name, ...keptAddons];
     });
   }
 
-  function toggleSqftAddon(addon: Addon) {
-    setAddonCounts((prev) => {
-      const next = { ...prev };
-      if (addon.id in next) delete next[addon.id];
-      else next[addon.id] = sqftNum;
-      return next;
-    });
-  }
-
-  function toggleIncrementAddon(addon: Addon, baseCount: number) {
-    setAddonCounts((prev) => {
-      const next = { ...prev };
-      if (addon.id in next) delete next[addon.id];
-      else next[addon.id] = baseCount;
-      return next;
-    });
-  }
-
-  function bumpIncrementAddon(addon: Addon, delta: number, baseCount: number) {
-    setAddonCounts((prev) => ({ ...prev, [addon.id]: Math.max(baseCount, (prev[addon.id] ?? baseCount) + delta) }));
-  }
+  const { low: total, exact } = calcQuote(services, sqftNum);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!primaryService) return;
+    if (services.length === 0) return;
     setLoading(true);
     setError("");
     try {
+      const primaryName = selectedPrimaryName(services);
       const res = await fetch("/api/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,9 +97,11 @@ export default function QuoteGenerator() {
           name,
           email,
           sqft: sqft || null,
-          service: { name: primaryService.name, price: isCustom ? "Custom" : primaryPrice },
-          addons: selectedAddons,
-          total: isCustom ? "Custom" : total,
+          service: primaryName ? { name: primaryName, price: servicePrice(primaryName, sqftNum) } : null,
+          addons: services
+            .filter((s) => s !== primaryName)
+            .map((s) => ({ name: s, price: servicePrice(s, sqftNum) ?? 0 })),
+          total: exact ? total : `From $${total}`,
         }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -165,128 +149,53 @@ export default function QuoteGenerator() {
         </div>
       </div>
 
-      {/* Primary Service — single-select */}
-      <div className="flex flex-col gap-4">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Primary Service <span className="normal-case text-[#444] tracking-normal">(choose one)</span></p>
+      {/* Service — single-select, same tile format/size as the portal's Book a Shoot tab */}
+      <div className="flex flex-col gap-3">
+        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Service <span className="normal-case text-[#444] tracking-normal">(choose one)</span></p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {PRIMARY_SERVICES.map((s) => {
-            const price = displayPrice(s.pricing, { sqft: sqftNum });
-            const selected = primaryId === s.id;
+            const checked = services.includes(s.key);
+            const price = servicePrice(s.key, sqftNum);
             return (
-              <button key={s.id} type="button" onClick={() => selectPrimary(s.id)}
-                className={`flex items-center justify-between px-5 py-4 border text-left transition-all ${selected ? "border-white bg-white/5" : "border-white/15 hover:border-white/35"}`}>
-                <span className="text-sm">{s.name}</span>
-                <span className={`text-sm font-bold ml-4 shrink-0 ${selected ? "text-white" : "text-[#666]"}`}>
-                  {price === "enter sq ft" ? <span className="text-[#444] font-normal text-xs">enter sq ft</span> : price}
-                </span>
-              </button>
+              <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
+                <div className="flex items-center gap-2">
+                  <input type="radio" checked={checked} onChange={() => selectPrimaryService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                  <span className="text-xs text-white">{s.label}</span>
+                </div>
+                {price !== null && <span className="text-[10px] text-[#555] ml-5">${price}</span>}
+              </label>
             );
           })}
         </div>
-
-        {/* Variant picker — only for primaries with more than one option */}
-        {primaryService?.pricing.kind === "options" && primaryService.pricing.options.length > 1 && (
-          <div className="flex flex-wrap gap-2 pl-1">
-            {primaryService.pricing.options.map((opt) => (
-              <button key={opt.key} type="button" onClick={() => setPrimaryOptionKey(opt.key)}
-                className={`px-4 py-2 text-xs border transition-all ${primaryOptionKey === opt.key ? "border-white bg-white/10" : "border-white/15 hover:border-white/35"}`}>
-                {opt.label} — {opt.price === "custom" ? "Custom" : `$${opt.price}`}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Aerial Photos quantity stepper */}
-        {primaryService?.pricing.kind === "base_increment" && (
-          <div className="flex items-center gap-3 pl-1">
-            <button type="button" onClick={() => setAerialCount((c) => Math.max(10, c - 5))}
-              className="w-8 h-8 border border-white/15 hover:border-white/35 text-sm">−</button>
-            <span className="text-xs text-[#888] w-24 text-center">{aerialCount} photos</span>
-            <button type="button" onClick={() => setAerialCount((c) => c + 5)}
-              className="w-8 h-8 border border-white/15 hover:border-white/35 text-sm">+</button>
-          </div>
-        )}
       </div>
 
-      {/* Add-Ons — one bordered tile per add-on, same grid as Primary Service.
-          Only the ones compatible with the selected primary light up. */}
-      <div className="flex flex-col gap-4">
-        <p className="text-xs tracking-[4px] uppercase text-[#555] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
+      {/* Add-Ons — always shown; compatible ones rise to the top and light up */}
+      <div className="flex flex-col gap-3">
+        <p className="text-xs tracking-[4px] uppercase text-[#444] flex items-center gap-4 after:flex-1 after:h-px after:bg-white/10 after:content-['']">Add-Ons</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {sortedAddons.map((a) => {
-            const active = compatibleIds.has(a.id);
-            const selected = a.id in addonOptionKeys || a.id in addonCounts;
+          {sortedAddonsFor(services).map((s) => {
+            const checked = services.includes(s.key);
+            const price = servicePrice(s.key, sqftNum);
             return (
-              <div key={a.id}
-                className={`flex flex-col gap-2.5 px-5 py-4 border transition-all ${active ? (selected ? "border-white bg-white/5" : "border-white/15") : "border-white/10 opacity-30 pointer-events-none"}`}>
-                <span className="text-sm">{a.name}</span>
-                {a.pricing.kind === "options" ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {a.pricing.options.map((opt) => {
-                      const optSelected = addonOptionKeys[a.id] === opt.key;
-                      return (
-                        <button key={opt.key} type="button" disabled={!active} onClick={() => toggleAddonOption(a, opt.key)}
-                          className={`px-2.5 py-1.5 text-[11px] border transition-all ${optSelected ? "border-white bg-white/10 text-white" : "border-white/15 text-[#888] hover:border-white/35"}`}>
-                          {opt.label} — ${opt.price}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : a.pricing.kind === "base_increment" ? (
-                  (() => {
-                    const inc = a.pricing.increment;
-                    const on = a.id in addonCounts;
-                    return (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button type="button" disabled={!active} onClick={() => toggleIncrementAddon(a, inc.baseCount)}
-                          className={`px-2.5 py-1.5 text-[11px] border transition-all ${on ? "border-white bg-white/10 text-white" : "border-white/15 text-[#888] hover:border-white/35"}`}>
-                          {inc.baseLabel} — ${inc.basePrice}
-                        </button>
-                        {on && (
-                          <div className="flex items-center gap-1.5">
-                            <button type="button" onClick={() => bumpIncrementAddon(a, -inc.incrementCount, inc.baseCount)}
-                              className="w-6 h-6 border border-white/15 hover:border-white/35 text-xs">−</button>
-                            <span className="text-[11px] text-[#888] w-10 text-center">{addonCounts[a.id]}</span>
-                            <button type="button" onClick={() => bumpIncrementAddon(a, inc.incrementCount, inc.baseCount)}
-                              className="w-6 h-6 border border-white/15 hover:border-white/35 text-xs">+</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <button type="button" disabled={!active || (needsSqft(a.pricing) && !sqftNum)} onClick={() => toggleSqftAddon(a)}
-                    className="self-start px-2.5 py-1.5 text-[11px] border border-white/15 text-[#888] hover:border-white/35 transition-all disabled:opacity-40">
-                    {selected ? "Added" : "Add"} — {displayPrice(a.pricing, { sqft: sqftNum })}
-                  </button>
-                )}
-              </div>
+              <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 border transition-colors ${s.active ? "cursor-pointer" : "opacity-30 pointer-events-none"} ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" disabled={!s.active} checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                  <span className="text-xs text-[#aaa]">{s.label}</span>
+                </div>
+                {price !== null && <span className="text-[10px] text-[#444] ml-5">${price}</span>}
+              </label>
             );
           })}
         </div>
       </div>
 
       {/* Total + Submit */}
-      {primaryService && (
+      {services.length > 0 && (
         <div className="border-t border-white/10 pt-8 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <span className="text-xs tracking-[3px] uppercase text-[#555]">Estimated Total</span>
-            <span className="text-3xl font-black">{isCustom ? "Custom Quote" : `$${total}`}</span>
+            <span className="text-3xl font-black">{exact ? `$${total}` : `From $${total}`}</span>
           </div>
-          {selectedAddons.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-xs text-[#555]">
-                <span>{primaryService.name}</span>
-                <span>{isCustom ? "Custom" : `$${primaryPrice}`}</span>
-              </div>
-              {selectedAddons.map((a) => (
-                <div key={a.name} className="flex justify-between text-xs text-[#555]">
-                  <span>{a.name}</span>
-                  <span>${a.price}</span>
-                </div>
-              ))}
-            </div>
-          )}
           {error && <p className="text-xs text-red-400">{error}</p>}
           <button type="submit" disabled={loading || !name || !email}
             className="bg-white text-black text-xs tracking-[3px] uppercase px-8 py-4 hover:bg-white/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
