@@ -102,11 +102,11 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     pricing: {
       kind: "sqft",
       tiers: [
-        { maxSqft: 2000, price: 200, label: "Up to 2,000 sq ft", media: "25+ photos" },
-        { maxSqft: 2500, price: 250, label: "Up to 2,500 sq ft", media: "30+ photos" },
-        { maxSqft: 3000, price: 300, label: "Up to 3,000 sq ft", media: "35+ photos" },
-        { maxSqft: 3500, price: 350, label: "Up to 3,500 sq ft", media: "40+ photos" },
-        { price: 400, label: "4,000+ sq ft", media: "45+ photos" },
+        { maxSqft: 2000, price: 200, label: "Up to 2,000 sq ft", media: "25+ photos of listing" },
+        { maxSqft: 2500, price: 250, label: "Up to 2,500 sq ft", media: "30+ photos of listing" },
+        { maxSqft: 3000, price: 300, label: "Up to 3,000 sq ft", media: "35+ photos of listing" },
+        { maxSqft: 3500, price: 350, label: "Up to 3,500 sq ft", media: "40+ photos of listing" },
+        { price: 400, label: "4,000+ sq ft", media: "45+ photos of listing" },
       ],
     },
     addonIds: ["aerial_addon", "twilight_addon", "matterport_addon", "floor_plan_addon", "virtual_staging_addon"],
@@ -115,7 +115,7 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "aerial_photos",
     name: "Aerial Photos",
     description: "FAA-certified aerial photography — standalone shoot.",
-    quoteNote: "10+ FAA-certified aerial photos of the property",
+    quoteNote: "10+ FAA-certified aerial photos of the Lot/Land Listing",
     qboProduct: "Aerial Photos",
     pricing: {
       kind: "base_increment",
@@ -134,7 +134,7 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "matterport",
     name: "Matterport 3D Tour",
     description: "Immersive virtual tours for any device.",
-    quoteNote: "Immersive dollhouse-view 3D walkthrough of the listing",
+    quoteNote: "Immersive dollhouse-view 3D walkthrough of listing",
     qboProduct: "Matterport 3D Tour",
     pricing: {
       kind: "sqft",
@@ -151,7 +151,7 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "headshots",
     name: "Headshots",
     description: "Professional agent headshots on-location.",
-    quoteNote: "Professional on-location headshot session, retouched final images",
+    quoteNote: "Professional on-location headshot session, 2 retouched final images",
     qboProduct: "Headshots",
     pricing: {
       kind: "options",
@@ -199,7 +199,7 @@ export const ADDONS: Addon[] = [
     id: "twilight_addon",
     name: "Twilight",
     description: "Golden hour exterior shots added to any listing session.",
-    quoteNote: "2 photos taken at sunset",
+    quoteNote: "4 photos taken at sunset",
     qboProduct: "Twilight Add-on",
     pricing: {
       kind: "options",
@@ -213,7 +213,7 @@ export const ADDONS: Addon[] = [
     id: "matterport_addon",
     // Same reasoning as Additional Aerial Photos above — must not collide
     // with the "Matterport 3D Tour" primary's name.
-    name: "Additional Matterport Tour",
+    name: "Matterport Tour Add-On",
     description: "Virtual tour added to any shoot.",
     quoteNote: "Immersive dollhouse-view 3D walkthrough of the listing",
     // Same QBO item as the standalone Matterport primary — there is no
@@ -233,7 +233,7 @@ export const ADDONS: Addon[] = [
     id: "floor_plan_addon",
     name: "Floor Plan",
     description: "Floor plan diagram added to any shoot.",
-    quoteNote: "Scaled 2D floor plan diagram of the property",
+    quoteNote: "2D floor plan diagram of the property",
     qboProduct: "Floor Plan",
     pricing: {
       kind: "sqft",

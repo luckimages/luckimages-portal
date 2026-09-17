@@ -14,6 +14,10 @@ import {
 // and every tile is the same size. Keep these two surfaces in sync.
 const PRIMARY_SERVICES = PRICING_PRIMARY.map((s) => ({ key: s.name, label: s.name, id: s.id }));
 
+// These three add-ons offer a Small/Large quantity instead of a flat
+// on/off toggle — their pricing.options carry "5"/"10" keys for that.
+const VARIANT_ADDON_IDS = new Set(["aerial_addon", "ground_photos_addon", "virtual_staging_addon"]);
+
 function selectedPrimaryName(selectedNames: string[]): string | null {
   return PRICING_PRIMARY.find((p) => selectedNames.includes(p.name))?.name ?? null;
 }
@@ -27,12 +31,12 @@ function sortedAddonsFor(selectedNames: string[]) {
     .sort((a, b) => (a.active ? 0 : 1) - (b.active ? 0 : 1));
 }
 
-function servicePrice(key: string, sqft: number): number | null {
+function servicePrice(key: string, sqft: number, optionKey?: string): number | null {
   const primary = PRICING_PRIMARY.find((p) => p.name === key);
   const addon = PRICING_ADDONS.find((a) => a.name === key);
   const shape = primary?.pricing ?? addon?.pricing;
   if (!shape) return null;
-  const price = resolvePrice(shape, { sqft });
+  const price = resolvePrice(shape, { sqft, optionKey });
   return typeof price === "number" ? price : null;
 }
 
@@ -50,7 +54,7 @@ function serviceDescription(key: string, sqft: number): string | null {
   return entry.quoteNote;
 }
 
-function calcQuote(services: string[], sqft: number): { low: number; exact: boolean } {
+function calcQuote(services: string[], sqft: number, addonOptionKey: Record<string, string>): { low: number; exact: boolean } {
   let total = 0;
   let allExact = true;
   for (const s of services) {
@@ -58,7 +62,7 @@ function calcQuote(services: string[], sqft: number): { low: number; exact: bool
     const addon = PRICING_ADDONS.find((a) => a.name === s);
     const shape = primary?.pricing ?? addon?.pricing;
     if (!shape) continue;
-    const price = resolvePrice(shape, { sqft });
+    const price = resolvePrice(shape, { sqft, optionKey: addonOptionKey[s] });
     if (typeof price === "number") total += price;
     else allExact = false;
     if (shape.kind === "sqft" && !sqft) allExact = false;
@@ -71,6 +75,7 @@ export default function QuoteGenerator() {
   const [email, setEmail] = useState("");
   const [sqft, setSqft] = useState("");
   const [services, setServices] = useState<string[]>([]);
+  const [addonOptionKey, setAddonOptionKey] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +84,22 @@ export default function QuoteGenerator() {
 
   function toggleService(s: string) {
     setServices((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  }
+
+  // Small/Large add-ons: clicking the already-selected size removes the
+  // add-on entirely; clicking the other size just swaps the price tier.
+  function selectAddonVariant(name: string, optionKey: string) {
+    if (addonOptionKey[name] === optionKey) {
+      setServices((prev) => prev.filter((s) => s !== name));
+      setAddonOptionKey((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    } else {
+      if (!services.includes(name)) setServices((prev) => [...prev, name]);
+      setAddonOptionKey((prev) => ({ ...prev, [name]: optionKey }));
+    }
   }
 
   // Only one primary at a time — selecting a new one replaces the old, and
@@ -96,7 +117,7 @@ export default function QuoteGenerator() {
     });
   }
 
-  const { low: total, exact } = calcQuote(services, sqftNum);
+  const { low: total, exact } = calcQuote(services, sqftNum, addonOptionKey);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -115,7 +136,7 @@ export default function QuoteGenerator() {
           service: primaryName ? { name: primaryName, price: servicePrice(primaryName, sqftNum) } : null,
           addons: services
             .filter((s) => s !== primaryName)
-            .map((s) => ({ name: s, price: servicePrice(s, sqftNum) ?? 0 })),
+            .map((s) => ({ name: s, price: servicePrice(s, sqftNum, addonOptionKey[s]) ?? 0 })),
           total: exact ? total : `From $${total}`,
         }),
       });
@@ -194,10 +215,44 @@ export default function QuoteGenerator() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {sortedAddonsFor(services).map((s) => {
             const checked = services.includes(s.key);
-            const price = servicePrice(s.key, sqftNum);
             const desc = serviceDescription(s.key, sqftNum);
+            const tileCls = `flex flex-col gap-1.5 px-3 py-2.5 border transition-colors ${s.active ? "" : "opacity-30 pointer-events-none"} ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414]"}`;
+
+            if (VARIANT_ADDON_IDS.has(s.id)) {
+              const addonEntry = PRICING_ADDONS.find((a) => a.id === s.id)!;
+              const opts = addonEntry.pricing.kind === "options" ? addonEntry.pricing.options : [];
+              const smallOpt = opts.find((o) => o.key === "5");
+              const largeOpt = opts.find((o) => o.key === "10");
+              const selectedKey = addonOptionKey[s.key];
+              const price = servicePrice(s.key, sqftNum, selectedKey);
+              return (
+                <div key={s.key} className={tileCls}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-[#aaa]">{s.label}</span>
+                    {checked && price !== null && <span className="text-[10px] text-[#444] shrink-0">${price}</span>}
+                  </div>
+                  {desc && <span className="text-[10px] text-[#444]">{desc}</span>}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {smallOpt && (
+                      <button type="button" disabled={!s.active} onClick={() => selectAddonVariant(s.key, smallOpt.key)}
+                        className={`px-2 py-1 text-[10px] border transition-colors ${selectedKey === smallOpt.key ? "border-white bg-white/10 text-white" : "border-white/15 text-[#888] hover:border-white/35"}`}>
+                        Small — ${smallOpt.price}
+                      </button>
+                    )}
+                    {largeOpt && (
+                      <button type="button" disabled={!s.active} onClick={() => selectAddonVariant(s.key, largeOpt.key)}
+                        className={`px-2 py-1 text-[10px] border transition-colors ${selectedKey === largeOpt.key ? "border-white bg-white/10 text-white" : "border-white/15 text-[#888] hover:border-white/35"}`}>
+                        Large — ${largeOpt.price}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            const price = servicePrice(s.key, sqftNum);
             return (
-              <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 border transition-colors ${s.active ? "cursor-pointer" : "opacity-30 pointer-events-none"} ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
+              <label key={s.key} className={`${tileCls} ${s.active ? "cursor-pointer" : ""} ${!checked && s.active ? "hover:bg-white/[0.02]" : ""}`}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <input type="checkbox" disabled={!s.active} checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
