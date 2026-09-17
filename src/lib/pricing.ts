@@ -5,7 +5,11 @@
 // it propagates everywhere. Do not hardcode a service name or dollar amount
 // in any of those UIs; import from here instead.
 
-export type SqftTier = { maxSqft?: number; price: number; label: string };
+// `media` is an optional per-tier "what you get" line (e.g. "25+ photos") shown
+// on the /pricing quote generator tile in place of a static description —
+// only Listing Photos' tiers set it today; tiers that omit it fall back to
+// the service's flat `quoteNote` instead.
+export type SqftTier = { maxSqft?: number; price: number; label: string; media?: string };
 export type Option = { key: string; label: string; price: number | "custom" };
 // A base tier plus an open-ended "+$X per N more" increment (Aerial Photos primary).
 export type BaseIncrement = {
@@ -26,6 +30,9 @@ export type PrimaryService = {
   id: string;
   name: string;
   description: string;
+  // Flat "what you get" line for the /pricing quote generator tile — used
+  // as-is unless a matching sqft tier's `media` overrides it (Listing Photos).
+  quoteNote: string;
   qboProduct: string; // key into QB_PRODUCT_MAP
   pricing: PricingShape;
   addonIds: string[]; // add-ons compatible with this primary
@@ -35,6 +42,7 @@ export type Addon = {
   id: string;
   name: string;
   description: string;
+  quoteNote: string;
   qboProduct: string; // key into QB_PRODUCT_MAP
   pricing: PricingShape;
 };
@@ -44,6 +52,15 @@ export function getSqftPrice(tiers: SqftTier[], sqft: number): number {
     if (!t.maxSqft || sqft <= t.maxSqft) return t.price;
   }
   return tiers[tiers.length - 1].price;
+}
+
+// Returns the matching tier's `media` line (e.g. "25+ photos"), defaulting to
+// the smallest tier when no sq ft has been entered yet.
+export function getSqftTierMedia(tiers: SqftTier[], sqft: number): string | undefined {
+  for (const t of tiers) {
+    if (!t.maxSqft || sqft <= t.maxSqft) return t.media;
+  }
+  return tiers[tiers.length - 1].media;
 }
 
 export function getBaseIncrementPrice(inc: BaseIncrement, count: number): number {
@@ -80,15 +97,16 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "listing_photos",
     name: "Listing Photos",
     description: "Sharp, well-lit photography that moves properties faster.",
+    quoteNote: "High-resolution listing photos",
     qboProduct: "Listing Photos",
     pricing: {
       kind: "sqft",
       tiers: [
-        { maxSqft: 2000, price: 200, label: "Up to 2,000 sq ft" },
-        { maxSqft: 2500, price: 250, label: "Up to 2,500 sq ft" },
-        { maxSqft: 3000, price: 300, label: "Up to 3,000 sq ft" },
-        { maxSqft: 3500, price: 350, label: "Up to 3,500 sq ft" },
-        { price: 400, label: "4,000+ sq ft" },
+        { maxSqft: 2000, price: 200, label: "Up to 2,000 sq ft", media: "25+ photos" },
+        { maxSqft: 2500, price: 250, label: "Up to 2,500 sq ft", media: "30+ photos" },
+        { maxSqft: 3000, price: 300, label: "Up to 3,000 sq ft", media: "35+ photos" },
+        { maxSqft: 3500, price: 350, label: "Up to 3,500 sq ft", media: "40+ photos" },
+        { price: 400, label: "4,000+ sq ft", media: "45+ photos" },
       ],
     },
     addonIds: ["aerial_addon", "twilight_addon", "matterport_addon", "floor_plan_addon", "virtual_staging_addon"],
@@ -97,6 +115,7 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "aerial_photos",
     name: "Aerial Photos",
     description: "FAA-certified aerial photography — standalone shoot.",
+    quoteNote: "10+ FAA-certified aerial photos of the property",
     qboProduct: "Aerial Photos",
     pricing: {
       kind: "base_increment",
@@ -115,6 +134,7 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "matterport",
     name: "Matterport 3D Tour",
     description: "Immersive virtual tours for any device.",
+    quoteNote: "Immersive dollhouse-view 3D walkthrough of the listing",
     qboProduct: "Matterport 3D Tour",
     pricing: {
       kind: "sqft",
@@ -131,6 +151,7 @@ export const PRIMARY_SERVICES: PrimaryService[] = [
     id: "headshots",
     name: "Headshots",
     description: "Professional agent headshots on-location.",
+    quoteNote: "Professional on-location headshot session, retouched final images",
     qboProduct: "Headshots",
     pricing: {
       kind: "options",
@@ -150,6 +171,7 @@ export const ADDONS: Addon[] = [
     // silently also "selected" the Aerial Photos primary and showed its price).
     name: "Additional Aerial Photos",
     description: "Aerial stills added to any listing shoot.",
+    quoteNote: "5–10 extra aerial photos added to your shoot",
     qboProduct: "Aerial Add-on",
     pricing: {
       kind: "options",
@@ -163,6 +185,7 @@ export const ADDONS: Addon[] = [
     id: "ground_photos_addon",
     name: "Ground Photos",
     description: "Ground-level shots of the property to accompany an aerial shoot.",
+    quoteNote: "5–10 ground-level photos to accompany your aerial shoot",
     qboProduct: "Ground Photos",
     pricing: {
       kind: "options",
@@ -176,6 +199,7 @@ export const ADDONS: Addon[] = [
     id: "twilight_addon",
     name: "Twilight",
     description: "Golden hour exterior shots added to any listing session.",
+    quoteNote: "2 photos taken at sunset",
     qboProduct: "Twilight Add-on",
     pricing: {
       kind: "options",
@@ -191,6 +215,7 @@ export const ADDONS: Addon[] = [
     // with the "Matterport 3D Tour" primary's name.
     name: "Additional Matterport Tour",
     description: "Virtual tour added to any shoot.",
+    quoteNote: "Immersive dollhouse-view 3D walkthrough of the listing",
     // Same QBO item as the standalone Matterport primary — there is no
     // separate "Matterport Add-on" product in QuickBooks.
     qboProduct: "Matterport 3D Tour",
@@ -208,6 +233,7 @@ export const ADDONS: Addon[] = [
     id: "floor_plan_addon",
     name: "Floor Plan",
     description: "Floor plan diagram added to any shoot.",
+    quoteNote: "Scaled 2D floor plan diagram of the property",
     qboProduct: "Floor Plan",
     pricing: {
       kind: "sqft",
@@ -221,6 +247,7 @@ export const ADDONS: Addon[] = [
     id: "team_addon",
     name: "Team Add-On",
     description: "Brings a Headshots session from solo up to a team of 5, plus more.",
+    quoteNote: "Upgrades your headshot session to a team of 5 (or more)",
     // Same QBO item as the Headshots primary — no separate "Team Add-on" product in QuickBooks.
     qboProduct: "Headshots",
     pricing: {
@@ -239,6 +266,7 @@ export const ADDONS: Addon[] = [
     id: "virtual_staging_addon",
     name: "Virtual Staging",
     description: "Digitally furnished rooms — fast and affordable.",
+    quoteNote: "Digitally staged photos — order per photo, 5, or 10 at a time",
     qboProduct: "Virtual Staging",
     pricing: {
       kind: "options",

@@ -6,6 +6,7 @@ import {
   ADDONS as PRICING_ADDONS,
   addonsFor,
   resolvePrice,
+  getSqftTierMedia,
 } from "@/lib/pricing";
 
 // Mirrors the client portal's "Book a Shoot" tab: a flat checkbox model with
@@ -33,6 +34,20 @@ function servicePrice(key: string, sqft: number): number | null {
   if (!shape) return null;
   const price = resolvePrice(shape, { sqft });
   return typeof price === "number" ? price : null;
+}
+
+// "What you get" line under each tile — a sq ft tier's `media` (e.g. "25+
+// photos") when one matches, otherwise the service's flat `quoteNote`.
+function serviceDescription(key: string, sqft: number): string | null {
+  const primary = PRICING_PRIMARY.find((p) => p.name === key);
+  const addon = PRICING_ADDONS.find((a) => a.name === key);
+  const entry = primary ?? addon;
+  if (!entry) return null;
+  if (entry.pricing.kind === "sqft") {
+    const media = getSqftTierMedia(entry.pricing.tiers, sqft);
+    if (media) return media;
+  }
+  return entry.quoteNote;
 }
 
 function calcQuote(services: string[], sqft: number): { low: number; exact: boolean } {
@@ -156,13 +171,17 @@ export default function QuoteGenerator() {
           {PRIMARY_SERVICES.map((s) => {
             const checked = services.includes(s.key);
             const price = servicePrice(s.key, sqftNum);
+            const desc = serviceDescription(s.key, sqftNum);
             return (
               <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 cursor-pointer border transition-colors ${checked ? "border-white/40 bg-white/5" : "border-white/10 bg-[#181818] hover:bg-white/[0.03]"}`}>
-                <div className="flex items-center gap-2">
-                  <input type="radio" checked={checked} onChange={() => selectPrimaryService(s.key)} className="accent-white w-3 h-3 shrink-0" />
-                  <span className="text-xs text-white">{s.label}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <input type="radio" checked={checked} onChange={() => selectPrimaryService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                    <span className="text-xs text-white">{s.label}</span>
+                  </div>
+                  {price !== null && <span className="text-[10px] text-[#555] shrink-0">${price}</span>}
                 </div>
-                {price !== null && <span className="text-[10px] text-[#555] ml-5">${price}</span>}
+                {desc && <span className="text-[10px] text-[#555] ml-5">{desc}</span>}
               </label>
             );
           })}
@@ -176,13 +195,17 @@ export default function QuoteGenerator() {
           {sortedAddonsFor(services).map((s) => {
             const checked = services.includes(s.key);
             const price = servicePrice(s.key, sqftNum);
+            const desc = serviceDescription(s.key, sqftNum);
             return (
               <label key={s.key} className={`flex flex-col gap-1.5 px-3 py-2.5 border transition-colors ${s.active ? "cursor-pointer" : "opacity-30 pointer-events-none"} ${checked ? "border-white/30 bg-white/5" : "border-white/5 bg-[#141414] hover:bg-white/[0.02]"}`}>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" disabled={!s.active} checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
-                  <span className="text-xs text-[#aaa]">{s.label}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" disabled={!s.active} checked={checked} onChange={() => toggleService(s.key)} className="accent-white w-3 h-3 shrink-0" />
+                    <span className="text-xs text-[#aaa]">{s.label}</span>
+                  </div>
+                  {price !== null && <span className="text-[10px] text-[#444] shrink-0">${price}</span>}
                 </div>
-                {price !== null && <span className="text-[10px] text-[#444] ml-5">${price}</span>}
+                {desc && <span className="text-[10px] text-[#444] ml-5">{desc}</span>}
               </label>
             );
           })}
