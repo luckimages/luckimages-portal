@@ -495,7 +495,19 @@ export default function ContactProfilePage() {
       {/* Nav bar */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4">
         <button onClick={() => router.back()} className="text-[#555] text-sm hover:text-white transition-colors">← Back</button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {contact.phone && (
+            <>
+              <a href={`/dashboard/phone?tab=calls&contact=${contact.id}`}
+                className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">📞 Call</a>
+              <a href={`/dashboard/phone?tab=messages&contact=${contact.id}`}
+                className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">💬 Text</a>
+            </>
+          )}
+          {contact.email && (
+            <a href={`mailto:${contact.email}`}
+              className="text-xs tracking-[1px] uppercase border border-white/10 px-3 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all">✉ Email</a>
+          )}
           <button
             onClick={() => router.push(`/admin/cold-calls?contact=${contact.id}`)}
             className="text-xs tracking-[1px] uppercase border border-white/10 px-4 py-2 text-[#888] hover:text-white hover:border-white/30 transition-all"
@@ -512,8 +524,7 @@ export default function ContactProfilePage() {
       </div>
 
       {/* Name hero */}
-      <div className="text-center pt-10 pb-6 px-4">
-        <div className="flex items-center justify-center gap-4 mb-4">
+      <div className="max-w-[1500px] mx-auto w-full px-4 md:px-8 pt-6 pb-5 flex items-center gap-4 flex-wrap">
           <button
             onClick={() => avatarFileRef.current?.click()}
             disabled={uploadingAvatar}
@@ -542,8 +553,7 @@ export default function ContactProfilePage() {
           </button>
           <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
           <h1 className="text-3xl font-bold tracking-tight text-left">{contact.name}</h1>
-        </div>
-        <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {contact.email && ADMIN_EMAILS.includes(contact.email) ? (
             <>
               {contact.brokerage && (
@@ -575,29 +585,16 @@ export default function ContactProfilePage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 md:px-6 pb-16 space-y-6">
+      <div className="max-w-[1500px] mx-auto px-4 md:px-8 pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,420px)_1fr] gap-6 items-start">
 
-        {/* ═══ FOLLOW-UP + DO NOT CONTACT ═══ */}
-        <ContactFollowUpCard
-          contactId={contact.id}
-          meEmail={meEmail}
-          open={followUp}
-          available={followUpsAvailable}
-          doNotContact={!!contact.do_not_contact}
-          unsubscribedAt={contact.email_unsubscribed_at || null}
-          onChanged={loadFollowUp}
-          onToggleDoNotContact={setDoNotContact}
-          onClearUnsubscribe={clearUnsubscribe}
-        />
-
-        {/* ═══ TAGS + SEQUENCE ═══ */}
-        <ContactTagsAndSequence key={contact.id} contactId={contact.id} initialTags={contact.tags || []} />
-
+        {/* ── LEFT: who they are + what they're worth, no scrolling needed ── */}
+        <div className="space-y-6">
         {/* ═══ MAIN INFO CARD ═══ */}
         <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
 
           {/* Contact details */}
-          <div className="p-6 grid grid-cols-2 gap-x-8 gap-y-5">
+          <div className="p-5 grid grid-cols-2 gap-x-5 gap-y-4">
             {contact.brokerage && (
               <div className="col-span-2">
                 <p className="text-[10px] tracking-[2px] uppercase text-[#444] mb-1">Brokerage</p>
@@ -873,6 +870,26 @@ export default function ContactProfilePage() {
             </div>
           );
         })()}
+
+        </div>
+
+        {/* ── RIGHT: what's next, then the whole history ── */}
+        <div className="space-y-6 min-w-0">
+        {/* ═══ FOLLOW-UP + DO NOT CONTACT ═══ */}
+        <ContactFollowUpCard
+          contactId={contact.id}
+          meEmail={meEmail}
+          open={followUp}
+          available={followUpsAvailable}
+          doNotContact={!!contact.do_not_contact}
+          unsubscribedAt={contact.email_unsubscribed_at || null}
+          onChanged={loadFollowUp}
+          onToggleDoNotContact={setDoNotContact}
+          onClearUnsubscribe={clearUnsubscribe}
+        />
+
+        {/* ═══ TAGS + SEQUENCE ═══ */}
+        <ContactTagsAndSequence key={contact.id} contactId={contact.id} initialTags={contact.tags || []} />
 
         {/* ═══ HISTORY TABS ═══ */}
         <div className="space-y-4">
@@ -1380,6 +1397,8 @@ export default function ContactProfilePage() {
               )}
             </div>
           )}
+
+        </div>        </div>
 
         </div>
       </div>
