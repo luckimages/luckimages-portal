@@ -75,9 +75,7 @@ function ContactsPageInner() {
   const [dncIds, setDncIds] = useState<Set<string>>(new Set());
   const [filterFollowUp, setFilterFollowUp] = useState<"all" | "due_today" | "overdue" | "scheduled">("all");
   const [filterOptOut, setFilterOptOut] = useState<"all" | "unsubscribed" | "do_not_contact">("all");
-  // Tags + saved views (supabase-crm-phase2-3.sql)
-  const [tagsByContact, setTagsByContact] = useState<Record<string, string[]>>({});
-  const [filterTag, setFilterTag] = useState("all");
+  // Saved views (supabase-crm-phase2-3.sql)
   const [savedViews, setSavedViews] = useState<{ id: string; name: string; filters: Record<string, string | null> }[]>([]);
   const [filterStage, setFilterStage] = useState("all");
   const [filterType, setFilterType] = useState("all");
@@ -94,6 +92,7 @@ function ContactsPageInner() {
     catch { return new Set(); }
   });
   const [mergingPair, setMergingPair] = useState<string | null>(null);
+  const [showHealthInfo, setShowHealthInfo] = useState(false);
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -119,9 +118,6 @@ function ContactsPageInner() {
       if (!d) return;
       setUnsubscribedIds(new Set(d.unsubscribed || []));
       setDncIds(new Set(d.doNotContact || []));
-    });
-    fetch("/api/admin/tags?view=contacts").then(r => r.ok ? r.json() : null).then(d => {
-      if (d) setTagsByContact(d.tagsByContact || {});
     });
     fetch("/api/admin/saved-views").then(r => r.ok ? r.json() : null).then(d => {
       if (d) setSavedViews(d.views || []);
@@ -268,11 +264,10 @@ function ContactsPageInner() {
     setFilterType("all");
     setFilterFollowUp("all");
     setFilterOptOut("all");
-    setFilterTag("all");
   }
 
   function currentFilters() {
-    return { search, filterType, filterStage, filterFollowUp, filterOptOut, filterTag, statFilter };
+    return { search, filterType, filterStage, filterFollowUp, filterOptOut, statFilter };
   }
 
   function applyView(f: Record<string, string | null>) {
@@ -281,7 +276,6 @@ function ContactsPageInner() {
     setFilterStage(f.filterStage || "all");
     setFilterFollowUp((f.filterFollowUp as typeof filterFollowUp) || "all");
     setFilterOptOut((f.filterOptOut as typeof filterOptOut) || "all");
-    setFilterTag(f.filterTag || "all");
     setStatFilter((f.statFilter as typeof statFilter) || null);
   }
 
@@ -301,7 +295,7 @@ function ContactsPageInner() {
     setSavedViews(v => v.filter(x => x.id !== id));
   }
 
-  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all" || filterFollowUp !== "all" || filterOptOut !== "all" || filterTag !== "all";
+  const hasAnyFilter = statFilter || search || filterStage !== "all" || filterType !== "all" || filterFollowUp !== "all" || filterOptOut !== "all";
 
   const filtered = active.filter(c => {
     const q = search.toLowerCase();
@@ -321,8 +315,7 @@ function ContactsPageInner() {
     const matchOptOut = filterOptOut === "all" ||
       (filterOptOut === "unsubscribed" && unsubscribedIds.has(c.id)) ||
       (filterOptOut === "do_not_contact" && dncIds.has(c.id));
-    const matchTag = filterTag === "all" || (tagsByContact[c.id] || []).includes(filterTag);
-    return matchSearch && matchStage && matchType && matchStat && matchFollowUp && matchOptOut && matchTag;
+    return matchSearch && matchStage && matchType && matchStat && matchFollowUp && matchOptOut;
   });
 
   return (
@@ -478,13 +471,6 @@ function ContactsPageInner() {
             <option value="overdue">Overdue</option>
             <option value="scheduled">Has a follow-up</option>
           </select>
-          {Object.keys(tagsByContact).length > 0 && (
-            <select value={filterTag} onChange={e => setFilterTag(e.target.value)}
-              className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
-              <option value="all">All tags</option>
-              {[...new Set(Object.values(tagsByContact).flat())].sort((a, b) => a.localeCompare(b)).map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
           <select value={filterOptOut} onChange={e => setFilterOptOut(e.target.value as typeof filterOptOut)}
             className="bg-[#111] border border-white/10 text-xs text-[#888] px-3 py-2.5 outline-none focus:border-white/30">
             <option value="all">Any email status</option>
@@ -558,7 +544,47 @@ function ContactsPageInner() {
                   <th className="text-left px-4 py-3 font-normal">Phone</th>
                   <th className="text-left px-4 py-3 font-normal">Brokerage</th>
                   <th className="text-left px-4 py-3 font-normal">Status</th>
-                  <th className="text-left px-4 py-3 font-normal">Health</th>
+                  <th className="text-left px-4 py-3 font-normal relative">
+                    <span className="inline-flex items-center gap-1.5">
+                      Health
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setShowHealthInfo(v => !v); }}
+                        className="w-3.5 h-3.5 rounded-full border border-[#444] text-[#444] hover:border-[#888] hover:text-[#888] flex items-center justify-center normal-case tracking-normal leading-none"
+                        aria-label="What does Health mean?"
+                      >
+                        <span className="text-[9px]" style={{ marginTop: -1 }}>?</span>
+                      </button>
+                    </span>
+                    {showHealthInfo && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowHealthInfo(false)} />
+                        <div
+                          className="absolute top-full right-0 mt-2 w-72 bg-[#111] border border-white/15 p-4 z-50 normal-case tracking-normal text-[#999] shadow-xl"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <p className="text-white font-bold mb-2">Contact Health</p>
+                          <p className="mb-3 leading-relaxed">
+                            A score out of 100 estimating how active and valuable this relationship is, graded into letters:
+                          </p>
+                          <ul className="space-y-1 mb-3">
+                            <li><span className="text-[#4ade80] font-bold">A</span> — 80+ points</li>
+                            <li><span className="text-[#60a5fa] font-bold">B</span> — 60–79 points</li>
+                            <li><span className="text-[#fbbf24] font-bold">C</span> — 40–59 points</li>
+                            <li><span className="text-red-400 font-bold">D</span> — under 40 points</li>
+                          </ul>
+                          <p className="text-white font-bold mb-1">Points come from:</p>
+                          <ul className="space-y-1 leading-relaxed">
+                            <li>Last shoot &lt; 30 days ago — 30 pts (&lt;60d: 20, &lt;90d: 10, none: 0)</li>
+                            <li>5+ shoots booked — 25 pts (3-4: 18, 2: 12, 1: 6)</li>
+                            <li>2+ referrals sent — 20 pts (1: 12)</li>
+                            <li>Has portal access — 15 pts</li>
+                            <li>Lead source on file — 10 pts</li>
+                          </ul>
+                        </div>
+                      </>
+                    )}
+                  </th>
                   <th className="text-left px-4 py-3 font-normal">Added</th>
                 </tr>
               </thead>
@@ -585,14 +611,6 @@ function ContactsPageInner() {
                               {unsubscribedIds.has(contact.id) && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-white/5 text-[#777]">Unsub</span>}
                             </div>
                             {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
-                            {(tagsByContact[contact.id] || []).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {tagsByContact[contact.id].slice(0, 3).map(t => (
-                                  <span key={t} className="text-[9px] px-1.5 py-0.5 bg-white/[0.05] border border-white/10 text-[#999]">{t}</span>
-                                ))}
-                                {tagsByContact[contact.id].length > 3 && <span className="text-[9px] text-[#555]">+{tagsByContact[contact.id].length - 3}</span>}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </td>

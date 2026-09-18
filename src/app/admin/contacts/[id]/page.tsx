@@ -6,8 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { formatPhone, normalizePhone } from "@/lib/format";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import { avatarUrl } from "@/lib/avatarUrl";
-import ContactFollowUpCard, { type FollowUpTodo } from "@/components/ContactFollowUpCard";
-import ContactTagsAndSequence from "@/components/ContactTagsAndSequence";
+import ContactPreferences from "@/components/ContactPreferences";
 
 function adminFirst(email: string): string {
   return (email?.split("@")[0] || email || "").replace(/^./, c => c.toUpperCase());
@@ -62,8 +61,11 @@ type Contact = {
   // Added by supabase-crm-phase1.sql
   do_not_contact?: boolean | null;
   email_unsubscribed_at?: string | null;
-  // Added by supabase-crm-phase2-3.sql
-  tags?: string[] | null;
+};
+
+type FollowUpTodo = {
+  id: string; title: string | null; notes: string | null; due_date: string | null;
+  assigned_to: string | null; created_at: string; completed_at: string | null; completed_by: string | null;
 };
 
 type EmailReply = { id: string; from_email: string | null; from_name: string | null; subject: string | null; body_text: string | null; received_at: string };
@@ -173,9 +175,7 @@ export default function ContactProfilePage() {
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
 
   const [team, setTeam] = useState<{ id: string; name: string } | null>(null);
-  const [followUp, setFollowUp] = useState<FollowUpTodo | null>(null);
   const [followUpHistory, setFollowUpHistory] = useState<FollowUpTodo[]>([]);
-  const [followUpsAvailable, setFollowUpsAvailable] = useState(true);
   const [inquiries, setInquiries] = useState<WebInquiry[]>([]);
   const [replies, setReplies] = useState<EmailReply[]>([]);
 
@@ -223,9 +223,7 @@ export default function ContactProfilePage() {
     const res = await fetch(`/api/admin/follow-ups?contact_id=${id}`);
     if (!res.ok) return;
     const d = await res.json();
-    setFollowUp(d.open || null);
     setFollowUpHistory(d.history || []);
-    setFollowUpsAvailable(!d.unavailable);
   }, [id]);
 
   const loadContact = useCallback(async () => {
@@ -875,21 +873,13 @@ export default function ContactProfilePage() {
 
         {/* ── RIGHT: what's next, then the whole history ── */}
         <div className="space-y-6 min-w-0">
-        {/* ═══ FOLLOW-UP + DO NOT CONTACT ═══ */}
-        <ContactFollowUpCard
-          contactId={contact.id}
-          meEmail={meEmail}
-          open={followUp}
-          available={followUpsAvailable}
+        {/* ═══ CONTACT PREFERENCES ═══ */}
+        <ContactPreferences
           doNotContact={!!contact.do_not_contact}
           unsubscribedAt={contact.email_unsubscribed_at || null}
-          onChanged={loadFollowUp}
           onToggleDoNotContact={setDoNotContact}
           onClearUnsubscribe={clearUnsubscribe}
         />
-
-        {/* ═══ TAGS + SEQUENCE ═══ */}
-        <ContactTagsAndSequence key={contact.id} contactId={contact.id} initialTags={contact.tags || []} />
 
         {/* ═══ HISTORY TABS ═══ */}
         <div className="space-y-4">

@@ -6,10 +6,10 @@ import crypto from "crypto";
 //                          <id>.resend.app address domain)
 //   RESEND_WEBHOOK_SECRET  signing secret of the email.received webhook that
 //                          points at /api/webhooks/resend-inbound
-// While on, outreach + sequence emails set Reply-To to
+// While on, outreach emails set Reply-To to
 // <ryan|leif>+<contact id>@REPLY_CAPTURE_DOMAIN. Replies hit the webhook, get
-// logged on the contact, stop their sequence, and are forwarded to that
-// admin's inbox with Reply-To set back to the realtor.
+// logged on the contact and forwarded to that admin's inbox with Reply-To
+// set back to the realtor.
 
 const ADMIN_BY_LOCAL: Record<string, string> = { ryan: "ryan@luckimages.com", leif: "leif@luckimages.com" };
 

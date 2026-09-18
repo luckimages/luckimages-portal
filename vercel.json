@@ -15,10 +15,6 @@
     {
       "path": "/api/cron/client-retention",
       "schedule": "30 12 * * *"
-    },
-    {
-      "path": "/api/cron/run-sequences",
-      "schedule": "0 15 * * *"
     }
   ]
 }

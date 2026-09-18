@@ -8,8 +8,8 @@ const escapeLike = (s: string) => s.replace(/[\\%_]/g, c => `\\${c}`);
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // Resend Inbound → email.received (see lib/replyCapture.ts for setup). Logs
-// the reply on the contact, stops their sequence, and forwards it to Ryan or
-// Leif with Reply-To set to the realtor so answering from Gmail just works.
+// the reply on the contact and forwards it to Ryan or Leif with Reply-To set
+// to the realtor so answering from Gmail just works.
 export async function POST(req: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Reply capture is not configured" }, { status: 503 });
@@ -67,12 +67,6 @@ export async function POST(req: Request) {
   });
   if (insertError?.code === "23505") return NextResponse.json({ ok: true, duplicate: true });
   if (insertError) console.error("resend-inbound: insert failed", insertError);
-
-  if (contactId) {
-    await db.from("sequence_enrollments")
-      .update({ status: "stopped", stopped_reason: "replied", next_run_on: null })
-      .eq("contact_id", contactId).eq("status", "active");
-  }
 
   const attachmentCount = Array.isArray(data.attachments) ? data.attachments.length : 0;
   const banner = `<div style="font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#555;background:#f4f4f5;border:1px solid #e4e4e7;padding:10px 12px;margin-bottom:16px;">
