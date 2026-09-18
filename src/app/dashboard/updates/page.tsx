@@ -57,8 +57,9 @@ type FollowUp = {
 
 const ASSIGNEE_LABEL: Record<string, string> = { ryan: "Ryan", leif: "Leif", both: "Ryan & Leif" };
 
-// Each box scrolls inside a fixed height instead of growing the whole page.
-const LIST_SCROLL = "max-h-[26rem] overflow-y-auto";
+// Each box's list is a fixed height that scrolls, so the four columns line
+// up and the page never grows past the screen.
+const LIST_SCROLL = "h-[32rem] overflow-y-auto";
 
 // Registrations start at the last 7 days; "Show older" walks back a month at
 // a time from there.
@@ -341,7 +342,7 @@ export default function UpdatesPage() {
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       {conflictMsg && <ConflictBanner message={conflictMsg} onDismiss={() => setConflictMsg(null)} />}
-      <div className="flex-1 px-4 md:px-8 py-8 w-full space-y-8">
+      <div className="flex-1 flex flex-col px-4 md:px-8 py-8 w-full space-y-8">
 
         <div>
           <p className="text-xs tracking-[4px] uppercase text-[#a78bfa] mb-1">Command Center</p>
@@ -686,7 +687,7 @@ export default function UpdatesPage() {
         </div>
 
         {/* Post a manual update — still feeds the Calendar's "Nocturne" filter */}
-        <form onSubmit={postUpdate} className="border border-white/10 flex">
+        <form onSubmit={postUpdate} className="border border-white/10 flex mt-auto">
           <input
             value={updateInput}
             onChange={e => setUpdateInput(e.target.value)}
