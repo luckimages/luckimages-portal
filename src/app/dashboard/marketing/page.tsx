@@ -403,14 +403,35 @@ export default function MarketingPage() {
                 </div>
               </div>
 
-              {/* Google Search Console — organic SEO block */}
+              {/* Google Business Profile — placeholder, not built yet */}
+              <div className="border border-white/10 border-dashed bg-[#111] p-5 space-y-4 opacity-60">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">📍</span>
+                    <div>
+                      <p className="text-sm font-bold tracking-wide">Google Business Profile</p>
+                      <p className="text-[10px] text-[#444] mt-0.5">Views, calls &amp; direction requests — not connected yet</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] tracking-[1.5px] uppercase border border-white/10 px-3 py-1.5 text-[#444] shrink-0">
+                    Coming Soon
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-px bg-white/5">
+                  <StatBox label="Profile Views" value="—" />
+                  <StatBox label="Calls" value="—" />
+                  <StatBox label="Direction Requests" value="—" />
+                </div>
+              </div>
+
+              {/* Google SEO / Ads — organic SEO block */}
               <div className="border border-white/10 bg-[#111] p-5 space-y-4 md:col-span-2">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">🔍</span>
                     <div>
-                      <p className="text-sm font-bold tracking-wide">Google SEO</p>
-                      <p className="text-[10px] text-[#444] mt-0.5">Organic search performance — last 28 days</p>
+                      <p className="text-sm font-bold tracking-wide">Google SEO / Ads</p>
+                      <p className="text-[10px] text-[#444] mt-0.5">Organic search performance — last 28 days. Google Ads not connected yet.</p>
                     </div>
                   </div>
                   {scData?.configured && !scData.error && (
