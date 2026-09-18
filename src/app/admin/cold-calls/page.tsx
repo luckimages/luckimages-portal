@@ -634,6 +634,18 @@ function ColdCallsPage() {
   // Copy the follow-up text link and immediately write a cold_calls row so the
   // send is tracked even if the user never clicks Save Call Log. If Save IS
   // clicked, logCall() updates that same row instead of inserting a duplicate.
+  function openFollowUpEmail() {
+    if (!contact) return;
+    setPitchContact(contact);
+    setPitchSent(false);
+    setPitchSubject("Real Estate Photography — Luck Images");
+    setPitchServices(new Set(PITCH_SERVICES.map(s => s.key)));
+    setPitchQuote(quoteAmount || "");
+    setPitchQuoteNote("");
+    setShowPitch(true);
+    setSelectedTags(prev => new Set(prev).add("send_info"));
+  }
+
   async function copyPendingTextLink() {
     if (!contact) return;
     navigator.clipboard.writeText(trackedTextLink(contact.id, primaryService));
@@ -1565,13 +1577,23 @@ function ColdCallsPage() {
               disabled={!contact}
               onToggle={key => setSelectedTags(prev => toggleTag(prev, key))}
             />
-            <button
-              onClick={copyPendingTextLink}
-              disabled={!contact}
-              className="w-full mt-3 text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              💬 {pendingTextCopied ? "✓ Copied — will log as Sent Text" : "Copy Follow-up Text Link"}
-            </button>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <button
+                onClick={copyPendingTextLink}
+                disabled={!contact}
+                className="text-xs tracking-[1px] uppercase font-bold py-3 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                💬 {pendingTextCopied ? "✓ Copied" : "Follow-up Text"}
+              </button>
+              <button
+                onClick={openFollowUpEmail}
+                disabled={!contact || !contact.email}
+                title={contact && !contact.email ? "No email on file for this contact" : undefined}
+                className="text-xs tracking-[1px] uppercase font-bold py-3 border border-[#c084fc]/30 text-[#c084fc] hover:bg-[#c084fc]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                📨 Follow-up Email
+              </button>
+            </div>
             <button
               onClick={logCall}
               disabled={!contact || logging || selectedTags.size === 0}
