@@ -11,7 +11,9 @@ export async function GET() {
     .select("id, name, email, phone, brokerage, registered_at")
     .not("registered_at", "is", null)
     .order("registered_at", { ascending: false })
-    .limit(50);
+    // Deep enough for the Updates box's "show older" to page back through
+    // the full history a month at a time.
+    .limit(500);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ registrations: data || [] });

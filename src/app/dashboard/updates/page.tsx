@@ -57,6 +57,18 @@ type FollowUp = {
 
 const ASSIGNEE_LABEL: Record<string, string> = { ryan: "Ryan", leif: "Leif", both: "Ryan & Leif" };
 
+// Each box scrolls inside a fixed height instead of growing the whole page.
+const LIST_SCROLL = "max-h-[26rem] overflow-y-auto";
+
+// Registrations start at the last 7 days; "Show older" walks back a month at
+// a time from there.
+function registrationCutoff(nowMs: number, monthsBack: number): number {
+  const d = new Date(nowMs);
+  d.setDate(d.getDate() - 7);
+  if (monthsBack > 0) d.setMonth(d.getMonth() - monthsBack);
+  return d.getTime();
+}
+
 function dueLabel(due: string, today: string): { text: string; cls: string } {
   const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due.slice(0, 10)}T00:00:00Z`)) / 86400000);
   if (days <= 0) return { text: "Due today", cls: "text-[#fbbf24]" };
@@ -138,6 +150,8 @@ export default function UpdatesPage() {
   const [loadingFollowUps, setLoadingFollowUps] = useState(true);
   const [expandedFollowUp, setExpandedFollowUp] = useState<string | null>(null);
   const [followUpBusy, setFollowUpBusy] = useState<string | null>(null);
+  const [regMonthsBack, setRegMonthsBack] = useState(0);
+  const [nowMs] = useState(() => Date.now());
   const [editDatetime, setEditDatetime] = useState<Record<string, string>>({});
   const [editPhotographers, setEditPhotographers] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -318,6 +332,9 @@ export default function UpdatesPage() {
   }
 
   const unackedShoots = pendingShoots.filter(s => !pendingAcks.acked.has(s.id)).length;
+  const regCutoff = registrationCutoff(nowMs, regMonthsBack);
+  const visibleRegistrations = registrations.filter(r => new Date(r.registered_at).getTime() >= regCutoff);
+  const olderRegistrationCount = registrations.length - visibleRegistrations.length;
   const unackedRegs = registrations.filter(r => !regAcks.acked.has(r.id)).length;
   const unackedInquiries = inquiries.filter(q => !inquiryAcks.acked.has(q.id)).length;
 
@@ -352,7 +369,7 @@ export default function UpdatesPage() {
           ) : followUps.length === 0 ? (
             <p className="text-xs text-[#333] italic p-6">Nothing due — you&apos;re caught up.</p>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className={`divide-y divide-white/5 ${LIST_SCROLL}`}>
               {followUps.map(f => {
                 const due = dueLabel(f.due_date, followUpToday);
                 const isExpanded = expandedFollowUp === f.id;
@@ -417,7 +434,7 @@ export default function UpdatesPage() {
           ) : pendingShoots.length === 0 ? (
             <p className="text-xs text-[#333] italic p-6">No pending booking requests.</p>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className={`divide-y divide-white/5 ${LIST_SCROLL}`}>
               {pendingShoots.map(s => {
                 const isUnacked = !pendingAcks.acked.has(s.id);
                 const isExpanded = expandedShoot === s.id;
@@ -529,9 +546,11 @@ export default function UpdatesPage() {
             <p className="text-xs text-[#444] italic p-6">Loading...</p>
           ) : registrations.length === 0 ? (
             <p className="text-xs text-[#333] italic p-6">No portal registrations yet.</p>
+          ) : visibleRegistrations.length === 0 ? (
+            <p className="text-xs text-[#333] italic p-6">None in the last 7 days.</p>
           ) : (
-            <div className="divide-y divide-white/5">
-              {registrations.map(r => {
+            <div className={`divide-y divide-white/5 ${LIST_SCROLL}`}>
+              {visibleRegistrations.map(r => {
                 const isUnacked = !regAcks.acked.has(r.id);
                 const isExpanded = expandedReg === r.id;
                 return (
@@ -564,6 +583,20 @@ export default function UpdatesPage() {
               })}
             </div>
           )}
+          {!loadingRegs && (olderRegistrationCount > 0 || regMonthsBack > 0) && (
+            <div className="px-5 py-2.5 border-t border-white/5 flex items-center justify-between gap-3">
+              {olderRegistrationCount > 0 ? (
+                <button onClick={() => setRegMonthsBack(m => m + 1)} className="text-[10px] tracking-[1px] uppercase text-[#555] hover:text-white transition-colors">
+                  Show older ({olderRegistrationCount})
+                </button>
+              ) : <span className="text-[10px] text-[#333]">All history shown</span>}
+              {regMonthsBack > 0 && (
+                <button onClick={() => setRegMonthsBack(0)} className="text-[10px] tracking-[1px] uppercase text-[#444] hover:text-white transition-colors">
+                  Show less
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ══ WEBSITE INQUIRIES BOX (luckimages.com/contact form) ══ */}
@@ -579,7 +612,7 @@ export default function UpdatesPage() {
           ) : inquiries.length === 0 ? (
             <p className="text-xs text-[#333] italic p-6">No website inquiries yet.</p>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className={`divide-y divide-white/5 ${LIST_SCROLL}`}>
               {inquiries.map(q => {
                 const isUnacked = !inquiryAcks.acked.has(q.id);
                 const isExpanded = expandedInquiry === q.id;
