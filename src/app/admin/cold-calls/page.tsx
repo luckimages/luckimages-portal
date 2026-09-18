@@ -1645,8 +1645,8 @@ function ColdCallsPage() {
       {showPitch && pitchContact && (
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4"
           onClick={() => !sendingPitch && setShowPitch(false)}>
-          <div className="bg-[#111] border border-white/15 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="bg-[#111] border border-white/15 w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
               <div>
                 <p className="text-xs font-bold tracking-[3px] uppercase">Send Pitch Email</p>
                 <p className="text-xs text-[#555] mt-0.5">Pricing · portfolio · portal</p>
@@ -1664,7 +1664,7 @@ function ColdCallsPage() {
                 </button>
               </div>
             ) : (
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 overflow-y-auto min-h-0">
                 <div className="bg-[#181818] border border-white/10 px-4 py-3">
                   <p className="text-xs text-[#555] mb-0.5">To</p>
                   <p className="text-sm font-semibold">{pitchContact.name}</p>
