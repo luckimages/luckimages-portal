@@ -648,11 +648,23 @@ function ColdCallsPage() {
 
   async function copyPendingTextLink() {
     if (!contact) return;
-    navigator.clipboard.writeText(trackedTextLink(contact.id, primaryService));
+    const link = trackedTextLink(contact.id, primaryService);
+    navigator.clipboard.writeText(link);
     setSelectedTags(prev => new Set(prev).add("sent_text"));
     setPendingTextLinkSent(true);
     setPendingTextCopied(true);
     setTimeout(() => setPendingTextCopied(false), 1500);
+
+    // Leif doesn't have iMessage/Continuity on his laptop, so he can't paste
+    // a copied link straight into a text — email it to himself instead so he
+    // can grab it from his phone.
+    if (callerName === "leif") {
+      fetch("/api/admin/text-link-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ link, contactName: contact.name }),
+      }).then(res => { if (res.ok) showFlash("Link copied — also emailed to you"); }).catch(() => {});
+    }
 
     // Already logged a text for this contact today — don't double-count.
     const today = new Date().toDateString();
