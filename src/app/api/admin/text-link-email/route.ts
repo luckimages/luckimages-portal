@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase-server";
 
-// Relays the Cold Call tool's "Follow-up Text" link to the admin's own inbox
-// — for whoever's cold-calling without iMessage/Continuity on their computer
-// (no way to paste a Mac clipboard straight into their phone's texting app),
-// they can instead open this email on their phone, copy the link, and paste
-// it into a text. Not a marketing send: no unsubscribe footer, no email_log
-// row, no Do Not Contact check — it's an internal utility message to self.
+// Leif doesn't have iMessage/Continuity on his laptop, so a link copied to
+// his clipboard can't be pasted straight into a text — this relays the Cold
+// Call tool's "Follow-up Text" link to his own inbox instead, so he can open
+// it on his phone, copy it, and paste it into iMessage. Hardcoded to his
+// address rather than "whoever's logged in" since that's the actual, fixed
+// requirement — not a general per-admin utility. Not a marketing send: no
+// unsubscribe footer, no email_log row, no Do Not Contact check.
+const RECIPIENT = "leif@luckimages.com";
+
 export async function POST(req: Request) {
   const admin = await requireAdmin();
   if (!admin?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -24,7 +27,7 @@ export async function POST(req: Request) {
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: "Luck Images <ryan@luckimages.com>",
-      to: [admin.email],
+      to: [RECIPIENT],
       subject,
       html: `<div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;padding:24px;color:#111;">
         <p style="margin:0 0 12px;font-size:14px;">${contactName ? `Text link for <strong>${contactName}</strong>:` : "Text link:"}</p>
