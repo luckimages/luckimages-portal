@@ -334,8 +334,8 @@ export default function UpdatesPage() {
           </p>
         </div>
 
-        {/* Boxes sit in a 2×2 grid on desktop, stacked on mobile */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Four columns across on a wide screen, 2×2 on a laptop, stacked on mobile */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
 
         {/* ══ FOLLOW-UPS DUE BOX ══ */}
         <div className="bg-[#111] border border-white/10">
