@@ -306,6 +306,10 @@ function ColdCallsPage() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [dupeWarning, setDupeWarning] = useState<Contact | null>(null);
 
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [editContactForm, setEditContactForm] = useState({ name: "", phone: "", email: "", brokerage: "" });
+  const [savingContactEdit, setSavingContactEdit] = useState(false);
+
   const [primaryService, setPrimaryService] = useState<string | null>(null);
   const [selectedAddOns, setSelectedAddOns] = useState<Set<string>>(new Set());
 
@@ -427,6 +431,33 @@ function ColdCallsPage() {
       const { data: linked } = await supabase.from("contacts").select("id, name, email, phone, brokerage, stage").in("id", otherIds);
       setAdditionalContacts((linked || []) as Contact[]);
     }
+  }
+
+  function startEditContact(c: Contact) {
+    setEditingContactId(c.id);
+    setEditContactForm({ name: c.name, phone: c.phone || "", email: c.email || "", brokerage: c.brokerage || "" });
+  }
+
+  async function saveContactEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingContactId || !editContactForm.name.trim()) return;
+    setSavingContactEdit(true);
+    const supabase = createClient();
+    const updates = {
+      name: editContactForm.name.trim(),
+      phone: normalizePhone(editContactForm.phone) || null,
+      email: editContactForm.email.trim() || null,
+      brokerage: editContactForm.brokerage.trim() || null,
+    };
+    const { data } = await supabase.from("contacts").update(updates).eq("id", editingContactId).select("id, name, email, phone, brokerage, stage").single();
+    if (data) {
+      const updated = data as Contact;
+      if (contact?.id === updated.id) setContact(updated);
+      setAdditionalContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
+      setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
+    }
+    setSavingContactEdit(false);
+    setEditingContactId(null);
   }
 
   async function importZillow() {
@@ -1191,32 +1222,86 @@ function ColdCallsPage() {
                 {/* Primary contact + any linked team members */}
                 {[contact, ...additionalContacts].map((c, idx) => (
                   <div key={c.id} className="bg-[#181818] border border-white/10 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <button onClick={() => openContact(c.id)} className="font-semibold hover:underline text-left">{c.name}</button>
-                        {dncIds.has(c.id) && (
-                          <p className="text-xs font-bold text-red-400 mt-1">⛔ Do Not Contact — they asked not to be contacted</p>
-                        )}
-                        {!dncIds.has(c.id) && unsubIds.has(c.id) && (
-                          <p className="text-xs text-[#888] mt-1">Unsubscribed from emails</p>
-                        )}
-                        {c.brokerage && <p className="text-xs text-[#555] mt-0.5">{c.brokerage}</p>}
-                        {attemptCounts[c.id] > 0 && (
-                          <p className="text-xs text-[#fbbf24] mt-1">
-                            📞 {attemptCounts[c.id]} previous attempt{attemptCounts[c.id] !== 1 ? "s" : ""}
-                          </p>
-                        )}
+                    {editingContactId === c.id ? (
+                      <form onSubmit={saveContactEdit} className="space-y-2">
+                        <input
+                          autoFocus
+                          value={editContactForm.name}
+                          onChange={e => setEditContactForm(f => ({ ...f, name: e.target.value }))}
+                          placeholder="Name"
+                          className="w-full bg-[#0d0d0d] border border-white/10 text-white text-sm font-semibold px-3 py-2 outline-none focus:border-white/30"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            value={editContactForm.phone}
+                            onChange={e => setEditContactForm(f => ({ ...f, phone: e.target.value }))}
+                            placeholder="Phone"
+                            className="bg-[#0d0d0d] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]"
+                          />
+                          <input
+                            value={editContactForm.brokerage}
+                            onChange={e => setEditContactForm(f => ({ ...f, brokerage: e.target.value }))}
+                            placeholder="Brokerage"
+                            className="bg-[#0d0d0d] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]"
+                          />
+                        </div>
+                        <input
+                          type="email"
+                          value={editContactForm.email}
+                          onChange={e => setEditContactForm(f => ({ ...f, email: e.target.value }))}
+                          placeholder="Email"
+                          className="w-full bg-[#0d0d0d] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-white/30 placeholder:text-[#333]"
+                        />
+                        <div className="flex gap-2 pt-1">
+                          <button type="button" onClick={() => setEditingContactId(null)}
+                            className="text-xs px-3 py-2 border border-white/10 text-[#555] hover:text-white transition-colors">
+                            Cancel
+                          </button>
+                          <button type="submit" disabled={savingContactEdit}
+                            className="flex-1 text-xs tracking-[1px] uppercase bg-white text-black py-2 hover:bg-[#ddd] transition-colors font-bold disabled:opacity-40">
+                            {savingContactEdit ? "Saving..." : "Save"}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <button onClick={() => openContact(c.id)} className="font-semibold hover:underline text-left">{c.name}</button>
+                          {dncIds.has(c.id) && (
+                            <p className="text-xs font-bold text-red-400 mt-1">⛔ Do Not Contact — they asked not to be contacted</p>
+                          )}
+                          {!dncIds.has(c.id) && unsubIds.has(c.id) && (
+                            <p className="text-xs text-[#888] mt-1">Unsubscribed from emails</p>
+                          )}
+                          {c.brokerage && <p className="text-xs text-[#555] mt-0.5">{c.brokerage}</p>}
+                          {c.phone && <p className="text-xs text-[#555] mt-0.5 font-mono">{c.phone}</p>}
+                          {c.email && <p className="text-xs text-[#555] mt-0.5">{c.email}</p>}
+                          {attemptCounts[c.id] > 0 && (
+                            <p className="text-xs text-[#fbbf24] mt-1">
+                              📞 {attemptCounts[c.id]} previous attempt{attemptCounts[c.id] !== 1 ? "s" : ""}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <button
+                            onClick={() => startEditContact(c)}
+                            className="text-[#444] hover:text-white text-xs"
+                            title="Edit contact details"
+                          >
+                            ✎ Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (idx === 0) { setContact(null); setAdditionalContacts([]); setShowAddContact(false); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); }
+                              else setAdditionalContacts(prev => prev.filter(x => x.id !== c.id));
+                            }}
+                            className="text-[#444] hover:text-white text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (idx === 0) { setContact(null); setAdditionalContacts([]); setShowAddContact(false); setContactForm({ name: "", phone: "", email: "", brokerage: "" }); }
-                          else setAdditionalContacts(prev => prev.filter(x => x.id !== c.id));
-                        }}
-                        className="text-[#444] hover:text-white text-xs shrink-0"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                    )}
                   </div>
                 ))}
 
