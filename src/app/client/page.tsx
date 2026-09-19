@@ -10,6 +10,8 @@ import AddressMapPicker from "@/components/AddressMapPicker";
 import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 import { PRIMARY_SERVICES as PRICING_PRIMARY, ADDONS as PRICING_ADDONS, addonsFor, resolvePrice } from "@/lib/pricing";
+import { ADMIN_EMAILS } from "@/lib/constants";
+import AdminPortalPreviewBar from "@/components/AdminPortalPreviewBar";
 
 type Shoot = {
   id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
@@ -216,11 +218,57 @@ export default function ClientPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStatus, setPasswordStatus] = useState<"" | "saving" | "success" | "error">("");
   const [passwordError, setPasswordError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [previewContact, setPreviewContact] = useState<{ id: string; name: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const readOnly = !!previewContact;
+
+  // Admin-only: load another contact's portal read-only, via the service-role
+  // backed /api/admin/preview-portal route — never a real login as them.
+  async function loadPreview(id: string, name: string) {
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/admin/preview-portal?contactId=${id}`);
+      if (!res.ok) return;
+      const d = await res.json();
+      setPreviewContact({ id, name: d.contact?.name || name });
+      setContactId(d.contact?.id || null);
+      setAvatarUrl(d.contact?.id ? `${getAvatarUrl(d.contact.id)}?t=${Date.now()}` : null);
+      setProfile({
+        name: d.contact?.name || "",
+        email: d.contact?.email || "",
+        phone: d.contact?.phone || "",
+        brokerage: d.contact?.brokerage || "",
+        areas: d.contact?.areas || "",
+        birthday: d.contact?.birthday || "",
+        mailingList: d.contact?.mailingList || false,
+        referralSource: d.contact?.referralSource || "",
+      });
+      setMemberSince(d.memberSince || "");
+      setHasPassword(d.hasPassword !== false);
+      setTeam(d.team || null);
+      setTeamMembers(d.teamMembers || []);
+      setMyTeamRole(d.myTeamRole || null);
+      setShoots(d.shoots || []);
+      setInvoices(d.invoices || []);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push("/login"); return; }
+      const admin = ADMIN_EMAILS.includes(data.user.email || "");
+      setIsAdmin(admin);
+
+      const viewContactId = admin ? new URLSearchParams(window.location.search).get("viewContact") : null;
+      if (viewContactId) {
+        await loadPreview(viewContactId, "");
+        return;
+      }
+
       setUserName((data.user.user_metadata?.full_name || data.user.email || "").toUpperCase());
       setHasPassword(data.user.user_metadata?.has_password === true);
       const uid = data.user.id;
@@ -322,6 +370,7 @@ export default function ClientPage() {
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payError, setPayError] = useState("");
   async function payInvoice(invoiceId: string) {
+    if (readOnly) return;
     setPayError(""); setPayingId(invoiceId);
     try {
       const res = await fetch("/api/portal/pay-invoice", {
@@ -339,6 +388,7 @@ export default function ClientPage() {
 
   async function submitBooking(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return;
     setLoading(true); setBookingStatus("");
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -382,6 +432,7 @@ export default function ClientPage() {
 
   async function savePassword(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return;
     setPasswordError("");
     if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters."); return; }
     if (newPassword !== confirmPassword) { setPasswordError("Passwords don't match."); return; }
@@ -400,7 +451,7 @@ export default function ClientPage() {
   }
 
   async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files?.[0]) return;
+    if (readOnly || !e.target.files?.[0]) return;
     setUploadingAvatar(true);
     const fd = new FormData();
     fd.append("file", e.target.files[0]);
@@ -415,7 +466,7 @@ export default function ClientPage() {
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
-    if (!contactId) return;
+    if (readOnly || !contactId) return;
     setProfileStatus("saving");
     const supabase = createClient();
     const [{ error: contactErr }] = await Promise.all([
@@ -441,6 +492,7 @@ export default function ClientPage() {
 
   async function saveTeamDetails(e: React.FormEvent) {
     e.preventDefault();
+    if (readOnly) return;
     setSavingTeamDetails(true);
     setTeamActionError("");
     const res = await fetch("/api/portal/team", {
@@ -459,7 +511,7 @@ export default function ClientPage() {
   }
 
   async function uploadTeamLogo(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files?.[0]) return;
+    if (readOnly || !e.target.files?.[0]) return;
     setUploadingTeamLogo(true);
     setTeamActionError("");
     const fd = new FormData();
@@ -476,6 +528,7 @@ export default function ClientPage() {
   }
 
   async function changeMemberRole(memberContactId: string, role: "lead" | "member") {
+    if (readOnly) return;
     setTeamActionLoadingId(memberContactId);
     setTeamActionError("");
     const res = await fetch("/api/portal/team/member", {
@@ -493,6 +546,7 @@ export default function ClientPage() {
   }
 
   async function removeMember(memberContactId: string, isSelf: boolean) {
+    if (readOnly) return;
     if (isSelf && !confirm("Leave this team? You'll lose access to shared shoots and invoices.")) return;
     if (!isSelf && !confirm("Remove this person from the team?")) return;
     setTeamActionLoadingId(memberContactId);
@@ -538,6 +592,20 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
+      {isAdmin && (
+        <AdminPortalPreviewBar
+          current={previewContact}
+          onSelect={c => { window.location.href = `/client?viewContact=${c.id}`; }}
+          onClear={() => { window.location.href = "/client"; }}
+        />
+      )}
+      {readOnly && (
+        <div className="relative z-20 bg-[#fbbf24]/10 border-b border-[#fbbf24]/30 px-4 md:px-8 py-2 text-center">
+          <p className="text-[10px] tracking-[2px] uppercase text-[#fbbf24]">
+            {previewLoading ? "Loading preview..." : "Read-only preview — actions are disabled, nothing here is real"}
+          </p>
+        </div>
+      )}
       <div className="relative z-30 h-16">
         <HomeNav />
       </div>
@@ -773,6 +841,7 @@ export default function ClientPage() {
                   ) : (
                     <form onSubmit={async e => {
                       e.preventDefault();
+                      if (readOnly) return;
                       setReferralStatus("sending");
                       const res = await fetch("/api/portal/referral", {
                         method: "POST",
@@ -784,7 +853,7 @@ export default function ClientPage() {
                       <input required value={referral.name} onChange={e => setReferral(r => ({ ...r, name: e.target.value }))} placeholder="Name" className={inputCls} />
                       <input required type="email" value={referral.email} onChange={e => setReferral(r => ({ ...r, email: e.target.value }))} placeholder="Email" className={inputCls} />
                       {referralStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again or email ryan@luckimages.com.</p>}
-                      <button type="submit" disabled={referralStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                      <button type="submit" disabled={readOnly || referralStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
                         {referralStatus === "sending" ? "Sending..." : "Send Referral →"}
                       </button>
                     </form>
@@ -941,7 +1010,7 @@ export default function ClientPage() {
 
                   {bookingStatus && <p className="text-xs text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-3">{bookingStatus}</p>}
 
-                  <button type="submit" disabled={loading || booking.services.length === 0} className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button type="submit" disabled={readOnly || loading || booking.services.length === 0} className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     {loading ? "Submitting..." : "Submit Booking Request →"}
                   </button>
 
@@ -982,7 +1051,7 @@ export default function ClientPage() {
                         </td>
                         <td className="px-5 py-3">
                           {!inv.paid && (
-                            <button onClick={() => payInvoice(inv.id)} disabled={payingId === inv.id}
+                            <button onClick={() => payInvoice(inv.id)} disabled={readOnly || payingId === inv.id}
                               className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
                               {payingId === inv.id ? "Loading…" : "Pay Now →"}
                             </button>
@@ -1034,6 +1103,7 @@ export default function ClientPage() {
               </div>
               <form onSubmit={async e => {
                 e.preventDefault();
+                if (readOnly) return;
                 setCreatingTeam(true);
                 const res = await fetch("/api/portal/team", {
                   method: "POST",
@@ -1050,7 +1120,7 @@ export default function ClientPage() {
                 <p className="text-[10px] tracking-[1px] uppercase text-[#444] mt-2">First teammate to invite</p>
                 <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
                 <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
-                <button type="submit" disabled={creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
+                <button type="submit" disabled={readOnly || creatingTeam} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50">
                   {creatingTeam ? "Creating..." : "Create Team & Send Invite →"}
                 </button>
               </form>
@@ -1090,7 +1160,7 @@ export default function ClientPage() {
                         <input required value={teamNameEdit} onChange={e => setTeamNameEdit(e.target.value)} placeholder="Team name" className={inputCls} />
                         <input value={teamBrokerageEdit} onChange={e => setTeamBrokerageEdit(e.target.value)} placeholder="Brokerage (optional)" className={inputCls} />
                         <div className="flex gap-2">
-                          <button type="submit" disabled={savingTeamDetails} className="text-xs tracking-[2px] uppercase bg-white text-black font-semibold py-2 px-4 hover:bg-white/90 transition-colors disabled:opacity-50">
+                          <button type="submit" disabled={readOnly || savingTeamDetails} className="text-xs tracking-[2px] uppercase bg-white text-black font-semibold py-2 px-4 hover:bg-white/90 transition-colors disabled:opacity-50">
                             {savingTeamDetails ? "Saving..." : "Save"}
                           </button>
                           <button type="button" onClick={() => setTeamDetailsEditing(false)} className="text-xs tracking-[2px] uppercase text-white/40 hover:text-white transition-colors">Cancel</button>
@@ -1165,6 +1235,7 @@ export default function ClientPage() {
                   ) : (
                     <form onSubmit={async e => {
                       e.preventDefault();
+                      if (readOnly) return;
                       setTeamInviteStatus("sending");
                       const res = await fetch("/api/portal/team", {
                         method: "PATCH",
@@ -1177,7 +1248,7 @@ export default function ClientPage() {
                       <input required value={teamInvite.name} onChange={e => setTeamInvite(t => ({ ...t, name: e.target.value }))} placeholder="Name" className={inputCls} />
                       <input required type="email" value={teamInvite.email} onChange={e => setTeamInvite(t => ({ ...t, email: e.target.value }))} placeholder="Email" className={inputCls} />
                       {teamInviteStatus === "error" && <p className="text-xs text-red-400">Something went wrong. Try again.</p>}
-                      <button type="submit" disabled={teamInviteStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50 mt-1">
+                      <button type="submit" disabled={readOnly || teamInviteStatus === "sending"} className="text-xs tracking-[3px] uppercase border border-white/20 py-3 hover:bg-white/5 transition-colors disabled:opacity-50 mt-1">
                         {teamInviteStatus === "sending" ? "Sending..." : "Send Invite →"}
                       </button>
                     </form>
@@ -1206,6 +1277,7 @@ export default function ClientPage() {
                     onToggle={() => setExpandedShootId(expandedShootId === s.id ? null : s.id)}
                     onUpdated={reloadShoots}
                     onCancelled={reloadShoots}
+                    readOnly={readOnly}
                   />
                 ))}
               </div>
@@ -1322,7 +1394,7 @@ export default function ClientPage() {
                   <input type="checkbox" checked={profile.mailingList} onChange={e => setProfile(p => ({ ...p, mailingList: e.target.checked }))} className="accent-white w-4 h-4" />
                   <span className="text-xs tracking-[1px] text-[#888]">Sign me up for tips, promotions & market updates</span>
                 </label>
-                <button type="submit" disabled={profileStatus === "saving"}
+                <button type="submit" disabled={readOnly || profileStatus === "saving"}
                   className="bg-white text-black text-xs tracking-[3px] uppercase font-semibold py-4 hover:bg-white/90 transition-colors disabled:opacity-50">
                   {profileStatus === "saving" ? "Saving..." : profileStatus === "saved" ? "Saved ✓" : profileStatus === "error" ? "Error — try again" : "Save Changes"}
                 </button>
@@ -1359,15 +1431,16 @@ export default function ClientPage() {
 const rowInputCls = "bg-[#181818] border border-white/10 text-white text-sm px-3 py-2 outline-none focus:border-white/40 transition-colors placeholder:text-[#444] w-full";
 const rowLabelCls = "text-[10px] tracking-[2px] uppercase text-[#666]";
 
-function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
+function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled, readOnly }: {
   shoot: Shoot;
   expanded: boolean;
   onToggle: () => void;
   onUpdated: () => Promise<void>;
   onCancelled: () => Promise<void>;
+  readOnly?: boolean;
 }) {
   const delivered = shoot.status === "delivered" || shoot.status === "completed";
-  const editable = EDITABLE_STATUSES.includes(shoot.status);
+  const editable = !readOnly && EDITABLE_STATUSES.includes(shoot.status);
   const parsed = parseNotes(shoot.notes);
 
   const [editing, setEditing] = useState(false);
@@ -1418,6 +1491,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
   }
 
   async function save() {
+    if (readOnly) return;
     setSaving(true); setError("");
     const scheduledAt = eDate ? new Date(`${eDate}T${eTime || "09:00"}`).toISOString() : shoot.scheduled_at;
     const res = await fetch("/api/portal/shoots", {
@@ -1440,6 +1514,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled }: {
   }
 
   async function confirmCancel() {
+    if (readOnly) return;
     setCancelling(true); setError("");
     const res = await fetch("/api/portal/shoots", {
       method: "PATCH",

@@ -550,7 +550,16 @@ export default function ContactProfilePage() {
             </div>
           </button>
           <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
-          <h1 className="text-3xl font-bold tracking-tight text-left">{contact.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-left">{contact.name}</h1>
+            <button
+              type="button"
+              onClick={() => window.open(`/client?viewContact=${contact.id}`, "_blank")}
+              className="text-[10px] tracking-[2px] uppercase text-[#60a5fa] border border-[#60a5fa]/30 px-3 py-1.5 hover:bg-[#60a5fa]/10 transition-colors whitespace-nowrap"
+            >
+              View Portal ↗
+            </button>
+          </div>
         <div className="flex items-center gap-2 flex-wrap">
           {contact.email && ADMIN_EMAILS.includes(contact.email) ? (
             <>

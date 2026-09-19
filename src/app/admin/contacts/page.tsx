@@ -527,6 +527,14 @@ function ContactsPageInner() {
                         </div>
                         <span className="text-[11px] text-[#555] whitespace-nowrap">{contact.phone ? formatPhone(contact.phone) : ""}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-wide uppercase ${tc.badge}`}>{tc.label}</span>
+                        <button
+                          type="button"
+                          title="View their portal (read-only)"
+                          onClick={e => { e.stopPropagation(); window.open(`/client?viewContact=${contact.id}`, "_blank"); }}
+                          className="text-[#444] hover:text-[#60a5fa] transition-colors shrink-0"
+                        >
+                          ↗
+                        </button>
                       </div>
                     );
                   })}
@@ -609,6 +617,14 @@ function ContactsPageInner() {
                               <span className="font-medium">{contact.name}</span>
                               {dncIds.has(contact.id) && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-red-500/15 text-red-400">DNC</span>}
                               {unsubscribedIds.has(contact.id) && <span className="text-[9px] font-bold tracking-[1px] uppercase px-1.5 py-0.5 bg-white/5 text-[#777]">Unsub</span>}
+                              <button
+                                type="button"
+                                title="View their portal (read-only)"
+                                onClick={e => { e.stopPropagation(); window.open(`/client?viewContact=${contact.id}`, "_blank"); }}
+                                className="text-[#444] hover:text-[#60a5fa] transition-colors"
+                              >
+                                ↗
+                              </button>
                             </div>
                             {contact.email && <p className="text-[#444] mt-0.5 text-[11px]">{contact.email}</p>}
                           </div>
