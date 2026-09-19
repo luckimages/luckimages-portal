@@ -592,20 +592,25 @@ export default function ClientPage() {
       <div className="fixed inset-0 bg-[#0c0c0c]/80 z-0" />
 
       <PreviewBanner role="realtor" />
-      {isAdmin && (
-        <AdminPortalPreviewBar
-          current={previewContact}
-          onSelect={c => { window.location.href = `/client?viewContact=${c.id}`; }}
-          onClear={() => { window.location.href = "/client"; }}
-        />
-      )}
-      {readOnly && (
-        <div className="relative z-20 bg-[#fbbf24]/10 border-b border-[#fbbf24]/30 px-4 md:px-8 py-2 text-center">
-          <p className="text-[10px] tracking-[2px] uppercase text-[#fbbf24]">
-            {previewLoading ? "Loading preview..." : "Read-only preview — actions are disabled, nothing here is real"}
-          </p>
-        </div>
-      )}
+      {/* Sticky so an admin scrolling the page can never lose the "this is a
+          preview, not a real session" indicator — it must stay visible the
+          entire time you're looking at someone else's portal. */}
+      <div className="sticky top-0 z-40">
+        {isAdmin && (
+          <AdminPortalPreviewBar
+            current={previewContact}
+            onSelect={c => { window.location.href = `/client?viewContact=${c.id}`; }}
+            onClear={() => { window.location.href = "/client"; }}
+          />
+        )}
+        {readOnly && (
+          <div className="relative bg-[#fbbf24]/10 border-b border-[#fbbf24]/30 px-4 md:px-8 py-2 text-center">
+            <p className="text-[10px] tracking-[2px] uppercase text-[#fbbf24]">
+              {previewLoading ? "Loading preview..." : "Read-only preview — actions are disabled, nothing here is real"}
+            </p>
+          </div>
+        )}
+      </div>
       <div className="relative z-30 h-16">
         <HomeNav />
       </div>
@@ -652,8 +657,10 @@ export default function ClientPage() {
         {tab === "overview" && (
           <div className="space-y-4">
 
-            {/* Photos ready banner */}
-            {shoots.some(s => s.status === "delivered" || s.status === "completed") && (
+            {/* Photos ready banner — hidden in admin read-only preview so it
+                doesn't read as a live notification when it's just a static
+                summary of already-existing delivered shoots. */}
+            {!readOnly && shoots.some(s => s.status === "delivered" || s.status === "completed") && (
               <button
                 onClick={() => setTab("gallery")}
                 className="w-full flex items-center justify-between px-6 py-5 bg-[#4ade80]/10 border border-[#4ade80]/30 hover:bg-[#4ade80]/15 transition-colors group"
