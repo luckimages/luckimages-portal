@@ -32,12 +32,24 @@ export async function POST(req: Request) {
 
   const registeredAt = new Date().toISOString();
 
+  // Shoots booked for a contact BEFORE they registered only carry contact_id
+  // (client_id is set at booking time only if the contact already had a
+  // portal account — see admin/shoots POST). Without this, a contact who
+  // registers after already having shoots on the books never gets client_id
+  // backfilled on those rows, and the client portal's shoot query filters on
+  // client_id, so their existing shoots silently never appear.
+  async function backfillShootClientId(contactId: string) {
+    await db.from("shoots").update({ client_id: userId }).eq("contact_id", contactId).is("client_id", null);
+  }
+
   if (contactId) {
     await db.from("contacts").update({ user_id: userId, email: email || undefined, registered_at: registeredAt, ...sourceFields }).eq("id", contactId).is("user_id", null);
+    await backfillShootClientId(contactId);
   } else if (email) {
     const { data: existing } = await db.from("contacts").select("id, user_id, email").eq("email", email).maybeSingle();
     if (existing && !existing.user_id) {
       await db.from("contacts").update({ user_id: userId, email, registered_at: registeredAt, ...sourceFields }).eq("id", existing.id);
+      await backfillShootClientId(existing.id);
     } else if (!existing) {
       const { data: { user } } = await db.auth.admin.getUserById(userId);
       if (user) {
