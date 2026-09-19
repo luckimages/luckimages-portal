@@ -16,7 +16,7 @@ import AdminPortalPreviewBar from "@/components/AdminPortalPreviewBar";
 type Shoot = {
   id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
   services: string[]; status: string; notes: string;
-  square_footage: number | null;
+  square_footage: number | null; delivered_at?: string | null;
 };
 type Invoice = {
   id: string; amount_cents: number; paid: boolean;
@@ -657,10 +657,13 @@ export default function ClientPage() {
         {tab === "overview" && (
           <div className="space-y-4">
 
-            {/* Photos ready banner — hidden in admin read-only preview so it
-                doesn't read as a live notification when it's just a static
-                summary of already-existing delivered shoots. */}
-            {!readOnly && shoots.some(s => s.status === "delivered" || s.status === "completed") && (
+            {/* Photos ready banner — only for shoots actually delivered
+                through the real workflow (delivered_at set), never for
+                shoots entered directly as historical/back-logged records
+                (e.g. via the CSV importer, which never sets delivered_at).
+                Also hidden in admin read-only preview so it doesn't read as
+                a live notification when it's just a static summary. */}
+            {!readOnly && shoots.some(s => s.delivered_at) && (
               <button
                 onClick={() => setTab("gallery")}
                 className="w-full flex items-center justify-between px-6 py-5 bg-[#4ade80]/10 border border-[#4ade80]/30 hover:bg-[#4ade80]/15 transition-colors group"
@@ -670,7 +673,7 @@ export default function ClientPage() {
                   <div className="text-left">
                     <p className="text-sm font-semibold text-[#4ade80]">Your photos are ready</p>
                     <p className="text-xs text-[#4ade80]/60 mt-0.5">
-                      {shoots.filter(s => s.status === "delivered" || s.status === "completed").length} shoot{shoots.filter(s => s.status === "delivered" || s.status === "completed").length !== 1 ? "s" : ""} delivered — tap to view & download
+                      {shoots.filter(s => s.delivered_at).length} shoot{shoots.filter(s => s.delivered_at).length !== 1 ? "s" : ""} delivered — tap to view & download
                     </p>
                   </div>
                 </div>
