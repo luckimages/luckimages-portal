@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import ShootGallery from "@/components/ShootGallery";
 
-type Shoot = { address: string; scheduled_at: string; services: string[] };
+type Shoot = { address: string; scheduled_at: string; services: string[]; download_unlocked?: boolean };
 type Invoice = { id: string; paid: boolean; amount_cents: number };
 
 export default function GalleryPage() {
@@ -23,7 +23,7 @@ export default function GalleryPage() {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) { router.replace(`/login?redirect=/client/gallery/${shootId}`); return; }
     });
-    supabase.from("shoots").select("address,scheduled_at,services").eq("id", shootId).single()
+    supabase.from("shoots").select("address,scheduled_at,services,download_unlocked").eq("id", shootId).single()
       .then(({ data }) => setShoot(data));
     supabase.from("invoices").select("id,paid,amount_cents").eq("shoot_id", shootId).maybeSingle()
       .then(({ data }) => { setInvoice(data); setInvoiceChecked(true); });
@@ -46,7 +46,7 @@ export default function GalleryPage() {
     }
   }
 
-  const canDownload = !invoiceChecked || !invoice || invoice.paid;
+  const canDownload = !invoiceChecked || !invoice || invoice.paid || !!shoot?.download_unlocked;
 
   return (
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
@@ -65,8 +65,9 @@ export default function GalleryPage() {
           </div>
         )}
 
-        {/* Payment gate banner */}
-        {invoiceChecked && invoice && !invoice.paid && (
+        {/* Payment gate banner — hidden if an admin has manually unlocked
+            downloads on this shoot, since "pay to unlock" would be untrue */}
+        {invoiceChecked && invoice && !invoice.paid && !shoot?.download_unlocked && (
           <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#fbbf24]/5 border border-[#fbbf24]/30 px-6 py-5">
             <div>
               <p className="text-sm font-semibold text-[#fbbf24]">Payment required to download</p>

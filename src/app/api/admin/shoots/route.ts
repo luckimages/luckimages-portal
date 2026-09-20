@@ -38,7 +38,7 @@ export async function GET(req: Request) {
   const id = searchParams.get("id"); // single shoot, any status — used for detail lookups
 
   const statusFilter = full ? "all" : !all ? "pending" : "active";
-  const COLUMNS = "id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, confirmed_at, drive_minutes, editing_cost_cents, editing_cost_by, lat, lng";
+  const COLUMNS = "id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, confirmed_at, drive_minutes, editing_cost_cents, editing_cost_by, download_unlocked, lat, lng";
   const COLUMNS_NO_LATLNG = COLUMNS.replace(", lat, lng", "");
 
   const withLatLng = supabase.from("shoots").select(COLUMNS).order("scheduled_at", { ascending: false });
@@ -262,12 +262,12 @@ export async function PATCH(req: Request) {
 
   const supabase = createAdminClient();
 
-  const { id, status, photographer_ids, price, line_items, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type, force } = await req.json();
+  const { id, status, photographer_ids, price, line_items, package_name, contact_id, address, lat, lng, scheduled_at, services, notes, square_footage, property_type, force, download_unlocked } = await req.json();
 
   // Fetch shoot details before updating (needed for calendar event + status check)
   const { data: shoot } = await supabase
     .from("shoots")
-    .select("id, address, scheduled_at, services, notes, client_id, contact_id, photographer_ids, status, checked_in_at, delivered_at, paid_at")
+    .select("id, address, scheduled_at, services, notes, client_id, contact_id, photographer_ids, status, checked_in_at, delivered_at, paid_at, download_unlocked")
     .eq("id", id)
     .single();
 
@@ -297,6 +297,7 @@ export async function PATCH(req: Request) {
     updatePayload.paid_at = new Date().toISOString();
   }
 
+  if (download_unlocked !== undefined) updatePayload.download_unlocked = download_unlocked;
   if (photographer_ids !== undefined) updatePayload.photographer_ids = photographer_ids;
   if (price !== undefined) updatePayload.price = price;
   if (line_items !== undefined) updatePayload.line_items = line_items;
@@ -347,6 +348,17 @@ export async function PATCH(req: Request) {
     await supabase.from("contacts").update({ stage: "client" }).eq("id", contact_id).in("stage", ["lead", "interested", "follow-up", "booked", "registered"]);
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Manual invoice bypass toggled — log it since it silently overrides the
+  // normal "pay to unlock" gate, worth a visible trail either direction.
+  if (download_unlocked !== undefined && download_unlocked !== shoot?.download_unlocked) {
+    await supabase.from("company_updates").insert({
+      message: `${download_unlocked ? "🔓 Downloads unlocked" : "🔒 Downloads re-locked"} (invoice bypass) — ${shoot?.address || "shoot"}`,
+      created_by: "admin",
+      category: "finance",
+      link: "/admin/shoots",
+    });
+  }
 
   // Shoot cancelled — pull its Google Calendar event so Leif, the client and
   // photographers stop seeing it (and stop getting reminders).

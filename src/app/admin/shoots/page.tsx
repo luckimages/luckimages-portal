@@ -46,6 +46,7 @@ type Shoot = {
   drive_minutes: number | null;
   mileage_miles: number | null;
   mileage_gas_cents: number | null;
+  download_unlocked?: boolean;
 };
 
 type Contact = { id: string; name: string; brokerage: string | null; email?: string | null };
@@ -850,6 +851,21 @@ function ShootsPage() {
     await loadShoots();
   }
 
+  async function toggleDownloadUnlock(id: string, download_unlocked: boolean) {
+    setStatusError(e => ({ ...e, [id]: "" }));
+    setShoots(prev => prev.map(s => s.id === id ? { ...s, download_unlocked } : s));
+    const res = await fetch("/api/admin/shoots", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, download_unlocked }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setStatusError(e => ({ ...e, [id]: d.error || "Failed" }));
+      setShoots(prev => prev.map(s => s.id === id ? { ...s, download_unlocked: !download_unlocked } : s));
+    }
+  }
+
   async function quickStatus(id: string, status: string) {
     setStatusError(e => ({ ...e, [id]: "" }));
     const res = await fetch("/api/admin/shoots", {
@@ -1084,6 +1100,20 @@ function ShootsPage() {
                 className="text-xs tracking-[1px] uppercase px-4 py-2 bg-[#60a5fa]/10 border border-[#60a5fa]/30 text-[#60a5fa] hover:bg-[#60a5fa]/20 transition-colors">
                 {invoiceOpen ? "Close" : "+ Invoice"}
               </button>
+              <label className="flex items-center gap-2 cursor-pointer select-none ml-2" title="Let the realtor download full-res, watermark-free media even if their invoice is unpaid">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!!shoot.download_unlocked}
+                  onClick={() => toggleDownloadUnlock(shoot.id, !shoot.download_unlocked)}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${shoot.download_unlocked ? "bg-[#4ade80]" : "bg-white/15"}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${shoot.download_unlocked ? "left-[18px]" : "left-0.5"}`} />
+                </button>
+                <span className={`text-[10px] tracking-[1px] uppercase ${shoot.download_unlocked ? "text-[#4ade80]" : "text-[#555]"}`}>
+                  {shoot.download_unlocked ? "Downloads Unlocked" : "Unlock Downloads"}
+                </span>
+              </label>
               {err && <p className="text-xs text-red-400 self-center">{err}</p>}
               {invoiceMsg && <p className="text-xs text-[#4ade80] self-center">{invoiceMsg}</p>}
             </div>

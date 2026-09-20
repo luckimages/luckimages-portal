@@ -33,9 +33,13 @@ export async function checkShootAccess(userId: string, userEmail: string, shootI
 }
 
 // Admins/photographers always have full access. A client/viewer is gated on
-// invoice status — no invoice, or a paid one, unlocks downloads.
+// invoice status — no invoice, or a paid one, unlocks downloads — unless an
+// admin has manually flipped download_unlocked on the shoot itself (Shoot
+// Log toggle), which bypasses the invoice check entirely.
 export async function checkCanDownload(db: ReturnType<typeof serviceClient>, canEdit: boolean, shootId: string) {
   if (canEdit) return true;
+  const { data: shoot } = await db.from("shoots").select("download_unlocked").eq("id", shootId).maybeSingle();
+  if (shoot?.download_unlocked) return true;
   const { data: invoice } = await db.from("invoices").select("paid").eq("shoot_id", shootId).maybeSingle();
   return !invoice || invoice.paid;
 }
