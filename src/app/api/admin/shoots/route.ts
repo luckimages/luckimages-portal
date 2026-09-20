@@ -38,27 +38,32 @@ export async function GET(req: Request) {
   const id = searchParams.get("id"); // single shoot, any status — used for detail lookups
 
   const statusFilter = full ? "all" : !all ? "pending" : "active";
-  const COLUMNS = "id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, confirmed_at, drive_minutes, editing_cost_cents, editing_cost_by, download_unlocked, lat, lng";
-  const COLUMNS_NO_LATLNG = COLUMNS.replace(", lat, lng", "");
+  const BASE_COLUMNS = "id, address, scheduled_at, services, notes, square_footage, client_id, contact_id, status, photographer_ids, price, package_name, property_type, checked_in_at, delivered_at, paid_at, confirmed_at, drive_minutes, editing_cost_cents, editing_cost_by";
 
-  const withLatLng = supabase.from("shoots").select(COLUMNS).order("scheduled_at", { ascending: false });
-  if (id) withLatLng.eq("id", id);
-  else if (statusFilter === "pending") withLatLng.eq("status", "pending");
-  else if (statusFilter === "active") withLatLng.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
+  function shootsQuery(columns: string) {
+    const q = supabase.from("shoots").select(columns).order("scheduled_at", { ascending: false });
+    if (id) q.eq("id", id);
+    else if (statusFilter === "pending") q.eq("status", "pending");
+    else if (statusFilter === "active") q.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
+    return q;
+  }
 
-  // lat/lng columns are a recent addition — if the migration hasn't run yet
-  // in this environment, fall back to the base column set.
-  const first = await withLatLng;
-  let shoots: Array<Record<string, any>> | null = first.data; // eslint-disable-line @typescript-eslint/no-explicit-any
-  let error = first.error;
-  if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
-    const withoutLatLng = supabase.from("shoots").select(COLUMNS_NO_LATLNG).order("scheduled_at", { ascending: false });
-    if (id) withoutLatLng.eq("id", id);
-    else if (statusFilter === "pending") withoutLatLng.eq("status", "pending");
-    else if (statusFilter === "active") withoutLatLng.in("status", ["pending", "scheduled", "en_route", "on_site", "wrapping", "editing"]);
-    const second = await withoutLatLng;
-    shoots = second.data;
-    error = second.error;
+  // download_unlocked and lat/lng are both recent additions — if either
+  // migration hasn't run yet in this environment, fall back rather than
+  // 500ing the whole Shoot Log (this broke it once already: the column was
+  // added to this query in the same deploy as the code, before the SQL
+  // migration had actually been run).
+  let columns = `${BASE_COLUMNS}, download_unlocked, lat, lng`;
+  let shoots: Array<Record<string, any>> | null = null; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let error: { message: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const result = await shootsQuery(columns);
+    shoots = result.data;
+    error = result.error;
+    if (!error) break;
+    if (error.message?.includes("download_unlocked")) columns = columns.replace(", download_unlocked", "");
+    else if (error.message?.includes("lat") || error.message?.includes("lng")) columns = columns.replace(", lat, lng", "");
+    else break;
   }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -335,8 +340,14 @@ export async function PATCH(req: Request) {
 
   let { error } = await supabase.from("shoots").update(updatePayload).eq("id", id);
 
-  // lat/lng columns are a recent addition — if the migration hasn't run yet
-  // in this environment, retry without them rather than failing the update.
+  // lat/lng and download_unlocked are recent additions — if a migration
+  // hasn't run yet in this environment, retry without the offending column
+  // rather than failing the whole update (e.g. a status change shouldn't
+  // 500 just because the toggle also sent in the same request can't land).
+  if (error && error.message?.includes("download_unlocked")) {
+    delete updatePayload.download_unlocked;
+    ({ error } = await supabase.from("shoots").update(updatePayload).eq("id", id));
+  }
   if (error && (error.message?.includes("lat") || error.message?.includes("lng"))) {
     delete updatePayload.lat;
     delete updatePayload.lng;
