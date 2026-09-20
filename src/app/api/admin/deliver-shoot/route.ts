@@ -39,7 +39,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const { error } = await db.from("shoots").update({ status: "delivered" }).eq("id", shootId);
+  // delivered_at wasn't being set here — only the generic PATCH /api/admin/shoots
+  // handler set it, so a shoot delivered through this (the actual "Deliver"
+  // button's) route never got it, breaking anything keyed off delivered_at
+  // (e.g. the client portal's "your photos are ready" banner).
+  const updatePayload: { status: string; delivered_at?: string } = { status: "delivered" };
+  if (shoot.status !== "delivered") updatePayload.delivered_at = new Date().toISOString();
+
+  const { error } = await db.from("shoots").update(updatePayload).eq("id", shootId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await ensureDeliveryInvoice(shootId);
