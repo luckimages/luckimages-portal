@@ -220,6 +220,12 @@ export async function POST(req: Request) {
         shootId: data.id,
       });
     } catch (e) { console.error("notifyShootBooked failed:", e); }
+
+    // Same invoice-at-confirmation step the PATCH pending→scheduled path
+    // runs — a shoot created directly as "scheduled" (skipping pending)
+    // never passed through that PATCH transition, so without this it never
+    // gets invoiced at all.
+    try { await createConfirmationInvoice(data.id); } catch (e) { console.error("confirmationInvoice failed:", e); }
   }
 
   if (data?.id && photographer_ids?.length) {

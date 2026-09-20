@@ -17,7 +17,22 @@ type Shoot = {
   id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
   services: string[]; status: string; notes: string;
   square_footage: number | null; delivered_at?: string | null;
+  price?: number | null; line_items?: { label: string; amount_cents: number }[] | null;
 };
+
+// The actual agreed price for a shoot that already has one set — never the
+// generic list-price estimate. A custom/discounted price the admin typed in
+// (or a real line-item breakdown) always wins over what calcQuote would
+// guess from the service names alone, since that guess assumes list-price
+// defaults (e.g. the cheapest add-on tier) that may not match what was
+// actually booked or agreed.
+function realShootPrice(shoot: Shoot): number | null {
+  if (shoot.line_items && shoot.line_items.length > 0) {
+    return shoot.line_items.reduce((sum, li) => sum + li.amount_cents, 0) / 100;
+  }
+  if (typeof shoot.price === "number" && shoot.price > 0) return shoot.price;
+  return null;
+}
 type Invoice = {
   id: string; amount_cents: number; paid: boolean;
   due_date: string; notes: string; shoot_id: string; created_at: string;
@@ -1541,7 +1556,12 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled, readOn
   }
 
   const visual = statusVisual(shoot.status);
+  // Real price wins; only estimate from the service list (list-price
+  // defaults) when nothing real has been set yet, e.g. a brand-new pending
+  // request the admin hasn't priced.
+  const realPrice = realShootPrice(shoot);
   const quote = calcQuote(shoot.services || [], shoot.square_footage ? String(shoot.square_footage) : "");
+  const displayPrice = realPrice ?? (quote.low > 0 ? quote.low : null);
   const rebuttal = parseRebuttal(shoot.notes);
   const inProgress = ["scheduled", "en_route", "on_site", "wrapping", "editing"].includes(shoot.status);
 
@@ -1553,7 +1573,7 @@ function ShootLogRow({ shoot, expanded, onToggle, onUpdated, onCancelled, readOn
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className="text-xs text-[#888]">{formatDateTime(shoot.scheduled_at)}</span>
             {shoot.square_footage ? <span className="text-xs text-[#666]">{shoot.square_footage.toLocaleString()} sf</span> : null}
-            {quote.low > 0 && <span className={`text-xs font-bold ${visual.text}`}>${quote.low.toLocaleString()}</span>}
+            {displayPrice != null && <span className={`text-xs font-bold ${visual.text}`}>${displayPrice.toLocaleString()}</span>}
           </div>
           {(shoot.services?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
