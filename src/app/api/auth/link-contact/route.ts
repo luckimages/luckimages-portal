@@ -34,14 +34,14 @@ export async function POST(req: Request) {
 
   const { data: { user } } = await db.auth.admin.getUserById(userId);
 
-  // /register (the realtor signup form) sets role:"realtor" in auth
-  // metadata — reflect that in the contact's type, or a realtor silently
-  // never shows up in the Realtors count on /admin/contacts. Most contacts
-  // start life as a cold-call or web lead (type "lead") long before they
-  // ever register, so this has to apply when linking an EXISTING contact
-  // too, not just a brand-new one — never downgrades an already-elevated
-  // type (employee/admin/realtor).
-  const registrantType = user?.user_metadata?.role === "realtor" ? "realtor" : "client";
+  // This route only ever runs for the realtor /register flow (photographers
+  // register through the separate /api/auth/photographer-invite path), so
+  // every registrant here is a realtor — full stop, no metadata check needed.
+  // Most contacts start life as a cold-call or web lead (type "lead") long
+  // before they ever register, so this has to apply when linking an
+  // EXISTING contact too, not just a brand-new one — never downgrades an
+  // already-elevated type (employee/admin/realtor).
+  const registrantType = "realtor";
   function promotedType(currentType: string | null | undefined) {
     return !currentType || currentType === "lead" ? { type: registrantType } : {};
   }
