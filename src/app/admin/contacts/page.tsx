@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { formatPhone, normalizePhone } from "@/lib/format";
+import { formatPhone, normalizePhone, formatLastOnline } from "@/lib/format";
 import ContactAvatar from "@/components/ContactAvatar";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -86,6 +86,7 @@ function ContactsPageInner() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", brokerage: "", stage: "new", notes: "" });
   const [showDeleted, setShowDeleted] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "brokerages">("list");
+  const [activityMap, setActivityMap] = useState<Record<string, { lastOnline: string; visitCount: number }>>({});
   const [dupePairs, setDupePairs] = useState<{ a: Contact; b: Contact; reason: string }[]>([]);
   const [dismissedDupes, setDismissedDupes] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem("dismissed_dupes") || "[]")); }
@@ -121,6 +122,9 @@ function ContactsPageInner() {
     });
     fetch("/api/admin/saved-views").then(r => r.ok ? r.json() : null).then(d => {
       if (d) setSavedViews(d.views || []);
+    });
+    fetch("/api/admin/contact-activity").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.summary) setActivityMap(d.summary);
     });
 
     // Detect potential duplicates — same email (case-insensitive) or same name (honorifics stripped)
@@ -593,7 +597,7 @@ function ContactsPageInner() {
                       </>
                     )}
                   </th>
-                  <th className="text-left px-4 py-3 font-normal">Added</th>
+                  <th className="text-left px-4 py-3 font-normal">Last Online</th>
                 </tr>
               </thead>
               <tbody>
@@ -664,7 +668,7 @@ function ContactsPageInner() {
                         ); })()}
                       </td>
                       <td className="px-4 py-3 text-[#444] whitespace-nowrap">
-                        {new Date(contact.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {contact.user_id ? formatLastOnline(activityMap[contact.user_id]?.lastOnline) : "—"}
                       </td>
                     </tr>
                   );

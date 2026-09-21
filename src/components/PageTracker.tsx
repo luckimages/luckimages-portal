@@ -5,11 +5,14 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
-// Only track public marketing pages — not the portal, admin tools, or auth flows.
+// Public marketing pages, plus (as of the realtor "last online"/visit-history
+// feature) the client portal itself — /client is intentionally NOT excluded
+// so a realtor's page loads and dwell time get recorded against their
+// user_id. Admin tools, photographer portal, and auth flows stay excluded.
 // /register is intentionally included (not excluded): mass-invite links route
 // through /api/track-link with an ?lc= id, and this is what lets dwell time
 // on the registration page get reported back against that click.
-const EXCLUDED_PREFIXES = ["/dashboard", "/admin", "/client", "/photographer", "/login", "/choose-portal", "/api", "/auth"];
+const EXCLUDED_PREFIXES = ["/dashboard", "/admin", "/photographer", "/login", "/choose-portal", "/api", "/auth"];
 
 function isTrackable(pathname: string) {
   return !EXCLUDED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
