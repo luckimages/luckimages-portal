@@ -906,11 +906,20 @@ export default function ShootGallery({ shootId, services = [], onMediaChange, ca
           <div className="max-w-[92vw] max-h-[85vh] w-full px-12" onClick={e => e.stopPropagation()}>
             {(() => {
               const m = lightboxItems[lightboxIdx];
+              // Grid tiles and the filmstrip intentionally use the small
+              // 800px preview thumbnail for bandwidth — but reusing it for
+              // this enlarged view too made every full-res original look
+              // soft/compressed when stretched up to near-fullscreen.
+              // download_url is the actual full-resolution original, already
+              // computed whenever download is allowed (paid client or
+              // admin) — prefer it here; unpaid clients still correctly
+              // fall back to the (possibly watermarked) thumbnail.
+              const bigImageSrc = m.download_url || m.preview_url;
               return (
                 <div className="flex flex-col items-center gap-4">
-                  {isImage(m) && m.preview_url ? (
+                  {isImage(m) && bigImageSrc ? (
                     <div className="relative">
-                      <img src={m.preview_url} alt={m.file_name} className="max-h-[72vh] max-w-full object-contain" />
+                      <img src={bigImageSrc} alt={m.file_name} className="max-h-[72vh] max-w-full object-contain" />
                       {!canDownload && m.needsCssWatermark && (
                         <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
                           <div className="absolute -inset-16 flex flex-wrap content-evenly justify-evenly gap-8 -rotate-[20deg]">
