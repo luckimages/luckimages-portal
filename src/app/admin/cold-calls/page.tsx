@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { normalizePhone } from "@/lib/format";
+import { normalizePhone, formatDuration } from "@/lib/format";
 import { useContactModal } from "@/context/ContactModalContext";
 import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel } from "@/lib/pricing";
 import { ADMIN_EMAILS, COLD_CALL_TEXT_LINK_NOTE, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
@@ -89,6 +89,14 @@ function isFollowUpDue(outcome: string, calledAt: string, followUpDate?: string 
   if (!due) return false;
   const elapsed = Date.now() - due.getTime();
   return elapsed >= 0 && elapsed < STALE_DUE_MS;
+}
+
+// Same thresholds as the Outreach Engagement tab, so a link's color means
+// the same thing wherever it's shown.
+function dwellColor(seconds: number): string {
+  if (seconds >= 45) return "#4ade80"; // green — engaged, worth reaching out
+  if (seconds >= 8) return "#fbbf24";  // yellow — browsed briefly
+  return "#f87171";                    // red — quick bounce
 }
 
 // Buckets a log by recency for the Call Log's This Week / Last Week / Show older grouping.
@@ -282,7 +290,13 @@ function ColdCallsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [emailLog, setEmailLog] = useState<{ contact_id: string | null; subject: string | null; sent_at: string | null }[]>([]);
-  const [linkClicks, setLinkClicks] = useState<{ contact_id: string | null; service: string; clicked_at: string }[]>([]);
+  const [linkClicks, setLinkClicks] = useState<{ id: string; contact_id: string | null; service: string; clicked_at: string }[]>([]);
+  // Total session dwell time per link_clicks.id — same computation as the
+  // Outreach Engagement tab, so "did they actually look at it" reads
+  // identically in both places. A click with no entry here never got a
+  // page_view (bot prefetch off an iMessage/SMS link preview, not a real
+  // visit) and should be treated as unconfirmed, not zero seconds.
+  const [dwellByClickId, setDwellByClickId] = useState<Record<string, number>>({});
 
   const [weekCalls, setWeekCalls] = useState(0);
   const [weekLeads, setWeekLeads] = useState(0);
@@ -354,16 +368,42 @@ function ColdCallsPage() {
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: cs }, { data: logs }, { data: emails }, { data: clicks }] = await Promise.all([
+    const [{ data: cs }, { data: logs }, { data: emails }, { data: clicks }, { data: landingViews }] = await Promise.all([
       supabase.from("contacts").select("id,name,email,phone,brokerage,stage").order("name"),
       supabase.from("cold_calls").select("*").order("called_at", { ascending: false }),
       supabase.from("email_log").select("contact_id, subject, sent_at").not("contact_id", "is", null).order("sent_at", { ascending: false }),
-      supabase.from("link_clicks").select("contact_id, service, clicked_at").not("contact_id", "is", null).order("clicked_at", { ascending: false }),
+      supabase.from("link_clicks").select("id, contact_id, service, clicked_at").not("contact_id", "is", null).order("clicked_at", { ascending: false }),
+      // Same dwell computation as the Outreach Engagement tab: session_id
+      // lets us total time across every page they visited after the click,
+      // not just the landing page.
+      supabase.from("page_views").select("link_click_id, session_id, duration_seconds").not("link_click_id", "is", null),
     ]);
     setContacts(cs || []);
     setCallLogs(logs || []);
     setEmailLog(emails || []);
     setLinkClicks(clicks || []);
+
+    if (landingViews) {
+      const sessionIds = [...new Set(landingViews.map(v => v.session_id).filter((s): s is string => !!s))];
+      let sessionViews: { session_id: string; duration_seconds: number }[] = [];
+      if (sessionIds.length > 0) {
+        const { data: sv } = await supabase
+          .from("page_views")
+          .select("session_id, duration_seconds")
+          .in("session_id", sessionIds)
+          .not("duration_seconds", "is", null);
+        sessionViews = (sv || []) as typeof sessionViews;
+      }
+      const sessionTotals: Record<string, number> = {};
+      for (const v of sessionViews) sessionTotals[v.session_id] = (sessionTotals[v.session_id] || 0) + v.duration_seconds;
+
+      const dwellMap: Record<string, number> = {};
+      for (const v of landingViews) {
+        if (!v.session_id) continue; // no session_id = JS never ran = bot prefetch, not a real visit
+        dwellMap[v.link_click_id] = sessionTotals[v.session_id] ?? (v.duration_seconds ?? 0);
+      }
+      setDwellByClickId(dwellMap);
+    }
 
     const today = new Date().toISOString().split("T")[0];
     setTodayCount((logs || []).filter((l: CallLog) => l.called_at.startsWith(today)).length);
@@ -1094,32 +1134,48 @@ function ColdCallsPage() {
                   })}
                 </div>
 
-                {/* Email follow-ups + reactions */}
-                {emailsForContact.length > 0 && (
+                {/* Follow-ups + engagement — shows whenever there's an email OR a
+                    tracked link click, so a text-only follow-up (no email logged)
+                    stops being invisible here. */}
+                {(emailsForContact.length > 0 || clicksForContact.length > 0) && (
                   <div className="bg-[#111] border border-white/10 divide-y divide-white/5">
-                    <p className="px-4 py-2 text-[10px] tracking-[2px] uppercase text-[#555]">
-                      Email Follow-ups ({emailsForContact.length})
-                    </p>
-                    {emailsForContact.map((e, i) => (
-                      <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
-                        <span className="text-xs text-[#ccc] truncate">📨 {(e.subject || "Email").replace(/^\[DRAFT\]\s*/, "")}</span>
-                        <span className="text-[10px] text-[#555] shrink-0 tabular-nums">
-                          {e.sent_at ? new Date(e.sent_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}
-                        </span>
-                      </div>
-                    ))}
-                    {/* Reaction row */}
+                    {emailsForContact.length > 0 && (
+                      <>
+                        <p className="px-4 py-2 text-[10px] tracking-[2px] uppercase text-[#555]">
+                          Email Follow-ups ({emailsForContact.length})
+                        </p>
+                        {emailsForContact.map((e, i) => (
+                          <div key={i} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                            <span className="text-xs text-[#ccc] truncate">📨 {(e.subject || "Email").replace(/^\[DRAFT\]\s*/, "")}</span>
+                            <span className="text-[10px] text-[#555] shrink-0 tabular-nums">
+                              {e.sent_at ? new Date(e.sent_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}
+                            </span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {/* Link engagement */}
                     <div className="px-4 py-2.5">
+                      <p className="text-[10px] tracking-[2px] uppercase text-[#555] mb-1.5">
+                        Link Engagement {clicksForContact.length > 0 && `(${clicksForContact.length})`}
+                      </p>
                       {clicksForContact.length > 0 ? (
                         <div className="space-y-1">
-                          {clicksForContact.slice(0, 8).map((c, i) => (
-                            <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
-                              <span className="text-[#60a5fa]">🔗 Clicked {CLICK_LABEL[c.service] || c.service}</span>
-                              <span className="text-[#555] shrink-0 tabular-nums">
-                                {new Date(c.clicked_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                              </span>
-                            </div>
-                          ))}
+                          {clicksForContact.slice(0, 8).map((c, i) => {
+                            const dwell = dwellByClickId[c.id];
+                            const color = dwell != null ? dwellColor(dwell) : "#60a5fa";
+                            return (
+                              <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                                <span style={{ color }}>
+                                  🔗 Clicked {CLICK_LABEL[c.service] || c.service}
+                                  {dwell != null && <span className="tabular-nums font-semibold"> · {formatDuration(dwell)}</span>}
+                                </span>
+                                <span className="text-[#555] shrink-0 tabular-nums">
+                                  {new Date(c.clicked_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                                </span>
+                              </div>
+                            );
+                          })}
                           {clicksForContact.length > 8 && <span className="text-[10px] text-[#444]">+{clicksForContact.length - 8} more</span>}
                         </div>
                       ) : (
@@ -1727,11 +1783,32 @@ function ColdCallsPage() {
                         </p>
                       )}
                     </div>
-                    {isFollowUpDue(log.outcome, log.called_at, log.follow_up_date) && (
-                      <span className="shrink-0 text-[9px] tracking-[1px] uppercase font-bold px-2 py-1 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30">
-                        ⏰ Due
-                      </span>
-                    )}
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      {isFollowUpDue(log.outcome, log.called_at, log.follow_up_date) && (
+                        <span className="text-[9px] tracking-[1px] uppercase font-bold px-2 py-1 rounded-full bg-[#fbbf24]/10 text-[#fbbf24] border border-[#fbbf24]/30">
+                          ⏰ Due
+                        </span>
+                      )}
+                      {(() => {
+                        // Only counts as engagement once there's real dwell data behind
+                        // it — a click with no page_view is a bot prefetch (iMessage/SMS
+                        // link preview), not confirmed proof they actually looked at it.
+                        const confirmedDwells = (clicksByContact[log.contact_id] || [])
+                          .map(c => dwellByClickId[c.id])
+                          .filter((d): d is number => d != null);
+                        if (confirmedDwells.length === 0) return null;
+                        const best = Math.max(...confirmedDwells);
+                        const color = dwellColor(best);
+                        return (
+                          <span
+                            className="text-[9px] tracking-[1px] uppercase font-bold px-2 py-1 rounded-full border"
+                            style={{ color, borderColor: `${color}4D`, background: `${color}1A` }}
+                          >
+                            🔗 {formatDuration(best)}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               );
