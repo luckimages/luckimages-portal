@@ -1162,7 +1162,12 @@ function ColdCallsPage() {
                       {clicksForContact.length > 0 ? (
                         <div className="space-y-1">
                           {clicksForContact.slice(0, 8).map((c, i) => {
-                            const dwell = dwellByClickId[c.id];
+                            // formatDuration treats 0 as "nothing to show" (renders
+                            // "—"), so an instant-bounce 0s dwell needs the same
+                            // >0 guard as "confirmed at all", or it'd render a
+                            // confusing dash instead of just omitting the time.
+                            const rawDwell = dwellByClickId[c.id];
+                            const dwell = rawDwell != null && rawDwell > 0 ? rawDwell : null;
                             const color = dwell != null ? dwellColor(dwell) : "#60a5fa";
                             return (
                               <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
@@ -1793,9 +1798,11 @@ function ColdCallsPage() {
                         // Only counts as engagement once there's real dwell data behind
                         // it — a click with no page_view is a bot prefetch (iMessage/SMS
                         // link preview), not confirmed proof they actually looked at it.
+                        // >0 (not just != null) since formatDuration renders 0 as "—",
+                        // which would otherwise show as a confusing blank time.
                         const confirmedDwells = (clicksByContact[log.contact_id] || [])
                           .map(c => dwellByClickId[c.id])
-                          .filter((d): d is number => d != null);
+                          .filter((d): d is number => d != null && d > 0);
                         if (confirmedDwells.length === 0) return null;
                         const best = Math.max(...confirmedDwells);
                         const color = dwellColor(best);
