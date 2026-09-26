@@ -87,10 +87,25 @@ export default function RegisterPage() {
     if (honey) { setLoading(true); return; }
     setError(""); setLoading(true);
     const supabase = createClient();
+
+    // When Supabase requires email confirmation, signUp() below doesn't
+    // establish a session, so the immediate link-contact call further down
+    // never fires (getUser() has nothing to return yet) and the registrant
+    // is silently left with a login but no linked contacts row -- present
+    // everywhere that counts raw signups, absent everywhere that reads the
+    // contacts table (Contacts, Command Center). Pointing the confirmation
+    // email at /auth/link-contact makes it run the same linking step once
+    // they actually confirm.
+    const preConfirmParams = new URLSearchParams(window.location.search);
+    const emailRedirectTo = new URL("/auth/link-contact", window.location.origin);
+    const preConfirmContactId = preConfirmParams.get("contact_id");
+    if (preConfirmContactId) emailRedirectTo.searchParams.set("contact_id", preConfirmContactId);
+
     const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
+        emailRedirectTo: emailRedirectTo.toString(),
         data: {
           full_name: form.fullName,
           role: "realtor",
