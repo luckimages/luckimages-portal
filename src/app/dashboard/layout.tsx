@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { backToShell } from "@/lib/backToShell";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="w-full flex justify-center">
       <div className="w-full max-w-[1900px] min-h-screen">
         <div className="md:hidden flex items-center px-4 py-3 border-b border-white/10">
-          <a href="/dashboard/v2?page=apps" className="text-sm text-white/40 hover:text-white transition-colors">← Dashboard</a>
+          <button onClick={() => backToShell()} className="text-sm text-white/40 hover:text-white transition-colors">← Dashboard</button>
         </div>
         {children}
       </div>

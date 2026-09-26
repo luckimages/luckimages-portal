@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 import { PRIMARY_SERVICES, ADDONS, addonsFor, resolvePrice, type Addon } from "@/lib/pricing";
+import { backToShell } from "@/lib/backToShell";
 
 const supabase = createClient();
 
@@ -155,7 +156,7 @@ export default function QuotesPage() {
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
         <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
           <a href="/choose-portal" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">Portals</a>
-          <a href="/dashboard?page=apps" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</a>
+          <button onClick={() => backToShell()} className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors">← Dashboard</button>
           <form action="/api/auth/signout" method="post" className="inline">
             <button type="submit" className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>
           </form>

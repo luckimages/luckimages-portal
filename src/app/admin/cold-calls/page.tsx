@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { normalizePhone, formatDuration } from "@/lib/format";
+import { backToShell } from "@/lib/backToShell";
 import { useContactModal } from "@/context/ContactModalContext";
 import { SERVICE_OPTIONS, ADDON_OPTIONS, serviceLabel, addonLabel } from "@/lib/pricing";
 import { ADMIN_EMAILS, COLD_CALL_TEXT_LINK_NOTE, SENDER_NAME_TOKEN, SENDER_EMAIL_TOKEN } from "@/lib/constants";
@@ -925,11 +926,7 @@ function ColdCallsPage() {
       {/* Header */}
       <div className="border-b border-white/10 px-4 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
-          <button onClick={() => {
-            const target = "/dashboard/v2?page=apps";
-            if (window.self !== window.top) window.top!.location.href = target;
-            else router.push(target);
-          }} className="text-[#555] text-sm hover:text-white transition-colors">
+          <button onClick={() => backToShell()} className="text-[#555] text-sm hover:text-white transition-colors">
             ← Back
           </button>
           <h1 className="text-sm font-bold tracking-[3px] uppercase">Cold Calls</h1>

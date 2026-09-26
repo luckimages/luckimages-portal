@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { backToShell } from "@/lib/backToShell";
 
 type Folder = { id: string; name: string; parent_id: string | null; created_by_name: string; created_at: string };
 type ArchiveFile = { id: string; name: string; folder_id: string | null; size_bytes: number; content_type: string | null; uploaded_by_name: string; created_at: string };
@@ -208,7 +209,7 @@ export default function ArchivePage() {
             <div className="text-[10px] tracking-[3px] uppercase text-[#555]">My Nocturne</div>
             <h1 className="text-3xl font-black tracking-tight uppercase mt-1">File Archive</h1>
           </div>
-          <a href="/dashboard/me" className="text-xs text-[#555] hover:text-white transition-colors">← Back to My Nocturne</a>
+          <button onClick={() => backToShell("/dashboard/v2?page=apps&app=My%20Nocturne")} className="text-xs text-[#555] hover:text-white transition-colors">← Back to My Nocturne</button>
         </div>
 
         {/* Search + sort + actions */}
