@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import ContactAvatar from "@/components/ContactAvatar";
 import { COLD_CALL_TEXT_LINK_NOTE, GOOGLE_REVIEW_URL, SENDER_NAME_TOKEN } from "@/lib/constants";
+import { backToShell } from "@/lib/backToShell";
 
 const supabase = createClient();
 
@@ -1141,9 +1142,12 @@ export default function OutreachPage() {
 
       {/* Header */}
       <div className="px-6 md:px-8 pt-6 pb-4 shrink-0 flex flex-wrap items-center justify-between gap-4 border-b border-white/10">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight uppercase">Outreach</h1>
-          <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, send instantly.</p>
+        <div className="flex items-center gap-4">
+          <button onClick={() => backToShell("/dashboard/v2?page=apps&app=Marketing")} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors shrink-0">← Back</button>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight uppercase">Outreach</h1>
+            <p className="text-xs text-[#444] mt-0.5 tracking-wide">Build campaigns, preview live, send instantly.</p>
+          </div>
         </div>
         <div className="flex gap-1 shrink-0">
           <button onClick={() => setMode("campaign")}

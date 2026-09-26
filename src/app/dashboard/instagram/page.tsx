@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
+import { backToShell } from "@/lib/backToShell";
 
 const BASE_URL = "https://www.luckimages.com";
 
@@ -83,10 +84,13 @@ export default function InstagramToolPage() {
     <main className="min-h-screen bg-[#0c0c0c] text-white flex flex-col">
       <div className="flex-1 px-4 md:px-8 py-8 max-w-3xl mx-auto w-full space-y-8">
 
-        <div>
-          <p className="text-xs tracking-[4px] uppercase text-[#f472b6] mb-1">Marketing</p>
-          <h1 className="text-3xl font-black tracking-tight uppercase">📸 Instagram DM Tool</h1>
-          <p className="text-xs text-[#444] mt-1">Generate a tracked link per realtor — see if they clicked and/or registered.</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs tracking-[4px] uppercase text-[#f472b6] mb-1">Marketing</p>
+            <h1 className="text-3xl font-black tracking-tight uppercase">📸 Instagram DM Tool</h1>
+            <p className="text-xs text-[#444] mt-1">Generate a tracked link per realtor — see if they clicked and/or registered.</p>
+          </div>
+          <button onClick={() => backToShell("/dashboard/v2?page=apps&app=Marketing")} className="text-xs tracking-[2px] uppercase text-[#555] hover:text-white transition-colors shrink-0">← Back</button>
         </div>
 
         {/* Generator */}

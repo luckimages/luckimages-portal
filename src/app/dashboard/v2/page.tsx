@@ -258,6 +258,24 @@ function DashboardV2Page() {
     });
   }, [router]);
 
+  // Keep the address bar in sync with what's actually showing. Selecting a
+  // sidebar app is pure client state (no navigation), so without this a real
+  // top-level navigation away from the shell (opening a standalone tool page)
+  // leaves the PREVIOUS, stale URL behind it in browser history -- often
+  // whatever the shell's very first load was, from before any app was ever
+  // selected. That's what made the browser's real Back button (and anything
+  // relying on it) skip over the app you were actually on and land on the
+  // default/first sidebar app, or the home overview, instead.
+  useEffect(() => {
+    if (swipePage !== 1) {
+      router.replace("/dashboard/v2", { scroll: false });
+      return;
+    }
+    const visible = appOrder.map(l => APPS.find(a => a.label === l)).filter((a): a is typeof APPS[0] => !!a && !hiddenApps.has(a.label));
+    const label = selectedAppLabel && visible.find(a => a.label === selectedAppLabel) ? selectedAppLabel : visible[0]?.label;
+    router.replace(label ? `/dashboard/v2?page=apps&app=${encodeURIComponent(label)}` : "/dashboard/v2?page=apps", { scroll: false });
+  }, [swipePage, selectedAppLabel, appOrder, hiddenApps, router]);
+
   function openEditMode() {
     setEditOrder([...appOrder]);
     setEditHidden(new Set(hiddenApps));
