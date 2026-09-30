@@ -706,18 +706,15 @@ export default function ClientPage() {
             {unpaidInvoices.length > 0 && (
               <button
                 onClick={() => setTab("invoices")}
-                className="w-full flex items-center justify-between px-6 py-5 bg-[#fbbf24]/10 border border-[#fbbf24]/40 hover:bg-[#fbbf24]/15 transition-colors group"
+                className="w-full flex items-center justify-between gap-4 px-6 py-2.5 bg-[#fbbf24]/25 backdrop-blur-sm border border-[#fbbf24]/60 hover:bg-[#fbbf24]/30 transition-colors group"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-2 h-2 rounded-full bg-[#fbbf24] animate-pulse" />
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-[#fbbf24]">
-                      {unpaidInvoices.length} unpaid invoice{unpaidInvoices.length !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-xs text-[#fbbf24]/60 mt-0.5">Tap to review and pay</p>
-                  </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-[#fbbf24] animate-pulse shrink-0" />
+                  <p className="text-sm font-semibold text-[#fbbf24] whitespace-nowrap">
+                    {unpaidInvoices.length} unpaid invoice{unpaidInvoices.length !== 1 ? "s" : ""} — tap to review and pay
+                  </p>
                 </div>
-                <span className="text-[#fbbf24]/60 group-hover:text-[#fbbf24] transition-colors text-lg">→</span>
+                <span className="text-[#fbbf24]/80 group-hover:text-[#fbbf24] transition-colors text-lg shrink-0">→</span>
               </button>
             )}
 
@@ -807,8 +804,8 @@ export default function ClientPage() {
 
               {/* Invoices block — pulses a yellow glow while something is
                   unpaid so it doesn't blend in with the rest of the grid. */}
-              <div className={`bg-[#111] border p-6 flex flex-col gap-4 ${
-                unpaidInvoices.length > 0 ? "border-[#fbbf24]/50 animate-breathe-glow" : "border-white/10"
+              <div className={`bg-[#111] p-6 flex flex-col gap-4 ${
+                unpaidInvoices.length > 0 ? "border-2 border-[#fbbf24]/50 animate-breathe-glow" : "border border-white/10"
               }`}>
                 <div>
                   <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Invoices</p>
@@ -1103,7 +1100,12 @@ export default function ClientPage() {
                     ? getSqftTierLabel(primaryService.pricing.tiers, shoot.square_footage)
                     : undefined;
                   return (
-                    <div key={inv.id} className="border-b border-white/5 last:border-b-0">
+                    <div
+                      key={inv.id}
+                      className={inv.paid
+                        ? "border-b border-white/5 last:border-b-0"
+                        : "border-2 border-[#fbbf24]/50 animate-breathe-glow my-1.5 first:mt-0 last:mb-0"}
+                    >
                       <button
                         onClick={() => setExpandedInvoiceId(id => id === inv.id ? null : inv.id)}
                         className="w-full flex items-start justify-between gap-4 text-left px-5 py-3 hover:bg-white/[0.02] transition-colors"
