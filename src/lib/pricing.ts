@@ -63,6 +63,15 @@ export function getSqftTierMedia(tiers: SqftTier[], sqft: number): string | unde
   return tiers[tiers.length - 1].media;
 }
 
+// Returns the matching tier's `label` (e.g. "Up to 2,500 sq ft") — lets a UI
+// show which pricing bracket a booked sqft fell into.
+export function getSqftTierLabel(tiers: SqftTier[], sqft: number): string | undefined {
+  for (const t of tiers) {
+    if (!t.maxSqft || sqft <= t.maxSqft) return t.label;
+  }
+  return tiers[tiers.length - 1].label;
+}
+
 export function getBaseIncrementPrice(inc: BaseIncrement, count: number): number {
   if (count <= inc.baseCount) return inc.basePrice;
   const extra = count - inc.baseCount;

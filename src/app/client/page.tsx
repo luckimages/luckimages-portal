@@ -9,7 +9,7 @@ import HomeNav from "@/components/HomeNav";
 import AddressMapPicker from "@/components/AddressMapPicker";
 import ShootLocationMap from "@/components/ShootLocationMap";
 import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
-import { PRIMARY_SERVICES as PRICING_PRIMARY, ADDONS as PRICING_ADDONS, addonsFor, resolvePrice } from "@/lib/pricing";
+import { PRIMARY_SERVICES as PRICING_PRIMARY, ADDONS as PRICING_ADDONS, addonsFor, resolvePrice, getSqftTierLabel } from "@/lib/pricing";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import AdminPortalPreviewBar from "@/components/AdminPortalPreviewBar";
 
@@ -712,7 +712,7 @@ export default function ClientPage() {
                   <div className="w-2 h-2 rounded-full bg-[#fbbf24] animate-pulse" />
                   <div className="text-left">
                     <p className="text-sm font-semibold text-[#fbbf24]">
-                      {unpaidInvoices.length} unpaid invoice{unpaidInvoices.length !== 1 ? "s" : ""} · ${(totalOwed / 100).toLocaleString()} due
+                      {unpaidInvoices.length} unpaid invoice{unpaidInvoices.length !== 1 ? "s" : ""}
                     </p>
                     <p className="text-xs text-[#fbbf24]/60 mt-0.5">Tap to review and pay</p>
                   </div>
@@ -1096,6 +1096,12 @@ export default function ClientPage() {
                   const shoot = shoots.find(s => s.id === inv.shoot_id);
                   const expanded = expandedInvoiceId === inv.id;
                   const lineItems = (inv.line_items?.length ? inv.line_items : shoot?.line_items) || [];
+                  // The booked package's sqft tier — shown right alongside the
+                  // square footage so it's obvious which bracket the price fell into.
+                  const primaryService = shoot ? PRICING_PRIMARY.find(p => shoot.services?.includes(p.name)) : undefined;
+                  const tierLabel = primaryService && primaryService.pricing.kind === "sqft" && shoot?.square_footage
+                    ? getSqftTierLabel(primaryService.pricing.tiers, shoot.square_footage)
+                    : undefined;
                   return (
                     <div key={inv.id} className="border-b border-white/5 last:border-b-0">
                       <button
@@ -1126,6 +1132,9 @@ export default function ClientPage() {
                               <div>
                                 <p className={rowLabelCls}>Square Footage</p>
                                 <p className="text-sm text-white mt-1">{shoot?.square_footage ? `${shoot.square_footage.toLocaleString()} sf` : "—"}</p>
+                                {tierLabel && (
+                                  <p className="text-xs text-[#666] mt-0.5">{primaryService!.name} package · {tierLabel}</p>
+                                )}
                               </div>
                               <div>
                                 <p className={rowLabelCls}>Shoot Date &amp; Time</p>
