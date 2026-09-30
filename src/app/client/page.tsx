@@ -36,6 +36,8 @@ function realShootPrice(shoot: Shoot): number | null {
 type Invoice = {
   id: string; amount_cents: number; paid: boolean;
   due_date: string; notes: string; shoot_id: string; created_at: string;
+  paid_at?: string | null; description?: string | null;
+  line_items?: { label: string; amount_cents: number }[] | null;
 };
 
 // Booking form keeps a simple checkbox model — no variant/quantity pickers —
@@ -384,6 +386,7 @@ export default function ClientPage() {
 
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payError, setPayError] = useState("");
+  const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   async function payInvoice(invoiceId: string) {
     if (readOnly) return;
     setPayError(""); setPayingId(invoiceId);
@@ -696,6 +699,28 @@ export default function ClientPage() {
               </button>
             )}
 
+            {/* Unpaid invoice banner — plain navigation to the Invoices tab
+                (no real payment action), so it stays visible even in
+                read-only preview instead of being suppressed like the
+                "photos ready" live-notification banner above. */}
+            {unpaidInvoices.length > 0 && (
+              <button
+                onClick={() => setTab("invoices")}
+                className="w-full flex items-center justify-between px-6 py-5 bg-[#fbbf24]/10 border border-[#fbbf24]/40 hover:bg-[#fbbf24]/15 transition-colors group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-2 h-2 rounded-full bg-[#fbbf24] animate-pulse" />
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-[#fbbf24]">
+                      {unpaidInvoices.length} unpaid invoice{unpaidInvoices.length !== 1 ? "s" : ""} · ${(totalOwed / 100).toLocaleString()} due
+                    </p>
+                    <p className="text-xs text-[#fbbf24]/60 mt-0.5">Tap to review and pay</p>
+                  </div>
+                </div>
+                <span className="text-[#fbbf24]/60 group-hover:text-[#fbbf24] transition-colors text-lg">→</span>
+              </button>
+            )}
+
             {/* Stat chips */}
             <div className="grid grid-cols-3 gap-2 md:gap-3">
               <div className="bg-[#111] border border-white/10 p-3 md:p-6 border-b-2 border-b-[#60a5fa] overflow-hidden">
@@ -780,8 +805,11 @@ export default function ClientPage() {
                 </button>
               </div>
 
-              {/* Invoices block */}
-              <div className="bg-[#111] border border-white/10 p-6 flex flex-col gap-4">
+              {/* Invoices block — pulses a yellow glow while something is
+                  unpaid so it doesn't blend in with the rest of the grid. */}
+              <div className={`bg-[#111] border p-6 flex flex-col gap-4 ${
+                unpaidInvoices.length > 0 ? "border-[#fbbf24]/50 animate-breathe-glow" : "border-white/10"
+              }`}>
                 <div>
                   <p className="text-xs tracking-[2px] uppercase text-[#555] mb-2">Invoices</p>
                   {unpaidInvoices.length > 0 ? (
@@ -1063,29 +1091,115 @@ export default function ClientPage() {
                 <p className="text-[#555] text-sm">No invoices yet</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[400px]">
-                  <thead><tr className="border-b border-white/10">{["Date", "Amount", "Status", ""].map((h, i) => <th key={i} className="text-left px-5 py-3 text-xs tracking-[2px] uppercase text-[#555] font-medium">{h}</th>)}</tr></thead>
-                  <tbody>
-                    {invoices.map(inv => (
-                      <tr key={inv.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                        <td className="px-5 py-3 text-[#888]">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</td>
-                        <td className="px-5 py-3 font-medium">${(inv.amount_cents / 100).toLocaleString()}</td>
-                        <td className="px-5 py-3">
-                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Unpaid"}</span>
-                        </td>
-                        <td className="px-5 py-3">
-                          {!inv.paid && (
-                            <button onClick={() => payInvoice(inv.id)} disabled={readOnly || payingId === inv.id}
-                              className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
-                              {payingId === inv.id ? "Loading…" : "Pay Now →"}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="border border-white/10">
+                {invoices.map(inv => {
+                  const shoot = shoots.find(s => s.id === inv.shoot_id);
+                  const expanded = expandedInvoiceId === inv.id;
+                  const lineItems = (inv.line_items?.length ? inv.line_items : shoot?.line_items) || [];
+                  return (
+                    <div key={inv.id} className="border-b border-white/5 last:border-b-0">
+                      <button
+                        onClick={() => setExpandedInvoiceId(id => id === inv.id ? null : inv.id)}
+                        className="w-full flex items-start justify-between gap-4 text-left px-5 py-3 hover:bg-white/[0.02] transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">${(inv.amount_cents / 100).toLocaleString()}</p>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            <span className="text-xs text-[#888]">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</span>
+                            {shoot?.address && <span className="text-xs text-[#666] truncate">{truncateAddressToStreet(shoot.address)}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className={`text-xs tracking-[1px] uppercase px-2 py-1 whitespace-nowrap ${inv.paid ? "bg-[#4ade8018] text-[#4ade80]" : "bg-[#fbbf2418] text-[#fbbf24]"}`}>{inv.paid ? "Paid" : "Unpaid"}</span>
+                          <span className={`text-[#555] text-sm transition-transform ${expanded ? "rotate-90" : ""}`}>▸</span>
+                        </div>
+                      </button>
+
+                      {expanded && (
+                        <div className="px-5 pb-5">
+                          <div className="bg-white/[0.02] border border-white/10 p-4 flex flex-col gap-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <p className={rowLabelCls}>Property</p>
+                                <p className="text-sm text-white mt-1">{shoot ? truncateAddressToStreet(shoot.address) : (inv.description || "—")}</p>
+                              </div>
+                              <div>
+                                <p className={rowLabelCls}>Square Footage</p>
+                                <p className="text-sm text-white mt-1">{shoot?.square_footage ? `${shoot.square_footage.toLocaleString()} sf` : "—"}</p>
+                              </div>
+                              <div>
+                                <p className={rowLabelCls}>Shoot Date &amp; Time</p>
+                                <p className="text-sm text-white mt-1">{shoot ? formatDateTime(shoot.scheduled_at) : "—"}</p>
+                              </div>
+                              <div>
+                                <p className={rowLabelCls}>Media Delivered</p>
+                                <p className="text-sm text-white mt-1">
+                                  {shoot?.delivered_at
+                                    ? new Date(shoot.delivered_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                    : "Not yet delivered"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {(shoot?.services?.length ?? 0) > 0 && (
+                              <div>
+                                <p className={rowLabelCls}>Services Provided</p>
+                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                  {(shoot?.services || []).map(s => (
+                                    <span key={s} className="text-[10px] tracking-[1px] uppercase px-2 py-0.5 bg-white/5 border border-white/10 text-[#888]">{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {lineItems.length > 0 && (
+                              <div>
+                                <p className={rowLabelCls}>Price Breakdown</p>
+                                <div className="mt-1.5 flex flex-col gap-1">
+                                  {lineItems.map((li, i) => (
+                                    <div key={i} className="flex items-center justify-between text-sm">
+                                      <span className="text-[#ccc]">{li.label}</span>
+                                      <span className="text-white tabular-nums">${(li.amount_cents / 100).toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                  <div className="flex items-center justify-between text-sm font-semibold pt-1.5 mt-1 border-t border-white/10">
+                                    <span className="text-white">Total</span>
+                                    <span className="text-white tabular-nums">${(inv.amount_cents / 100).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div>
+                              <p className={rowLabelCls}>Invoice Status</p>
+                              {inv.paid ? (
+                                <p className="text-sm text-[#4ade80] mt-1">
+                                  Invoice paid{inv.paid_at ? ` on ${new Date(inv.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-[#fbbf24] mt-1">
+                                  Unpaid{inv.due_date ? ` · due ${new Date(inv.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-4 pt-1">
+                              {shoot?.delivered_at && (
+                                <Link href={`/client/gallery/${shoot.id}`} className="text-xs tracking-[2px] uppercase text-[#4ade80] hover:text-white transition-colors">View Gallery →</Link>
+                              )}
+                              {!inv.paid && (
+                                <button onClick={() => payInvoice(inv.id)} disabled={readOnly || payingId === inv.id}
+                                  className="text-xs tracking-[2px] uppercase text-[#60a5fa] hover:text-white transition-colors disabled:opacity-40">
+                                  {payingId === inv.id ? "Loading…" : "Pay Now →"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

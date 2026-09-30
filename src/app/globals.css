@@ -35,6 +35,17 @@ html, body {
   animation: marquee 30s linear infinite;
 }
 
+/* Slow "breathing" glow — used on the client portal to draw the eye to an
+   unpaid invoice without being as frantic as animate-pulse's opacity flicker. */
+@keyframes breathe-glow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35), 0 0 10px 1px rgba(251, 191, 36, 0.12); }
+  50%      { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.9),  0 0 22px 6px rgba(251, 191, 36, 0.4); }
+}
+
+.animate-breathe-glow {
+  animation: breathe-glow 2.8s ease-in-out infinite;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
