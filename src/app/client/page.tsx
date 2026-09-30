@@ -12,6 +12,7 @@ import { avatarUrl as getAvatarUrl } from "@/lib/avatarUrl";
 import { PRIMARY_SERVICES as PRICING_PRIMARY, ADDONS as PRICING_ADDONS, addonsFor, resolvePrice, getSqftTierLabel } from "@/lib/pricing";
 import { ADMIN_EMAILS } from "@/lib/constants";
 import AdminPortalPreviewBar from "@/components/AdminPortalPreviewBar";
+import { truncateAddressToStreet } from "@/lib/address";
 
 type Shoot = {
   id: string; address: string; lat?: number | null; lng?: number | null; scheduled_at: string;
@@ -151,34 +152,6 @@ function ShootTracker({ status }: { status: string }) {
 }
 
 const EDITABLE_STATUSES = ["pending", "scheduled"];
-
-const STREET_SUFFIXES = new Set([
-  "st", "street", "ave", "avenue", "blvd", "boulevard", "dr", "drive", "ln", "lane",
-  "rd", "road", "way", "ct", "court", "pl", "place", "cir", "circle", "ter", "terrace",
-  "pkwy", "parkway", "trl", "trail", "bend", "loop", "cv", "cove", "xing", "crossing",
-  "pt", "point", "ridge", "holw", "hollow", "grv", "grove", "walk", "row", "sq", "square",
-  "hwy", "highway", "path", "pass", "run", "cres", "crescent", "aly", "alley", "byp",
-  "bypass", "ext", "extension", "frwy", "freeway", "grn", "green", "hbr", "harbor",
-  "is", "island", "jct", "junction", "knl", "knoll", "mnr", "manor", "mdw", "meadow",
-  "mt", "mount", "mtn", "mountain", "pike", "plz", "plaza", "rdg", "rte", "route",
-  "shr", "shore", "spg", "spring", "sta", "station", "vly", "valley", "vw", "view",
-  "vlg", "village", "wynd",
-]);
-
-// Nominatim addresses trail off into neighborhood/city/county/state/zip/country
-// — for the compact row we only want up through the street itself, e.g.
-// "5801, Magee Bend, Village at Western Oaks, Austin, TX..." → "5801 Magee Bend".
-function truncateAddressToStreet(address: string): string {
-  const segments = address.split(",").map(s => s.trim()).filter(Boolean);
-  const kept: string[] = [];
-  for (const seg of segments) {
-    kept.push(seg);
-    const words = seg.split(/\s+/);
-    const lastWord = (words[words.length - 1] || "").toLowerCase().replace(/[^a-z]/g, "");
-    if (STREET_SUFFIXES.has(lastWord)) return kept.join(" ");
-  }
-  return address; // no recognized street suffix — leave it as-is
-}
 
 // Shared badge/quote coloring — yellow while pending, green once approved
 // (status moves to "scheduled"), plus the existing in-progress/edit colors.
@@ -387,6 +360,55 @@ export default function ClientPage() {
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payError, setPayError] = useState("");
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+  const [shareOpenFor, setShareOpenFor] = useState<string | null>(null);
+  const [shareForm, setShareForm] = useState({ name: "", email: "", relationship: "" });
+  const [sharing, setSharing] = useState(false);
+  const [shareMsg, setShareMsg] = useState<{ id: string; text: string; ok: boolean } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function toggleShare(invId: string) {
+    setShareOpenFor(id => (id === invId ? null : invId));
+    setShareForm({ name: "", email: "", relationship: "" });
+    setShareMsg(null);
+  }
+
+  async function copyInvoiceLink(invId: string) {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/invoice/${invId}`);
+      setCopiedId(invId);
+      setTimeout(() => setCopiedId(id => (id === invId ? null : id)), 2000);
+    } catch {
+      // Clipboard permission denied — button just won't show "Copied".
+    }
+  }
+
+  async function sendShareEmail(invId: string) {
+    if (readOnly) return;
+    if (!shareForm.name.trim() || !shareForm.email.trim()) {
+      setShareMsg({ id: invId, text: "Enter a name and email.", ok: false });
+      return;
+    }
+    setSharing(true); setShareMsg(null);
+    try {
+      const res = await fetch("/api/portal/share-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId: invId,
+          recipientName: shareForm.name.trim(),
+          recipientEmail: shareForm.email.trim(),
+          relationship: shareForm.relationship.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setShareMsg({ id: invId, text: data.error || "Could not send.", ok: false }); setSharing(false); return; }
+      setShareMsg({ id: invId, text: `Sent to ${shareForm.email.trim()}.`, ok: true });
+      setShareForm({ name: "", email: "", relationship: "" });
+    } catch {
+      setShareMsg({ id: invId, text: "Could not send.", ok: false });
+    }
+    setSharing(false);
+  }
   async function payInvoice(invoiceId: string) {
     if (readOnly) return;
     setPayError(""); setPayingId(invoiceId);
@@ -1107,7 +1129,7 @@ export default function ClientPage() {
                         : "border-2 border-[#fbbf24]/50 animate-breathe-glow my-1.5 first:mt-0 last:mb-0"}
                     >
                       <button
-                        onClick={() => setExpandedInvoiceId(id => id === inv.id ? null : inv.id)}
+                        onClick={() => { setExpandedInvoiceId(id => id === inv.id ? null : inv.id); setShareOpenFor(null); }}
                         className="w-full flex items-start justify-between gap-4 text-left px-5 py-3 hover:bg-white/[0.02] transition-colors"
                       >
                         <div className="min-w-0 flex-1">
@@ -1204,7 +1226,56 @@ export default function ClientPage() {
                                   {payingId === inv.id ? "Loading…" : "Pay Now →"}
                                 </button>
                               )}
+                              <button onClick={() => toggleShare(inv.id)}
+                                className="text-xs tracking-[2px] uppercase text-[#a78bfa] hover:text-white transition-colors ml-auto">
+                                {shareOpenFor === inv.id ? "Close" : "Share Invoice →"}
+                              </button>
                             </div>
+
+                            {/* Share with whoever's actually paying — an accountant,
+                                the homeowner, anyone the realtor forwards this to.
+                                No login needed on their end: the link is the invoice's
+                                own unguessable id (see /invoice/[id]). */}
+                            {shareOpenFor === inv.id && (
+                              <div className="pt-3 mt-1 border-t border-white/10 flex flex-col gap-3">
+                                <p className="text-xs text-[#666]">Send this invoice to whoever&apos;s handling payment — they won&apos;t need a portal login.</p>
+                                <button onClick={() => copyInvoiceLink(inv.id)}
+                                  className="text-xs tracking-[2px] uppercase border border-white/20 px-3 py-2 hover:bg-white/5 transition-colors w-fit">
+                                  {copiedId === inv.id ? "Copied ✓" : "Copy Link"}
+                                </button>
+                                <div className="flex flex-col gap-2 max-w-sm">
+                                  <input
+                                    value={shareForm.name}
+                                    onChange={e => setShareForm(f => ({ ...f, name: e.target.value }))}
+                                    placeholder="Recipient name"
+                                    className={rowInputCls}
+                                  />
+                                  <input
+                                    value={shareForm.email}
+                                    onChange={e => setShareForm(f => ({ ...f, email: e.target.value }))}
+                                    type="email"
+                                    placeholder="Recipient email"
+                                    className={rowInputCls}
+                                  />
+                                  <input
+                                    value={shareForm.relationship}
+                                    onChange={e => setShareForm(f => ({ ...f, relationship: e.target.value }))}
+                                    placeholder="How do they relate to this shoot? (e.g. Accountant, Homeowner)"
+                                    className={rowInputCls}
+                                  />
+                                  <button
+                                    onClick={() => sendShareEmail(inv.id)}
+                                    disabled={readOnly || sharing}
+                                    className="text-xs tracking-[2px] uppercase bg-white text-black font-semibold py-2.5 px-4 hover:bg-white/90 transition-colors disabled:opacity-40 w-fit"
+                                  >
+                                    {sharing ? "Sending…" : "Email It →"}
+                                  </button>
+                                  {shareMsg && shareMsg.id === inv.id && (
+                                    <p className={`text-xs ${shareMsg.ok ? "text-[#4ade80]" : "text-red-400"}`}>{shareMsg.text}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
