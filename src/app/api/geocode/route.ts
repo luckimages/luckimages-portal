@@ -4,6 +4,20 @@ import { NextResponse } from "next/server";
 // key, but its usage policy asks that lookups come from a backend (not
 // hammered directly from browsers) with an identifying User-Agent, and stay
 // to reasonable, non-bulk volume. Fine for a small business's booking form.
+// Nominatim always lists a house number as its own leading segment —
+// "3915, Barth Road, Caldwell County, Texas, 78644, United States" — instead
+// of combining it with the street ("3915 Barth Road, ..."). Every downstream
+// display that shortens the stored address to its street portion assumes the
+// combined form, so merge it here once, at the source, rather than in every
+// consumer.
+function joinHouseNumber(displayName: string): string {
+  const parts = displayName.split(", ");
+  if (parts.length > 1 && /^\d+$/.test(parts[0])) {
+    return [`${parts[0]} ${parts[1]}`, ...parts.slice(2)].join(", ");
+  }
+  return displayName;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
@@ -23,7 +37,7 @@ export async function GET(req: Request) {
     if (!res.ok) return NextResponse.json([]);
     const data = await res.json();
     const results = (data as Array<{ display_name: string; lat: string; lon: string }>).map(r => ({
-      displayName: r.display_name,
+      displayName: joinHouseNumber(r.display_name),
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
     }));

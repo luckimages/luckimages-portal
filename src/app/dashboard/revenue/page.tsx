@@ -120,6 +120,15 @@ function fmtc2(cents: number) {
 function moOf(l: ExpenseLine) {
   return l.monthly_cents ?? l.amount_cents;
 }
+// Nominatim (our geocoder) returns a house number as its own leading comma
+// segment — "3915, Barth Road, Caldwell County, ..." — so a naive
+// split(",")[0] chops off the street name for addresses stored that way.
+// Re-join a bare-numeric leading segment with the one after it.
+function streetAddress(full: string) {
+  const parts = full.split(",").map(p => p.trim());
+  if (parts.length > 1 && /^\d+$/.test(parts[0])) return `${parts[0]} ${parts[1]}`;
+  return parts[0];
+}
 
 const monthNames: Record<string, string> = {
   "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
@@ -453,10 +462,13 @@ export default function RevenuePage() {
               </div>
               {filtered.map(inv => {
                 const fullAddress = inv.shoots?.address || inv.description || "—";
-                const address = fullAddress.split(",")[0].trim();
+                const address = streetAddress(fullAddress);
                 const clientName = inv.contacts?.name || "—";
                 const date = new Date(inv.shoots?.scheduled_at ?? inv.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
-                const source = inv.stripe_payment_intent_id ? "stripe" : inv.qbo_invoice_id ? "qbo" : inv.paid ? "historical" : "unpaid";
+                // qbo_invoice_id only means "this invoice exists in QuickBooks" — it
+                // does NOT mean it's been paid. inv.paid is the only source of truth
+                // for payment status; the id just picks which "paid via" label to show.
+                const source = !inv.paid ? "unpaid" : inv.stripe_payment_intent_id ? "stripe" : inv.qbo_invoice_id ? "qbo" : "historical";
                 const badge = {
                   stripe:     { label: "Paid · Stripe",     cls: "text-[#4ade80] bg-[#4ade80]/10" },
                   qbo:        { label: "Paid · QB",          cls: "text-[#60a5fa] bg-[#60a5fa]/10" },
