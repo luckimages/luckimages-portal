@@ -26,11 +26,16 @@ export async function POST() {
     return NextResponse.json({ ...snap, connected: false });
   }
 
-  // ── 1. Sync unsynced Nocturne invoices → QBO ──────────────────────────────
+  // ── 1. Sync paid Nocturne invoices → QBO ──────────────────────────────────
+  // Only invoices that are actually paid get pushed into QuickBooks — this
+  // used to sync every unsynced invoice regardless of payment status, which
+  // silently created real, unsent QBO invoices for shoots nobody had paid
+  // for yet just from loading the Revenue page.
   const { data: unsyncedInvoices } = await db
     .from("invoices")
     .select("id, contact_id, line_items, amount_cents, paid, created_at")
-    .is("qbo_invoice_id", null);
+    .is("qbo_invoice_id", null)
+    .eq("paid", true);
 
   for (const inv of unsyncedInvoices ?? []) {
     try {
