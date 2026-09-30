@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
-import {
-  getValidTokens,
-  findOrCreateCustomer,
-  createQboInvoice,
-  recordQboPayment,
-  fetchQboExpenses,
-  fetchQboInvoices,
-} from "@/lib/qbo";
+import { getValidTokens, fetchQboExpenses, fetchQboInvoices } from "@/lib/qbo";
 
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,104 +19,14 @@ export async function POST() {
     return NextResponse.json({ ...snap, connected: false });
   }
 
-  // ── 1. Sync paid Nocturne invoices → QBO ──────────────────────────────────
-  // Only invoices that are actually paid get pushed into QuickBooks — this
-  // used to sync every unsynced invoice regardless of payment status, which
-  // silently created real, unsent QBO invoices for shoots nobody had paid
-  // for yet just from loading the Revenue page.
-  const { data: unsyncedInvoices } = await db
-    .from("invoices")
-    .select("id, contact_id, line_items, amount_cents, paid, created_at")
-    .is("qbo_invoice_id", null)
-    .eq("paid", true);
+  // Nocturne/Stripe invoices no longer get pushed into QuickBooks — this used
+  // to auto-create (and mark paid) real QBO invoices for every Nocturne
+  // invoice just from loading the Revenue page, which produced invoices in
+  // the live company nobody had actually sent. QBO is now read-only here:
+  // we only pull existing data for the snapshot below. Invoices already
+  // synced from before keep their qbo_invoice_id as historical record.
 
-  for (const inv of unsyncedInvoices ?? []) {
-    try {
-      let name = "Unknown Client";
-      let email = "";
-
-      if (inv.contact_id) {
-        const { data: contact } = await db
-          .from("contacts")
-          .select("name, email")
-          .eq("id", inv.contact_id)
-          .single();
-        if (contact) { name = contact.name ?? name; email = contact.email ?? ""; }
-      }
-
-      if (!email) continue; // QBO requires a customer — skip if no email
-
-      const customerId = await findOrCreateCustomer(name, email, tokens);
-
-      const lineItems: Array<{ label: string; amount_cents: number }> =
-        inv.line_items?.length ? inv.line_items : [{ label: "Real Estate Media", amount_cents: inv.amount_cents }];
-
-      const dueDate = new Date(inv.created_at);
-      dueDate.setDate(dueDate.getDate() + 14);
-      const dueDateStr = dueDate.toISOString().split("T")[0];
-
-      const qboInvoiceId = await createQboInvoice(customerId, lineItems, dueDateStr, tokens);
-
-      // Save the id the moment the invoice exists in QBO — before attempting
-      // to also record the payment. This used to happen only at the very
-      // end: if recordQboPayment threw (a QBO rate limit, a network blip —
-      // the exact kind of transient failure that happens in practice),
-      // qbo_invoice_id never got saved, so the next sync run had no way to
-      // know this invoice already existed in QBO and created a second one.
-      // Block 2 below already retries a stuck qbo_payment_recorded=false
-      // invoice on its own, so this alone closes the loop.
-      const { error: saveErr } = await db.from("invoices").update({ qbo_invoice_id: qboInvoiceId }).eq("id", inv.id);
-      if (saveErr) {
-        // We couldn't even record that this invoice now exists in QBO — do
-        // NOT let the loop continue to a payment attempt it can't track;
-        // surface it loudly so it's not silently retried into a duplicate.
-        console.error(`QBO sync: created invoice ${qboInvoiceId} in QBO for ${inv.id} but failed to save qbo_invoice_id — will NOT retry automatically to avoid a duplicate. Fix manually.`, saveErr);
-        continue;
-      }
-
-      if (inv.paid) {
-        try {
-          await recordQboPayment(qboInvoiceId, customerId, inv.amount_cents, tokens);
-          await db.from("invoices").update({ qbo_payment_recorded: true }).eq("id", inv.id);
-        } catch (e) {
-          // Not fatal — qbo_invoice_id is already saved, so block 2 (below)
-          // picks this invoice up next run and retries just the payment,
-          // instead of the whole invoice getting recreated from scratch.
-          console.error(`QBO sync: invoice ${inv.id} created (${qboInvoiceId}) but payment recording failed — will retry via the unpaid-sync pass:`, e);
-        }
-      }
-    } catch (e) {
-      console.error(`QBO sync failed for invoice ${inv.id}:`, e);
-    }
-  }
-
-  // ── 2. Sync paid status for previously synced but unpaid invoices ──────────
-  const { data: unpaidSynced } = await db
-    .from("invoices")
-    .select("id, contact_id, qbo_invoice_id, amount_cents")
-    .not("qbo_invoice_id", "is", null)
-    .eq("paid", true)
-    .eq("qbo_payment_recorded", false);
-
-  for (const inv of unpaidSynced ?? []) {
-    try {
-      let customerId = "";
-      if (inv.contact_id) {
-        const { data: contact } = await db.from("contacts").select("name,email").eq("id", inv.contact_id).single();
-        if (contact?.email) {
-          customerId = await findOrCreateCustomer(contact.name ?? "", contact.email, tokens);
-        }
-      }
-      if (!customerId) continue;
-
-      await recordQboPayment(inv.qbo_invoice_id, customerId, inv.amount_cents, tokens);
-      await db.from("invoices").update({ qbo_payment_recorded: true }).eq("id", inv.id);
-    } catch (e) {
-      console.error(`QBO payment record failed for invoice ${inv.id}:`, e);
-    }
-  }
-
-  // ── 3. Build revenue snapshot from QBO (source of truth for all invoices) ─
+  // ── Build revenue snapshot from QBO (source of truth for pre-existing data) ─
   const year = new Date().getFullYear();
 
   const [{ expenses_ytd }, qboInvoices] = await Promise.all([
