@@ -400,7 +400,10 @@ function DailyHoursChart({ days }: { days: { date: string; dow: string; seconds:
         const pct = Math.max((d.seconds / maxSecs) * 100, d.seconds > 0 ? 4 : 0);
         const dayNum = Number(d.date.slice(-2));
         return (
-          <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5" title={`${d.date} — ${fmtHrs(d.seconds)}`}>
+          <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 px-2 py-1 text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10 transition-opacity">
+              <span className="text-white font-semibold">{fmtHrs(d.seconds)}</span>
+            </div>
             <div className="w-full h-28 flex items-end bg-white/[0.03]">
               <div className="w-full bg-[#4ade80] transition-all" style={{ height: `${pct}%`, minHeight: d.seconds > 0 ? 3 : 0 }} />
             </div>
