@@ -141,7 +141,7 @@ export async function notifyDelivery(shootId: string): Promise<void> {
           <p style="margin:28px 0 0;font-size:12px;color:#999;line-height:1.6;">Everything is waiting in your Luck Images portal.</p>
         </td></tr>
         <tr><td style="padding-top:24px;">
-          <p style="margin:0;font-size:11px;color:#fff;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.8);">Ryan Luck &amp; Leif Tilton — Luck Images · Austin, TX · <a href="mailto:ryan@luckimages.com" style="color:#fff;text-decoration:none;">ryan@luckimages.com</a> · <a href="mailto:leif@luckimages.com" style="color:#fff;text-decoration:none;">leif@luckimages.com</a></p>
+          <p style="margin:0;font-size:11px;color:#fff;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.8);">Ryan Luck — Luck Images · Austin, TX · <a href="mailto:ryan@luckimages.com" style="color:#fff;text-decoration:none;">ryan@luckimages.com</a></p>
         </td></tr>
       </table>
     </td></tr>

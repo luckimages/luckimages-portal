@@ -11,7 +11,7 @@ import crypto from "crypto";
 // logged on the contact and forwarded to that admin's inbox with Reply-To
 // set back to the realtor.
 
-const ADMIN_BY_LOCAL: Record<string, string> = { ryan: "ryan@luckimages.com", leif: "leif@luckimages.com" };
+const ADMIN_BY_LOCAL: Record<string, string> = { ryan: "ryan@luckimages.com" };
 
 function domain(): string {
   return (process.env.REPLY_CAPTURE_DOMAIN || "").trim().toLowerCase();

@@ -696,26 +696,6 @@ function ColdCallsPage() {
     setPendingTextCopied(true);
     setTimeout(() => setPendingTextCopied(false), 1500);
 
-    // Leif doesn't have iMessage/Continuity on his laptop, so he can't paste
-    // a copied link straight into a text — email it to himself instead so he
-    // can grab it from his phone. Compare case-insensitively since Supabase
-    // doesn't guarantee the stored auth email's casing matches ADMIN_EMAILS.
-    if (callerName.toLowerCase() === "leif") {
-      fetch("/api/admin/text-link-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link, contactName: contact.name }),
-      }).then(async res => {
-        if (res.ok) { showFlash("Link copied — also emailed to you"); return; }
-        const d = await res.json().catch(() => ({}));
-        console.error("text-link-email failed", d);
-        showFlash(`Copied, but the email failed${d.error ? `: ${d.error}` : ""}`);
-      }).catch(err => {
-        console.error("text-link-email failed", err);
-        showFlash("Copied, but the email failed to send");
-      });
-    }
-
     // Already logged a text for this contact today — don't double-count.
     const today = new Date().toDateString();
     const alreadyLoggedToday = callLogs.some(l =>

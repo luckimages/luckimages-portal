@@ -51,10 +51,8 @@ export async function createShootEvent({
   const start = new Date(scheduledAt);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2hr block
 
-  // Invite Leif, the client, and any assigned photographers.
-  const attendees: { email: string; displayName?: string }[] = [
-    { email: "leif@luckimages.com", displayName: "Leif" },
-  ];
+  // Invite the client and any assigned photographers.
+  const attendees: { email: string; displayName?: string }[] = [];
   if (clientEmail) attendees.push({ email: clientEmail, displayName: clientFullName });
   for (const pe of photographerEmails || []) {
     if (pe && !attendees.some(a => a.email === pe)) attendees.push({ email: pe });
@@ -130,9 +128,7 @@ export async function updateShootEvent(
   const start = new Date(scheduledAt);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
 
-  const attendees: { email: string; displayName?: string }[] = [
-    { email: "leif@luckimages.com", displayName: "Leif" },
-  ];
+  const attendees: { email: string; displayName?: string }[] = [];
   if (clientEmail) attendees.push({ email: clientEmail, displayName: clientFullName });
   for (const pe of photographerEmails || []) {
     if (pe && !attendees.some(a => a.email === pe)) attendees.push({ email: pe });

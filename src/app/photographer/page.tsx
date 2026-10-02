@@ -295,7 +295,7 @@ export default function PhotographerPage() {
         <a href="/" className="text-xl font-black tracking-tight uppercase hover:opacity-70 transition-opacity shrink-0">Luck Images</a>
         <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-end">
           <span className="text-xs tracking-[2px] uppercase text-[#666] hidden sm:inline">Photographer</span>
-          {["ryan@luckimages.com", "leif@luckimages.com"].includes(userEmail) && (
+          {["ryan@luckimages.com"].includes(userEmail) && (
             <a href="/dashboard" className="text-xs tracking-[2px] uppercase text-[#666] hover:text-white transition-colors hidden sm:inline">Admin</a>
           )}
           <button onClick={signOut} className="text-xs tracking-[3px] uppercase text-[#666] hover:text-white transition-colors">Sign Out</button>

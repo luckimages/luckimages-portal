@@ -8,7 +8,6 @@ import { createAdminClient, requireAdmin } from "@/lib/supabase-server";
 // rather than replaced with a per-id getUserById lookup.
 const ADMINS = [
   { id: "81d6e793-ff8d-4bf1-87c2-480d9eef61d8", name: "Ryan", email: "ryan@luckimages.com" },
-  { id: "dc9ee0b0-878b-4f77-8e2d-38faf466ff45", name: "Leif", email: "leif@luckimages.com" },
 ];
 
 export async function GET() {

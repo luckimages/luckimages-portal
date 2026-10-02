@@ -31,7 +31,7 @@ export async function sendPushToAdmins(title: string, body: string, data?: Recor
 
   const { data: { users } } = await db.auth.admin.listUsers();
   const admins = (users || []).filter(u =>
-    ["ryan@luckimages.com", "leif@luckimages.com"].includes(u.email || "")
+    ["ryan@luckimages.com"].includes(u.email || "")
   );
 
   await Promise.all(admins.map(u => sendPushToUser(u.id, title, body, data)));

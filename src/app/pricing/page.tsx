@@ -120,7 +120,7 @@ export default function PricingPage() {
             ryan@luckimages.com
           </a>
           <a href="/contact" className="text-xs tracking-[2px] uppercase text-[#444] hover:text-white transition-colors">
-            leif@luckimages.com
+            ryan@luckimages.com
           </a>
         </div>
       </footer>

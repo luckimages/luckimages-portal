@@ -20,7 +20,7 @@ export async function POST() {
         FOR ALL USING (auth.uid() = user_id);
       DROP POLICY IF EXISTS "Admins read all tokens" ON push_tokens;
       CREATE POLICY "Admins read all tokens" ON push_tokens
-        FOR SELECT USING (auth.jwt() ->> 'email' IN ('ryan@luckimages.com', 'leif@luckimages.com'));
+        FOR SELECT USING (auth.jwt() ->> 'email' IN ('ryan@luckimages.com'));
     `
   });
 

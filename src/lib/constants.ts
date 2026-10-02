@@ -1,6 +1,6 @@
 // Admin allowlist — shared by server routes, middleware, and client-side
 // page guards. Update this one place when adding/removing an admin.
-export const ADMIN_EMAILS = ["ryan@luckimages.com", "leif@luckimages.com"];
+export const ADMIN_EMAILS = ["ryan@luckimages.com"];
 
 // Transactional emails to clients (booking confirmations, delivery
 // notifications, invoice notifications). Portal invites, outreach, and
@@ -23,7 +23,6 @@ export const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?pl
 // covered by the one verified Resend domain.
 const ADMIN_SENDERS: Record<string, { name: string; email: string }> = {
   "ryan@luckimages.com": { name: "Ryan Luck", email: "ryan@luckimages.com" },
-  "leif@luckimages.com": { name: "Leif Tilton", email: "leif@luckimages.com" },
 };
 
 export function adminSender(email?: string | null): { from: string; replyTo: string; shortName: string; fullName: string } {
