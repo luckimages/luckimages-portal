@@ -59,16 +59,16 @@ export default function EthanAbout() {
           <FadeUp>
             <div className="relative aspect-[4/5] border border-[#C9A44C]/20 overflow-hidden md:sticky md:top-32">
               <Image
-                src="/portfolio/listing-photos/104WesthavenDrive-11.jpg"
-                alt="Chef's kitchen with a professional range"
+                src="/ethan/dumplings-skillet.jpg"
+                alt="Dumplings finishing in a skillet on the stove"
                 fill
                 priority
                 sizes="(max-width: 768px) 100vw, 45vw"
-                className="object-cover grayscale-[25%]"
+                className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c]/70 via-transparent to-transparent" />
               <p className="font-text absolute bottom-5 left-6 right-6 text-[10px] tracking-[0.25em] uppercase text-[#A89F93]">
-                Placeholder — portrait to come
+                Portrait to come
               </p>
             </div>
           </FadeUp>

@@ -25,8 +25,8 @@ export const ETHAN_MENUS: EthanMenu[] = [
       "Blistered green beans, garlic, lemon",
       "Dark chocolate pot de crème",
     ],
-    image: "/portfolio/listing-photos/6701BackBayLn-10.jpg",
-    imageAlt: "Dining room set for a private dinner",
+    image: "/ethan/roast-chicken-grapes.jpg",
+    imageAlt: "Spiced roast chicken with grapes and shallots",
   },
   {
     id: "italian",
@@ -41,8 +41,8 @@ export const ETHAN_MENUS: EthanMenu[] = [
       "Chicken al mattone, salsa verde",
       "Tiramisù, espresso",
     ],
-    image: "/portfolio/listing-photos/315RingtailStreamDr-17.jpg",
-    imageAlt: "Long dining table under exposed beams",
+    image: "/ethan/spaghetti-aglio-olio.jpg",
+    imageAlt: "Spaghetti aglio e olio with shaved parmesan",
   },
   {
     id: "french",
@@ -57,8 +57,8 @@ export const ETHAN_MENUS: EthanMenu[] = [
       "Coq au vin, buttered egg noodles",
       "Cheese course, then crème brûlée",
     ],
-    image: "/portfolio/listing-photos/315RingtailStreamDr-13.jpg",
-    imageAlt: "Sitting room with wine storage and fireplace",
+    image: "/ethan/tomato-soup-croutons.jpg",
+    imageAlt: "Tomato and white bean soup with garlic croutons",
   },
   {
     id: "custom",
@@ -73,7 +73,7 @@ export const ETHAN_MENUS: EthanMenu[] = [
       "Wine and non-alcoholic pairings on request",
       "As many or as few courses as you'd like",
     ],
-    image: "/portfolio/listing-photos/2506CarlowDr-11.jpg",
-    imageAlt: "Open kitchen with island seating",
+    image: "/ethan/chili-udon.jpg",
+    imageAlt: "Chili oil udon with chicken and scallions",
   },
 ];

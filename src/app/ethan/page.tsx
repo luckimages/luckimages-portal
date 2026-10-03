@@ -12,8 +12,8 @@ const SERVICES = [
     copy:
       "A multi-course dinner cooked in your kitchen and served at your table. Ethan arrives with everything, cooks through the evening, and leaves the kitchen cleaner than he found it.",
     meta: "2–14 guests · 3 to 6 courses",
-    image: "/portfolio/listing-photos/5409Hitcherbend-18.jpg",
-    alt: "Dining table set for an intimate dinner",
+    image: "/ethan/grilled-chicken-skewers.jpg",
+    alt: "Grilled chicken skewers with herbs, lime and nuoc cham",
   },
   {
     n: "02",
@@ -21,8 +21,8 @@ const SERVICES = [
     copy:
       "Rehearsal dinners, milestone birthdays, holiday parties, company gatherings. Passed bites and stations, or a seated meal for the whole room — built to the headcount and the space.",
     meta: "15–120 guests · Passed, stations, or seated",
-    image: "/portfolio/twilight/15101JosephDr-49.jpg",
-    alt: "Evening patio set up for an event",
+    image: "/ethan/chicken-taquitos.jpg",
+    alt: "Platters of chicken taquitos being passed around a table",
   },
   {
     n: "03",
@@ -30,8 +30,8 @@ const SERVICES = [
     copy:
       "A weekly or biweekly night where dinner is simply handled. Same chef, rotating menu, cooked fresh in your kitchen — or prepped, labeled, and left ready for the week ahead.",
     meta: "Weekly or biweekly · Ongoing",
-    image: "/portfolio/listing-photos/800embassy212-9.jpg",
-    alt: "Modern kitchen with natural light",
+    image: "/ethan/egg-rice-bowl.jpg",
+    alt: "Fried egg over rice with scallions and chili sauce",
   },
 ];
 
@@ -43,10 +43,10 @@ const STEPS = [
 ];
 
 const GALLERY = [
-  { src: "/portfolio/listing-photos/593CrosswaterLn-31.jpg", alt: "Dining room with wood ceiling" },
-  { src: "/portfolio/listing-photos/593CrosswaterLn-59.jpg", alt: "Covered outdoor dining space" },
-  { src: "/portfolio/listing-photos/2506CarlowDr-10.jpg", alt: "Sitting room ready for guests" },
-  { src: "/portfolio/twilight/15101JosephDr-1.jpg", alt: "Home at twilight before a dinner party" },
+  { src: "/ethan/feta-olives-toast.jpg", alt: "Braised feta and olives with grilled sourdough" },
+  { src: "/ethan/dumplings-skillet.jpg", alt: "Pan-fried dumplings finishing in the skillet" },
+  { src: "/ethan/crunchy-peanut-slaw.jpg", alt: "Crunchy cabbage slaw with peanuts and cilantro" },
+  { src: "/ethan/peach-cobbler.jpg", alt: "Peach cobbler with whipped cream and coffee" },
 ];
 
 export default function EthanHome() {
@@ -145,13 +145,13 @@ export default function EthanHome() {
           {SERVICES.map((s, i) => (
             <FadeUp key={s.title} delay={i * 0.1}>
               <article className="group h-full flex flex-col border border-[#C9A44C]/15 hover:border-[#C9A44C]/45 transition-colors duration-500 bg-[#141210]">
-                <div className="relative aspect-[4/3] overflow-hidden">
+                <div className="relative aspect-[4/5] overflow-hidden">
                   <Image
                     src={s.image}
                     alt={s.alt}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover grayscale-[35%] group-hover:grayscale-0 group-hover:scale-[1.04] transition-all duration-700"
+                    className="object-cover group-hover:scale-[1.04] transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#141210] via-transparent to-transparent" />
                   <span className="font-display absolute top-4 left-5 text-3xl text-[#C9A44C]/70">{s.n}</span>
@@ -189,15 +189,15 @@ export default function EthanHome() {
             {ETHAN_MENUS.map((m, i) => (
               <FadeUp key={m.id} delay={(i % 2) * 0.1}>
                 <article className="group h-full flex flex-col bg-[#0c0c0c] border border-[#C9A44C]/15 hover:border-[#C9A44C]/45 transition-colors duration-500">
-                  <div className="relative aspect-[21/9] overflow-hidden">
+                  <div className="relative aspect-[4/3] overflow-hidden">
                     <Image
                       src={m.image}
                       alt={m.imageAlt}
                       fill
                       sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-cover grayscale-[40%] group-hover:grayscale-0 transition-all duration-700"
+                      className="object-cover group-hover:scale-[1.03] transition-transform duration-700"
                     />
-                    <div className="absolute inset-0 bg-[#0c0c0c]/45 group-hover:bg-[#0c0c0c]/25 transition-colors duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c]/55 via-transparent to-transparent" />
                   </div>
 
                   <div className="p-8 flex flex-col flex-1">
@@ -275,7 +275,7 @@ export default function EthanHome() {
                   alt={g.alt}
                   fill
                   sizes="(max-width: 1024px) 50vw, 25vw"
-                  className="object-cover grayscale-[45%] hover:grayscale-0 hover:scale-[1.04] transition-all duration-700"
+                  className="object-cover hover:scale-[1.04] transition-transform duration-700"
                 />
               </div>
             </FadeUp>
@@ -284,7 +284,7 @@ export default function EthanHome() {
 
         <FadeUp delay={0.1}>
           <p className="font-text text-[11px] text-[#A89F93]/60 text-center mt-6 italic">
-            Placeholder imagery — food and event photography by Luck Images coming soon.
+            Photography by Luck Images — menu shots from Ethan's own kitchen to come.
           </p>
         </FadeUp>
       </section>
@@ -292,7 +292,7 @@ export default function EthanHome() {
       {/* ----------------------------------------------------------------- CTA */}
       <section className="relative overflow-hidden border-t border-[#C9A44C]/15">
         <Image
-          src="/portfolio/listing-photos/6701BackBayLn-10.jpg"
+          src="/ethan/pickled-peppers-jar.jpg"
           alt=""
           fill
           sizes="100vw"
