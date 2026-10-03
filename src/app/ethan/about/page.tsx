@@ -4,12 +4,13 @@ import Link from "next/link";
 import EthanNav from "@/components/ethan/EthanNav";
 import EthanFooter from "@/components/ethan/EthanFooter";
 import FadeUp from "@/components/FadeUp";
+import { UNLISTED } from "@/lib/ethanPrivacy";
 
 export const metadata: Metadata = {
   title: "About — Ethan Simpson, Private Chef | Austin, TX",
   description:
     "Fine dining trained, Austin based. Meet the chef behind the private dinner parties and event catering.",
-  robots: { index: false, follow: false },
+  robots: UNLISTED,
 };
 
 const PRINCIPLES = [

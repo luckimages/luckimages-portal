@@ -15,6 +15,10 @@ const securityHeaders = [
   { key: "X-XSS-Protection", value: "1; mode=block" },
 ];
 
+// Unlisted, not private: this keeps the page and its images out of search
+// results and Google Images, but anyone holding the link can still open it.
+const unlistedRobots = "noindex, nofollow, noimageindex, noarchive, nosnippet, max-image-preview:none";
+
 const nextConfig: NextConfig = {
   // sharp ships native binaries (libvips) — bundling it like a normal JS
   // dependency breaks the native module's dlopen path in the serverless
@@ -31,6 +35,26 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      // Ethan's private-chef site is unlisted — reachable by link, invisible
+      // to search. The page metadata already carries noindex/noimageindex;
+      // these headers cover what metadata can't: the raw .jpg files served
+      // straight out of public/ethan, which have no HTML to put a tag in.
+      {
+        source: "/ethan",
+        headers: [{ key: "X-Robots-Tag", value: unlistedRobots }],
+      },
+      {
+        source: "/ethan/:path*",
+        headers: [{ key: "X-Robots-Tag", value: unlistedRobots }],
+      },
+      // Next serves optimized copies from /_next/image?url=/ethan/... — a
+      // different path entirely, so the rules above miss it. Match on the
+      // query instead so his food photography is covered there too.
+      {
+        source: "/_next/image",
+        has: [{ type: "query", key: "url", value: "(?<ethanAsset>.*ethan.*)" }],
+        headers: [{ key: "X-Robots-Tag", value: unlistedRobots }],
       },
     ];
   },
