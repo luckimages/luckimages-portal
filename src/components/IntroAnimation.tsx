@@ -1,12 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 export default function IntroAnimation() {
+  const pathname = usePathname();
+  // Ethan's private-chef site is a separate brand living under /ethan — the
+  // Luck Images logo splash has no business playing over it.
+  const suppressed = pathname === "/ethan" || pathname?.startsWith("/ethan/");
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    if (suppressed) {
+      setVisible(false);
+      return;
+    }
     if (sessionStorage.getItem("intro_seen")) {
       setVisible(false);
       return;
@@ -14,7 +23,7 @@ export default function IntroAnimation() {
     sessionStorage.setItem("intro_seen", "1");
     const t = setTimeout(() => setVisible(false), 2200);
     return () => clearTimeout(t);
-  }, []);
+  }, [suppressed]);
 
   return (
     <AnimatePresence>

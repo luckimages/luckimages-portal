@@ -53,3 +53,67 @@ input:-webkit-autofill:focus {
   -webkit-text-fill-color: #ffffff;
   caret-color: #ffffff;
 }
+
+/* ---------------------------------------------------------------------------
+   Ethan Simpson — private chef site (/ethan)
+   Scoped to .ethan-site so none of this leaks into the Luck Images pages. It
+   has its own type (Cormorant display + Jost text) and a warm brass palette
+   instead of the black/white Luck Images look.
+   --------------------------------------------------------------------------- */
+.ethan-site {
+  --ink: #F2EDE4;        /* warm off-white body text */
+  --ink-soft: #A89F93;   /* muted copy, labels */
+  --brass: #C9A44C;      /* accent — rules, eyebrows, hovers */
+  --char: #0c0c0c;       /* page background, matches the app shell */
+  --char-2: #141210;     /* raised panels */
+}
+
+.ethan-site .font-display {
+  font-family: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+}
+
+.ethan-site .font-text {
+  font-family: var(--font-jost), var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Hairline divider with a brass diamond centred on it — used between sections
+   and under section headings. */
+.ethan-rule {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,164,76,0.5), transparent);
+}
+.ethan-rule::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  background: #C9A44C;
+  transform: rotate(45deg);
+}
+
+.ethan-site input::placeholder,
+.ethan-site textarea::placeholder {
+  color: rgba(168,159,147,0.45);
+}
+
+.ethan-site input:-webkit-autofill,
+.ethan-site textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0px 1000px #141210 inset;
+  -webkit-text-fill-color: #F2EDE4;
+}
+
+/* Native date/time pickers render a black glyph on a dark field otherwise. */
+.ethan-site input[type="date"]::-webkit-calendar-picker-indicator,
+.ethan-site input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) sepia(1) saturate(0.4) hue-rotate(5deg);
+  opacity: 0.55;
+  cursor: pointer;
+}
+.ethan-site input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.ethan-site input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
